@@ -15,6 +15,11 @@
       "types": "./lib/collections/index.d.ts",
       "import": "./lib/collections/index.js",
       "require": "./lib/collections/index.js"
+    },
+    "./env": {
+      "types": "./lib/env/api.d.ts",
+      "import": "./lib/env/api.js",
+      "require": "./lib/env/api.js"
     }
   },
   "files": [

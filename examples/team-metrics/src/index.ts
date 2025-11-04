@@ -1,14 +1,6 @@
-import { State, Logic, Init, Event, emitWithHandler } from '@calimero/sdk';
+import { State, Logic, Init } from '@calimero/sdk';
 import { UnorderedMap, Counter } from '@calimero/sdk/collections';
 import * as env from '@calimero/sdk/env';
-
-@Event
-export class ContributionAdded {
-  constructor(
-    public member: string,
-    public points: number
-  ) {}
-}
 
 @State
 export class TeamMetrics {
@@ -22,7 +14,7 @@ export class TeamMetrics {
 }
 
 @Logic(TeamMetrics)
-export class TeamMetricsLogic {
+export class TeamMetricsLogic extends TeamMetrics {
   @Init
   static initialize(): TeamMetrics {
     env.log('Initializing team metrics');
@@ -44,8 +36,10 @@ export class TeamMetricsLogic {
       memberCounter.increment();
     }
 
-    // Emit event with handler
-    emitWithHandler(new ContributionAdded(member, points), 'onContributionAdded');
+    // Increment total counter
+    for (let i = 0; i < points; i++) {
+      this.totalContributions.increment();
+    }
   }
 
   getMemberMetrics(member: string): bigint {
@@ -55,16 +49,6 @@ export class TeamMetricsLogic {
 
   getTotalContributions(): bigint {
     return this.totalContributions.value();
-  }
-
-  // Event handler (runs on receiving nodes)
-  onContributionAdded(event: ContributionAdded): void {
-    env.log(`Handler: Processing contribution for ${event.member}`);
-
-    // Increment total counter
-    for (let i = 0; i < event.points; i++) {
-      this.totalContributions.increment();
-    }
   }
 }
 

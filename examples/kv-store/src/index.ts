@@ -1,19 +1,6 @@
-import { State, Logic, Init, Event, emit } from '@calimero/sdk';
+import { State, Logic, Init } from '@calimero/sdk';
 import { UnorderedMap } from '@calimero/sdk/collections';
 import * as env from '@calimero/sdk/env';
-
-@Event
-export class ItemAdded {
-  constructor(
-    public key: string,
-    public value: string
-  ) {}
-}
-
-@Event
-export class ItemRemoved {
-  constructor(public key: string) {}
-}
 
 @State
 export class KvStore {
@@ -25,7 +12,7 @@ export class KvStore {
 }
 
 @Logic(KvStore)
-export class KvStoreLogic {
+export class KvStoreLogic extends KvStore {
   @Init
   static initialize(): KvStore {
     env.log('Initializing KV store');
@@ -35,7 +22,6 @@ export class KvStoreLogic {
   set(key: string, value: string): void {
     env.log(`Setting ${key} = ${value}`);
     this.items.set(key, value);
-    emit(new ItemAdded(key, value));
   }
 
   get(key: string): string | null {
@@ -46,7 +32,6 @@ export class KvStoreLogic {
   remove(key: string): void {
     env.log(`Removing ${key}`);
     this.items.remove(key);
-    emit(new ItemRemoved(key));
   }
 
   has(key: string): boolean {

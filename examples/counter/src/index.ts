@@ -12,7 +12,7 @@ export class CounterApp {
 }
 
 @Logic(CounterApp)
-export class CounterLogic {
+export class CounterLogic extends CounterApp {
   @Init
   static initialize(): CounterApp {
     env.log('Initializing counter application');
