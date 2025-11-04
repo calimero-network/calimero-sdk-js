@@ -131,20 +131,16 @@ Check out the [examples/](./examples/) directory for complete working examples:
 - **[kv-store](./examples/kv-store/)** - Key-value store with CRDT map
 - **[team-metrics](./examples/team-metrics/)** - Team metrics with event handlers
 
-## 🤝 Contributing
-
-We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 
 ## 📝 License
 
-Apache-2.0 - see [LICENSE](./LICENSE) for details.
+Apache-2.0
 
 ## 🔗 Links
 
 - [Calimero Network](https://calimero.network)
 - [Core Repository](https://github.com/calimero-network/core)
 - [Documentation](https://docs.calimero.network)
-- [Discord](https://discord.gg/calimero)
 
 ## 🆚 Rust vs JavaScript
 
