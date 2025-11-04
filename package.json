@@ -1,0 +1,49 @@
+{
+  "name": "calimero-sdk-js",
+  "version": "0.1.0",
+  "description": "JavaScript SDK for building Calimero P2P applications",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "eslint . --ext .ts,.js",
+    "format": "prettier --write \"**/*.{ts,js,json,md}\"",
+    "clean": "pnpm -r clean && rm -rf node_modules"
+  },
+  "keywords": [
+    "calimero",
+    "p2p",
+    "crdt",
+    "wasm",
+    "quickjs",
+    "blockchain",
+    "distributed"
+  ],
+  "author": "Calimero Network",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/calimero-network/calimero-sdk-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/calimero-network/calimero-sdk-js/issues"
+  },
+  "homepage": "https://github.com/calimero-network/calimero-sdk-js#readme",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.1.1",
+    "typescript": "^5.3.3"
+  }
+}
+

@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+lib/
+build/
+*.wasm
+*.wat
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# QuickJS deps (downloaded on install)
+packages/cli/src/deps/quickjs/
+packages/cli/src/deps/wasi-sdk/
+packages/cli/src/deps/binaryen/
+
+# Generated files
+packages/cli/builder/code.h
+packages/cli/builder/methods.h
+
+# OS
+Thumbs.db
+
