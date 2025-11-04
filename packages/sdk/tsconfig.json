@@ -6,11 +6,10 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "composite": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": false
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "lib", "**/*.test.ts"]
+  "exclude": ["node_modules", "lib", "**/*.test.ts", "**/__tests__/**"]
 }
 

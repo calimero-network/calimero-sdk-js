@@ -2,6 +2,8 @@
  * DeltaContext - Tracks CRDT operations for delta synchronization
  */
 
+import { commitDelta } from '../../env/api';
+
 export interface Action {
   type: 'Update' | 'Remove';
   key: Uint8Array;
@@ -28,6 +30,13 @@ class DeltaContextManager {
   }
 
   /**
+   * Checks if there are any pending actions
+   */
+  hasActions(): boolean {
+    return this.actions.length > 0;
+  }
+
+  /**
    * Clears the current delta
    */
   clear(): void {
@@ -41,8 +50,11 @@ class DeltaContextManager {
    * @returns 32-byte root hash
    */
   computeRootHash(): Uint8Array {
-    // TODO: Implement proper Merkle tree hashing
-    // For now, simple hash
+    if (this.rootHash) {
+      return this.rootHash;
+    }
+
+    // Serialize all actions
     const data = JSON.stringify(
       this.actions.map(a => ({
         type: a.type,
@@ -53,7 +65,8 @@ class DeltaContextManager {
     );
 
     const encoder = new TextEncoder();
-    return this._simpleHash(encoder.encode(data));
+    this.rootHash = this._simpleHash(encoder.encode(data));
+    return this.rootHash;
   }
 
   /**
@@ -75,9 +88,26 @@ class DeltaContextManager {
     );
   }
 
+  /**
+   * Commits the current delta to storage
+   */
+  commit(): void {
+    if (this.actions.length === 0) {
+      return; // Nothing to commit
+    }
+
+    const rootHash = this.computeRootHash();
+    const artifact = this.serializeArtifact();
+
+    commitDelta(rootHash, artifact);
+
+    // Clear after commit
+    this.clear();
+  }
+
   private _simpleHash(data: Uint8Array): Uint8Array {
-    // Simple hash for placeholder
-    // TODO: Use proper cryptographic hash
+    // Simple hash for MVP
+    // TODO: Implement proper Merkle tree hashing
     let h = 0;
     for (let i = 0; i < data.length; i++) {
       h = ((h << 5) - h + data[i]) | 0;

@@ -123,6 +123,24 @@ pnpm build
 pnpm test
 ```
 
+### Testing
+
+```bash
+# Run all tests
+pnpm test
+
+# Test specific package
+cd packages/sdk && pnpm test
+
+# Watch mode
+pnpm test --watch
+
+# With coverage
+pnpm test --coverage
+```
+
+**Current Test Status**: ✅ 35 tests passing
+
 ## 📖 Examples
 
 Check out the [examples/](./examples/) directory for complete working examples:

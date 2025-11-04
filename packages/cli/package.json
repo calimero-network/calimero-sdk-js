@@ -17,7 +17,7 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf lib",
-    "test": "jest"
+    "test": "jest --passWithNoTests"
   },
   "keywords": [
     "calimero",

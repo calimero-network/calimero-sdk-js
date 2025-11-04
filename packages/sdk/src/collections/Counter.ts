@@ -5,12 +5,18 @@
  * Each node tracks its own count, and the total is the sum of all counts.
  */
 
-import { UnorderedMap } from './UnorderedMap';
+import { serialize, deserialize } from '../utils/serialize';
 import * as env from '../env/api';
+import { DeltaContext } from './internal/DeltaContext';
+
+interface CounterData {
+  // Map of executor_id -> count
+  counts: Record<string, number>;
+}
 
 export class Counter {
-  private counts: UnorderedMap<string, bigint>;
-  private prefix: string;
+  private prefix: Uint8Array;
+  private data: CounterData;
 
   /**
    * Creates a new Counter
@@ -18,8 +24,16 @@ export class Counter {
    * @param prefix - Optional prefix for storage
    */
   constructor(prefix: string = '') {
-    this.prefix = prefix || `counter_${Math.random().toString(36).substr(2, 9)}`;
-    this.counts = new UnorderedMap(`${this.prefix}_counts`);
+    const encoder = new TextEncoder();
+    this.prefix = encoder.encode(prefix || `counter_${Math.random().toString(36).substr(2, 9)}`);
+    
+    // Load existing data or initialize
+    const raw = env.storageRead(this.prefix);
+    if (raw) {
+      this.data = deserialize<CounterData>(raw);
+    } else {
+      this.data = { counts: {} };
+    }
   }
 
   /**
@@ -27,24 +41,41 @@ export class Counter {
    */
   increment(): void {
     const executor = this._getExecutorKey();
-    const current = this.counts.get(executor) || 0n;
-    this.counts.set(executor, current + 1n);
+    const current = this.data.counts[executor] || 0;
+    this.data.counts[executor] = current + 1;
+
+    // Save updated data
+    const serialized = serialize(this.data);
+    env.storageWrite(this.prefix, serialized);
+
+    // Track in delta
+    DeltaContext.addAction({
+      type: 'Update',
+      key: this.prefix,
+      value: serialized,
+      timestamp: Number(env.timeNow())
+    });
   }
 
   /**
    * Gets the total count across all executors
    *
    * @returns Total count
-   *
-   * @remarks
-   * Note: This is a simplified implementation.
-   * Full implementation would need to iterate all keys.
    */
   value(): bigint {
-    // TODO: Implement proper iteration over all executor counts
-    // For now, return the current executor's count
-    const executor = this._getExecutorKey();
-    return this.counts.get(executor) || 0n;
+    let total = 0;
+    for (const count of Object.values(this.data.counts)) {
+      total += count;
+    }
+    return BigInt(total);
+  }
+
+  /**
+   * Gets the count for a specific executor
+   */
+  getExecutorCount(executorId?: string): number {
+    const executor = executorId || this._getExecutorKey();
+    return this.data.counts[executor] || 0;
   }
 
   private _getExecutorKey(): string {

@@ -21,19 +21,19 @@
  */
 export function Logic(stateClass: any) {
   return function <T extends new (...args: any[]) => any>(target: T): T {
-    // Store state class reference directly on the constructor
+    // Store state class reference
     (target as any)._calimeroStateClass = stateClass;
+    (target as any)._calimeroLogic = true;
 
     // Scan for methods to export
     const methodNames = Object.getOwnPropertyNames(target.prototype).filter(
-      name => name !== 'constructor' && typeof target.prototype[name] === 'function'
+      name => name !== 'constructor' && 
+             name !== '_calimeroInitMethod' &&
+             typeof target.prototype[name] === 'function'
     );
 
-    // Mark methods for export
+    // Store methods list
     (target as any)._calimeroMethods = methodNames;
-
-    // TODO: Register in global method registry
-    // MethodRegistry.register(methodNames);
 
     return target;
   };
