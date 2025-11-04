@@ -1,0 +1,6 @@
+# Generated files (will be created during build)
+code.h
+methods.h
+
+# Keep only builder.c in version control
+
