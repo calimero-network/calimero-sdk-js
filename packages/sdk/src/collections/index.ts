@@ -8,4 +8,5 @@ export { UnorderedMap } from './UnorderedMap';
 export { Vector } from './Vector';
 export { Counter } from './Counter';
 export { LwwRegister } from './LwwRegister';
+export { DeltaContext } from './internal/DeltaContext';
 

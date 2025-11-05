@@ -1,6 +1,0 @@
-# Dependencies directory
-# Will contain downloaded tools:
-# - quickjs/ - QuickJS source and qjsc compiler
-# - wasi-sdk/ - Clang for WASM compilation
-# - binaryen/ - wasm-opt and wasi-stub tools
-

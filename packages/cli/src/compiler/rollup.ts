@@ -29,6 +29,22 @@ export async function bundleWithRollup(
   options: RollupOptions
 ): Promise<string> {
   const outputFile = path.join(options.outputDir, 'bundle.js');
+  
+  // Find tsconfig relative to source file
+  const sourceDir = path.dirname(path.resolve(source));
+  const possibleTsconfigs = [
+    path.join(sourceDir, 'tsconfig.json'),
+    path.join(sourceDir, '..', 'tsconfig.json'),
+    path.join(sourceDir, '..', '..', 'tsconfig.json')
+  ];
+  
+  let tsconfigPath: string | undefined;
+  for (const tsconfig of possibleTsconfigs) {
+    if (fs.existsSync(tsconfig)) {
+      tsconfigPath = tsconfig;
+      break;
+    }
+  }
 
   const bundle = await rollup({
     input: source,
@@ -38,9 +54,15 @@ export async function bundleWithRollup(
         preferBuiltins: false
       }),
       typescript({
-        tsconfig: './tsconfig.json',
+        tsconfig: tsconfigPath,
         declaration: false,
-        sourceMap: false
+        sourceMap: false,
+        compilerOptions: {
+          module: 'ES2015',
+          target: 'ES2015',
+          importHelpers: false,
+          noEmitHelpers: true
+        }
       }),
       commonjs(),
       babel({

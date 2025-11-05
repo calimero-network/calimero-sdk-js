@@ -17,6 +17,9 @@ export * as env from './env/api';
 export { emit, emitWithHandler } from './events/emitter';
 export type { AppEvent } from './events/types';
 
+// Runtime
+export { StateManager } from './runtime/state-manager';
+
 // Re-export collections from dedicated entry point
 // Users can import as: import { UnorderedMap } from '@calimero/sdk/collections';
 

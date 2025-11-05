@@ -7,6 +7,10 @@
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 interface QuickJSOptions {
   verbose: boolean;
@@ -24,7 +28,7 @@ export async function compileToC(
   jsFile: string,
   options: QuickJSOptions
 ): Promise<string> {
-  const qjscPath = path.join(__dirname, '../../deps/qjsc');
+  const qjscPath = path.join(__dirname, '../../src/deps/qjsc');
   const outputFile = path.join(options.outputDir, 'code.h');
 
   // Check if qjsc exists
@@ -39,7 +43,8 @@ export async function compileToC(
   // -c: Compile to C code
   // -o: Output file
   // -m: Module mode (ES6 modules)
-  const cmd = `${qjscPath} -c -o ${outputFile} -m ${jsFile}`;
+  // -N: Set C name for the bytecode array (must match builder.c)
+  const cmd = `${qjscPath} -c -o ${outputFile} -m -N code ${jsFile}`;
 
   if (options.verbose) {
     console.log(`Running: ${cmd}`);

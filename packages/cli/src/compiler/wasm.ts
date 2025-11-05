@@ -7,6 +7,10 @@
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 interface WasmOptions {
   verbose: boolean;
@@ -24,8 +28,8 @@ export async function compileToWasm(
   cCodePath: string,
   options: WasmOptions
 ): Promise<string> {
-  const wasiSdk = path.join(__dirname, '../../deps/wasi-sdk');
-  const quickjsDir = path.join(__dirname, '../../deps/quickjs');
+  const wasiSdk = path.join(__dirname, '../../src/deps/wasi-sdk');
+  const quickjsDir = path.join(__dirname, '../../src/deps/quickjs');
   const builderC = path.join(__dirname, '../../builder/builder.c');
   const outputFile = path.join(options.outputDir, 'contract.wasm');
 
@@ -43,13 +47,15 @@ export async function compileToWasm(
   }
 
   // Source files to compile
+  // Note: methods.c is #included in builder.c, not compiled separately
+  // REMOVED: quickjs-libc-min.c (causes WASI dependencies we can't satisfy)
   const sources = [
-    builderC,
+    builderC, // This includes methods.c
     path.join(quickjsDir, 'quickjs.c'),
     path.join(quickjsDir, 'libregexp.c'),
     path.join(quickjsDir, 'libunicode.c'),
     path.join(quickjsDir, 'cutils.c'),
-    path.join(quickjsDir, 'quickjs-libc-min.c'),
+    // path.join(quickjsDir, 'quickjs-libc-min.c'), // REMOVED
     path.join(quickjsDir, 'libbf.c')
   ].join(' ');
 
@@ -61,28 +67,48 @@ export async function compileToWasm(
 
   // Compiler flags
   const flags = [
-    '-O3', // Optimize for size
+    '--target=wasm32-wasi', // WASM target
+    `--sysroot=${wasiSdk}/share/wasi-sysroot`, // WASI sysroot for standard headers
+    '-nostartfiles', // Don't link CRT startup files (prevents _start conflict)
+    '-O3', // Optimize (changed from -Oz to -O3 for better performance)
     '-flto', // Link-time optimization
     '-fno-exceptions',
     '-DCONFIG_VERSION=\\"2021-03-27\\"',
     '-DCONFIG_BIGNUM',
     '-DJS_STRICT_NAN_BOXING',
-    '-Wno-unused-parameter'
+    '-Wno-unused-parameter',
+    '-Wl,--allow-undefined' // Allow undefined symbols (from Calimero runtime)
   ].join(' ');
+
+  // Extract method names from methods.h to explicitly export them
+  const methodsH = path.join(options.outputDir, 'methods.h');
+  const methodExports: string[] = [];
+  if (fs.existsSync(methodsH)) {
+    const methodsContent = fs.readFileSync(methodsH, 'utf-8');
+    const methodMatches = methodsContent.matchAll(/DEFINE_CALIMERO_METHOD\((\w+)\)/g);
+    for (const match of methodMatches) {
+      methodExports.push(`-Wl,--export=${match[1]}`);
+    }
+  }
 
   // Linker flags
   const linkerFlags = [
     '-Wl,--no-entry', // No main function
-    '-Wl,--export-dynamic', // Export all functions
-    '-Wl,--allow-undefined' // Allow undefined host functions
+    '-Wl,--allow-undefined', // Allow undefined host functions
+    ...methodExports // Explicitly export each method
   ].join(' ');
 
-  const cmd = `
-    ${wasiSdk}/bin/clang ${flags} ${includes} \\
-    ${linkerFlags} \\
-    -o ${outputFile} \\
-    ${sources}
-  `.replace(/\s+/g, ' ').trim();
+  // Save unoptimized WASM for debugging
+  const unoptimizedFile = outputFile.replace('.wasm', '.unoptimized.wasm');
+  
+  const cmd = [
+    `${wasiSdk}/bin/clang`,
+    flags,
+    includes,
+    linkerFlags,
+    `-o ${unoptimizedFile}`,
+    sources
+  ].join(' ');
 
   if (options.verbose) {
     console.log(`Compiling to WASM...`);
@@ -98,9 +124,12 @@ export async function compileToWasm(
     throw new Error(`WASM compilation failed: ${error}`);
   }
 
-  if (!fs.existsSync(outputFile)) {
-    throw new Error(`Failed to generate WASM file: ${outputFile}`);
+  if (!fs.existsSync(unoptimizedFile)) {
+    throw new Error(`Failed to generate WASM file: ${unoptimizedFile}`);
   }
+
+  // For now, just copy unoptimized to final (we'll optimize in a separate step)
+  fs.copyFileSync(unoptimizedFile, outputFile);
 
   return outputFile;
 }

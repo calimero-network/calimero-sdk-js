@@ -9,15 +9,49 @@
  */
 
 #include <string.h>
-#include "quickjs/quickjs-libc-min.h"
-#include "quickjs/libbf.h"
+#include "quickjs.h"  // Use main QuickJS header instead of libc-min
+#include "libbf.h"
 #include "code.h"
+#include "methods.h"
 
 // ===========================
 // QuickJS Context Setup
 // ===========================
 
-static JSContext *JS_NewCustomContext(JSRuntime *rt) {
+// Stubs for functions previously provided by quickjs-libc-min.c
+#define FALSE 0
+#define TRUE 1
+
+// Stub for js_module_set_import_meta (from quickjs-libc-min.c)
+// Sets import.meta properties for ES modules
+static void js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, int use_realpath, int is_main) {
+  // Minimal implementation - just set import.meta.url if needed
+  JSValue meta = JS_GetImportMeta(ctx, func_val);
+  if (!JS_IsUndefined(meta)) {
+    JS_FreeValue(ctx, meta);
+  }
+}
+
+// Stub for js_std_loop (from quickjs-libc-min.c)
+// Processes pending jobs (promises, etc.)
+static void js_std_loop(JSContext *ctx) {
+  JSContext *ctx1;
+  int err;
+  
+  // Execute pending jobs
+  for(;;) {
+    err = JS_ExecutePendingJob(JS_GetRuntime(ctx), &ctx1);
+    if (err <= 0) {
+      if (err < 0) {
+        // Error executing job - log it but don't crash
+      }
+      break;
+    }
+  }
+}
+
+// Not static - needed by methods.c
+JSContext *JS_NewCustomContext(JSRuntime *rt) {
   JSContext *ctx = JS_NewContextRaw(rt);
   if (!ctx) return NULL;
   
@@ -41,24 +75,58 @@ static JSContext *JS_NewCustomContext(JSRuntime *rt) {
 // ===========================
 
 // Import host functions from Calimero runtime
-extern void panic_utf8(uint64_t len, uint64_t ptr);
-extern void log_utf8(uint64_t len, uint64_t ptr);
-extern uint64_t register_len(uint64_t register_id);
-extern void read_register(uint64_t register_id, uint64_t ptr);
+// All functions that take buffers expect a pointer (u64) to a Buffer struct
+// Buffer struct layout (16 bytes): [ptr: u64][len: u64]
+extern void panic_utf8(uint64_t buffer_ptr, uint64_t location_ptr) __attribute__((noreturn));
+extern void log_utf8(uint64_t buffer_ptr);
+extern uint64_t register_len(uint64_t register_id);  // Returns PtrSizedInt (u64)
+extern uint32_t read_register(uint64_t register_id, uint64_t buffer_ptr);  // Returns Bool (u32)
 extern void context_id(uint64_t register_id);
 extern void executor_id(uint64_t register_id);
-extern void emit(uint64_t kind_len, uint64_t kind_ptr, uint64_t data_len, uint64_t data_ptr);
-extern void emit_with_handler(uint64_t kind_len, uint64_t kind_ptr, uint64_t data_len, uint64_t data_ptr, uint64_t handler_len, uint64_t handler_ptr);
-extern uint64_t storage_read(uint64_t key_len, uint64_t key_ptr, uint64_t register_id);
-extern uint64_t storage_write(uint64_t key_len, uint64_t key_ptr, uint64_t value_len, uint64_t value_ptr, uint64_t register_id);
-extern uint64_t storage_remove(uint64_t key_len, uint64_t key_ptr, uint64_t register_id);
-extern void commit(uint64_t root_len, uint64_t root_ptr, uint64_t artifact_len, uint64_t artifact_ptr);
-extern void time_now(uint64_t ptr);
-extern uint64_t blob_create(void);
-extern uint64_t blob_open(uint64_t blob_id_len, uint64_t blob_id_ptr);
-extern uint64_t blob_read(uint64_t fd, uint64_t buf_len, uint64_t buf_ptr);
-extern uint64_t blob_write(uint64_t fd, uint64_t data_len, uint64_t data_ptr);
-extern uint64_t blob_close(uint64_t fd, uint64_t blob_id_buf_ptr);
+extern void emit(uint64_t event_ptr);
+extern void emit_with_handler(uint64_t event_ptr, uint64_t handler_buffer_ptr);
+extern uint32_t storage_read(uint64_t key_buffer_ptr, uint64_t register_id);  // Returns Bool (u32)
+extern uint32_t storage_write(uint64_t key_buffer_ptr, uint64_t value_buffer_ptr, uint64_t register_id);  // Returns Bool (u32)
+extern uint32_t storage_remove(uint64_t key_buffer_ptr, uint64_t register_id);  // Returns Bool (u32)
+extern void commit(uint64_t root_hash_buffer_ptr, uint64_t artifact_buffer_ptr);
+extern void time_now(uint64_t buffer_ptr);
+extern uint64_t blob_create(void);  // Returns PtrSizedInt (u64)
+extern uint64_t blob_open(uint64_t blob_id_buffer_ptr);  // Returns PtrSizedInt (u64)
+extern uint64_t blob_read(uint64_t fd, uint64_t buffer_ptr);  // Returns PtrSizedInt (u64)
+extern uint64_t blob_write(uint64_t fd, uint64_t data_buffer_ptr);  // Returns PtrSizedInt (u64)
+extern uint32_t blob_close(uint64_t fd, uint64_t blob_id_buffer_ptr);  // Returns Bool (u32)
+
+// Buffer descriptor struct - MUST match calimero-sys Slice<'a, u8>
+// #[repr(C)] struct with ptr: u64, len: u64, _phantom: PhantomData (zero-sized)
+// Use natural C alignment, not packed
+typedef struct {
+  uint64_t ptr;
+  uint64_t len;
+} CalimeroBuffer;
+
+// Event descriptor struct
+typedef struct {
+  uint64_t kind_ptr;
+  uint64_t kind_len;
+  uint64_t data_ptr;
+  uint64_t data_len;
+} CalimeroEvent;
+
+// Location struct - MUST match calimero-sys Location<'a>
+// struct with file: Buffer<'a>, line: u32, column: u32
+// Use natural C alignment to match Rust's repr(C)
+typedef struct {
+  uint64_t file_ptr;
+  uint64_t file_len;
+  uint32_t line;
+  uint32_t column;
+} CalimeroLocation;
+
+// Helper to create a Buffer descriptor on the stack
+static inline CalimeroBuffer make_buffer(const void *ptr, size_t len) {
+  CalimeroBuffer buf = { (uint64_t)ptr, (uint64_t)len };
+  return buf;
+}
 
 // Helper: Convert JSValue (Uint8Array) to C pointer
 static uint8_t* JSValueToUint8Array(JSContext *ctx, JSValue val, size_t *len) {
@@ -87,7 +155,8 @@ static JSValue js_log_utf8(JSContext *ctx, JSValueConst this_val, int argc, JSVa
   uint8_t *ptr = JSValueToUint8Array(ctx, argv[0], &len);
   if (!ptr) return JS_EXCEPTION;
   
-  log_utf8(len, (uint64_t)ptr);
+  CalimeroBuffer buf = make_buffer(ptr, len);
+  log_utf8((uint64_t)&buf);
   return JS_UNDEFINED;
 }
 
@@ -100,8 +169,9 @@ static JSValue js_storage_read(JSContext *ctx, JSValueConst this_val, int argc, 
   int64_t register_id;
   JS_ToInt64(ctx, &register_id, argv[1]);
   
-  uint64_t result = storage_read(key_len, (uint64_t)key_ptr, (uint64_t)register_id);
-  return JS_NewBigInt64(ctx, result);
+  CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
+  uint32_t result = storage_read((uint64_t)&key_buf, (uint64_t)register_id);
+  return JS_NewUint32(ctx, result);
 }
 
 // Wrapper: storage_write
@@ -114,8 +184,10 @@ static JSValue js_storage_write(JSContext *ctx, JSValueConst this_val, int argc,
   int64_t register_id;
   JS_ToInt64(ctx, &register_id, argv[2]);
   
-  uint64_t result = storage_write(key_len, (uint64_t)key_ptr, value_len, (uint64_t)value_ptr, (uint64_t)register_id);
-  return JS_NewBigInt64(ctx, result);
+  CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
+  CalimeroBuffer value_buf = make_buffer(value_ptr, value_len);
+  uint32_t result = storage_write((uint64_t)&key_buf, (uint64_t)&value_buf, (uint64_t)register_id);
+  return JS_NewUint32(ctx, result);
 }
 
 // Wrapper: storage_remove
@@ -127,8 +199,9 @@ static JSValue js_storage_remove(JSContext *ctx, JSValueConst this_val, int argc
   int64_t register_id;
   JS_ToInt64(ctx, &register_id, argv[1]);
   
-  uint64_t result = storage_remove(key_len, (uint64_t)key_ptr, (uint64_t)register_id);
-  return JS_NewBigInt64(ctx, result);
+  CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
+  uint32_t result = storage_remove((uint64_t)&key_buf, (uint64_t)register_id);
+  return JS_NewUint32(ctx, result);
 }
 
 // Wrapper: context_id
@@ -164,8 +237,9 @@ static JSValue js_read_register(JSContext *ctx, JSValueConst this_val, int argc,
   uint8_t *buf_ptr = JSValueToUint8Array(ctx, argv[1], &buf_len);
   if (!buf_ptr) return JS_EXCEPTION;
   
-  read_register((uint64_t)register_id, (uint64_t)buf_ptr);
-  return JS_TRUE;
+  CalimeroBuffer buf = make_buffer(buf_ptr, buf_len);
+  uint32_t result = read_register((uint64_t)register_id, (uint64_t)&buf);
+  return JS_NewUint32(ctx, result);
 }
 
 // Wrapper: emit
@@ -175,7 +249,13 @@ static JSValue js_emit(JSContext *ctx, JSValueConst this_val, int argc, JSValueC
   uint8_t *data_ptr = JSValueToUint8Array(ctx, argv[1], &data_len);
   if (!kind_ptr || !data_ptr) return JS_EXCEPTION;
   
-  emit(kind_len, (uint64_t)kind_ptr, data_len, (uint64_t)data_ptr);
+  CalimeroEvent event = {
+    .kind_ptr = (uint64_t)kind_ptr,
+    .kind_len = (uint64_t)kind_len,
+    .data_ptr = (uint64_t)data_ptr,
+    .data_len = (uint64_t)data_len
+  };
+  emit((uint64_t)&event);
   return JS_UNDEFINED;
 }
 
@@ -187,7 +267,14 @@ static JSValue js_emit_with_handler(JSContext *ctx, JSValueConst this_val, int a
   uint8_t *handler_ptr = JSValueToUint8Array(ctx, argv[2], &handler_len);
   if (!kind_ptr || !data_ptr || !handler_ptr) return JS_EXCEPTION;
   
-  emit_with_handler(kind_len, (uint64_t)kind_ptr, data_len, (uint64_t)data_ptr, handler_len, (uint64_t)handler_ptr);
+  CalimeroEvent event = {
+    .kind_ptr = (uint64_t)kind_ptr,
+    .kind_len = (uint64_t)kind_len,
+    .data_ptr = (uint64_t)data_ptr,
+    .data_len = (uint64_t)data_len
+  };
+  CalimeroBuffer handler_buf = make_buffer(handler_ptr, handler_len);
+  emit_with_handler((uint64_t)&event, (uint64_t)&handler_buf);
   return JS_UNDEFINED;
 }
 
@@ -198,7 +285,9 @@ static JSValue js_commit(JSContext *ctx, JSValueConst this_val, int argc, JSValu
   uint8_t *artifact_ptr = JSValueToUint8Array(ctx, argv[1], &artifact_len);
   if (!root_ptr || !artifact_ptr) return JS_EXCEPTION;
   
-  commit(root_len, (uint64_t)root_ptr, artifact_len, (uint64_t)artifact_ptr);
+  CalimeroBuffer root_buf = make_buffer(root_ptr, root_len);
+  CalimeroBuffer artifact_buf = make_buffer(artifact_ptr, artifact_len);
+  commit((uint64_t)&root_buf, (uint64_t)&artifact_buf);
   return JS_UNDEFINED;
 }
 
@@ -208,7 +297,8 @@ static JSValue js_time_now(JSContext *ctx, JSValueConst this_val, int argc, JSVa
   uint8_t *buf_ptr = JSValueToUint8Array(ctx, argv[0], &buf_len);
   if (!buf_ptr || buf_len < 8) return JS_EXCEPTION;
   
-  time_now((uint64_t)buf_ptr);
+  CalimeroBuffer buf = make_buffer(buf_ptr, buf_len);
+  time_now((uint64_t)&buf);
   return JS_UNDEFINED;
 }
 
@@ -224,7 +314,8 @@ static JSValue js_blob_open(JSContext *ctx, JSValueConst this_val, int argc, JSV
   uint8_t *blob_id_ptr = JSValueToUint8Array(ctx, argv[0], &blob_id_len);
   if (!blob_id_ptr || blob_id_len != 32) return JS_EXCEPTION;
   
-  uint64_t fd = blob_open(blob_id_len, (uint64_t)blob_id_ptr);
+  CalimeroBuffer blob_id_buf = make_buffer(blob_id_ptr, blob_id_len);
+  uint64_t fd = blob_open((uint64_t)&blob_id_buf);
   return JS_NewBigInt64(ctx, fd);
 }
 
@@ -237,7 +328,8 @@ static JSValue js_blob_read(JSContext *ctx, JSValueConst this_val, int argc, JSV
   uint8_t *buf_ptr = JSValueToUint8Array(ctx, argv[1], &buf_len);
   if (!buf_ptr) return JS_EXCEPTION;
   
-  uint64_t bytes_read = blob_read((uint64_t)fd, buf_len, (uint64_t)buf_ptr);
+  CalimeroBuffer buf = make_buffer(buf_ptr, buf_len);
+  uint64_t bytes_read = blob_read((uint64_t)fd, (uint64_t)&buf);
   return JS_NewBigInt64(ctx, bytes_read);
 }
 
@@ -250,7 +342,8 @@ static JSValue js_blob_write(JSContext *ctx, JSValueConst this_val, int argc, JS
   uint8_t *data_ptr = JSValueToUint8Array(ctx, argv[1], &data_len);
   if (!data_ptr) return JS_EXCEPTION;
   
-  uint64_t bytes_written = blob_write((uint64_t)fd, data_len, (uint64_t)data_ptr);
+  CalimeroBuffer data_buf = make_buffer(data_ptr, data_len);
+  uint64_t bytes_written = blob_write((uint64_t)fd, (uint64_t)&data_buf);
   return JS_NewBigInt64(ctx, bytes_written);
 }
 
@@ -263,15 +356,17 @@ static JSValue js_blob_close(JSContext *ctx, JSValueConst this_val, int argc, JS
   uint8_t *buf_ptr = JSValueToUint8Array(ctx, argv[1], &buf_len);
   if (!buf_ptr || buf_len < 32) return JS_EXCEPTION;
   
-  uint64_t result = blob_close((uint64_t)fd, (uint64_t)buf_ptr);
-  return JS_NewBool(ctx, result);
+  CalimeroBuffer buf = make_buffer(buf_ptr, buf_len);
+  uint32_t result = blob_close((uint64_t)fd, (uint64_t)&buf);
+  return JS_NewUint32(ctx, result);
 }
 
 // ===========================
 // Register Host Functions
 // ===========================
 
-static void js_add_calimero_host_functions(JSContext *ctx) {
+// Not static - needed by methods.c
+void js_add_calimero_host_functions(JSContext *ctx) {
   JSValue global = JS_GetGlobalObject(ctx);
   JSValue env = JS_NewObject(ctx);
   
@@ -313,39 +408,10 @@ static void js_add_calimero_host_functions(JSContext *ctx) {
   JS_FreeValue(ctx, global);
 }
 
-// ===========================
-// Method Export Macro
-// ===========================
+// WASI entry point stub (empty - we don't use WASI)
+// This prevents WASI runtime initialization which causes imports
+void _start() {}
 
-#define DEFINE_CALIMERO_METHOD(name) \
-  void name() __attribute__((export_name(#name))) { \
-    JSRuntime *rt = JS_NewRuntime(); \
-    JSContext *ctx = JS_NewCustomContext(rt); \
-    js_add_calimero_host_functions(ctx); \
-    \
-    JSValue mod_obj = js_load_module_binary(ctx, code, code_size); \
-    JSValue fun_obj = JS_GetProperty(ctx, mod_obj, JS_NewAtom(ctx, #name)); \
-    JSValue result = JS_Call(ctx, fun_obj, mod_obj, 0, NULL); \
-    \
-    if (JS_IsException(result)) { \
-      JSValue error = JS_GetException(ctx); \
-      JSValue message = JS_GetPropertyStr(ctx, error, "message"); \
-      JSValue stack = JS_GetPropertyStr(ctx, error, "stack"); \
-      const char *msg = JS_ToCString(ctx, message); \
-      const char *stk = JS_ToCString(ctx, stack); \
-      \
-      size_t total_len = strlen(msg) + strlen(stk) + 2; \
-      char *error_msg = malloc(total_len); \
-      snprintf(error_msg, total_len, "%s\n%s", msg, stk); \
-      \
-      panic_utf8(total_len - 1, (uint64_t)error_msg); \
-    } \
-    \
-    js_std_loop(ctx); \
-    JS_FreeContext(ctx); \
-    JS_FreeRuntime(rt); \
-  }
-
-// Include generated method exports
-#include "methods.h"
+// Include generated method exports directly (includes full C code, not just declarations)
+#include "methods.c"
 

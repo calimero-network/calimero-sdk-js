@@ -10,6 +10,20 @@ npm install -g @calimero/cli
 pnpm add -g @calimero/cli
 ```
 
+## First Time Setup
+
+Install build dependencies (QuickJS, WASI-SDK, Binaryen):
+
+```bash
+cd packages/cli
+pnpm install-deps
+```
+
+This will download:
+- QuickJS v0.1.3 (~10MB)
+- WASI-SDK v11 (~150MB)
+- Binaryen tools (~5MB)
+
 ## Usage
 
 ### Build a Contract
@@ -21,7 +35,7 @@ calimero-sdk build src/app.ts -o build/contract.wasm
 ### Options
 
 - `--verbose` - Show detailed build output
-- `--optimize` - Run WASM optimization (default: true)
+- `--no-optimize` - Skip WASM optimization
 
 ## Build Pipeline
 
@@ -37,12 +51,21 @@ TypeScript/JavaScript
    [Optimize] Final WASM
 ```
 
-## Requirements
+## Troubleshooting
 
-The CLI will automatically download required tools on installation:
-- QuickJS v0.1.3
-- WASI-SDK v11
-- Binaryen tools
+### "QuickJS compiler not found"
+
+Run the dependency installer:
+```bash
+pnpm install-deps
+```
+
+### "WASI-SDK not found"
+
+Same fix - run:
+```bash
+pnpm install-deps
+```
 
 ## Documentation
 
@@ -51,4 +74,3 @@ See the [main repository documentation](../../README.md) for complete guides.
 ## License
 
 Apache-2.0
-

@@ -7,6 +7,10 @@
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 interface OptimizeOptions {
   verbose: boolean;
@@ -24,45 +28,59 @@ export async function optimizeWasm(
   output: string,
   options: OptimizeOptions
 ): Promise<void> {
-  const binaryenDir = path.join(__dirname, '../../deps/binaryen');
-  const wasiStub = path.join(binaryenDir, 'bin/wasi-stub');
-  const wasmOpt = path.join(binaryenDir, 'bin/wasm-opt');
+  const binaryenDir = path.join(__dirname, '../../src/deps/binaryen');
+  const wasiStubScript = path.join(binaryenDir, 'wasi-stub/run.sh');
+  const wasiStubBinary = path.join(binaryenDir, 'wasi-stub/wasi-stub');
+  const wasmOpt = path.join(binaryenDir, 'bin/wasm-opt'); // May not exist
 
-  // Check if tools exist
-  if (!fs.existsSync(wasiStub) || !fs.existsSync(wasmOpt)) {
+  // Try script first, fallback to binary
+  const wasiStub = fs.existsSync(wasiStubScript) ? wasiStubScript : wasiStubBinary;
+
+  // Check if wasi-stub exists (critical for removing WASI imports)
+  if (!fs.existsSync(wasiStub)) {
     if (options.verbose) {
-      console.log('Binaryen tools not found, skipping optimization');
+      console.log('wasi-stub not found, skipping WASI import removal');
     }
-    // Just copy file if optimization tools not available
+    // Just copy file if wasi-stub not available
     fs.copyFileSync(input, output);
     return;
   }
 
-  const stubbed = input.replace('.wasm', '.stubbed.wasm');
-
   try {
-    // Step 1: Remove WASI imports
+    // Step 1: Remove WASI imports with wasi-stub
     if (options.verbose) {
-      console.log('Removing WASI imports...');
+      console.log('Removing WASI imports with wasi-stub...');
     }
-    execSync(`${wasiStub} ${input} -o ${stubbed}`, {
+    
+    // Use absolute paths for input/output
+    const absInput = path.resolve(input);
+    const absOutput = path.resolve(output);
+    
+    // Use bash to run the script (which handles library paths)
+    const cmd = wasiStub.endsWith('.sh') 
+      ? `bash ${wasiStub} ${absInput} -o ${absOutput}`
+      : `${wasiStub} ${absInput} -o ${absOutput}`;
+    
+    execSync(cmd, {
       stdio: options.verbose ? 'inherit' : 'pipe'
     });
 
-    // Step 2: Optimize with wasm-opt
-    if (options.verbose) {
-      console.log('Running wasm-opt...');
-    }
-    execSync(
-      `${wasmOpt} ${stubbed} -O3 --strip-debug --strip-producers -o ${output}`,
-      {
-        stdio: options.verbose ? 'inherit' : 'pipe'
+    // Step 2: Optimize with wasm-opt (if available)
+    if (fs.existsSync(wasmOpt)) {
+      if (options.verbose) {
+        console.log('Running wasm-opt...');
       }
-    );
-
-    // Cleanup temporary file
-    if (fs.existsSync(stubbed)) {
-      fs.unlinkSync(stubbed);
+      const tempOptimized = output.replace('.wasm', '.opt.wasm');
+      execSync(
+        `${wasmOpt} ${output} -O3 --strip-debug --strip-producers -o ${tempOptimized}`,
+        {
+          stdio: options.verbose ? 'inherit' : 'pipe'
+        }
+      );
+      // Replace original with optimized
+      fs.renameSync(tempOptimized, output);
+    } else if (options.verbose) {
+      console.log('wasm-opt not found, skipping additional optimization');
     }
 
     // Report size
