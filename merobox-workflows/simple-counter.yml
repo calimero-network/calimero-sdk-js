@@ -30,7 +30,7 @@ steps:
   # Step 3: Wait for context creation and sync
   - name: Wait for Context Creation
     type: wait
-    seconds: 15
+    seconds: 30
 
   # Step 4: Get initial count (should be 0)
   - name: Get Initial Count
@@ -128,5 +128,5 @@ steps:
 
 # Configuration options
 stop_all_nodes: true
-restart: false
+restart: true
 wait_timeout: 60

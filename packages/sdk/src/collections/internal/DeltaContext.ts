@@ -2,6 +2,7 @@
  * DeltaContext - Tracks CRDT operations for delta synchronization
  */
 
+import '../../polyfills/text-encoding'; // Ensure TextEncoder is available
 import { commitDelta } from '../../env/api';
 
 export interface Action {
