@@ -4,6 +4,7 @@
 
 import '../../polyfills/text-encoding'; // Ensure TextEncoder is available
 import { commitDelta } from '../../env/api';
+import { serializeStorageDelta, idFromString, type BorshAction } from '../../borsh';
 
 export interface Action {
   type: 'Update' | 'Remove';
@@ -71,22 +72,22 @@ class DeltaContextManager {
   }
 
   /**
-   * Serializes the delta artifact
+   * Serializes the delta artifact to Borsh format
    *
-   * @returns Serialized artifact
+   * @returns Borsh-serialized StorageDelta
    */
   serializeArtifact(): Uint8Array {
-    const encoder = new TextEncoder();
-    return encoder.encode(
-      JSON.stringify(
-        this.actions.map(a => ({
-          type: a.type,
-          key: Array.from(a.key),
-          value: a.value ? Array.from(a.value) : null,
-          timestamp: a.timestamp
-        }))
-      )
-    );
+    // Convert our actions to Borsh format
+    const borshActions: BorshAction[] = this.actions
+      .filter(a => a.type === 'Update' && a.value) // Only Update actions for now
+      .map(a => ({
+        type: 'Update' as const,
+        id: idFromString(new TextDecoder().decode(a.key)), // Convert key to ID
+        data: a.value!,
+        timestamp: BigInt(a.timestamp)
+      }));
+    
+    return serializeStorageDelta(borshActions);
   }
 
   /**

@@ -128,5 +128,5 @@ steps:
 
 # Configuration options
 stop_all_nodes: true
-restart: true
+restart: false
 wait_timeout: 60

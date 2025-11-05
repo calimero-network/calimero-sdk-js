@@ -20,6 +20,11 @@
       "types": "./lib/env/api.d.ts",
       "import": "./lib/env/api.js",
       "require": "./lib/env/api.js"
+    },
+    "./borsh": {
+      "types": "./lib/borsh/index.d.ts",
+      "import": "./lib/borsh/index.js",
+      "require": "./lib/borsh/index.js"
     }
   },
   "files": [
