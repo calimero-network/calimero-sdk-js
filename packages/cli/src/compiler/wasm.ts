@@ -48,14 +48,14 @@ export async function compileToWasm(
 
   // Source files to compile
   // Note: methods.c is #included in builder.c, not compiled separately
-  // REMOVED: quickjs-libc-min.c (causes WASI dependencies we can't satisfy)
+  // RE-ADDED: quickjs-libc-min.c (needed for js_std_loop and module helpers!)
   const sources = [
     builderC, // This includes methods.c
     path.join(quickjsDir, 'quickjs.c'),
     path.join(quickjsDir, 'libregexp.c'),
     path.join(quickjsDir, 'libunicode.c'),
     path.join(quickjsDir, 'cutils.c'),
-    // path.join(quickjsDir, 'quickjs-libc-min.c'), // REMOVED
+    path.join(quickjsDir, 'quickjs-libc-min.c'), // RE-ADDED (matching NEAR SDK!)
     path.join(quickjsDir, 'libbf.c')
   ].join(' ');
 

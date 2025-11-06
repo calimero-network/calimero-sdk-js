@@ -154,7 +154,7 @@ export async function generateMethodsHeader(
 
   // Generate full inline functions - try top-level export first, then class method
   const generateMethod = (methodName: string) => {
-    // Special case for init - bypass QuickJS and commit directly
+    // Special case for init - bypass QuickJS and commit directly (keep this working!)
     if (methodName === 'init') {
       return `
 __attribute__((used))
@@ -162,7 +162,7 @@ __attribute__((visibility("default")))
 __attribute__((export_name("init")))
 void init() {
   // Hardcoded initial state (matching CounterApp structure)
-  const char *initial_state_json = "{\\"count\\":{\\"counts\\":{}}}";
+  const char *initial_state_json = "{\\"count\\":{\\"counts\\":{\\"default\\":0}}}";
   size_t json_len = strlen(initial_state_json);
   
   // Create Borsh artifact: StorageDelta::Actions with one Update action
@@ -232,6 +232,84 @@ void init() {
 }`;
     }
     
+    // NOTE: increment, getCount, hello now use QuickJS (testing fixes!)
+    // Special case for increment - hardcoded counter increment
+    if (false && methodName === 'increment') {
+      return `
+__attribute__((used))
+__attribute__((visibility("default")))
+__attribute__((export_name("increment")))
+void increment() {
+  // Simple demo: just increment the global variable
+  demo_counter++;
+  // No need to commit anything for this demo
+  return;
+}`;
+    }
+    
+    // Special case for getCount - hardcoded counter getter
+    if (false && methodName === 'getCount') {
+      return `
+__attribute__((used))
+__attribute__((visibility("default")))
+__attribute__((export_name("getCount")))
+void getCount() {
+  // For demo: just return the global counter
+  extern void value_return(uint64_t value_ptr);
+  
+  struct CalimeroBuffer {
+    uint64_t ptr;
+    uint64_t len;
+  };
+  
+  // Return current count as string (the global counter)
+  char result_json[64];
+  snprintf(result_json, sizeof(result_json), "%d", demo_counter);
+  
+  struct {
+    uint64_t discriminant;
+    struct CalimeroBuffer buffer;
+  } value_ret;
+  
+  value_ret.discriminant = 0;
+  value_ret.buffer.ptr = (uint64_t)result_json;
+  value_ret.buffer.len = strlen(result_json);
+  
+  value_return((uint64_t)&value_ret);
+}`;
+    }
+    
+    // Special case for hello - test string returns
+    if (false && methodName === 'hello') {
+      return `
+__attribute__((used))
+__attribute__((visibility("default")))
+__attribute__((export_name("hello")))
+void hello() {
+  // Test string returns - return "hello world"
+  extern void value_return(uint64_t value_ptr);
+  
+  struct CalimeroBuffer {
+    uint64_t ptr;
+    uint64_t len;
+  };
+  
+  // Return "hello world" as a JSON string
+  const char *result_json = "\\"hello world\\"";
+  
+  struct {
+    uint64_t discriminant;
+    struct CalimeroBuffer buffer;
+  } value_ret;
+  
+  value_ret.discriminant = 0;
+  value_ret.buffer.ptr = (uint64_t)result_json;
+  value_ret.buffer.len = strlen(result_json);
+  
+  value_return((uint64_t)&value_ret);
+}`;
+    }
+    
     // For other methods, generate normal QuickJS wrapper
     return `
 __attribute__((used))
@@ -242,49 +320,71 @@ void ${methodName}() {
   JSContext *ctx = JS_NewCustomContext(rt);
   js_add_calimero_host_functions(ctx);
   
+  // Load module WITHOUT calling JS_ResolveModule (it seems to break things in our context)
+  // Just: ReadObject -> EvalFunction -> get namespace
   JSValue mod_obj = JS_ReadObject(ctx, code, code_size, JS_READ_OBJ_BYTECODE);
   if (JS_IsException(mod_obj)) {
     log_msg("Failed to load bytecode in ${methodName}");
-    JS_FreeContext(ctx);
-    JS_FreeRuntime(rt);
-    return;
-  }
-  
-  if (JS_ResolveModule(ctx, mod_obj) < 0) {
-    log_msg("Failed to resolve module in ${methodName}");
+    JSValue exception = JS_GetException(ctx);
+    const char *str = JS_ToCString(ctx, exception);
+    if (str) {
+      log_msg(str);
+      JS_FreeCString(ctx, str);
+    }
+    JS_FreeValue(ctx, exception);
     JS_FreeValue(ctx, mod_obj);
     JS_FreeContext(ctx);
     JS_FreeRuntime(rt);
     return;
   }
   
-  js_module_set_import_meta(ctx, mod_obj, FALSE, FALSE);
+  // Evaluate the module (THIS IS CRITICAL - runs top-level code!)
+  JSValue eval_result = JS_EvalFunction(ctx, mod_obj);
+  if (JS_IsException(eval_result)) {
+    log_msg("Failed to evaluate module in ${methodName}");
+    JS_FreeValue(ctx, eval_result);
+    JS_FreeValue(ctx, mod_obj);
+    JS_FreeContext(ctx);
+    JS_FreeRuntime(rt);
+    return;
+  }
   
-  // Try to get function as top-level export first
-  JSValue fun_obj = JS_GetProperty(ctx, mod_obj, JS_NewAtom(ctx, "${methodName}"));
-  JSValue this_obj = mod_obj;
+  // Get the module namespace (where exports live)
+  JSModuleDef *m = (JSModuleDef *)JS_VALUE_GET_PTR(mod_obj);
+  JSValue module_ns = js_get_module_ns(ctx, m);
   
-  // If not found at top-level, try getting from Logic class
+  // Try to get function from module namespace
+  JSValue fun_obj = JS_GetProperty(ctx, module_ns, JS_NewAtom(ctx, "${methodName}"));
+  JSValue this_obj = module_ns;
+  
+  // If not found at top-level in namespace, try getting from Logic class in module namespace
   if (JS_IsUndefined(fun_obj) || !JS_IsFunction(ctx, fun_obj)) {
     JS_FreeValue(ctx, fun_obj);
-    JSValue class_obj = JS_GetProperty(ctx, mod_obj, JS_NewAtom(ctx, "${logicClassName}"));
+    JSValue class_obj = JS_GetProperty(ctx, module_ns, JS_NewAtom(ctx, "${logicClassName}"));
     if (!JS_IsUndefined(class_obj)) {
       fun_obj = JS_GetProperty(ctx, class_obj, JS_NewAtom(ctx, "${methodName}"));
       this_obj = class_obj;
+      log_msg("Found ${methodName} on class");
     } else {
       log_msg("Method ${methodName} not found (neither top-level nor on class)");
       JS_FreeValue(ctx, class_obj);
+      JS_FreeValue(ctx, module_ns);
+      JS_FreeValue(ctx, eval_result);
       JS_FreeValue(ctx, mod_obj);
       JS_FreeContext(ctx);
       JS_FreeRuntime(rt);
       return;
     }
+  } else {
+    log_msg("Found ${methodName} at top-level");
   }
   
   if (JS_IsUndefined(fun_obj) || !JS_IsFunction(ctx, fun_obj)) {
     log_msg("Method ${methodName} is not a function");
     JS_FreeValue(ctx, fun_obj);
-    if (this_obj != mod_obj) JS_FreeValue(ctx, this_obj);
+    if (this_obj != module_ns) JS_FreeValue(ctx, this_obj);
+    JS_FreeValue(ctx, module_ns);
+    JS_FreeValue(ctx, eval_result);
     JS_FreeValue(ctx, mod_obj);
     JS_FreeContext(ctx);
     JS_FreeRuntime(rt);
@@ -303,8 +403,10 @@ void ${methodName}() {
     }
     JS_FreeValue(ctx, exception);
     JS_FreeValue(ctx, fun_obj);
-    if (this_obj != mod_obj) JS_FreeValue(ctx, this_obj);
+    if (this_obj != module_ns) JS_FreeValue(ctx, this_obj);
     JS_FreeValue(ctx, result);
+    JS_FreeValue(ctx, module_ns);
+    JS_FreeValue(ctx, eval_result);
     JS_FreeValue(ctx, mod_obj);
     JS_FreeContext(ctx);
     JS_FreeRuntime(rt);
@@ -399,15 +501,37 @@ void ${methodName}() {
     JS_FreeValue(ctx, stringify_func);
     JS_FreeValue(ctx, json_obj);
     JS_FreeValue(ctx, global);
+  } else {
+    // TEST: Call value_return with hardcoded string to verify it works
+    extern void value_return(uint64_t value_ptr);
+    struct CalimeroBuffer {
+      uint64_t ptr;
+      uint64_t len;
+    };
+    struct {
+      uint64_t discriminant;  // 0 = Ok
+      struct CalimeroBuffer buffer;
+    } value_ret;
+    
+    const char *test_value = "\\"test_from_c_${methodName}\\"";
+    value_ret.discriminant = 0;
+    value_ret.buffer.ptr = (uint64_t)test_value;
+    value_ret.buffer.len = strlen(test_value);
+    
+    value_return((uint64_t)&value_ret);
   }
+  
+  // Process QuickJS event loop BEFORE cleanup (matching NEAR SDK pattern!)
+  js_std_loop(ctx);
   
   // Free values
   JS_FreeValue(ctx, fun_obj);
-  if (this_obj != mod_obj) JS_FreeValue(ctx, this_obj);
+  if (this_obj != module_ns) JS_FreeValue(ctx, this_obj);
   JS_FreeValue(ctx, result);
+  JS_FreeValue(ctx, module_ns);
+  JS_FreeValue(ctx, eval_result);
   JS_FreeValue(ctx, mod_obj);
   
-  js_std_loop(ctx);
   JS_FreeContext(ctx);
   JS_FreeRuntime(rt);
 }`;
@@ -419,7 +543,7 @@ void ${methodName}() {
 // Found ${uniqueMethods.length} methods
 // Note: This file is #included in builder.c
 
-// Forward declarations
+// Forward declarations (code.h is already included in builder.c)
 extern const uint8_t code[];
 extern const uint32_t code_size;
 extern JSContext *JS_NewCustomContext(JSRuntime *rt);
@@ -430,6 +554,9 @@ extern void commit(uint64_t root_hash_ptr, uint64_t artifact_ptr);
 
 #include <string.h>
 #include <stdlib.h>
+
+// Global counter for demo (not persistent, resets on WASM reload!)
+static int demo_counter = 0;
 
 // Helper to log a string message (CalimeroBuffer is already defined in builder.c)
 static void log_msg(const char* msg) {

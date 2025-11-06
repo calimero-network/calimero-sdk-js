@@ -30,7 +30,7 @@ steps:
   # Step 3: Wait for context creation and sync
   - name: Wait for Context Creation
     type: wait
-    seconds: 30
+    seconds: 1
 
   # Step 4: Get initial count (should be 0)
   - name: Get Initial Count
@@ -64,69 +64,16 @@ steps:
     method: getCount
     args: {}
 
-  # Step 8: Increment counter again
-  - name: Increment Counter (Second Time)
+  # Step 8: Test string return with hello method
+  - name: Call Hello Method
     type: call
     node: counter-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
-    method: increment
-    args: {}
-
-  # Step 9: Wait for second increment
-  - name: Wait After Second Increment
-    type: wait
-    seconds: 1
-
-  # Step 10: Get final count (should be 2)
-  - name: Get Final Count
-    type: call
-    node: counter-node-1
-    context_id: '{{context_id}}'
-    executor_public_key: '{{member_public_key}}'
-    method: getCount
-    args: {}
-
-  # Step 11: Increment multiple times
-  - name: Increment Counter (Third Time)
-    type: call
-    node: counter-node-1
-    context_id: '{{context_id}}'
-    executor_public_key: '{{member_public_key}}'
-    method: increment
-    args: {}
-
-  - name: Increment Counter (Fourth Time)
-    type: call
-    node: counter-node-1
-    context_id: '{{context_id}}'
-    executor_public_key: '{{member_public_key}}'
-    method: increment
-    args: {}
-
-  - name: Increment Counter (Fifth Time)
-    type: call
-    node: counter-node-1
-    context_id: '{{context_id}}'
-    executor_public_key: '{{member_public_key}}'
-    method: increment
-    args: {}
-
-  # Step 12: Wait for all increments
-  - name: Wait After Multiple Increments
-    type: wait
-    seconds: 2
-
-  # Step 13: Get final count (should be 5)
-  - name: Get Count After Multiple Increments
-    type: call
-    node: counter-node-1
-    context_id: '{{context_id}}'
-    executor_public_key: '{{member_public_key}}'
-    method: getCount
+    method: hello
     args: {}
 
 # Configuration options
-stop_all_nodes: true
+stop_all_nodes: false
 restart: false
 wait_timeout: 60

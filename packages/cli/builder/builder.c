@@ -9,7 +9,8 @@
  */
 
 #include <string.h>
-#include "quickjs.h"  // Use main QuickJS header instead of libc-min
+#include "quickjs.h"
+#include "quickjs-libc-min.h"  // ADDED: For js_std_loop and module helpers (matching NEAR SDK!)
 #include "libbf.h"
 #include "code.h"
 #include "methods.h"
@@ -18,37 +19,9 @@
 // QuickJS Context Setup
 // ===========================
 
-// Stubs for functions previously provided by quickjs-libc-min.c
+// Note: js_module_set_import_meta and js_std_loop are now provided by quickjs-libc-min.c
 #define FALSE 0
 #define TRUE 1
-
-// Stub for js_module_set_import_meta (from quickjs-libc-min.c)
-// Sets import.meta properties for ES modules
-static void js_module_set_import_meta(JSContext *ctx, JSValueConst func_val, int use_realpath, int is_main) {
-  // Minimal implementation - just set import.meta.url if needed
-  JSValue meta = JS_GetImportMeta(ctx, func_val);
-  if (!JS_IsUndefined(meta)) {
-    JS_FreeValue(ctx, meta);
-  }
-}
-
-// Stub for js_std_loop (from quickjs-libc-min.c)
-// Processes pending jobs (promises, etc.)
-static void js_std_loop(JSContext *ctx) {
-  JSContext *ctx1;
-  int err;
-  
-  // Execute pending jobs
-  for(;;) {
-    err = JS_ExecutePendingJob(JS_GetRuntime(ctx), &ctx1);
-    if (err <= 0) {
-      if (err < 0) {
-        // Error executing job - log it but don't crash
-      }
-      break;
-    }
-  }
-}
 
 // Not static - needed by methods.c
 JSContext *JS_NewCustomContext(JSRuntime *rt) {

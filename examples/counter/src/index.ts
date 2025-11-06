@@ -15,11 +15,13 @@ export class CounterApp {
 // Init function returns state object (like Rust SDK pattern)
 // The C wrapper will serialize this and call commitDelta
 export function init() {
-  return {
-    count: {
-      counts: {}
-    }
-  };
+  const app = new CounterApp();
+  return app;
+}
+
+// Test function - top-level export to test QuickJS execution
+export function hello() {
+  return "hello world from QuickJS!";
 }
 
 @Logic(CounterApp)
