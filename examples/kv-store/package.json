@@ -1,0 +1,18 @@
+{
+  "name": "kv-store-example",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Key-value store example for Calimero",
+  "scripts": {
+    "build:manual": "calimero-sdk build src/index.ts -o build/contract.wasm",
+    "clean": "rm -rf build"
+  },
+  "dependencies": {
+    "@calimero/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@calimero/cli": "workspace:*",
+    "typescript": "^5.3.3"
+  }
+}
+

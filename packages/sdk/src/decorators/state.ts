@@ -1,0 +1,26 @@
+/**
+ * @State decorator
+ *
+ * Marks a class as the application state container.
+ * The decorated class will be automatically serialized/deserialized
+ * and persisted across function calls.
+ *
+ * @example
+ * ```typescript
+ * @State
+ * export class MyApp {
+ *   items: UnorderedMap<string, string>;
+ *
+ *   constructor() {
+ *     this.items = new UnorderedMap();
+ *   }
+ * }
+ * ```
+ */
+export function State<T extends new (...args: any[]) => any>(target: T): T {
+  // Mark as state class
+  (target as any)._calimeroState = true;
+
+  return target;
+}
+

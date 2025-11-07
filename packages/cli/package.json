@@ -1,0 +1,62 @@
+{
+  "name": "@calimero/cli",
+  "version": "0.1.0",
+  "description": "CLI build tools for Calimero applications",
+  "type": "module",
+  "main": "./lib/cli.js",
+  "types": "./lib/cli.d.ts",
+  "bin": {
+    "calimero-sdk": "./bin/calimero-sdk.js"
+  },
+  "files": [
+    "lib/**/*",
+    "bin/**/*",
+    "builder/**/*",
+    "scripts/**/*",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf lib",
+    "test": "jest --passWithNoTests",
+    "install-deps": "bash scripts/install-deps.sh"
+  },
+  "keywords": [
+    "calimero",
+    "cli",
+    "build",
+    "quickjs",
+    "wasm",
+    "compiler"
+  ],
+  "author": "Calimero Network",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/calimero-network/calimero-sdk-js.git",
+    "directory": "packages/cli"
+  },
+  "dependencies": {
+    "@babel/core": "^7.23.6",
+    "@babel/parser": "^7.23.6",
+    "@babel/preset-env": "^7.23.6",
+    "@babel/traverse": "^7.23.6",
+    "@rollup/plugin-babel": "^6.0.4",
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "commander": "^11.1.0",
+    "rollup": "^4.9.1",
+    "signale": "^1.4.0"
+  },
+  "devDependencies": {
+    "@types/babel__core": "^7.20.5",
+    "@types/babel__traverse": "^7.20.5",
+    "@types/jest": "^29.5.11",
+    "@types/node": "^20.10.6",
+    "@types/signale": "^1.4.7",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.3.3"
+  }
+}
