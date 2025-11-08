@@ -1,100 +1,132 @@
 /**
- * Vector - Ordered list CRDT
- *
- * A distributed ordered list that maintains insertion order.
+ * Vector - Ordered list CRDT backed by the Rust host implementation.
  */
 
 import { serialize, deserialize } from '../utils/serialize';
-import * as env from '../env/api';
+import { vectorNew, vectorLen, vectorPush, vectorGet, vectorPop } from '../runtime/storage-wasm';
+import { registerCollectionType, CollectionSnapshot } from '../runtime/collections';
+
+export interface VectorOptions {
+  id?: Uint8Array | string;
+}
 
 export class Vector<T> {
-  private prefix: Uint8Array;
-  private lenKey: Uint8Array;
+  private readonly vectorId: Uint8Array;
+
+  constructor(options: VectorOptions = {}) {
+    if (options.id) {
+      this.vectorId = normalizeId(options.id);
+    } else {
+      this.vectorId = vectorNew();
+    }
+  }
 
   /**
-   * Creates a new Vector
-   *
-   * @param prefix - Optional prefix for storage keys
+   * Create a vector populated with the provided values.
    */
-  constructor(prefix: string = '') {
-    const encoder = new TextEncoder();
-    this.prefix = encoder.encode(prefix || this._generatePrefix());
-    this.lenKey = new Uint8Array([...this.prefix, 0xFF]);
-  }
-
-  private _generatePrefix(): string {
-    return `vec_${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  private _indexKey(index: number): Uint8Array {
-    const indexBytes = new Uint8Array(4);
-    new DataView(indexBytes.buffer).setUint32(0, index, true);
-    const combined = new Uint8Array(this.prefix.length + 4);
-    combined.set(this.prefix, 0);
-    combined.set(indexBytes, this.prefix.length);
-    return combined;
+  static fromArray<U>(values: U[], options: VectorOptions = {}): Vector<U> {
+    const vector = new Vector<U>(options);
+    for (const value of values) {
+      vector.push(value);
+    }
+    return vector;
   }
 
   /**
-   * Appends a value to the end of the vector
-   *
-   * @param value - Value to append
+   * Returns the identifier of this vector as a hex string.
+   */
+  id(): string {
+    return bytesToHex(this.vectorId);
+  }
+
+  /**
+   * Returns a copy of the identifier bytes.
+   */
+  idBytes(): Uint8Array {
+    return new Uint8Array(this.vectorId);
+  }
+
+  /**
+   * Appends a value to the end of the vector.
    */
   push(value: T): void {
-    const len = this.len();
-    const key = this._indexKey(len);
-    env.storageWrite(key, serialize(value));
-    this._setLen(len + 1);
+    vectorPush(this.vectorId, serialize(value));
   }
 
   /**
-   * Gets the value at the given index
-   *
-   * @param index - Index to get
-   * @returns Value if exists, null otherwise
+   * Gets the value at the given index.
    */
   get(index: number): T | null {
-    if (index >= this.len()) return null;
-    const key = this._indexKey(index);
-    const raw = env.storageRead(key);
-    if (!raw) return null;
-    return deserialize<T>(raw);
+    const raw = vectorGet(this.vectorId, index);
+    return raw ? deserialize<T>(raw) : null;
   }
 
   /**
-   * Gets the length of the vector
-   *
-   * @returns Current length
+   * Gets the length of the vector.
    */
   len(): number {
-    const raw = env.storageRead(this.lenKey);
-    if (!raw) return 0;
-    return new DataView(raw.buffer).getUint32(0, true);
+    return vectorLen(this.vectorId);
   }
 
   /**
-   * Removes and returns the last element
-   *
-   * @returns Last element, or null if empty
+   * Removes and returns the last element.
    */
   pop(): T | null {
-    const len = this.len();
-    if (len === 0) return null;
-
-    const lastIndex = len - 1;
-    const value = this.get(lastIndex);
-
-    const key = this._indexKey(lastIndex);
-    env.storageRemove(key);
-    this._setLen(lastIndex);
-
-    return value;
+    const raw = vectorPop(this.vectorId);
+    return raw ? deserialize<T>(raw) : null;
   }
 
-  private _setLen(len: number): void {
-    const buf = new Uint8Array(4);
-    new DataView(buf.buffer).setUint32(0, len, true);
-    env.storageWrite(this.lenKey, buf);
+  /**
+   * Reads the entire vector into a JavaScript array.
+   */
+  toArray(): T[] {
+    const length = vectorLen(this.vectorId);
+    const values: T[] = [];
+    for (let index = 0; index < length; index++) {
+      const raw = vectorGet(this.vectorId, index);
+      if (raw) {
+        values.push(deserialize<T>(raw));
+      }
+    }
+    return values;
+  }
+
+  toJSON(): Record<string, unknown> {
+    return {
+      __calimeroCollection: 'Vector',
+      id: this.id()
+    };
   }
 }
 
+registerCollectionType('Vector', (snapshot: CollectionSnapshot) => new Vector({ id: snapshot.id }));
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map(byte => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  const normalized = hex.trim().toLowerCase();
+  if (normalized.length !== 64 || !/^[0-9a-f]+$/.test(normalized)) {
+    throw new TypeError('Vector id hex string must be 64 hexadecimal characters');
+  }
+
+  const bytes = new Uint8Array(normalized.length / 2);
+  for (let i = 0; i < normalized.length; i += 2) {
+    bytes[i / 2] = parseInt(normalized.slice(i, i + 2), 16);
+  }
+  return bytes;
+}
+
+function normalizeId(id: Uint8Array | string): Uint8Array {
+  if (id instanceof Uint8Array) {
+    if (id.length !== 32) {
+      throw new TypeError('Vector id must be 32 bytes');
+    }
+    return new Uint8Array(id);
+  }
+
+  return hexToBytes(id);
+}

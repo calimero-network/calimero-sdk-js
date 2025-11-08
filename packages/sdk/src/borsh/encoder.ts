@@ -36,12 +36,31 @@ export class BorshWriter {
   }
 
   /**
+   * Write a 64-bit floating point number (f64) in little-endian
+   */
+  writeF64(value: number): void {
+    const view = new DataView(new ArrayBuffer(8));
+    view.setFloat64(0, value, true);
+    for (let i = 0; i < 8; i++) {
+      this.buffer.push(view.getUint8(i));
+    }
+  }
+
+  /**
    * Write a fixed-size byte array
    */
   writeFixedArray(bytes: Uint8Array): void {
     for (let i = 0; i < bytes.length; i++) {
       this.buffer.push(bytes[i]);
     }
+  }
+
+  /**
+   * Write a variable-length byte array (u32 length + bytes)
+   */
+  writeBytes(bytes: Uint8Array): void {
+    this.writeU32(bytes.length);
+    this.writeFixedArray(bytes);
   }
 
   /**

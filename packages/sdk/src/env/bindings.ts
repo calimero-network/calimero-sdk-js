@@ -9,13 +9,41 @@
  * Host environment interface provided by QuickJS runtime
  */
 export interface HostEnv {
+  panic_utf8(message: Uint8Array): never;
   // Logging
   log_utf8(msg: Uint8Array): void;
+  value_return(value: Uint8Array): void;
 
   // Storage
   storage_read(key: Uint8Array, register_id: bigint): bigint;
   storage_write(key: Uint8Array, value: Uint8Array, register_id: bigint): bigint;
   storage_remove(key: Uint8Array, register_id: bigint): bigint;
+  js_crdt_map_new(register_id: bigint): number;
+  js_crdt_map_get(mapId: Uint8Array, key: Uint8Array, register_id: bigint): number;
+  js_crdt_map_insert(mapId: Uint8Array, key: Uint8Array, value: Uint8Array, register_id: bigint): number;
+  js_crdt_map_remove(mapId: Uint8Array, key: Uint8Array, register_id: bigint): number;
+  js_crdt_map_contains(mapId: Uint8Array, key: Uint8Array): number;
+  js_crdt_map_iter(mapId: Uint8Array, register_id: bigint): number;
+  js_crdt_vector_new(register_id: bigint): number;
+  js_crdt_vector_len(vectorId: Uint8Array, register_id: bigint): number;
+  js_crdt_vector_push(vectorId: Uint8Array, value: Uint8Array): number;
+  js_crdt_vector_get(vectorId: Uint8Array, index: bigint, register_id: bigint): number;
+  js_crdt_vector_pop(vectorId: Uint8Array, register_id: bigint): number;
+  js_crdt_set_new(register_id: bigint): number;
+  js_crdt_set_insert(setId: Uint8Array, value: Uint8Array): number;
+  js_crdt_set_contains(setId: Uint8Array, value: Uint8Array): number;
+  js_crdt_set_remove(setId: Uint8Array, value: Uint8Array): number;
+  js_crdt_set_len(setId: Uint8Array, register_id: bigint): number;
+  js_crdt_set_iter(setId: Uint8Array, register_id: bigint): number;
+  js_crdt_set_clear(setId: Uint8Array): number;
+  js_crdt_lww_new(register_id: bigint): number;
+  js_crdt_lww_set(registerId: Uint8Array, value: Uint8Array | null): number;
+  js_crdt_lww_get(registerId: Uint8Array, register_id: bigint): number;
+  js_crdt_lww_timestamp(registerId: Uint8Array, register_id: bigint): number;
+  js_crdt_counter_new(register_id: bigint): number;
+  js_crdt_counter_increment(counterId: Uint8Array): number;
+  js_crdt_counter_value(counterId: Uint8Array, register_id: bigint): number;
+  js_crdt_counter_get_executor_count(counterId: Uint8Array, register_id: bigint, executorId?: Uint8Array): number;
 
   // Context
   context_id(register_id: bigint): void;
@@ -26,6 +54,7 @@ export interface HostEnv {
   emit_with_handler(kind: Uint8Array, data: Uint8Array, handler: Uint8Array): void;
 
   // Registers
+  input(register_id: bigint): void;
   register_len(register_id: bigint): bigint;
   read_register(register_id: bigint, buf: Uint8Array): boolean;
 

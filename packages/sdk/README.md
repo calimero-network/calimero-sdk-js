@@ -38,6 +38,8 @@ export class MyAppLogic {
 }
 ```
 
+All values, return payloads, and collection snapshots are serialized with Calimero’s Borsh encoder. Nested CRDTs or complex objects are supported as long as you keep data structures serializable (avoid functions, symbols, etc.).
+
 ## Documentation
 
 See the [main repository documentation](../../README.md) for complete guides and API reference.

@@ -17,9 +17,12 @@
  * }
  * ```
  */
+import { StateManager } from '../runtime/state-manager';
+
 export function State<T extends new (...args: any[]) => any>(target: T): T {
   // Mark as state class
   (target as any)._calimeroState = true;
+  StateManager.setStateClass(target);
 
   return target;
 }

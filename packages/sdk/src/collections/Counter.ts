@@ -1,88 +1,130 @@
 /**
- * Counter - G-Counter (Grow-only Counter) CRDT
- *
- * A distributed counter that supports increment operations.
- * Each node tracks its own count, and the total is the sum of all counts.
+ * Counter - G-Counter (Grow-only Counter) CRDT backed by the Rust host implementation.
  */
 
-import { serialize, deserialize } from '../utils/serialize';
-import * as env from '../env/api';
-import { DeltaContext } from './internal/DeltaContext';
+import {
+  counterNew,
+  counterIncrement,
+  counterValue,
+  counterGetExecutorCount
+} from '../runtime/storage-wasm';
+import { registerCollectionType, CollectionSnapshot } from '../runtime/collections';
 
-interface CounterData {
-  // Map of executor_id -> count
-  counts: Record<string, number>;
+export interface CounterOptions {
+  id?: Uint8Array | string;
 }
 
 export class Counter {
-  private prefix: Uint8Array;
-  private data: CounterData;
+  private readonly counterId: Uint8Array;
 
-  /**
-   * Creates a new Counter
-   *
-   * @param prefix - Optional prefix for storage
-   */
-  constructor(prefix: string = '') {
-    const encoder = new TextEncoder();
-    this.prefix = encoder.encode(prefix || `counter_${Math.random().toString(36).substr(2, 9)}`);
-    
-    // Load existing data or initialize
-    const raw = env.storageRead(this.prefix);
-    if (raw) {
-      this.data = deserialize<CounterData>(raw);
+  constructor(options: CounterOptions = {}) {
+    if (options.id) {
+      this.counterId = normalizeId(options.id);
     } else {
-      this.data = { counts: {} };
+      this.counterId = counterNew();
     }
   }
 
+  id(): string {
+    return bytesToHex(this.counterId);
+  }
+
+  idBytes(): Uint8Array {
+    return new Uint8Array(this.counterId);
+  }
+
   /**
-   * Increments the counter for the current executor
+   * Increments the counter for the current executor.
    */
   increment(): void {
-    const executor = this._getExecutorKey();
-    const current = this.data.counts[executor] || 0;
-    this.data.counts[executor] = current + 1;
-
-    // Save updated data
-    const serialized = serialize(this.data);
-    env.storageWrite(this.prefix, serialized);
-
-    // Track in delta
-    DeltaContext.addAction({
-      type: 'Update',
-      key: this.prefix,
-      value: serialized,
-      timestamp: Number(env.timeNow())
-    });
+    counterIncrement(this.counterId);
   }
 
   /**
-   * Gets the total count across all executors
+   * Increments the counter by the provided amount.
    *
-   * @returns Total count
+   * @param amount - Non-negative integer amount to add
+   */
+  incrementBy(amount: number | bigint): void {
+    const steps = normalizeAmount(amount);
+    for (let i = 0; i < steps; i++) {
+      counterIncrement(this.counterId);
+    }
+  }
+
+  /**
+   * Gets the total count across all executors.
    */
   value(): bigint {
-    let total = 0;
-    for (const count of Object.values(this.data.counts)) {
-      total += count;
-    }
-    return BigInt(total);
+    return counterValue(this.counterId);
   }
 
   /**
-   * Gets the count for a specific executor
+   * Gets the count for a specific executor.
+   * If no executor ID is provided, the current executor is used.
    */
   getExecutorCount(executorId?: string): number {
-    const executor = executorId || this._getExecutorKey();
-    return this.data.counts[executor] || 0;
+    const value = counterGetExecutorCount(
+      this.counterId,
+      executorId ? hexToBytes(executorId) : undefined
+    );
+    return Number(value);
   }
 
-  private _getExecutorKey(): string {
-    const id = env.executorId();
-    return Array.from(id)
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
+  toJSON(): Record<string, unknown> {
+    return {
+      __calimeroCollection: 'Counter',
+      id: this.id()
+    };
   }
 }
 
+registerCollectionType('Counter', (snapshot: CollectionSnapshot) => new Counter({ id: snapshot.id }));
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map(byte => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  const normalized = hex.trim().toLowerCase();
+  if (normalized.length !== 64 || !/^[0-9a-f]+$/.test(normalized)) {
+    throw new TypeError('Counter id hex string must be 64 hexadecimal characters');
+  }
+
+  const bytes = new Uint8Array(normalized.length / 2);
+  for (let i = 0; i < normalized.length; i += 2) {
+    bytes[i / 2] = parseInt(normalized.slice(i, i + 2), 16);
+  }
+  return bytes;
+}
+
+function normalizeId(id: Uint8Array | string): Uint8Array {
+  if (id instanceof Uint8Array) {
+    if (id.length !== 32) {
+      throw new TypeError('Counter id must be 32 bytes');
+    }
+    return new Uint8Array(id);
+  }
+
+  return hexToBytes(id);
+}
+
+function normalizeAmount(amount: number | bigint): number {
+  if (typeof amount === 'bigint') {
+    if (amount < 0n) {
+      throw new RangeError('Counter increment amount must be non-negative');
+    }
+    if (amount > BigInt(Number.MAX_SAFE_INTEGER)) {
+      throw new RangeError('Counter increment amount exceeds safe integer range');
+    }
+    return Number(amount);
+  }
+
+  if (!Number.isFinite(amount) || !Number.isInteger(amount) || amount < 0) {
+    throw new RangeError('Counter increment amount must be a non-negative integer');
+  }
+
+  return amount;
+}

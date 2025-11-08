@@ -21,6 +21,11 @@
       "import": "./lib/env/api.js",
       "require": "./lib/env/api.js"
     },
+    "./runtime/dispatcher": {
+      "types": "./lib/runtime/dispatcher.d.ts",
+      "import": "./lib/runtime/dispatcher.js",
+      "require": "./lib/runtime/dispatcher.js"
+    },
     "./borsh": {
       "types": "./lib/borsh/index.d.ts",
       "import": "./lib/borsh/index.js",

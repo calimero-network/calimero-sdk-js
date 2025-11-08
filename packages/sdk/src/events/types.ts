@@ -7,9 +7,10 @@
  */
 export interface AppEvent {
   /**
-   * Serializes the event to JSON
+   * Serializes the event payload.
+   * Return `Uint8Array` for pre-serialized bytes, a plain object/string, or leave undefined to let the SDK serialize automatically.
    */
-  serialize(): string;
+  serialize?(): Uint8Array | object | string;
 }
 
 /**

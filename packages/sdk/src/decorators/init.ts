@@ -1,3 +1,5 @@
+import { registerInit } from '../runtime/method-registry';
+
 /**
  * @Init decorator
  *
@@ -20,15 +22,13 @@ export function Init(
   propertyKey: string,
   descriptor: PropertyDescriptor
 ): void {
-  // Store init method name on the class constructor
-  target._calimeroInitMethod = propertyKey;
-
-  // TODO: Register in method registry
-  // MethodRegistry.registerInit(propertyKey, descriptor.value);
-
-  // Ensure it's a static method
   if (typeof target !== 'function') {
     throw new Error('@Init decorator can only be used on static methods');
   }
+
+  target._calimeroInitMethod = propertyKey;
+
+  registerInit(target, propertyKey);
 }
+
 

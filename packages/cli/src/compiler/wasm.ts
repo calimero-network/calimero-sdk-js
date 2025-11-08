@@ -4,7 +4,7 @@
  * Compiles C code to WebAssembly using Clang/WASI-SDK
  */
 
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -57,15 +57,16 @@ export async function compileToWasm(
     path.join(quickjsDir, 'cutils.c'),
     path.join(quickjsDir, 'quickjs-libc-min.c'), // RE-ADDED (matching NEAR SDK!)
     path.join(quickjsDir, 'libbf.c')
-  ].join(' ');
+  ];
 
   // Include directories
-  const includes = [
+  const includeFlags = [
     `-I${quickjsDir}`,
     `-I${options.outputDir}` // For code.h and methods.h
-  ].join(' ');
+  ];
 
   // Compiler flags
+  /*
   const flags = [
     '--target=wasm32-wasi', // WASM target
     `--sysroot=${wasiSdk}/share/wasi-sysroot`, // WASI sysroot for standard headers
@@ -75,11 +76,30 @@ export async function compileToWasm(
     '-fno-exceptions',
     '-DCONFIG_VERSION=\\"2021-03-27\\"',
     '-DCONFIG_BIGNUM',
+    '-DCONFIG_WASM_MODULE',
     '-DJS_STRICT_NAN_BOXING',
     '-Wno-unused-parameter',
     '-Wl,--allow-undefined' // Allow undefined symbols (from Calimero runtime)
   ].join(' ');
-
+  */
+  const flagsArray = [
+    '--target=wasm32-wasi',
+    `--sysroot=${wasiSdk}/share/wasi-sysroot`,
+    '-nostartfiles',
+    '-Og',
+    '-g',
+    '-fno-exceptions',
+    '-DCONFIG_VERSION="2021-03-27"',
+    '-DCONFIG_BIGNUM',
+    '-DCONFIG_WASM_MODULE',
+    '-DJS_STRICT_NAN_BOXING',
+    '-Wno-unused-parameter',
+    '-Wl,--allow-undefined',
+    '-Wl,--export-table',
+    '-Wl,--export=__wasm_call_ctors',
+    '-Wl,--export=__data_end',
+    '-Wl,--export=__heap_base'
+  ];
   // Extract method names from methods.h to explicitly export them
   const methodsH = path.join(options.outputDir, 'methods.h');
   const methodExports: string[] = [];
@@ -87,7 +107,7 @@ export async function compileToWasm(
     const methodsContent = fs.readFileSync(methodsH, 'utf-8');
     const methodMatches = methodsContent.matchAll(/DEFINE_CALIMERO_METHOD\((\w+)\)/g);
     for (const match of methodMatches) {
-      methodExports.push(`-Wl,--export=${match[1]}`);
+      methodExports.push(`-Wl,--export=calimero_method_${match[1]}`);
     }
   }
 
@@ -96,27 +116,27 @@ export async function compileToWasm(
     '-Wl,--no-entry', // No main function
     '-Wl,--allow-undefined', // Allow undefined host functions
     ...methodExports // Explicitly export each method
-  ].join(' ');
+  ];
 
   // Save unoptimized WASM for debugging
   const unoptimizedFile = outputFile.replace('.wasm', '.unoptimized.wasm');
   
-  const cmd = [
-    `${wasiSdk}/bin/clang`,
-    flags,
-    includes,
-    linkerFlags,
-    `-o ${unoptimizedFile}`,
-    sources
-  ].join(' ');
+  const args = [
+    ...flagsArray,
+    ...includeFlags,
+    ...linkerFlags,
+    '-o',
+    unoptimizedFile,
+    ...sources
+  ];
 
   if (options.verbose) {
     console.log(`Compiling to WASM...`);
-    console.log(`Command: ${cmd}`);
+    console.log(`Command: ${wasiSdk}/bin/clang ${args.join(' ')}`);
   }
 
   try {
-    execSync(cmd, {
+    execFileSync(`${wasiSdk}/bin/clang`, args, {
       stdio: options.verbose ? 'inherit' : 'pipe',
       cwd: process.cwd()
     });

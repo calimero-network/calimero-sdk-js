@@ -1,3 +1,5 @@
+import { registerLogic } from '../runtime/method-registry';
+
 /**
  * @Logic decorator
  *
@@ -21,19 +23,18 @@
  */
 export function Logic(stateClass: any) {
   return function <T extends new (...args: any[]) => any>(target: T): T {
-    // Store state class reference
     (target as any)._calimeroStateClass = stateClass;
     (target as any)._calimeroLogic = true;
 
-    // Scan for methods to export
     const methodNames = Object.getOwnPropertyNames(target.prototype).filter(
-      name => name !== 'constructor' && 
+      name => name !== 'constructor' &&
              name !== '_calimeroInitMethod' &&
              typeof target.prototype[name] === 'function'
     );
 
-    // Store methods list
     (target as any)._calimeroMethods = methodNames;
+
+    registerLogic(target, methodNames, stateClass);
 
     return target;
   };

@@ -1,5 +1,30 @@
 # Dependencies
 node_modules/
+**/node_modules/
+pnpm-debug.log*
+npm-debug.log*
+yarn-error.log*
+
+# Editor & OS cruft
+.DS_Store
+.idea/
+
+# Build artifacts
+dist/
+build/
+coverage/
+*.tsbuildinfo
+**/build/
+
+# Generated data
+data/
+
+# Example outputs
+examples/*/build/
+examples/*/dist/
+examples/*/coverage/
+# Dependencies
+node_modules/
 .pnpm-store/
 
 # Build outputs
@@ -46,10 +71,6 @@ temp/
 packages/cli/src/deps/quickjs/
 packages/cli/src/deps/wasi-sdk/
 packages/cli/src/deps/binaryen/
-
-# Rust shim build artifacts
-packages/cli/shim/target/
-packages/cli/shim/Cargo.lock
 
 # Merobox workflows (local testing only)
 merobox-workflows/
