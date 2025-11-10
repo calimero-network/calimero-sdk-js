@@ -109,6 +109,66 @@ export function executorId(): Uint8Array {
 }
 
 /**
+ * Gets the current executor ID as a hexadecimal string
+ *
+ * @returns Hex representation of the executor ID
+ */
+export function executorIdHex(): string {
+  const id = executorId();
+  return bytesToHex(id);
+}
+
+/**
+ * Gets the current executor ID encoded as base58
+ *
+ * @returns Base58 representation of the executor ID
+ */
+export function executorIdBase58(): string {
+  const id = executorId();
+  return bytesToBase58(id);
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  let out = '';
+  for (let i = 0; i < bytes.length; i += 1) {
+    out += bytes[i].toString(16).padStart(2, '0');
+  }
+  return out;
+}
+
+function bytesToBase58(bytes: Uint8Array): string {
+  const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  if (bytes.length === 0) {
+    return '';
+  }
+
+  const digits: number[] = [0];
+
+  for (let i = 0; i < bytes.length; i += 1) {
+    let carry = bytes[i];
+    for (let j = 0; j < digits.length; j += 1) {
+      const value = (digits[j] << 8) + carry;
+      digits[j] = value % 58;
+      carry = Math.floor(value / 58);
+    }
+    while (carry > 0) {
+      digits.push(carry % 58);
+      carry = Math.floor(carry / 58);
+    }
+  }
+
+  // handle leading zeros
+  for (let i = 0; i < bytes.length && bytes[i] === 0; i += 1) {
+    digits.push(0);
+  }
+
+  return digits
+    .reverse()
+    .map(digit => alphabet[digit])
+    .join('');
+}
+
+/**
  * Reads a value from storage
  *
  * @param key - Storage key

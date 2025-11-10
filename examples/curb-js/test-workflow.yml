@@ -1,0 +1,163 @@
+description: Curb Application Test Workflow
+name: Curb App Test
+
+nodes:
+  chain_id: testnet-1
+  count: 1
+  image: ghcr.io/calimero-network/merod:edge
+  prefix: curb-node
+
+steps:
+  # Step 1: Install the Curb application
+  - name: Install Curb Application
+    type: install_application
+    node: curb-node-1
+    path: './build/curb.wasm'
+    dev: true
+    outputs:
+      app_id: applicationId
+
+  # Step 2: Create a context for the Curb app
+  - name: Create Curb Context
+    type: create_context
+    node: curb-node-1
+    application_id: '{{app_id}}'
+    params: '{"ownerUsername": "testuser", "defaultChannels": [{"name": "general"}], "isDMchat": false}'
+    outputs:
+      context_id: contextId
+      member_public_key: memberPublicKey
+
+  # Step 3: Wait for context creation and sync
+  - name: Wait for Curb Context Creation
+    type: wait
+    seconds: 1
+
+  # Step 4: Get initial members
+  - name: Get Global Chat Members
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getGlobalMembers
+    args: {}
+    outputs:
+      initial_members: result.output
+
+  # Step 5: Create a public channel
+  - name: Create Public Channel
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: createChannel
+    args:
+      channelId: events
+      options:
+        type: public
+        readOnly: false
+    outputs:
+      create_channel_result: result.output
+
+  # Step 6: Fetch channels for owner
+  - name: Get Owner Channels
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getChannels
+    args: {}
+    outputs:
+      owner_channels: result.output
+
+  # Step 7: Fetch all default & public channels
+  - name: Get All Visible Channels
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getAllChannels
+    args: {}
+    outputs:
+      visible_channels: result.output
+
+  # Step 8: Add another member to the channel
+  - name: Add Member To Channel
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: addMemberToChannel
+    args:
+      channelId: events
+      userId: user-2
+      username: user2
+    outputs:
+      add_member_result: result.output
+
+  # Step 9: Promote the new member to moderator
+  - name: Promote Channel Moderator
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: addChannelModerator
+    args:
+      channelId: events
+      userId: user-2
+    outputs:
+      promote_result: result.output
+
+  # Step 10: Fetch single channel state
+  - name: Get Events Channel
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getChannel
+    args:
+      channelId: events
+    outputs:
+      events_channel: result.output
+
+  # Step 11: Demote the moderator
+  - name: Demote Channel Moderator
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: removeChannelModerator
+    args:
+      channelId: events
+      userId: user-2
+    outputs:
+      demote_result: result.output
+
+  # Step 12: Remove member from channel
+  - name: Remove Member From Channel
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: removeMemberFromChannel
+    args:
+      channelId: events
+      userId: user-2
+    outputs:
+      remove_member_result: result.output
+
+  # Step 13: Delete the channel
+  - name: Delete Events Channel
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: deleteChannel
+    args:
+      channelId: events
+    outputs:
+      delete_result: result.output
+
+# Configuration options
+stop_all_nodes: false
+restart: true
+wait_timeout: 60

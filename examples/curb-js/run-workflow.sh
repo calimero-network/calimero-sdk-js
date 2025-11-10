@@ -1,0 +1,1 @@
+rm -rf data && merobox bootstrap run test-workflow.yml
