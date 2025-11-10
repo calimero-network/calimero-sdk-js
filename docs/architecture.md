@@ -92,15 +92,12 @@ TypeScript Source
 Application calls:
   map.set('key', 'value')
        ↓
-DeltaContext.addAction({
-  type: 'Update',
-  key: 'key',
-  value: 'value',
-  timestamp: now()
-})
+Host-backed CRDT collection records action in Rust delta context
        ↓
 On method completion:
-  env.commit(rootHash, artifact)
+  env.flush_delta()
+       ↓
+Runtime serialises pending actions into StorageDelta and commits Merkle root
        ↓
 Runtime creates CausalDelta:
   {
@@ -112,6 +109,34 @@ Runtime creates CausalDelta:
        ↓
 Broadcast to network
 ```
+
+### How this differs from the Rust SDK
+
+Rust contracts are compiled into Wasm but they *execute the storage collections
+inside the host runtime*. Every mutation goes through
+`calimero_storage::Interface`, which updates Merkle hashes, records CRDT
+actions, and eventually emits a causal delta. In other words, Rust never has to
+“hand data back” to the host – it already lives there.
+
+QuickJS, on the other hand, runs inside an isolated JS VM. Collection methods
+execute in guest memory and can only interact with the host by calling `env.*`
+functions. To keep the storage DAG and the execution outcome aligned we expose
+three host calls:
+
+- `env.persist_root_state(doc, created_at, updated_at)` stores the serialized
+  root document through the same storage interface Rust uses, so Merkle hashes
+  and CRDT actions update.
+- `env.flush_delta()` asks the runtime to turn those recorded actions into a
+  causal delta (just like the Rust SDK does automatically after a method
+  returns).
+- `env.commit(root_hash, artifact)` reports the execution result; the core node
+  depends on this metadata for receipts, event handling, and network
+  broadcasts—both the Rust and JS SDKs must provide it exactly once per
+  execution.
+
+These extra steps exist purely because QuickJS cannot mutate host data
+structures directly. They ensure the JS SDK produces the same Merkle roots,
+artifacts, and deltas that the core runtime expects from the Rust SDK.
 
 ## Why QuickJS?
 

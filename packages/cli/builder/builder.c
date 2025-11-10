@@ -138,6 +138,10 @@ extern int32_t js_crdt_counter_increment(uint64_t counter_id_buffer_ptr);
 extern int32_t js_crdt_counter_value(uint64_t counter_id_buffer_ptr, uint64_t register_id);
 extern int32_t js_crdt_counter_get_executor_count(uint64_t counter_id_buffer_ptr, uint64_t executor_buffer_ptr, uint32_t has_executor, uint64_t register_id);
 extern void commit(uint64_t root_hash_buffer_ptr, uint64_t artifact_buffer_ptr);
+extern void persist_root_state(uint64_t doc_buffer_ptr, uint64_t created_at, uint64_t updated_at);
+extern int32_t read_root_state(uint64_t register_id);
+extern void apply_storage_delta(uint64_t delta_buffer_ptr);
+extern int32_t flush_delta(void);
 extern void time_now(uint64_t buffer_ptr);
 extern void value_return(uint64_t value_ptr);
 extern uint64_t blob_create(void);  // Returns PtrSizedInt (u64)
@@ -463,6 +467,15 @@ static JSValue js_storage_read(JSContext *ctx, JSValueConst this_val, int argc, 
   CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
   uint32_t result = storage_read((uint64_t)&key_buf, (uint64_t)register_id);
   return JS_NewUint32(ctx, result);
+}
+
+// Wrapper: read_root_state
+static JSValue js_read_root_state(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  int64_t register_id;
+  JS_ToInt64(ctx, &register_id, argv[0]);
+
+  int32_t result = read_root_state((uint64_t)register_id);
+  return JS_NewInt32(ctx, result);
 }
 
 // Wrapper: storage_write
@@ -1147,6 +1160,64 @@ static JSValue js_commit(JSContext *ctx, JSValueConst this_val, int argc, JSValu
   return JS_UNDEFINED;
 }
 
+// Wrapper: persist_root_state
+static JSValue js_persist_root_state(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+
+  if (argc < 3) {
+    return JS_ThrowTypeError(ctx, "persist_root_state expects 3 arguments");
+  }
+
+  size_t doc_len;
+  uint8_t *doc_ptr = JSValueToUint8Array(ctx, argv[0], &doc_len);
+  if (!doc_ptr) {
+    return JS_EXCEPTION;
+  }
+
+  int64_t created_at = 0;
+  int64_t updated_at = 0;
+
+  if (JS_ToInt64(ctx, &created_at, argv[1]) < 0) {
+    return JS_EXCEPTION;
+  }
+
+  if (JS_ToInt64(ctx, &updated_at, argv[2]) < 0) {
+    return JS_EXCEPTION;
+  }
+
+  CalimeroBuffer doc_buf = make_buffer(doc_ptr, doc_len);
+  persist_root_state((uint64_t)&doc_buf, (uint64_t)created_at, (uint64_t)updated_at);
+  return JS_UNDEFINED;
+}
+
+// Wrapper: apply_storage_delta
+static JSValue js_apply_storage_delta(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+
+  if (argc < 1) {
+    return JS_ThrowTypeError(ctx, "apply_storage_delta expects a single Uint8Array argument");
+  }
+
+  size_t delta_len;
+  uint8_t *delta_ptr = JSValueToUint8Array(ctx, argv[0], &delta_len);
+  if (!delta_ptr) {
+    return JS_EXCEPTION;
+  }
+
+  CalimeroBuffer delta_buf = make_buffer(delta_ptr, delta_len);
+  apply_storage_delta((uint64_t)&delta_buf);
+  return JS_UNDEFINED;
+}
+
+// Wrapper: flush_delta
+static JSValue js_flush_delta(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  (void)argc;
+  (void)argv;
+  int32_t emitted = flush_delta();
+  return JS_NewInt32(ctx, emitted);
+}
+
 // Wrapper: time_now
 static JSValue js_time_now(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   size_t buf_len;
@@ -1279,6 +1350,10 @@ void js_add_calimero_host_functions(JSContext *ctx) {
   
   // Delta
   JS_SetPropertyStr(ctx, env, "commit", JS_NewCFunction(ctx, js_commit, "commit", 2));
+  JS_SetPropertyStr(ctx, env, "persist_root_state", JS_NewCFunction(ctx, js_persist_root_state, "persist_root_state", 3));
+  JS_SetPropertyStr(ctx, env, "apply_storage_delta", JS_NewCFunction(ctx, js_apply_storage_delta, "apply_storage_delta", 1));
+  JS_SetPropertyStr(ctx, env, "read_root_state", JS_NewCFunction(ctx, js_read_root_state, "read_root_state", 1));
+  JS_SetPropertyStr(ctx, env, "flush_delta", JS_NewCFunction(ctx, js_flush_delta, "flush_delta", 0));
   
   // Time
   JS_SetPropertyStr(ctx, env, "time_now", JS_NewCFunction(ctx, js_time_now, "time_now", 1));

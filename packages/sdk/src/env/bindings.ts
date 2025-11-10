@@ -60,6 +60,10 @@ export interface HostEnv {
 
   // Delta
   commit(root: Uint8Array, artifact: Uint8Array): void;
+  persist_root_state(doc: Uint8Array, createdAt: number, updatedAt: number): void;
+  read_root_state(register: bigint): number;
+  apply_storage_delta(delta: Uint8Array): void;
+  flush_delta(): number;
 
   // Time
   time_now(buf: Uint8Array): void;

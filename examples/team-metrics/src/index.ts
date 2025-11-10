@@ -10,7 +10,7 @@ type ContributionNote = {
 type MemberProfileRecord = {
   displayName: string;
   roles: Vector<string>;
-  contributions: bigint;
+  contributions: Counter;
   recentNotes: Vector<ContributionNote>;
 };
 
@@ -19,18 +19,6 @@ export type MemberProfile = {
   roles: string[];
   contributions: bigint;
   recentNotes: ContributionNote[];
-};
-
-type ContributionPayload = {
-  member: string;
-  points: number;
-  note?: string;
-};
-
-type MemberProfileInput = {
-  member: string;
-  displayName: string;
-  roles?: string[];
 };
 
 @State
@@ -54,7 +42,16 @@ export class TeamMetricsLogic extends TeamMetrics {
     return new TeamMetrics();
   }
 
-  setMemberProfile({ member, displayName, roles }: MemberProfileInput): void {
+  setMemberProfile(
+    memberOrPayload: string | { member: string; displayName: string; roles?: string[] },
+    maybeDisplayName?: string,
+    maybeRoles?: string[]
+  ): void {
+    const { member, displayName, roles } = normalizeMemberProfileArgs(
+      memberOrPayload,
+      maybeDisplayName,
+      maybeRoles
+    );
     const existing = this.memberProfiles.get(member);
 
     if (existing) {
@@ -62,17 +59,32 @@ export class TeamMetricsLogic extends TeamMetrics {
       if (roles) {
         existing.roles = Vector.fromArray(roles);
       }
+      const counter = this.memberContributions.get(member);
+      if (counter && existing.contributions !== counter) {
+        existing.contributions = counter;
+      }
       this.memberProfiles.set(member, existing);
       return;
     }
 
-    this.memberProfiles.set(member, createProfileRecord(member, displayName, roles));
+    let counter = this.memberContributions.get(member);
+    if (!counter) {
+      counter = new Counter();
+      this.memberContributions.set(member, counter);
+    }
+
+    this.memberProfiles.set(member, createProfileRecord(member, displayName, roles, counter));
   }
 
-  addContribution({ member, points, note }: ContributionPayload): void {
+  addContribution(
+    payloadOrMember: string | { member: string; points: number; note?: string },
+    maybePoints?: number,
+    maybeNote?: string
+  ): void {
+    const { member, points, note } = normalizeContributionArgs(payloadOrMember, maybePoints, maybeNote);
     env.log(`Adding ${points} points for ${member}`);
+    env.log(`addContribution payload member=${member}, points=${points} (type=${typeof points})`);
 
-    // Get or create member counter
     let memberCounter = this.memberContributions.get(member);
     if (!memberCounter) {
       memberCounter = new Counter();
@@ -81,12 +93,18 @@ export class TeamMetricsLogic extends TeamMetrics {
 
     const increments = normalizePoints(points);
     memberCounter.incrementBy(increments);
+    this.memberContributions.set(member, memberCounter);
     this.totalContributions.incrementBy(increments);
 
-    // Update member profile struct
-    const profile = this.memberProfiles.get(member) ?? createProfileRecord(member);
+    env.log(`Member ${member} counter now ${memberCounter.value().toString()}`);
 
-    profile.contributions += BigInt(increments);
+    const profile =
+      this.memberProfiles.get(member) ?? createProfileRecord(member, undefined, undefined, memberCounter);
+    if (profile.contributions !== memberCounter) {
+      profile.contributions = memberCounter;
+    }
+
+    profile.contributions.incrementBy(increments);
     if (note) {
       const entry: ContributionNote = {
         message: note,
@@ -98,16 +116,25 @@ export class TeamMetricsLogic extends TeamMetrics {
     this.memberProfiles.set(member, profile);
   }
 
-  getMemberMetrics({ member }: { member: string }): bigint {
-    const profile = this.memberProfiles.get(member);
-    return profile ? profile.contributions : 0n;
+  getMemberMetrics(memberOrPayload: string | { member: string }): bigint {
+    const member = typeof memberOrPayload === 'string' ? memberOrPayload : memberOrPayload.member;
+    const counter = this.memberContributions.get(member);
+    if (!counter) {
+      env.log(`Member ${member} counter missing in map`);
+      return 0n;
+    }
+
+    const value = counter.value();
+    env.log(`Member ${member} counter reported value ${value.toString()}`);
+    return value;
   }
 
   getTotalContributions(): bigint {
     return this.totalContributions.value();
   }
 
-  getMemberProfile({ member }: { member: string }): MemberProfile | null {
+  getMemberProfile(memberOrPayload: string | { member: string }): MemberProfile | null {
+    const member = typeof memberOrPayload === 'string' ? memberOrPayload : memberOrPayload.member;
     const profile = this.memberProfiles.get(member);
     if (!profile) {
       return null;
@@ -116,18 +143,63 @@ export class TeamMetricsLogic extends TeamMetrics {
     return {
       displayName: profile.displayName,
       roles: profile.roles.toArray(),
-      contributions: profile.contributions,
+      contributions: profile.contributions.value(),
       recentNotes: profile.recentNotes.toArray()
     };
   }
 }
 
-const createProfileRecord = (member: string, displayName?: string, roles?: string[]): MemberProfileRecord => ({
+const createProfileRecord = (
+  member: string,
+  displayName?: string,
+  roles?: string[],
+  contributions?: Counter
+): MemberProfileRecord => ({
   displayName: displayName ?? member,
   roles: Vector.fromArray(roles ?? []),
-  contributions: 0n,
+  contributions: contributions ?? new Counter(),
   recentNotes: new Vector<ContributionNote>()
 });
+
+function normalizeContributionArgs(
+  payloadOrMember: string | { member: string; points: number; note?: string },
+  maybePoints?: number,
+  maybeNote?: string
+): { member: string; points: number; note?: string } {
+  if (typeof payloadOrMember === 'object' && payloadOrMember !== null) {
+    return {
+      member: payloadOrMember.member,
+      points: payloadOrMember.points,
+      note: payloadOrMember.note
+    };
+  }
+
+  return {
+    member: payloadOrMember,
+    points: maybePoints ?? 0,
+    note: maybeNote
+  };
+}
+
+function normalizeMemberProfileArgs(
+  memberOrPayload: string | { member: string; displayName: string; roles?: string[] },
+  maybeDisplayName?: string,
+  maybeRoles?: string[]
+): { member: string; displayName: string; roles?: string[] } {
+  if (typeof memberOrPayload === 'object' && memberOrPayload !== null) {
+    return {
+      member: memberOrPayload.member,
+      displayName: memberOrPayload.displayName,
+      roles: memberOrPayload.roles
+    };
+  }
+
+  return {
+    member: memberOrPayload,
+    displayName: maybeDisplayName ?? memberOrPayload,
+    roles: maybeRoles
+  };
+}
 
 const normalizePoints = (points: number): number => {
   if (!Number.isFinite(points) || !Number.isInteger(points) || points < 0) {
@@ -135,4 +207,3 @@ const normalizePoints = (points: number): number => {
   }
   return points;
 };
-

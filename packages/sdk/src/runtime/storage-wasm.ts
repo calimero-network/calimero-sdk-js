@@ -38,27 +38,12 @@ import {
   jsCrdtCounterIncrement,
   jsCrdtCounterValue,
   jsCrdtCounterGetExecutorCount,
-  timeNow,
   log
 } from '../env/api';
-import { DeltaContext } from '../collections/internal/DeltaContext';
 
 const REGISTER_ID = 0n;
 const COLLECTION_ID_LENGTH = 32;
-const MAP_ENTRY_PREFIX = '__calimero::map::entry::';
-
 const textDecoder = new TextDecoder();
-const textEncoder = new TextEncoder();
-
-function debug(message: string): void {
-  try {
-    log(`[storage-wasm] ${message}`);
-  } catch (error) {
-    if (typeof console !== 'undefined' && typeof console.log === 'function') {
-      console.log(`[storage-wasm] ${message}`);
-    }
-  }
-}
 
 function readRegisterBytes(): Uint8Array {
   const length = Number(registerLen(REGISTER_ID));
@@ -100,20 +85,13 @@ function bytesToHex(bytes: Uint8Array): string {
   return out;
 }
 
-function buildEntryKey(mapId: Uint8Array, key: Uint8Array): Uint8Array {
-  const composite = `${MAP_ENTRY_PREFIX}${bytesToHex(mapId)}:${bytesToHex(key)}`;
-  return textEncoder.encode(composite);
-}
-
 export function mapNew(): Uint8Array {
   const status = Number(jsCrdtMapNew(REGISTER_ID));
-  debug(`mapNew status=${status}`);
   if (status < 0) {
     decodeError('mapNew');
   }
 
   const id = readRegisterBytes();
-  debug(`mapNew id=${bytesToHex(id)}`);
   if (id.length !== COLLECTION_ID_LENGTH) {
     throw new Error(`[storage] mapNew returned invalid map id length (${id.length})`);
   }
@@ -125,7 +103,6 @@ export function mapGet(mapId: Uint8Array, key: Uint8Array): Uint8Array | null {
   ensureUint8Array(key, 'key');
 
   const status = Number(jsCrdtMapGet(mapId, key, REGISTER_ID));
-  debug(`mapGet map=${bytesToHex(mapId)} key=${bytesToHex(key)} status=${status}`);
   if (status < 0) {
     decodeError('mapGet');
   }
@@ -134,7 +111,6 @@ export function mapGet(mapId: Uint8Array, key: Uint8Array): Uint8Array | null {
   }
 
   const value = readRegisterBytes();
-  debug(`mapGet value=${bytesToHex(value)}`);
   return value;
 }
 
@@ -144,19 +120,15 @@ export function mapInsert(mapId: Uint8Array, key: Uint8Array, value: Uint8Array)
   ensureUint8Array(value, 'value');
 
   const status = Number(jsCrdtMapInsert(mapId, key, value, REGISTER_ID));
-  debug(`mapInsert map=${bytesToHex(mapId)} key=${bytesToHex(key)} value=${bytesToHex(value)} status=${status}`);
   if (status < 0) {
     decodeError('mapInsert');
   }
-
-  DeltaContext.recordUpdate(buildEntryKey(mapId, key), value, timeNow());
 
   if (status === 0) {
     return null;
   }
 
   const previous = readRegisterBytes();
-  debug(`mapInsert previous=${bytesToHex(previous)}`);
   return previous;
 }
 
@@ -165,15 +137,12 @@ export function mapRemove(mapId: Uint8Array, key: Uint8Array): Uint8Array | null
   ensureUint8Array(key, 'key');
 
   const status = Number(jsCrdtMapRemove(mapId, key, REGISTER_ID));
-  debug(`mapRemove map=${bytesToHex(mapId)} key=${bytesToHex(key)} status=${status}`);
   if (status < 0) {
     decodeError('mapRemove');
   }
 
   if (status === 1) {
-    DeltaContext.recordRemove(buildEntryKey(mapId, key), timeNow());
     const previous = readRegisterBytes();
-    debug(`mapRemove previous=${bytesToHex(previous)}`);
     return previous;
   }
 
@@ -185,7 +154,6 @@ export function mapContains(mapId: Uint8Array, key: Uint8Array): boolean {
   ensureUint8Array(key, 'key');
 
   const status = Number(jsCrdtMapContains(mapId, key));
-  debug(`mapContains map=${bytesToHex(mapId)} key=${bytesToHex(key)} status=${status}`);
   if (status < 0) {
     decodeError('mapContains');
   }
@@ -196,7 +164,6 @@ export function mapEntries(mapId: Uint8Array): Array<[Uint8Array, Uint8Array]> {
   ensureCollectionId(mapId, 'mapId');
 
   const status = Number(jsCrdtMapIter(mapId, REGISTER_ID));
-  debug(`mapIter map=${bytesToHex(mapId)} status=${status}`);
   if (status < 0) {
     decodeError('mapIter');
   }
@@ -272,13 +239,11 @@ function readTimestampPayload(): { time: bigint; node: Uint8Array } {
 
 export function vectorNew(): Uint8Array {
   const status = Number(jsCrdtVectorNew(REGISTER_ID));
-  debug(`vectorNew status=${status}`);
   if (status < 0) {
     decodeError('vectorNew');
   }
 
   const id = readRegisterBytes();
-  debug(`vectorNew id=${bytesToHex(id)}`);
   if (id.length !== COLLECTION_ID_LENGTH) {
     throw new Error(`[storage] vectorNew returned invalid id length (${id.length})`);
   }
@@ -289,7 +254,6 @@ export function vectorLen(vectorId: Uint8Array): number {
   ensureCollectionId(vectorId, 'vectorId');
 
   const status = Number(jsCrdtVectorLen(vectorId, REGISTER_ID));
-  debug(`vectorLen id=${bytesToHex(vectorId)} status=${status}`);
   if (status < 0) {
     decodeError('vectorLen');
   }
@@ -302,7 +266,6 @@ export function vectorPush(vectorId: Uint8Array, value: Uint8Array): void {
   ensureUint8Array(value, 'value');
 
   const status = Number(jsCrdtVectorPush(vectorId, value));
-  debug(`vectorPush id=${bytesToHex(vectorId)} value=${bytesToHex(value)} status=${status}`);
   if (status < 0) {
     decodeError('vectorPush');
   }
@@ -315,7 +278,6 @@ export function vectorGet(vectorId: Uint8Array, index: number): Uint8Array | nul
   }
 
   const status = Number(jsCrdtVectorGet(vectorId, BigInt(index), REGISTER_ID));
-  debug(`vectorGet id=${bytesToHex(vectorId)} index=${index} status=${status}`);
   if (status < 0) {
     decodeError('vectorGet');
   }
@@ -330,7 +292,6 @@ export function vectorPop(vectorId: Uint8Array): Uint8Array | null {
   ensureCollectionId(vectorId, 'vectorId');
 
   const status = Number(jsCrdtVectorPop(vectorId, REGISTER_ID));
-  debug(`vectorPop id=${bytesToHex(vectorId)} status=${status}`);
   if (status < 0) {
     decodeError('vectorPop');
   }
@@ -343,13 +304,11 @@ export function vectorPop(vectorId: Uint8Array): Uint8Array | null {
 
 export function setNew(): Uint8Array {
   const status = Number(jsCrdtSetNew(REGISTER_ID));
-  debug(`setNew status=${status}`);
   if (status < 0) {
     decodeError('setNew');
   }
 
   const id = readRegisterBytes();
-  debug(`setNew id=${bytesToHex(id)}`);
   if (id.length !== COLLECTION_ID_LENGTH) {
     throw new Error(`[storage] setNew returned invalid id length (${id.length})`);
   }
@@ -361,7 +320,6 @@ export function setInsert(setId: Uint8Array, value: Uint8Array): boolean {
   ensureUint8Array(value, 'value');
 
   const status = Number(jsCrdtSetInsert(setId, value));
-  debug(`setInsert id=${bytesToHex(setId)} value=${bytesToHex(value)} status=${status}`);
   if (status < 0) {
     decodeError('setInsert');
   }
@@ -373,7 +331,6 @@ export function setContains(setId: Uint8Array, value: Uint8Array): boolean {
   ensureUint8Array(value, 'value');
 
   const status = Number(jsCrdtSetContains(setId, value));
-  debug(`setContains id=${bytesToHex(setId)} value=${bytesToHex(value)} status=${status}`);
   if (status < 0) {
     decodeError('setContains');
   }
@@ -385,7 +342,6 @@ export function setRemove(setId: Uint8Array, value: Uint8Array): boolean {
   ensureUint8Array(value, 'value');
 
   const status = Number(jsCrdtSetRemove(setId, value));
-  debug(`setRemove id=${bytesToHex(setId)} value=${bytesToHex(value)} status=${status}`);
   if (status < 0) {
     decodeError('setRemove');
   }
@@ -396,7 +352,6 @@ export function setLen(setId: Uint8Array): number {
   ensureCollectionId(setId, 'setId');
 
   const status = Number(jsCrdtSetLen(setId, REGISTER_ID));
-  debug(`setLen id=${bytesToHex(setId)} status=${status}`);
   if (status < 0) {
     decodeError('setLen');
   }
@@ -408,7 +363,6 @@ export function setValues(setId: Uint8Array): Uint8Array[] {
   ensureCollectionId(setId, 'setId');
 
   const status = Number(jsCrdtSetIter(setId, REGISTER_ID));
-  debug(`setIter id=${bytesToHex(setId)} status=${status}`);
   if (status < 0) {
     decodeError('setIter');
   }
@@ -454,7 +408,6 @@ export function setClear(setId: Uint8Array): void {
   ensureCollectionId(setId, 'setId');
 
   const status = Number(jsCrdtSetClear(setId));
-  debug(`setClear id=${bytesToHex(setId)} status=${status}`);
   if (status < 0) {
     decodeError('setClear');
   }
@@ -462,13 +415,11 @@ export function setClear(setId: Uint8Array): void {
 
 export function lwwNew(): Uint8Array {
   const status = Number(jsCrdtLwwNew(REGISTER_ID));
-  debug(`lwwNew status=${status}`);
   if (status < 0) {
     decodeError('lwwNew');
   }
 
   const id = readRegisterBytes();
-  debug(`lwwNew id=${bytesToHex(id)}`);
   if (id.length !== COLLECTION_ID_LENGTH) {
     throw new Error(`[storage] lwwNew returned invalid id length (${id.length})`);
   }
@@ -482,7 +433,6 @@ export function lwwSet(registerId: Uint8Array, value: Uint8Array | null): void {
   }
 
   const status = Number(jsCrdtLwwSet(registerId, value));
-  debug(`lwwSet id=${bytesToHex(registerId)} value=${value ? bytesToHex(value) : '<null>'} status=${status}`);
   if (status < 0) {
     decodeError('lwwSet');
   }
@@ -492,7 +442,6 @@ export function lwwGet(registerId: Uint8Array): Uint8Array | null {
   ensureCollectionId(registerId, 'registerId');
 
   const status = Number(jsCrdtLwwGet(registerId, REGISTER_ID));
-  debug(`lwwGet id=${bytesToHex(registerId)} status=${status}`);
   if (status < 0) {
     decodeError('lwwGet');
   }
@@ -507,7 +456,6 @@ export function lwwTimestamp(registerId: Uint8Array): { time: bigint; node: Uint
   ensureCollectionId(registerId, 'registerId');
 
   const status = Number(jsCrdtLwwTimestamp(registerId, REGISTER_ID));
-  debug(`lwwTimestamp id=${bytesToHex(registerId)} status=${status}`);
   if (status < 0) {
     decodeError('lwwTimestamp');
   }
@@ -520,13 +468,11 @@ export function lwwTimestamp(registerId: Uint8Array): { time: bigint; node: Uint
 
 export function counterNew(): Uint8Array {
   const status = Number(jsCrdtCounterNew(REGISTER_ID));
-  debug(`counterNew status=${status}`);
   if (status < 0) {
     decodeError('counterNew');
   }
 
   const id = readRegisterBytes();
-  debug(`counterNew id=${bytesToHex(id)}`);
   if (id.length !== COLLECTION_ID_LENGTH) {
     throw new Error(`[storage] counterNew returned invalid id length (${id.length})`);
   }
@@ -537,7 +483,6 @@ export function counterIncrement(counterId: Uint8Array): void {
   ensureCollectionId(counterId, 'counterId');
 
   const status = Number(jsCrdtCounterIncrement(counterId));
-  debug(`counterIncrement id=${bytesToHex(counterId)} status=${status}`);
   if (status < 0) {
     decodeError('counterIncrement');
   }
@@ -547,12 +492,12 @@ export function counterValue(counterId: Uint8Array): bigint {
   ensureCollectionId(counterId, 'counterId');
 
   const status = Number(jsCrdtCounterValue(counterId, REGISTER_ID));
-  debug(`counterValue id=${bytesToHex(counterId)} status=${status}`);
   if (status < 0) {
     decodeError('counterValue');
   }
 
-  return readBigUint64();
+  const value = readBigUint64();
+  return value;
 }
 
 export function counterGetExecutorCount(counterId: Uint8Array, executorId?: Uint8Array): bigint {
@@ -564,12 +509,12 @@ export function counterGetExecutorCount(counterId: Uint8Array, executorId?: Uint
   const status = Number(
     jsCrdtCounterGetExecutorCount(counterId, REGISTER_ID, executorId ?? undefined)
   );
-  debug(`counterGetExecutorCount id=${bytesToHex(counterId)} executor=${executorId ? bytesToHex(executorId) : '<default>'} status=${status}`);
   if (status < 0) {
     decodeError('counterGetExecutorCount');
   }
 
-  return readBigUint64();
+  const value = readBigUint64();
+  return value;
 }
 
 
