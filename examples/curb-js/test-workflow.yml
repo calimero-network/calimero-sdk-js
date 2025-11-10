@@ -42,6 +42,7 @@ steps:
     args: {}
     outputs:
       initial_members: result.output
+      initial_members_json: result.output
 
   # Step 5: Create a public channel
   - name: Create Public Channel
@@ -57,6 +58,7 @@ steps:
         readOnly: false
     outputs:
       create_channel_result: result.output
+      create_channel_json: result.output
 
   # Step 6: Fetch channels for owner
   - name: Get Owner Channels
@@ -118,6 +120,7 @@ steps:
       channelId: events
     outputs:
       events_channel: result.output
+      events_channel_json: result.output
 
   # Step 11: Demote the moderator
   - name: Demote Channel Moderator

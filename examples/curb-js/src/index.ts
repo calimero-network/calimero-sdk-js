@@ -3,7 +3,12 @@ import { UnorderedMap } from '@calimero/sdk/collections';
 import * as env from '@calimero/sdk/env';
 
 import { ChannelsHandler } from './channels/ChannelsHandler';
-import { ChannelType, type ChannelCreationOptions, type ChannelDefaultInit, type ChannelInfo } from './channels/types';
+import {
+  ChannelType,
+  type ChannelCreationOptions,
+  type ChannelDefaultInit,
+  type ChannelInfo
+} from './channels/types';
 import type { ChatMemberAccess, ChatState, ChannelId, UserId } from './types';
 import {
   ensureMemberRegistered,
@@ -11,6 +16,13 @@ import {
   normalizeUsername,
   validateUsername
 } from './utils/chatUtils';
+
+function wrapResult(value: unknown): string {
+  return JSON.stringify(
+    { result: value },
+    (_key, val) => (typeof val === 'bigint' ? val.toString() : val)
+  );
+}
 
 @State
 export class CurbChat implements ChatState {
@@ -56,8 +68,11 @@ class ChatHandler implements ChatMemberAccess {
     return 'Successfully joined the chat';
   }
 
-  getGlobalMembers(): UserId[] {
-    return this.state.members.keys();
+  getGlobalMembers(): Record<UserId, string> {
+    return this.state.members.entries().reduce<Record<UserId, string>>((acc, [userId, username]) => {
+      acc[userId] = username;
+      return acc;
+    }, {} as Record<UserId, string>);
   }
 
   getUsername(userId: UserId): string | null {
@@ -121,44 +136,110 @@ export class CurbLogicChat extends CurbChat {
     return chat;
   }
 
-  getGlobalMembers(): UserId[] {
-    return this.createChatHandler().getGlobalMembers();
+  getGlobalMembers(): string {
+    return wrapResult(this.createChatHandler().getGlobalMembers());
   }
 
-  getChannel(channelId: ChannelId): ChannelInfo | null {
-    return this.createChannelsHandler().getChannel(channelId);
+  getChannel(arg: { channelId: ChannelId } | ChannelId): string {
+    const channelId = typeof arg === 'string' ? arg : arg?.channelId;
+    if (typeof channelId !== 'string') {
+      return wrapResult(null);
+    }
+    const channel = this.createChannelsHandler().getChannel(channelId);
+    return wrapResult(channel);
   }
 
-  getChannels(): Array<{ channelId: ChannelId; info: ChannelInfo }> {
+  getChannels(): string {
     const chatHandler = this.createChatHandler();
-    return this.createChannelsHandler(chatHandler).getChannelsForUser(chatHandler.getExecutorId());
+    const channels = this.createChannelsHandler(chatHandler).getChannelsForUser(chatHandler.getExecutorId());
+    return wrapResult(channels);
   }
 
-  getAllChannels(): Array<{ channelId: ChannelId; info: ChannelInfo }> {
-    return this.createChannelsHandler().getDefaultAndPublicChannels();
+  getAllChannels(): string {
+    const channels = this.createChannelsHandler().getDefaultAndPublicChannels();
+    return wrapResult(channels);
   }
 
-  joinChat(username: string): string {
-    return this.createChatHandler().join(username);
+  joinChat(arg: { username: string } | string): string {
+    const username = typeof arg === 'string' ? arg : arg?.username ?? '';
+    const result = this.createChatHandler().join(username);
+    return wrapResult(result);
   }
 
-  createChannel(channelId: ChannelId, options: ChannelCreationOptions = {}): string {
-    return this.createChannelsHandler().createChannel(channelId, options);
+  createChannel(
+    arg: { channelId: ChannelId; options?: ChannelCreationOptions } | ChannelId,
+    maybeOptions?: ChannelCreationOptions
+  ): string {
+    if (typeof arg === 'string') {
+      return wrapResult(this.createChannelsHandler().createChannel(arg, maybeOptions));
+    }
+    if (arg && typeof arg === 'object' && typeof arg.channelId === 'string') {
+      return wrapResult(this.createChannelsHandler().createChannel(arg.channelId, arg.options));
+    }
+    return wrapResult('Invalid channelId');
   }
 
-  deleteChannel(channelId: ChannelId): string {
-    return this.createChannelsHandler().deleteChannel(channelId);
+  deleteChannel(arg: { channelId: ChannelId } | ChannelId): string {
+    const channelId = typeof arg === 'string' ? arg : arg?.channelId;
+    if (typeof channelId !== 'string') {
+      return wrapResult('Invalid channelId');
+    }
+    return wrapResult(this.createChannelsHandler().deleteChannel(channelId));
   }
 
-  addChannelModerator(channelId: ChannelId, userId: UserId): string {
-    return this.createChannelsHandler().addChannelModerator(channelId, userId);
+  addChannelModerator(arg: { channelId: ChannelId; userId: UserId } | ChannelId, maybeUserId?: UserId): string {
+    if (typeof arg === 'string') {
+      if (typeof maybeUserId !== 'string') {
+        return wrapResult('Invalid arguments');
+      }
+      return wrapResult(this.createChannelsHandler().addChannelModerator(arg, maybeUserId));
+    }
+    if (arg && typeof arg === 'object' && typeof arg.channelId === 'string' && typeof arg.userId === 'string') {
+      return wrapResult(this.createChannelsHandler().addChannelModerator(arg.channelId, arg.userId));
+    }
+    return wrapResult('Invalid arguments');
   }
 
-  removeChannelModerator(channelId: ChannelId, userId: UserId): string {
-    return this.createChannelsHandler().removeChannelModerator(channelId, userId);
+  removeChannelModerator(arg: { channelId: ChannelId; userId: UserId } | ChannelId, maybeUserId?: UserId): string {
+    if (typeof arg === 'string') {
+      if (typeof maybeUserId !== 'string') {
+        return wrapResult('Invalid arguments');
+      }
+      return wrapResult(this.createChannelsHandler().removeChannelModerator(arg, maybeUserId));
+    }
+    if (arg && typeof arg === 'object' && typeof arg.channelId === 'string' && typeof arg.userId === 'string') {
+      return wrapResult(this.createChannelsHandler().removeChannelModerator(arg.channelId, arg.userId));
+    }
+    return wrapResult('Invalid arguments');
   }
 
-  addMemberToChannel(channelId: ChannelId, userId: UserId, username?: string): string {
-    return this.createChannelsHandler().addMemberToChannel(channelId, userId, username);
+  addMemberToChannel(
+    arg: { channelId: ChannelId; userId: UserId; username?: string } | ChannelId,
+    userIdMaybe?: UserId,
+    usernameMaybe?: string
+  ): string {
+    if (typeof arg === 'string') {
+      if (typeof userIdMaybe !== 'string') {
+        return wrapResult('Invalid arguments');
+      }
+      return wrapResult(this.createChannelsHandler().addMemberToChannel(arg, userIdMaybe, usernameMaybe));
+    }
+    if (arg && typeof arg === 'object' && typeof arg.channelId === 'string' && typeof arg.userId === 'string') {
+      return wrapResult(this.createChannelsHandler().addMemberToChannel(arg.channelId, arg.userId, arg.username));
+    }
+    return wrapResult('Invalid arguments');
+  }
+
+  removeMemberFromChannel(arg: { channelId: ChannelId; userId: UserId } | ChannelId, maybeUserId?: UserId): string {
+    if (typeof arg === 'string') {
+      if (typeof maybeUserId !== 'string') {
+        return wrapResult('Invalid arguments');
+      }
+      return wrapResult(this.createChannelsHandler().removeMemberFromChannel(arg, maybeUserId));
+    }
+    if (arg && typeof arg === 'object' && typeof arg.channelId === 'string' && typeof arg.userId === 'string') {
+      return wrapResult(this.createChannelsHandler().removeMemberFromChannel(arg.channelId, arg.userId));
+    }
+    return wrapResult('Invalid arguments');
   }
 }
