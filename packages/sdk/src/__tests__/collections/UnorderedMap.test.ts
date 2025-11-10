@@ -4,6 +4,7 @@
 
 import '../setup';
 import { UnorderedMap } from '../../collections/UnorderedMap';
+import { UnorderedSet } from '../../collections/UnorderedSet';
 import { clearStorage } from '../setup';
 
 describe('UnorderedMap', () => {
@@ -65,14 +66,26 @@ describe('UnorderedMap', () => {
       interface User {
         name: string;
         age: number;
+        preferences: Map<string, number>;
       }
 
       const map = new UnorderedMap<string, User>();
+      const userPrefs = new Map<string, number>([
+        ['tea', 5],
+        ['coffee', 3]
+      ]);
 
-      map.set('user1', { name: 'Alice', age: 30 });
+      map.set('user1', { name: 'Alice', age: 30, preferences: userPrefs });
       const user = map.get('user1');
 
-      expect(user).toEqual({ name: 'Alice', age: 30 });
+      expect(user).toEqual({
+        name: 'Alice',
+        age: 30,
+        preferences: new Map([
+          ['tea', 5],
+          ['coffee', 3]
+        ])
+      });
     });
 
     it('should work with number keys', () => {
@@ -88,13 +101,44 @@ describe('UnorderedMap', () => {
 
   describe('persistence', () => {
     it('should persist across instances', () => {
-      const prefix = 'test_map';
-
-      const map1 = new UnorderedMap<string, string>(prefix);
+      const map1 = new UnorderedMap<string, string>();
       map1.set('key1', 'value1');
 
-      const map2 = new UnorderedMap<string, string>(prefix);
+      const map2 = UnorderedMap.fromId<string, string>(map1.id());
       expect(map2.get('key1')).toBe('value1');
+    });
+
+    it('should handle nested collections and complex values', () => {
+      const owners = new UnorderedSet<string>({ initialValues: ['alice', 'bob'] });
+      const config = new Map<string, string>([
+        ['region', 'eu'],
+        ['tier', 'gold']
+      ]);
+      const metadata = {
+        tags: new Set(['urgent', 'alpha']),
+        config
+      };
+
+      const map1 = new UnorderedMap<string, typeof metadata>();
+      map1.set('account:test', metadata);
+
+      const map2 = UnorderedMap.fromId<string, typeof metadata>(map1.id());
+      const restored = map2.get('account:test');
+
+      expect(restored?.tags).toEqual(new Set(['urgent', 'alpha']));
+      expect(restored?.config).toEqual(
+        new Map<string, string>([
+          ['region', 'eu'],
+          ['tier', 'gold']
+        ])
+      );
+
+      const nested = new UnorderedMap<string, UnorderedSet<string>>();
+      nested.set('primary', owners);
+
+      const nestedRestored = UnorderedMap.fromId<string, UnorderedSet<string>>(nested.id());
+      const set = nestedRestored.get('primary');
+      expect(set?.toArray().sort()).toEqual(['alice', 'bob']);
     });
   });
 });

@@ -1,39 +1,31 @@
 import { State, Logic, Init } from '@calimero/sdk';
-import { Counter, DeltaContext } from '@calimero/sdk/collections';
-import { BorshWriter } from '@calimero/sdk/borsh';
+import { Counter } from '@calimero/sdk/collections';
 import * as env from '@calimero/sdk/env';
 
 @State
 export class CounterApp {
-  count: Counter;
-
-  constructor() {
-    this.count = new Counter();
-  }
-}
-
-// Init function returns state object (like Rust SDK pattern)
-// The C wrapper will serialize this and call commitDelta
-export function init() {
-  const app = new CounterApp();
-  return app;
-}
-
-// Test function - top-level export to test QuickJS execution
-export function hello() {
-  return "hello world from QuickJS!";
+  count: Counter = new Counter();
 }
 
 @Logic(CounterApp)
 export class CounterLogic extends CounterApp {
+  @Init
+  static init(): CounterApp {
+    env.log('Initializing CounterApp');
+    return new CounterApp();
+  }
+
   increment(): void {
+    env.log('Incrementing counter');
     this.count.increment();
-    // Commit the delta after increment
-    DeltaContext.commit();
   }
 
   getCount(): bigint {
     return this.count.value();
+  }
+
+  hello(): { message: string } {
+    return { message: 'hello world from QuickJS!' };
   }
 }
 

@@ -86,13 +86,11 @@ describe('Vector', () => {
 
   describe('persistence', () => {
     it('should persist across instances', () => {
-      const prefix = 'test_vec';
-
-      const vec1 = new Vector<string>(prefix);
+      const vec1 = new Vector<string>();
       vec1.push('item1');
       vec1.push('item2');
 
-      const vec2 = new Vector<string>(prefix);
+      const vec2 = new Vector<string>({ id: vec1.id() });
       expect(vec2.len()).toBe(2);
       expect(vec2.get(0)).toBe('item1');
       expect(vec2.get(1)).toBe('item2');

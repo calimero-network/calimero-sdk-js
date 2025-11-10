@@ -1,3 +1,14 @@
+import type { AppEvent } from '../events/types';
+
+type Constructor<T = {}> = new (...args: any[]) => T;
+
+type EventConstructor<TBase extends Constructor> = TBase & {
+  new (...args: ConstructorParameters<TBase>): InstanceType<TBase> & AppEvent;
+  deserialize(data: string): InstanceType<TBase> & AppEvent;
+  readonly eventName: string;
+  prototype: InstanceType<TBase> & AppEvent;
+};
+
 /**
  * @Event decorator
  *
@@ -14,16 +25,15 @@
  * }
  * ```
  */
-export function Event<T extends new (...args: any[]) => any>(target: T): T {
-  // Add serialization methods
-  const enhanced = class extends target {
+export function Event<TBase extends Constructor>(target: TBase): EventConstructor<TBase> {
+  const enhanced = class extends target implements AppEvent {
     serialize(): string {
       return JSON.stringify(this);
     }
 
-    static deserialize(data: string): InstanceType<T> {
+    static deserialize(data: string): InstanceType<TBase> & AppEvent {
       const parsed = JSON.parse(data);
-      return Object.assign(new target(), parsed) as InstanceType<T>;
+      return Object.assign(new target(), parsed) as InstanceType<TBase> & AppEvent;
     }
 
     static get eventName(): string {
@@ -31,12 +41,8 @@ export function Event<T extends new (...args: any[]) => any>(target: T): T {
     }
   };
 
-  // Mark as event class
   (enhanced as any)._calimeroEvent = true;
 
-  // TODO: Register in EventRegistry
-  // EventRegistry.register(target.name, enhanced);
-
-  return enhanced as T;
+  return enhanced as unknown as EventConstructor<TBase>;
 }
 

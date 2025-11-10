@@ -1,19 +1,68 @@
-/**
- * Calimero Contract Builder
- *
- * C glue code that:
- * 1. Initializes QuickJS runtime
- * 2. Loads contract bytecode
- * 3. Registers Calimero host functions
- * 4. Exports contract methods as WASM functions
- */
-
+#include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#ifdef CONFIG_BIGNUM
+#define JS_GetBigInt quickjs_decl_JS_GetBigInt
+#endif
 #include "quickjs.h"
 #include "quickjs-libc-min.h"  // ADDED: For js_std_loop and module helpers (matching NEAR SDK!)
 #include "libbf.h"
 #include "code.h"
-#include "methods.h"
+#include "storage_wasm.h"
+
+static void log_c_string(const char *msg);
+
+// ------------------------------------------------------------------
+// QuickJS libc stubs required by qjsc-generated code
+// ------------------------------------------------------------------
+int js_std_d_print(JSContext *ctx, const char *message, size_t length) {
+  (void)ctx;
+
+  if (!message) {
+    log_c_string("[quickjs] js_std_d_print(null)");
+    return 0;
+  }
+
+  size_t safe_len = length;
+  if (safe_len == (size_t)-1) {
+    safe_len = strlen(message);
+  }
+
+  char buffer[512];
+  size_t copy_len = safe_len;
+  if (copy_len >= sizeof(buffer)) {
+    copy_len = sizeof(buffer) - 1;
+  }
+
+  memcpy(buffer, message, copy_len);
+  buffer[copy_len] = '\0';
+
+  log_c_string(buffer);
+  return 0;
+}
+
+#ifdef CONFIG_BIGNUM
+#undef JS_GetBigInt
+static inline bf_t *calimero_get_bigint(JSValueConst val) {
+  JSBigFloat *p = JS_VALUE_GET_PTR(val);
+  return &p->num;
+}
+
+bf_t *JS_GetBigInt(JSValueConst val) {
+  return calimero_get_bigint(val);
+}
+
+bf_t *quickjs_inline_JS_GetBigInt(JSValueConst val) {
+  return calimero_get_bigint(val);
+}
+#endif
+
+void calimero_js_sentinel(void) __attribute__((constructor));
+void calimero_js_sentinel(void) {
+  fprintf(stderr, "[sentinel] quickjs module constructor\n");
+  fflush(stderr);
+}
 
 // ===========================
 // QuickJS Context Setup
@@ -52,6 +101,7 @@ JSContext *JS_NewCustomContext(JSRuntime *rt) {
 // Buffer struct layout (16 bytes): [ptr: u64][len: u64]
 extern void panic_utf8(uint64_t buffer_ptr, uint64_t location_ptr) __attribute__((noreturn));
 extern void log_utf8(uint64_t buffer_ptr);
+extern void input(uint64_t register_id);
 extern uint64_t register_len(uint64_t register_id);  // Returns PtrSizedInt (u64)
 extern uint32_t read_register(uint64_t register_id, uint64_t buffer_ptr);  // Returns Bool (u32)
 extern void context_id(uint64_t register_id);
@@ -61,8 +111,35 @@ extern void emit_with_handler(uint64_t event_ptr, uint64_t handler_buffer_ptr);
 extern uint32_t storage_read(uint64_t key_buffer_ptr, uint64_t register_id);  // Returns Bool (u32)
 extern uint32_t storage_write(uint64_t key_buffer_ptr, uint64_t value_buffer_ptr, uint64_t register_id);  // Returns Bool (u32)
 extern uint32_t storage_remove(uint64_t key_buffer_ptr, uint64_t register_id);  // Returns Bool (u32)
+extern int32_t js_crdt_map_new(uint64_t register_id);
+extern int32_t js_crdt_map_get(uint64_t map_id_buffer_ptr, uint64_t key_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_map_insert(uint64_t map_id_buffer_ptr, uint64_t key_buffer_ptr, uint64_t value_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_map_remove(uint64_t map_id_buffer_ptr, uint64_t key_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_map_contains(uint64_t map_id_buffer_ptr, uint64_t key_buffer_ptr);
+extern int32_t js_crdt_map_iter(uint64_t map_id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_vector_new(uint64_t register_id);
+extern int32_t js_crdt_vector_len(uint64_t vector_id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_vector_push(uint64_t vector_id_buffer_ptr, uint64_t value_buffer_ptr);
+extern int32_t js_crdt_vector_get(uint64_t vector_id_buffer_ptr, uint64_t index, uint64_t register_id);
+extern int32_t js_crdt_vector_pop(uint64_t vector_id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_set_new(uint64_t register_id);
+extern int32_t js_crdt_set_insert(uint64_t set_id_buffer_ptr, uint64_t value_buffer_ptr);
+extern int32_t js_crdt_set_contains(uint64_t set_id_buffer_ptr, uint64_t value_buffer_ptr);
+extern int32_t js_crdt_set_remove(uint64_t set_id_buffer_ptr, uint64_t value_buffer_ptr);
+extern int32_t js_crdt_set_len(uint64_t set_id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_set_iter(uint64_t set_id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_set_clear(uint64_t set_id_buffer_ptr);
+extern int32_t js_crdt_lww_new(uint64_t register_id);
+extern int32_t js_crdt_lww_set(uint64_t register_id_buffer_ptr, uint64_t value_buffer_ptr, uint32_t has_value);
+extern int32_t js_crdt_lww_get(uint64_t register_id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_lww_timestamp(uint64_t register_id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_counter_new(uint64_t register_id);
+extern int32_t js_crdt_counter_increment(uint64_t counter_id_buffer_ptr);
+extern int32_t js_crdt_counter_value(uint64_t counter_id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_counter_get_executor_count(uint64_t counter_id_buffer_ptr, uint64_t executor_buffer_ptr, uint32_t has_executor, uint64_t register_id);
 extern void commit(uint64_t root_hash_buffer_ptr, uint64_t artifact_buffer_ptr);
 extern void time_now(uint64_t buffer_ptr);
+extern void value_return(uint64_t value_ptr);
 extern uint64_t blob_create(void);  // Returns PtrSizedInt (u64)
 extern uint64_t blob_open(uint64_t blob_id_buffer_ptr);  // Returns PtrSizedInt (u64)
 extern uint64_t blob_read(uint64_t fd, uint64_t buffer_ptr);  // Returns PtrSizedInt (u64)
@@ -76,6 +153,13 @@ typedef struct {
   uint64_t ptr;
   uint64_t len;
 } CalimeroBuffer;
+
+static int js_to_i64(JSContext *ctx, JSValueConst value, int64_t *out) {
+  if (JS_IsBigInt(ctx, value)) {
+    return JS_ToBigInt64(ctx, out, value);
+  }
+  return JS_ToInt64(ctx, out, value);
+}
 
 // Event descriptor struct
 typedef struct {
@@ -118,9 +202,243 @@ static uint8_t* JSValueToUint8Array(JSContext *ctx, JSValue val, size_t *len) {
   return ptr ? ptr + offset : NULL;
 }
 
+static void log_c_string(const char *msg) {
+  if (!msg) {
+    return;
+  }
+
+  size_t len = strlen(msg);
+  CalimeroBuffer buf = make_buffer(msg, len);
+  log_utf8((uint64_t)&buf);
+}
+
+static void calimero_log_exception(JSContext *ctx, JSValue exception, const char *stage) {
+  if (stage) {
+    char header[256];
+    snprintf(header, sizeof(header), "[quickjs] exception stage=%s", stage);
+    log_c_string(header);
+  }
+
+  if (JS_IsUndefined(exception)) {
+    log_c_string("[quickjs] exception: <undefined>");
+    return;
+  }
+
+  if (JS_IsNull(exception)) {
+    log_c_string("[quickjs] exception: <null>");
+    return;
+  }
+
+  int tag = JS_VALUE_GET_TAG(exception);
+  char tag_line[128];
+  snprintf(tag_line, sizeof(tag_line), "[quickjs] exception tag=%d", tag);
+  log_c_string(tag_line);
+
+  const char *message = JS_ToCString(ctx, exception);
+  if (message) {
+    char line[512];
+    snprintf(line, sizeof(line), "[quickjs] exception: %s", message);
+    log_c_string(line);
+    JS_FreeCString(ctx, message);
+  } else {
+    log_c_string("[quickjs] exception: <non-string value>");
+  }
+
+  if (JS_IsObject(exception)) {
+    JSValue message_prop = JS_GetPropertyStr(ctx, exception, "message");
+    if (!JS_IsException(message_prop) && !JS_IsUndefined(message_prop) && !JS_IsNull(message_prop)) {
+      const char *message_prop_str = JS_ToCString(ctx, message_prop);
+      if (message_prop_str) {
+        char msg_prop_line[512];
+        snprintf(msg_prop_line, sizeof(msg_prop_line), "[quickjs] exception.message: %s", message_prop_str);
+        log_c_string(msg_prop_line);
+        JS_FreeCString(ctx, message_prop_str);
+      }
+    }
+    JS_FreeValue(ctx, message_prop);
+  }
+
+  if (JS_IsObject(exception)) {
+    JSValue stack = JS_GetPropertyStr(ctx, exception, "stack");
+    if (!JS_IsException(stack) && !JS_IsUndefined(stack) && !JS_IsNull(stack)) {
+      const char *stack_str = JS_ToCString(ctx, stack);
+      if (stack_str) {
+        char stack_line[1024];
+        snprintf(stack_line, sizeof(stack_line), "[quickjs] stack: %s", stack_str);
+        log_c_string(stack_line);
+        JS_FreeCString(ctx, stack_str);
+      }
+    } else if (JS_IsException(stack)) {
+      JSValue stack_exc = JS_GetException(ctx);
+      const char *stack_exc_str = JS_ToCString(ctx, stack_exc);
+      if (stack_exc_str) {
+        char stack_err[512];
+        snprintf(stack_err, sizeof(stack_err), "[quickjs] stack retrieval error: %s", stack_exc_str);
+        log_c_string(stack_err);
+        JS_FreeCString(ctx, stack_exc_str);
+      }
+      JS_FreeValue(ctx, stack_exc);
+    }
+    JS_FreeValue(ctx, stack);
+  }
+}
+
+static void log_js_exception(JSContext *ctx, JSValue exception) {
+  if (JS_IsUndefined(exception) || JS_IsNull(exception)) {
+    return;
+  }
+
+  const char *message = JS_ToCString(ctx, exception);
+  if (message) {
+    log_c_string(message);
+    JS_FreeCString(ctx, message);
+  }
+
+  JSValue stack = JS_GetPropertyStr(ctx, exception, "stack");
+  if (!JS_IsException(stack)) {
+    if (!JS_IsUndefined(stack) && !JS_IsNull(stack)) {
+      const char *stack_str = JS_ToCString(ctx, stack);
+      if (stack_str) {
+        log_c_string(stack_str);
+        JS_FreeCString(ctx, stack_str);
+      }
+    }
+    JS_FreeValue(ctx, stack);
+  } else {
+    JSValue stack_exception = JS_GetException(ctx);
+    if (!JS_IsUndefined(stack_exception) && !JS_IsNull(stack_exception)) {
+      const char *stack_msg = JS_ToCString(ctx, stack_exception);
+      if (stack_msg) {
+        log_c_string(stack_msg);
+        JS_FreeCString(ctx, stack_msg);
+      }
+    }
+    JS_FreeValue(ctx, stack_exception);
+  }
+}
+
+static void calimero_value_return_bytes(const uint8_t *data, size_t len) {
+  struct {
+    uint64_t discriminant;
+    CalimeroBuffer buffer;
+  } value_ret;
+
+  value_ret.discriminant = 0;
+  value_ret.buffer.ptr = (uint64_t)data;
+  value_ret.buffer.len = (uint64_t)len;
+
+  value_return((uint64_t)&value_ret);
+}
+
+static void calimero_panic_bytes(const uint8_t *message_ptr, size_t message_len) {
+  static const char *file_str = "<js>";
+
+  CalimeroBuffer message_buf = make_buffer(message_ptr, message_len);
+  CalimeroBuffer file_buf = make_buffer(file_str, strlen(file_str));
+
+  CalimeroLocation location = {
+    .file_ptr = (uint64_t)file_buf.ptr,
+    .file_len = (uint64_t)file_buf.len,
+    .line = 0,
+    .column = 0
+  };
+
+  panic_utf8((uint64_t)&message_buf, (uint64_t)&location);
+  __builtin_unreachable();
+}
+
+static void calimero_panic_c_string(const char *message) {
+  log_c_string(message);
+  calimero_panic_bytes((const uint8_t *)message, strlen(message));
+}
+
+static void calimero_panic_with_exception(JSContext *ctx, JSValue exception) {
+  JSValue message_val = JS_GetPropertyStr(ctx, exception, "message");
+  JSValue stack_val = JS_GetPropertyStr(ctx, exception, "stack");
+
+  size_t message_len = 0;
+  const char *message_c = NULL;
+  if (!JS_IsUndefined(message_val) && !JS_IsNull(message_val)) {
+    message_c = JS_ToCStringLen(ctx, &message_len, message_val);
+  }
+
+  size_t stack_len = 0;
+  const char *stack_c = NULL;
+  if (!JS_IsUndefined(stack_val) && !JS_IsNull(stack_val)) {
+    stack_c = JS_ToCStringLen(ctx, &stack_len, stack_val);
+  }
+
+  const char *fallback = "Uncaught exception";
+  const char *message_only = message_c ? message_c : fallback;
+
+  log_c_string("QuickJS exception raised");
+  if (message_only) {
+    log_c_string(message_only);
+  }
+  if (stack_c && stack_len > 0) {
+    log_c_string(stack_c);
+  }
+
+  char *combined = NULL;
+  if (stack_c && stack_len > 0) {
+    size_t total_len = message_len + 1 + stack_len;
+    combined = (char *)malloc(total_len + 1);
+    if (combined) {
+      memcpy(combined, message_only, message_len);
+      combined[message_len] = '\n';
+      memcpy(combined + message_len + 1, stack_c, stack_len);
+      combined[total_len] = '\0';
+      calimero_panic_c_string(combined);
+    }
+  }
+
+  calimero_panic_c_string(message_only);
+}
 // ===========================
 // Host Function Wrappers
 // ===========================
+
+static JSValue js_panic_utf8(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  size_t message_len = 0;
+  uint8_t *message_ptr = JSValueToUint8Array(ctx, argv[0], &message_len);
+  if (message_ptr) {
+    CalimeroBuffer log_buf = make_buffer(message_ptr, message_len);
+    log_utf8((uint64_t)&log_buf);
+    calimero_panic_bytes(message_ptr, message_len);
+    return JS_EXCEPTION;
+  }
+
+  const char *message_c = JS_ToCString(ctx, argv[0]);
+  if (!message_c) {
+    return JS_EXCEPTION;
+  }
+
+  calimero_panic_c_string(message_c);
+  JS_FreeCString(ctx, message_c);
+  return JS_EXCEPTION;
+}
+
+static JSValue js_value_return(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 1) {
+    return JS_ThrowTypeError(ctx, "value_return expects at least one argument");
+  }
+
+  size_t value_len = 0;
+  uint8_t *value_ptr = JSValueToUint8Array(ctx, argv[0], &value_len);
+
+  if (!value_ptr) {
+    const char *str_value = JS_ToCString(ctx, argv[0]);
+    if (!str_value) {
+      return JS_EXCEPTION;
+    }
+    calimero_value_return_bytes((const uint8_t *)str_value, strlen(str_value));
+    JS_FreeCString(ctx, str_value);
+    return JS_UNDEFINED;
+  }
+
+  calimero_value_return_bytes(value_ptr, value_len);
+  return JS_UNDEFINED;
+}
 
 // Wrapper: log_utf8
 static JSValue js_log_utf8(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -177,6 +495,561 @@ static JSValue js_storage_remove(JSContext *ctx, JSValueConst this_val, int argc
   return JS_NewUint32(ctx, result);
 }
 
+static JSValue js_env_crdt_map_new(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 1) {
+    JS_ThrowTypeError(ctx, "js_crdt_map_new expects register id");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[0], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  int32_t status = js_crdt_map_new((uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_map_get(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 3) {
+    JS_ThrowTypeError(ctx, "js_crdt_map_get expects mapId, key and register id");
+    return JS_EXCEPTION;
+  }
+  size_t map_id_len;
+  uint8_t *map_id_ptr = JSValueToUint8Array(ctx, argv[0], &map_id_len);
+  if (!map_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_map_get: mapId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  size_t key_len;
+  uint8_t *key_ptr = JSValueToUint8Array(ctx, argv[1], &key_len);
+  if (!key_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_map_get: key must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[2], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer map_id_buf = make_buffer(map_id_ptr, map_id_len);
+  CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
+  int32_t status = js_crdt_map_get((uint64_t)&map_id_buf, (uint64_t)&key_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_map_insert(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 4) {
+    JS_ThrowTypeError(ctx, "js_crdt_map_insert expects mapId, key, value and register id");
+    return JS_EXCEPTION;
+  }
+  size_t map_id_len;
+  uint8_t *map_id_ptr = JSValueToUint8Array(ctx, argv[0], &map_id_len);
+  if (!map_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_map_insert: mapId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  size_t key_len;
+  uint8_t *key_ptr = JSValueToUint8Array(ctx, argv[1], &key_len);
+  if (!key_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_map_insert: key must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  size_t value_len;
+  uint8_t *value_ptr = JSValueToUint8Array(ctx, argv[2], &value_len);
+  if (!value_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_map_insert: value must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[3], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer map_id_buf = make_buffer(map_id_ptr, map_id_len);
+  CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
+  CalimeroBuffer value_buf = make_buffer(value_ptr, value_len);
+  int32_t status = js_crdt_map_insert((uint64_t)&map_id_buf, (uint64_t)&key_buf, (uint64_t)&value_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_map_remove(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 3) {
+    JS_ThrowTypeError(ctx, "js_crdt_map_remove expects mapId, key and register id");
+    return JS_EXCEPTION;
+  }
+  size_t map_id_len;
+  uint8_t *map_id_ptr = JSValueToUint8Array(ctx, argv[0], &map_id_len);
+  if (!map_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_map_remove: mapId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  size_t key_len;
+  uint8_t *key_ptr = JSValueToUint8Array(ctx, argv[1], &key_len);
+  if (!key_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_map_remove: key must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[2], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer map_id_buf = make_buffer(map_id_ptr, map_id_len);
+  CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
+  int32_t status = js_crdt_map_remove((uint64_t)&map_id_buf, (uint64_t)&key_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_map_contains(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_map_contains expects mapId and key");
+    return JS_EXCEPTION;
+  }
+  size_t map_id_len;
+  uint8_t *map_id_ptr = JSValueToUint8Array(ctx, argv[0], &map_id_len);
+  if (!map_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_map_contains: mapId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  size_t key_len;
+  uint8_t *key_ptr = JSValueToUint8Array(ctx, argv[1], &key_len);
+  if (!key_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_map_contains: key must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer map_id_buf = make_buffer(map_id_ptr, map_id_len);
+  CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
+  int32_t status = js_crdt_map_contains((uint64_t)&map_id_buf, (uint64_t)&key_buf);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_map_iter(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_map_iter expects mapId and register id");
+    return JS_EXCEPTION;
+  }
+
+  size_t map_id_len;
+  uint8_t *map_id_ptr = JSValueToUint8Array(ctx, argv[0], &map_id_len);
+  if (!map_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_map_iter: mapId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[1], &register_id)) {
+    return JS_EXCEPTION;
+  }
+
+  CalimeroBuffer map_id_buf = make_buffer(map_id_ptr, map_id_len);
+  int32_t status = js_crdt_map_iter((uint64_t)&map_id_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_vector_new(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 1) {
+    JS_ThrowTypeError(ctx, "js_crdt_vector_new expects register id");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[0], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  int32_t status = js_crdt_vector_new((uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_vector_len(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_vector_len expects vectorId and register id");
+    return JS_EXCEPTION;
+  }
+  size_t vector_id_len;
+  uint8_t *vector_id_ptr = JSValueToUint8Array(ctx, argv[0], &vector_id_len);
+  if (!vector_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_vector_len: vectorId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[1], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer vector_id_buf = make_buffer(vector_id_ptr, vector_id_len);
+  int32_t status = js_crdt_vector_len((uint64_t)&vector_id_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_vector_push(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_vector_push expects vectorId and value");
+    return JS_EXCEPTION;
+  }
+  size_t vector_id_len;
+  uint8_t *vector_id_ptr = JSValueToUint8Array(ctx, argv[0], &vector_id_len);
+  if (!vector_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_vector_push: vectorId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  size_t value_len;
+  uint8_t *value_ptr = JSValueToUint8Array(ctx, argv[1], &value_len);
+  if (!value_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_vector_push: value must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer vector_id_buf = make_buffer(vector_id_ptr, vector_id_len);
+  CalimeroBuffer value_buf = make_buffer(value_ptr, value_len);
+  int32_t status = js_crdt_vector_push((uint64_t)&vector_id_buf, (uint64_t)&value_buf);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_vector_get(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 3) {
+    JS_ThrowTypeError(ctx, "js_crdt_vector_get expects vectorId, index and register id");
+    return JS_EXCEPTION;
+  }
+  size_t vector_id_len;
+  uint8_t *vector_id_ptr = JSValueToUint8Array(ctx, argv[0], &vector_id_len);
+  if (!vector_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_vector_get: vectorId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  uint64_t index;
+  if (JS_ToIndex(ctx, &index, argv[1])) {
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[2], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer vector_id_buf = make_buffer(vector_id_ptr, vector_id_len);
+  int32_t status = js_crdt_vector_get((uint64_t)&vector_id_buf, index, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_vector_pop(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_vector_pop expects vectorId and register id");
+    return JS_EXCEPTION;
+  }
+  size_t vector_id_len;
+  uint8_t *vector_id_ptr = JSValueToUint8Array(ctx, argv[0], &vector_id_len);
+  if (!vector_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_vector_pop: vectorId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[1], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer vector_id_buf = make_buffer(vector_id_ptr, vector_id_len);
+  int32_t status = js_crdt_vector_pop((uint64_t)&vector_id_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_set_new(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 1) {
+    JS_ThrowTypeError(ctx, "js_crdt_set_new expects register id");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[0], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  int32_t status = js_crdt_set_new((uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_set_insert(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_set_insert expects setId and value");
+    return JS_EXCEPTION;
+  }
+  size_t set_id_len;
+  uint8_t *set_id_ptr = JSValueToUint8Array(ctx, argv[0], &set_id_len);
+  if (!set_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_set_insert: setId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  size_t value_len;
+  uint8_t *value_ptr = JSValueToUint8Array(ctx, argv[1], &value_len);
+  if (!value_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_set_insert: value must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer set_id_buf = make_buffer(set_id_ptr, set_id_len);
+  CalimeroBuffer value_buf = make_buffer(value_ptr, value_len);
+  int32_t status = js_crdt_set_insert((uint64_t)&set_id_buf, (uint64_t)&value_buf);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_set_contains(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_set_contains expects setId and value");
+    return JS_EXCEPTION;
+  }
+  size_t set_id_len;
+  uint8_t *set_id_ptr = JSValueToUint8Array(ctx, argv[0], &set_id_len);
+  if (!set_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_set_contains: setId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  size_t value_len;
+  uint8_t *value_ptr = JSValueToUint8Array(ctx, argv[1], &value_len);
+  if (!value_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_set_contains: value must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer set_id_buf = make_buffer(set_id_ptr, set_id_len);
+  CalimeroBuffer value_buf = make_buffer(value_ptr, value_len);
+  int32_t status = js_crdt_set_contains((uint64_t)&set_id_buf, (uint64_t)&value_buf);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_set_remove(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_set_remove expects setId and value");
+    return JS_EXCEPTION;
+  }
+  size_t set_id_len;
+  uint8_t *set_id_ptr = JSValueToUint8Array(ctx, argv[0], &set_id_len);
+  if (!set_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_set_remove: setId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  size_t value_len;
+  uint8_t *value_ptr = JSValueToUint8Array(ctx, argv[1], &value_len);
+  if (!value_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_set_remove: value must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer set_id_buf = make_buffer(set_id_ptr, set_id_len);
+  CalimeroBuffer value_buf = make_buffer(value_ptr, value_len);
+  int32_t status = js_crdt_set_remove((uint64_t)&set_id_buf, (uint64_t)&value_buf);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_set_len(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_set_len expects setId and register id");
+    return JS_EXCEPTION;
+  }
+  size_t set_id_len;
+  uint8_t *set_id_ptr = JSValueToUint8Array(ctx, argv[0], &set_id_len);
+  if (!set_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_set_len: setId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[1], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer set_id_buf = make_buffer(set_id_ptr, set_id_len);
+  int32_t status = js_crdt_set_len((uint64_t)&set_id_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_set_iter(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_set_iter expects setId and register id");
+    return JS_EXCEPTION;
+  }
+
+  size_t set_id_len;
+  uint8_t *set_id_ptr = JSValueToUint8Array(ctx, argv[0], &set_id_len);
+  if (!set_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_set_iter: setId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[1], &register_id)) {
+    return JS_EXCEPTION;
+  }
+
+  CalimeroBuffer set_id_buf = make_buffer(set_id_ptr, set_id_len);
+  int32_t status = js_crdt_set_iter((uint64_t)&set_id_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_set_clear(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 1) {
+    JS_ThrowTypeError(ctx, "js_crdt_set_clear expects setId");
+    return JS_EXCEPTION;
+  }
+  size_t set_id_len;
+  uint8_t *set_id_ptr = JSValueToUint8Array(ctx, argv[0], &set_id_len);
+  if (!set_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_set_clear: setId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer set_id_buf = make_buffer(set_id_ptr, set_id_len);
+  int32_t status = js_crdt_set_clear((uint64_t)&set_id_buf);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_lww_new(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 1) {
+    JS_ThrowTypeError(ctx, "js_crdt_lww_new expects register id");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[0], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  int32_t status = js_crdt_lww_new((uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_lww_set(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_lww_set expects registerId and value");
+    return JS_EXCEPTION;
+  }
+  size_t register_id_len;
+  uint8_t *register_id_ptr = JSValueToUint8Array(ctx, argv[0], &register_id_len);
+  if (!register_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_lww_set: registerId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  uint32_t has_value = 0;
+  CalimeroBuffer value_buf = make_buffer(NULL, 0);
+  if (!JS_IsNull(argv[1]) && !JS_IsUndefined(argv[1])) {
+    size_t value_len;
+    uint8_t *value_ptr = JSValueToUint8Array(ctx, argv[1], &value_len);
+    if (!value_ptr) {
+      JS_ThrowTypeError(ctx, "js_crdt_lww_set: value must be Uint8Array or null");
+      return JS_EXCEPTION;
+    }
+    value_buf = make_buffer(value_ptr, value_len);
+    has_value = 1;
+  }
+  CalimeroBuffer register_id_buf = make_buffer(register_id_ptr, register_id_len);
+  int32_t status = js_crdt_lww_set((uint64_t)&register_id_buf, (uint64_t)&value_buf, has_value);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_lww_get(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_lww_get expects registerId and destination register id");
+    return JS_EXCEPTION;
+  }
+  size_t register_id_len;
+  uint8_t *register_id_ptr = JSValueToUint8Array(ctx, argv[0], &register_id_len);
+  if (!register_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_lww_get: registerId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  int64_t dest_register_id;
+  if (js_to_i64(ctx, argv[1], &dest_register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer register_id_buf = make_buffer(register_id_ptr, register_id_len);
+  int32_t status = js_crdt_lww_get((uint64_t)&register_id_buf, (uint64_t)dest_register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_lww_timestamp(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_lww_timestamp expects registerId and destination register id");
+    return JS_EXCEPTION;
+  }
+  size_t register_id_len;
+  uint8_t *register_id_ptr = JSValueToUint8Array(ctx, argv[0], &register_id_len);
+  if (!register_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_lww_timestamp: registerId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  int64_t dest_register_id;
+  if (js_to_i64(ctx, argv[1], &dest_register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer register_id_buf = make_buffer(register_id_ptr, register_id_len);
+  int32_t status = js_crdt_lww_timestamp((uint64_t)&register_id_buf, (uint64_t)dest_register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_counter_new(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 1) {
+    JS_ThrowTypeError(ctx, "js_crdt_counter_new expects register id");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[0], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  int32_t status = js_crdt_counter_new((uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_counter_increment(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 1) {
+    JS_ThrowTypeError(ctx, "js_crdt_counter_increment expects counter id");
+    return JS_EXCEPTION;
+  }
+  size_t counter_id_len;
+  uint8_t *counter_id_ptr = JSValueToUint8Array(ctx, argv[0], &counter_id_len);
+  if (!counter_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_counter_increment: counterId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer counter_id_buf = make_buffer(counter_id_ptr, counter_id_len);
+  int32_t status = js_crdt_counter_increment((uint64_t)&counter_id_buf);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_counter_value(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_counter_value expects counterId and register id");
+    return JS_EXCEPTION;
+  }
+  size_t counter_id_len;
+  uint8_t *counter_id_ptr = JSValueToUint8Array(ctx, argv[0], &counter_id_len);
+  if (!counter_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_counter_value: counterId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[1], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer counter_id_buf = make_buffer(counter_id_ptr, counter_id_len);
+  int32_t status = js_crdt_counter_value((uint64_t)&counter_id_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_counter_get_executor_count(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_counter_get_executor_count expects counterId and register id");
+    return JS_EXCEPTION;
+  }
+  size_t counter_id_len;
+  uint8_t *counter_id_ptr = JSValueToUint8Array(ctx, argv[0], &counter_id_len);
+  if (!counter_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_counter_get_executor_count: counterId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[1], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  uint32_t has_executor = 0;
+  CalimeroBuffer executor_buf = make_buffer(NULL, 0);
+  if (argc >= 3 && !JS_IsNull(argv[2]) && !JS_IsUndefined(argv[2])) {
+    size_t executor_len;
+    uint8_t *executor_ptr = JSValueToUint8Array(ctx, argv[2], &executor_len);
+    if (!executor_ptr) {
+      JS_ThrowTypeError(ctx, "js_crdt_counter_get_executor_count: executorId must be Uint8Array");
+      return JS_EXCEPTION;
+    }
+    executor_buf = make_buffer(executor_ptr, executor_len);
+    has_executor = 1;
+  }
+  CalimeroBuffer counter_id_buf = make_buffer(counter_id_ptr, counter_id_len);
+  int32_t status = js_crdt_counter_get_executor_count(
+    (uint64_t)&counter_id_buf,
+    (uint64_t)&executor_buf,
+    has_executor,
+    (uint64_t)register_id
+  );
+  return JS_NewInt32(ctx, status);
+}
+
 // Wrapper: context_id
 static JSValue js_context_id(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   int64_t register_id;
@@ -190,6 +1063,16 @@ static JSValue js_executor_id(JSContext *ctx, JSValueConst this_val, int argc, J
   int64_t register_id;
   JS_ToInt64(ctx, &register_id, argv[0]);
   executor_id((uint64_t)register_id);
+  return JS_UNDEFINED;
+}
+
+// Wrapper: input
+static JSValue js_input(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  int64_t register_id = 0;
+  if (argc > 0) {
+    JS_ToInt64(ctx, &register_id, argv[0]);
+  }
+  input((uint64_t)register_id);
   return JS_UNDEFINED;
 }
 
@@ -343,19 +1226,50 @@ void js_add_calimero_host_functions(JSContext *ctx) {
   JSValue global = JS_GetGlobalObject(ctx);
   JSValue env = JS_NewObject(ctx);
   
+  // Panic
+  JS_SetPropertyStr(ctx, env, "panic_utf8", JS_NewCFunction(ctx, js_panic_utf8, "panic_utf8", 1));
+
   // Logging
   JS_SetPropertyStr(ctx, env, "log_utf8", JS_NewCFunction(ctx, js_log_utf8, "log_utf8", 1));
+  JS_SetPropertyStr(ctx, env, "value_return", JS_NewCFunction(ctx, js_value_return, "value_return", 1));
   
   // Storage
   JS_SetPropertyStr(ctx, env, "storage_read", JS_NewCFunction(ctx, js_storage_read, "storage_read", 2));
   JS_SetPropertyStr(ctx, env, "storage_write", JS_NewCFunction(ctx, js_storage_write, "storage_write", 3));
   JS_SetPropertyStr(ctx, env, "storage_remove", JS_NewCFunction(ctx, js_storage_remove, "storage_remove", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_map_new", JS_NewCFunction(ctx, js_env_crdt_map_new, "js_crdt_map_new", 1));
+  JS_SetPropertyStr(ctx, env, "js_crdt_map_get", JS_NewCFunction(ctx, js_env_crdt_map_get, "js_crdt_map_get", 3));
+  JS_SetPropertyStr(ctx, env, "js_crdt_map_insert", JS_NewCFunction(ctx, js_env_crdt_map_insert, "js_crdt_map_insert", 4));
+  JS_SetPropertyStr(ctx, env, "js_crdt_map_remove", JS_NewCFunction(ctx, js_env_crdt_map_remove, "js_crdt_map_remove", 3));
+  JS_SetPropertyStr(ctx, env, "js_crdt_map_contains", JS_NewCFunction(ctx, js_env_crdt_map_contains, "js_crdt_map_contains", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_map_iter", JS_NewCFunction(ctx, js_env_crdt_map_iter, "js_crdt_map_iter", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_vector_new", JS_NewCFunction(ctx, js_env_crdt_vector_new, "js_crdt_vector_new", 1));
+  JS_SetPropertyStr(ctx, env, "js_crdt_vector_len", JS_NewCFunction(ctx, js_env_crdt_vector_len, "js_crdt_vector_len", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_vector_push", JS_NewCFunction(ctx, js_env_crdt_vector_push, "js_crdt_vector_push", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_vector_get", JS_NewCFunction(ctx, js_env_crdt_vector_get, "js_crdt_vector_get", 3));
+  JS_SetPropertyStr(ctx, env, "js_crdt_vector_pop", JS_NewCFunction(ctx, js_env_crdt_vector_pop, "js_crdt_vector_pop", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_set_new", JS_NewCFunction(ctx, js_env_crdt_set_new, "js_crdt_set_new", 1));
+  JS_SetPropertyStr(ctx, env, "js_crdt_set_insert", JS_NewCFunction(ctx, js_env_crdt_set_insert, "js_crdt_set_insert", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_set_contains", JS_NewCFunction(ctx, js_env_crdt_set_contains, "js_crdt_set_contains", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_set_remove", JS_NewCFunction(ctx, js_env_crdt_set_remove, "js_crdt_set_remove", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_set_len", JS_NewCFunction(ctx, js_env_crdt_set_len, "js_crdt_set_len", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_set_iter", JS_NewCFunction(ctx, js_env_crdt_set_iter, "js_crdt_set_iter", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_set_clear", JS_NewCFunction(ctx, js_env_crdt_set_clear, "js_crdt_set_clear", 1));
+  JS_SetPropertyStr(ctx, env, "js_crdt_lww_new", JS_NewCFunction(ctx, js_env_crdt_lww_new, "js_crdt_lww_new", 1));
+  JS_SetPropertyStr(ctx, env, "js_crdt_lww_set", JS_NewCFunction(ctx, js_env_crdt_lww_set, "js_crdt_lww_set", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_lww_get", JS_NewCFunction(ctx, js_env_crdt_lww_get, "js_crdt_lww_get", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_lww_timestamp", JS_NewCFunction(ctx, js_env_crdt_lww_timestamp, "js_crdt_lww_timestamp", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_counter_new", JS_NewCFunction(ctx, js_env_crdt_counter_new, "js_crdt_counter_new", 1));
+  JS_SetPropertyStr(ctx, env, "js_crdt_counter_increment", JS_NewCFunction(ctx, js_env_crdt_counter_increment, "js_crdt_counter_increment", 1));
+  JS_SetPropertyStr(ctx, env, "js_crdt_counter_value", JS_NewCFunction(ctx, js_env_crdt_counter_value, "js_crdt_counter_value", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_counter_get_executor_count", JS_NewCFunction(ctx, js_env_crdt_counter_get_executor_count, "js_crdt_counter_get_executor_count", 3));
   
   // Context
   JS_SetPropertyStr(ctx, env, "context_id", JS_NewCFunction(ctx, js_context_id, "context_id", 1));
   JS_SetPropertyStr(ctx, env, "executor_id", JS_NewCFunction(ctx, js_executor_id, "executor_id", 1));
   
   // Registers
+  JS_SetPropertyStr(ctx, env, "input", JS_NewCFunction(ctx, js_input, "input", 1));
   JS_SetPropertyStr(ctx, env, "register_len", JS_NewCFunction(ctx, js_register_len, "register_len", 1));
   JS_SetPropertyStr(ctx, env, "read_register", JS_NewCFunction(ctx, js_read_register, "read_register", 2));
   
@@ -385,6 +1299,137 @@ void js_add_calimero_host_functions(JSContext *ctx) {
 // This prevents WASI runtime initialization which causes imports
 void _start() {}
 
-// Include generated method exports directly (includes full C code, not just declarations)
+#define DEFINE_CALIMERO_METHOD(name) \
+__attribute__((used)) \
+__attribute__((visibility("default"))) \
+__attribute__((export_name(#name))) \
+void calimero_method_##name() { \
+  char log_buf[256]; \
+  snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: start", #name); \
+  log_c_string(log_buf); \
+  JSRuntime *rt = JS_NewRuntime(); \
+  if (!rt) { \
+    snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: JS_NewRuntime failed", #name); \
+    log_c_string(log_buf); \
+    return; \
+  } \
+  JSContext *ctx = JS_NewCustomContext(rt); \
+  if (!ctx) { \
+    snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: JS_NewCustomContext failed", #name); \
+    log_c_string(log_buf); \
+    JS_FreeRuntime(rt); \
+    return; \
+  } \
+\
+  js_add_calimero_host_functions(ctx); \
+  snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: host functions wired", #name); \
+  log_c_string(log_buf); \
+ \
+  JSValue storage_bytes = JS_NewArrayBufferCopy( \
+      ctx, \
+      calimero_sdk_js_packages_sdk_src_wasm_storage_wasm_wasm, \
+      calimero_sdk_js_packages_sdk_src_wasm_storage_wasm_wasm_len); \
+  if (JS_IsException(storage_bytes)) { \
+    snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: JS_NewArrayBufferCopy exception", #name); \
+    log_c_string(log_buf); \
+    JSValue buf_exception = JS_GetException(ctx); \
+    calimero_log_exception(ctx, buf_exception, "storage buffer"); \
+    calimero_panic_with_exception(ctx, buf_exception); \
+    JS_FreeValue(ctx, buf_exception); \
+    JS_FreeContext(ctx); \
+    JS_FreeRuntime(rt); \
+    __builtin_unreachable(); \
+  } \
+  JSValue global_obj = JS_GetGlobalObject(ctx); \
+  JS_SetPropertyStr(ctx, global_obj, "__CALIMERO_STORAGE_WASM__", storage_bytes); \
+  JS_FreeValue(ctx, global_obj); \
+  snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: storage wasm injected", #name); \
+  log_c_string(log_buf); \
+\
+  JSValue mod_obj = js_load_module_binary(ctx, code, code_size); \
+  if (JS_IsException(mod_obj)) { \
+    snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: js_load_module_binary exception", #name); \
+    log_c_string(log_buf); \
+    JSValue load_exception = JS_GetException(ctx); \
+    calimero_log_exception(ctx, load_exception, "module load"); \
+    calimero_panic_with_exception(ctx, load_exception); \
+    JS_FreeValue(ctx, load_exception); \
+    JS_FreeContext(ctx); \
+    JS_FreeRuntime(rt); \
+    __builtin_unreachable(); \
+  } \
+  snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: module loaded", #name); \
+  log_c_string(log_buf); \
+\
+  JSAtom method_atom = JS_NewAtom(ctx, #name); \
+  JSValue fun_obj = JS_GetProperty(ctx, mod_obj, method_atom); \
+  if (JS_IsUndefined(fun_obj)) { \
+    snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: method undefined on module, trying global", #name); \
+    log_c_string(log_buf); \
+    JS_FreeValue(ctx, fun_obj); \
+    JSValue global_lookup = JS_GetGlobalObject(ctx); \
+    fun_obj = JS_GetProperty(ctx, global_lookup, method_atom); \
+    JS_FreeValue(ctx, global_lookup); \
+  } \
+  JS_FreeAtom(ctx, method_atom); \
+  if (JS_IsException(fun_obj)) { \
+    snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: JS_GetProperty exception", #name); \
+    log_c_string(log_buf); \
+    JSValue prop_exception = JS_GetException(ctx); \
+    calimero_log_exception(ctx, prop_exception, "method lookup"); \
+    calimero_panic_with_exception(ctx, prop_exception); \
+    JS_FreeValue(ctx, prop_exception); \
+    JS_FreeValue(ctx, mod_obj); \
+    __builtin_unreachable(); \
+  } \
+\
+  if (!JS_IsFunction(ctx, fun_obj)) { \
+    snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: resolved value not callable", #name); \
+    log_c_string(log_buf); \
+    JS_FreeValue(ctx, fun_obj); \
+    JS_FreeValue(ctx, mod_obj); \
+    calimero_panic_c_string("Resolved export is not callable"); \
+  } \
+\
+  fprintf(stderr, "[dispatcher][builder] calling %s\n", #name); \
+  fflush(stderr); \
+  log_c_string("[dispatcher][builder] calling " #name); \
+  JSValue result = JS_Call(ctx, fun_obj, mod_obj, 0, NULL); \
+  if (JS_IsException(result)) { \
+    snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: JS_Call threw", #name); \
+    log_c_string(log_buf); \
+    JSValue call_exception = JS_GetException(ctx); \
+    calimero_log_exception(ctx, call_exception, "method call"); \
+    calimero_panic_with_exception(ctx, call_exception); \
+    JS_FreeValue(ctx, result); \
+    JS_FreeValue(ctx, fun_obj); \
+    JS_FreeValue(ctx, mod_obj); \
+    JS_FreeContext(ctx); \
+    JS_FreeRuntime(rt); \
+    __builtin_unreachable(); \
+  } \
+\
+  fprintf(stderr, "[dispatcher][builder] completed %s\n", #name); \
+  fflush(stderr); \
+  log_c_string("[dispatcher][builder] completed " #name); \
+  snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: js_std_loop", #name); \
+  log_c_string(log_buf); \
+\
+  JS_FreeValue(ctx, result); \
+\
+  JS_FreeValue(ctx, fun_obj); \
+  JS_FreeValue(ctx, mod_obj); \
+\
+  js_std_loop(ctx); \
+  snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: cleanup", #name); \
+  log_c_string(log_buf); \
+\
+  JS_FreeContext(ctx); \
+  JS_FreeRuntime(rt); \
+  snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: done", #name); \
+  log_c_string(log_buf); \
+}
+
+// Include generated method exports directly (expanded through DEFINE_CALIMERO_METHOD)
 #include "methods.c"
 

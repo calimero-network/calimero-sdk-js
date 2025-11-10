@@ -29,6 +29,15 @@ export async function bundleWithRollup(
   options: RollupOptions
 ): Promise<string> {
   const outputFile = path.join(options.outputDir, 'bundle.js');
+  const normalizedSource = path.resolve(source).replace(/\\/g, '/');
+  const entryFile = path.join(options.outputDir, '__calimero_entry.ts');
+
+  const entryContents = [
+    `import '${normalizedSource}';`,
+    "import '@calimero/sdk/runtime/dispatcher';"
+  ].join('\n');
+
+  fs.writeFileSync(entryFile, `${entryContents}\n`);
   
   // Find tsconfig relative to source file
   const sourceDir = path.dirname(path.resolve(source));
@@ -47,7 +56,7 @@ export async function bundleWithRollup(
   }
 
   const bundle = await rollup({
-    input: source,
+    input: entryFile,
     plugins: [
       nodeResolve({
         extensions: ['.js', '.ts'],
@@ -89,6 +98,14 @@ export async function bundleWithRollup(
 
   // Write to file
   fs.writeFileSync(outputFile, output[0].code);
+
+  try {
+    fs.unlinkSync(entryFile);
+  } catch (error) {
+    if (options.verbose) {
+      console.warn(`Failed to remove temporary entry file: ${error}`);
+    }
+  }
 
   if (options.verbose) {
     console.log(`Bundled to: ${outputFile} (${(output[0].code.length / 1024).toFixed(2)} KB)`);

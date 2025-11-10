@@ -1,596 +1,182 @@
 /**
  * Method extraction
- *
- * Extracts contract methods from bundled JavaScript and generates methods.h
  */
 
 import { parse } from '@babel/parser';
 import traverseModule from '@babel/traverse';
 import * as fs from 'fs';
 import * as path from 'path';
+import { pathToFileURL } from 'url';
 
-// Handle CommonJS default export
 const traverse = (traverseModule as any).default || traverseModule;
 
-/**
- * Generates methods.h header file with exported contract methods
- *
- * @param jsFile - Path to bundled JavaScript
- * @param outputDir - Output directory for methods.h
- */
-export async function generateMethodsHeader(
-  jsFile: string,
-  outputDir: string
-): Promise<void> {
+export async function generateMethodsHeader(jsFile: string, outputDir: string): Promise<void> {
   const jsCode = fs.readFileSync(jsFile, 'utf-8');
 
-  // Parse JavaScript to AST
+  fs.writeFileSync(path.join(outputDir, 'bundle.js'), jsCode, 'utf-8');
+
+  const registrySnapshot = await tryLoadMethodRegistry(jsFile);
+  const methodSet = new Set<string>();
+
+  if (registrySnapshot) {
+    Object.values(registrySnapshot.logic).forEach(entry => {
+      entry.methods.forEach(method => methodSet.add(method));
+      if (entry.init) {
+        methodSet.add(entry.init);
+      }
+    });
+    registrySnapshot.functions.forEach(fn => methodSet.add(fn));
+    methodSet.add('__calimero_sync_next');
+    methodSet.add('__calimero_register_merge');
+    emitHeaders(outputDir, Array.from(methodSet).sort());
+    return;
+  }
+
   const ast = parse(jsCode, {
     sourceType: 'module',
     plugins: []
   });
 
-  const methods: string[] = [];
+  const exportedNames = new Set<string>();
+  const functionDeclarations = new Set<string>();
 
-  // After Rollup/Babel, classes are transformed using _createClass helper
-  // Pattern: _createClass(ClassName, [{key: "methodName", value: function methodName() {...}}])
-  // We need to find all _createClass calls and extract methods from Logic class
-  
-  let logicClassName: string | null = null;
-  const topLevelFunctions: string[] = [];
-  
-  // First pass: find the Logic class name and top-level exported functions
   traverse(ast, {
-    VariableDeclarator(nodePath: any) {
-      const id = nodePath.node.id?.name;
-      if (id && id.includes('Logic')) {
-        logicClassName = id;
-      }
-    },
-    // Find top-level function declarations (before export statement)
     FunctionDeclaration(nodePath: any) {
       const name = nodePath.node.id?.name;
-      // Only include likely contract methods (not starting with _ or uppercase)
       if (name && !name.startsWith('_') && !/^[A-Z]/.test(name) && name !== 'constructor') {
-        topLevelFunctions.push(name);
+        functionDeclarations.add(name);
       }
     },
-    // Find EXPORTED top-level function declarations
     ExportNamedDeclaration(nodePath: any) {
-      if (nodePath.node.declaration) {
-        if (nodePath.node.declaration.type === 'FunctionDeclaration') {
-          const name = nodePath.node.declaration.id?.name;
-          // Only include likely contract methods (not starting with _ or uppercase)
-          if (name && !name.startsWith('_') && !/^[A-Z]/.test(name)) {
-            topLevelFunctions.push(name);
-          }
+      if (nodePath.node.declaration && nodePath.node.declaration.type === 'FunctionDeclaration') {
+        const name = nodePath.node.declaration.id?.name;
+        if (name) {
+          exportedNames.add(name);
+          functionDeclarations.add(name);
         }
       }
-      // Also handle: export { foo, bar };
       if (nodePath.node.specifiers) {
         nodePath.node.specifiers.forEach((spec: any) => {
           if (spec.exported && spec.exported.name) {
-            const name = spec.exported.name;
-            // Only include likely contract methods
-            if (!name.startsWith('_') && !/^[A-Z]/.test(name)) {
-              topLevelFunctions.push(name);
-            }
+            exportedNames.add(spec.exported.name);
           }
         });
       }
     }
   });
-  
-  // Add top-level functions first
-  methods.push(...topLevelFunctions);
-  
-  // Second pass: find _createClass calls and extract methods
-  traverse(ast, {
-    CallExpression(nodePath: any) {
-      // Look for _createClass(SomeClass, [...methods...])
-      if (nodePath.node.callee?.name === '_createClass') {
-        const args = nodePath.node.arguments;
-        if (args && args.length >= 2) {
-          // Check if first argument references our Logic class
-          const firstArg = args[0];
-          let isLogicClass = false;
-          
-          // Check if it's the Logic class
-          if (firstArg.type === 'Identifier' && firstArg.name === logicClassName) {
-            isLogicClass = true;
-          }
-          
-          if (isLogicClass) {
-            // Second argument is the array of instance methods
-            const methodsArray = args[1];
-            if (methodsArray && methodsArray.type === 'ArrayExpression') {
-              methodsArray.elements.forEach((element: any) => {
-                if (element && element.type === 'ObjectExpression') {
-                  const keyProp = element.properties.find((p: any) => 
-                    p.key && (p.key.name === 'key' || p.key.value === 'key')
-                  );
-                  if (keyProp && keyProp.value) {
-                    const methodName = keyProp.value.value || keyProp.value.name;
-                    if (methodName && methodName !== 'constructor') {
-                      methods.push(methodName);
-                    }
-                  }
-                }
-              });
-            }
-            
-            // Third argument (if present) contains static methods
-            if (args.length >= 3) {
-              const staticMethodsArray = args[2];
-              if (staticMethodsArray && staticMethodsArray.type === 'ArrayExpression') {
-                staticMethodsArray.elements.forEach((element: any) => {
-                  if (element && element.type === 'ObjectExpression') {
-                    const keyProp = element.properties.find((p: any) => 
-                      p.key && (p.key.name === 'key' || p.key.value === 'key')
-                    );
-                    if (keyProp && keyProp.value) {
-                      const methodName = keyProp.value.value || keyProp.value.name;
-                      if (methodName && methodName !== 'constructor') {
-                        methods.push(methodName);
-                      }
-                    }
-                  }
-                });
-              }
-            }
-          }
-        }
-      }
+
+  exportedNames.forEach(name => {
+    if (functionDeclarations.has(name)) {
+      methodSet.add(name);
     }
   });
 
-  // Remove duplicates
-  const uniqueMethods = Array.from(new Set(methods));
+  methodSet.add('__calimero_sync_next');
+  methodSet.add('__calimero_register_merge');
 
-  // logicClassName is already found above - use it for method generation
-  if (!logicClassName) {
-    logicClassName = 'CounterLogic'; // Default fallback
-  }
-
-  // Generate full inline functions - try top-level export first, then class method
-  const generateMethod = (methodName: string) => {
-    // Special case for init - bypass QuickJS and commit directly (keep this working!)
-    if (methodName === 'init') {
-      return `
-__attribute__((used))
-__attribute__((visibility("default")))
-__attribute__((export_name("init")))
-void init() {
-  // Hardcoded initial state (matching CounterApp structure)
-  const char *initial_state_json = "{\\"count\\":{\\"counts\\":{\\"default\\":0}}}";
-  size_t json_len = strlen(initial_state_json);
-  
-  // Create Borsh artifact: StorageDelta::Actions with one Update action
-  size_t artifact_size = 1 + 4 + 1 + 32 + 4 + json_len + 4 + 8 + 8;
-  uint8_t *artifact = (uint8_t*)malloc(artifact_size);
-  size_t offset = 0;
-  
-  // StorageDelta::Actions variant (0)
-  artifact[offset++] = 0;
-  
-  // Vec length = 1 (u32 little-endian)
-  artifact[offset++] = 1;
-  artifact[offset++] = 0;
-  artifact[offset++] = 0;
-  artifact[offset++] = 0;
-  
-  // Action::Update variant (3)
-  artifact[offset++] = 3;
-  
-  // id: [u8; 32] - use "state" as ID
-  memset(&artifact[offset], 0, 32);
-  memcpy(&artifact[offset], "state", 5);
-  offset += 32;
-  
-  // data: Vec<u8> - the JSON state
-  artifact[offset++] = json_len & 0xFF;
-  artifact[offset++] = (json_len >> 8) & 0xFF;
-  artifact[offset++] = (json_len >> 16) & 0xFF;
-  artifact[offset++] = (json_len >> 24) & 0xFF;
-  memcpy(&artifact[offset], initial_state_json, json_len);
-  offset += json_len;
-  
-  // ancestors: Vec<ChildInfo> - empty (u32 = 0)
-  artifact[offset++] = 0;
-  artifact[offset++] = 0;
-  artifact[offset++] = 0;
-  artifact[offset++] = 0;
-  
-  // metadata.created_at: u64 (0)
-  memset(&artifact[offset], 0, 8);
-  offset += 8;
-  
-  // metadata.updated_at: u64 (0)
-  memset(&artifact[offset], 0, 8);
-  offset += 8;
-  
-  // Create root hash (simple non-zero)
-  uint8_t root_hash[32];
-  memset(root_hash, 0, 32);
-  root_hash[0] = 1;
-  
-  // Call commitDelta directly from C
-  extern void commit(uint64_t root_hash_ptr, uint64_t artifact_ptr);
-  struct {
-    uint64_t ptr;
-    uint64_t len;
-  } root_buf, artifact_buf;
-  
-  root_buf.ptr = (uint64_t)root_hash;
-  root_buf.len = 32;
-  artifact_buf.ptr = (uint64_t)artifact;
-  artifact_buf.len = artifact_size;
-  
-  commit((uint64_t)&root_buf, (uint64_t)&artifact_buf);
-  
-  free(artifact);
-}`;
-    }
-    
-    // NOTE: increment, getCount, hello now use QuickJS (testing fixes!)
-    // Special case for increment - hardcoded counter increment
-    if (false && methodName === 'increment') {
-      return `
-__attribute__((used))
-__attribute__((visibility("default")))
-__attribute__((export_name("increment")))
-void increment() {
-  // Simple demo: just increment the global variable
-  demo_counter++;
-  // No need to commit anything for this demo
-  return;
-}`;
-    }
-    
-    // Special case for getCount - hardcoded counter getter
-    if (false && methodName === 'getCount') {
-      return `
-__attribute__((used))
-__attribute__((visibility("default")))
-__attribute__((export_name("getCount")))
-void getCount() {
-  // For demo: just return the global counter
-  extern void value_return(uint64_t value_ptr);
-  
-  struct CalimeroBuffer {
-    uint64_t ptr;
-    uint64_t len;
-  };
-  
-  // Return current count as string (the global counter)
-  char result_json[64];
-  snprintf(result_json, sizeof(result_json), "%d", demo_counter);
-  
-  struct {
-    uint64_t discriminant;
-    struct CalimeroBuffer buffer;
-  } value_ret;
-  
-  value_ret.discriminant = 0;
-  value_ret.buffer.ptr = (uint64_t)result_json;
-  value_ret.buffer.len = strlen(result_json);
-  
-  value_return((uint64_t)&value_ret);
-}`;
-    }
-    
-    // Special case for hello - test string returns
-    if (false && methodName === 'hello') {
-      return `
-__attribute__((used))
-__attribute__((visibility("default")))
-__attribute__((export_name("hello")))
-void hello() {
-  // Test string returns - return "hello world"
-  extern void value_return(uint64_t value_ptr);
-  
-  struct CalimeroBuffer {
-    uint64_t ptr;
-    uint64_t len;
-  };
-  
-  // Return "hello world" as a JSON string
-  const char *result_json = "\\"hello world\\"";
-  
-  struct {
-    uint64_t discriminant;
-    struct CalimeroBuffer buffer;
-  } value_ret;
-  
-  value_ret.discriminant = 0;
-  value_ret.buffer.ptr = (uint64_t)result_json;
-  value_ret.buffer.len = strlen(result_json);
-  
-  value_return((uint64_t)&value_ret);
-}`;
-    }
-    
-    // For other methods, generate normal QuickJS wrapper
-    return `
-__attribute__((used))
-__attribute__((visibility("default")))
-__attribute__((export_name("${methodName}")))
-void ${methodName}() {
-  JSRuntime *rt = JS_NewRuntime();
-  JSContext *ctx = JS_NewCustomContext(rt);
-  js_add_calimero_host_functions(ctx);
-  
-  // Load module WITHOUT calling JS_ResolveModule (it seems to break things in our context)
-  // Just: ReadObject -> EvalFunction -> get namespace
-  JSValue mod_obj = JS_ReadObject(ctx, code, code_size, JS_READ_OBJ_BYTECODE);
-  if (JS_IsException(mod_obj)) {
-    log_msg("Failed to load bytecode in ${methodName}");
-    JSValue exception = JS_GetException(ctx);
-    const char *str = JS_ToCString(ctx, exception);
-    if (str) {
-      log_msg(str);
-      JS_FreeCString(ctx, str);
-    }
-    JS_FreeValue(ctx, exception);
-    JS_FreeValue(ctx, mod_obj);
-    JS_FreeContext(ctx);
-    JS_FreeRuntime(rt);
-    return;
-  }
-  
-  // Evaluate the module (THIS IS CRITICAL - runs top-level code!)
-  JSValue eval_result = JS_EvalFunction(ctx, mod_obj);
-  if (JS_IsException(eval_result)) {
-    log_msg("Failed to evaluate module in ${methodName}");
-    JS_FreeValue(ctx, eval_result);
-    JS_FreeValue(ctx, mod_obj);
-    JS_FreeContext(ctx);
-    JS_FreeRuntime(rt);
-    return;
-  }
-  
-  // Get the module namespace (where exports live)
-  JSModuleDef *m = (JSModuleDef *)JS_VALUE_GET_PTR(mod_obj);
-  JSValue module_ns = js_get_module_ns(ctx, m);
-  
-  // Try to get function from module namespace
-  JSValue fun_obj = JS_GetProperty(ctx, module_ns, JS_NewAtom(ctx, "${methodName}"));
-  JSValue this_obj = module_ns;
-  
-  // If not found at top-level in namespace, try getting from Logic class in module namespace
-  if (JS_IsUndefined(fun_obj) || !JS_IsFunction(ctx, fun_obj)) {
-    JS_FreeValue(ctx, fun_obj);
-    JSValue class_obj = JS_GetProperty(ctx, module_ns, JS_NewAtom(ctx, "${logicClassName}"));
-    if (!JS_IsUndefined(class_obj)) {
-      fun_obj = JS_GetProperty(ctx, class_obj, JS_NewAtom(ctx, "${methodName}"));
-      this_obj = class_obj;
-      log_msg("Found ${methodName} on class");
-    } else {
-      log_msg("Method ${methodName} not found (neither top-level nor on class)");
-      JS_FreeValue(ctx, class_obj);
-      JS_FreeValue(ctx, module_ns);
-      JS_FreeValue(ctx, eval_result);
-      JS_FreeValue(ctx, mod_obj);
-      JS_FreeContext(ctx);
-      JS_FreeRuntime(rt);
-      return;
-    }
-  } else {
-    log_msg("Found ${methodName} at top-level");
-  }
-  
-  if (JS_IsUndefined(fun_obj) || !JS_IsFunction(ctx, fun_obj)) {
-    log_msg("Method ${methodName} is not a function");
-    JS_FreeValue(ctx, fun_obj);
-    if (this_obj != module_ns) JS_FreeValue(ctx, this_obj);
-    JS_FreeValue(ctx, module_ns);
-    JS_FreeValue(ctx, eval_result);
-    JS_FreeValue(ctx, mod_obj);
-    JS_FreeContext(ctx);
-    JS_FreeRuntime(rt);
-    return;
-  }
-  
-  JSValue result = JS_Call(ctx, fun_obj, this_obj, 0, NULL);
-  
-  if (JS_IsException(result)) {
-    log_msg("Exception in ${methodName}");
-    JSValue exception = JS_GetException(ctx);
-    const char *str = JS_ToCString(ctx, exception);
-    if (str) {
-      log_msg(str);
-      JS_FreeCString(ctx, str);
-    }
-    JS_FreeValue(ctx, exception);
-    JS_FreeValue(ctx, fun_obj);
-    if (this_obj != module_ns) JS_FreeValue(ctx, this_obj);
-    JS_FreeValue(ctx, result);
-    JS_FreeValue(ctx, module_ns);
-    JS_FreeValue(ctx, eval_result);
-    JS_FreeValue(ctx, mod_obj);
-    JS_FreeContext(ctx);
-    JS_FreeRuntime(rt);
-    return;
-  }
-  
-  // Special handling for init method - serialize state and call commitDelta
-  if (!strcmp("${methodName}", "init") && !JS_IsUndefined(result)) {
-    // Serialize the returned state to JSON
-    JSValue global = JS_GetGlobalObject(ctx);
-    JSValue json_obj = JS_GetPropertyStr(ctx, global, "JSON");
-    JSValue stringify_func = JS_GetPropertyStr(ctx, json_obj, "stringify");
-    
-    JSValue json_args[1] = { result };
-    JSValue json_str = JS_Call(ctx, stringify_func, json_obj, 1, json_args);
-    
-    if (!JS_IsException(json_str)) {
-      const char *json_cstr = JS_ToCString(ctx, json_str);
-      if (json_cstr) {
-        size_t json_len = strlen(json_cstr);
-        
-        // Create Borsh artifact: StorageDelta::Actions with one Update action
-        // Variant (u8) + Vec length (u32 LE) + Action::Update fields
-        size_t artifact_size = 1 + 4 + 1 + 32 + 4 + json_len + 4 + 8 + 8;
-        uint8_t *artifact = (uint8_t*)malloc(artifact_size);
-        size_t offset = 0;
-        
-        // StorageDelta::Actions variant (0)
-        artifact[offset++] = 0;
-        
-        // Vec length = 1 (u32 little-endian)
-        artifact[offset++] = 1;
-        artifact[offset++] = 0;
-        artifact[offset++] = 0;
-        artifact[offset++] = 0;
-        
-        // Action::Update variant (3)
-        artifact[offset++] = 3;
-        
-        // id: [u8; 32] - use "state" as ID
-        memset(&artifact[offset], 0, 32);
-        memcpy(&artifact[offset], "state", 5);
-        offset += 32;
-        
-        // data: Vec<u8> - the JSON state
-        artifact[offset++] = json_len & 0xFF;
-        artifact[offset++] = (json_len >> 8) & 0xFF;
-        artifact[offset++] = (json_len >> 16) & 0xFF;
-        artifact[offset++] = (json_len >> 24) & 0xFF;
-        memcpy(&artifact[offset], json_cstr, json_len);
-        offset += json_len;
-        
-        // ancestors: Vec<ChildInfo> - empty (u32 = 0)
-        artifact[offset++] = 0;
-        artifact[offset++] = 0;
-        artifact[offset++] = 0;
-        artifact[offset++] = 0;
-        
-        // metadata.created_at: u64 (0)
-        memset(&artifact[offset], 0, 8);
-        offset += 8;
-        
-        // metadata.updated_at: u64 (0)
-        memset(&artifact[offset], 0, 8);
-        offset += 8;
-        
-        // Create root hash (simple non-zero)
-        uint8_t root_hash[32];
-        memset(root_hash, 0, 32);
-        root_hash[0] = 1;
-        
-        // Call commitDelta directly from C
-        extern void commit(uint64_t root_hash_ptr, uint64_t artifact_ptr);
-        struct {
-          uint64_t ptr;
-          uint64_t len;
-        } root_buf, artifact_buf;
-        
-        root_buf.ptr = (uint64_t)root_hash;
-        root_buf.len = 32;
-        artifact_buf.ptr = (uint64_t)artifact;
-        artifact_buf.len = artifact_size;
-        
-        commit((uint64_t)&root_buf, (uint64_t)&artifact_buf);
-        
-        free(artifact);
-        JS_FreeCString(ctx, json_cstr);
-      }
-      JS_FreeValue(ctx, json_str);
-    }
-    
-    JS_FreeValue(ctx, stringify_func);
-    JS_FreeValue(ctx, json_obj);
-    JS_FreeValue(ctx, global);
-  } else {
-    // TEST: Call value_return with hardcoded string to verify it works
-    extern void value_return(uint64_t value_ptr);
-    struct CalimeroBuffer {
-      uint64_t ptr;
-      uint64_t len;
-    };
-    struct {
-      uint64_t discriminant;  // 0 = Ok
-      struct CalimeroBuffer buffer;
-    } value_ret;
-    
-    const char *test_value = "\\"test_from_c_${methodName}\\"";
-    value_ret.discriminant = 0;
-    value_ret.buffer.ptr = (uint64_t)test_value;
-    value_ret.buffer.len = strlen(test_value);
-    
-    value_return((uint64_t)&value_ret);
-  }
-  
-  // Process QuickJS event loop BEFORE cleanup (matching NEAR SDK pattern!)
-  js_std_loop(ctx);
-  
-  // Free values
-  JS_FreeValue(ctx, fun_obj);
-  if (this_obj != module_ns) JS_FreeValue(ctx, this_obj);
-  JS_FreeValue(ctx, result);
-  JS_FreeValue(ctx, module_ns);
-  JS_FreeValue(ctx, eval_result);
-  JS_FreeValue(ctx, mod_obj);
-  
-  JS_FreeContext(ctx);
-  JS_FreeRuntime(rt);
-}`;
-  };  // Close generateMethod function
-
-  // Generate C source file with full inline functions
-  const cSource = `
-// Auto-generated method exports
-// Found ${uniqueMethods.length} methods
-// Note: This file is #included in builder.c
-
-// Forward declarations (code.h is already included in builder.c)
-extern const uint8_t code[];
-extern const uint32_t code_size;
-extern JSContext *JS_NewCustomContext(JSRuntime *rt);
-extern void js_add_calimero_host_functions(JSContext *ctx);
-extern void panic_utf8(uint64_t msg_ptr, uint64_t loc_ptr) __attribute__((noreturn));
-extern void log_utf8(uint64_t buffer_ptr);
-extern void commit(uint64_t root_hash_ptr, uint64_t artifact_ptr);
-
-#include <string.h>
-#include <stdlib.h>
-
-// Global counter for demo (not persistent, resets on WASM reload!)
-static int demo_counter = 0;
-
-// Helper to log a string message (CalimeroBuffer is already defined in builder.c)
-static void log_msg(const char* msg) {
-  struct {
-    uint64_t ptr;
-    uint64_t len;
-  } buf;
-  buf.ptr = (uint64_t)msg;
-  buf.len = (uint64_t)strlen(msg);
-  log_utf8((uint64_t)&buf);
+  emitHeaders(outputDir, Array.from(methodSet).sort());
 }
 
-${uniqueMethods.map(generateMethod).join('\n')}
-`;
+interface MethodRegistrySnapshot {
+  logic: Record<string, { methods: string[]; init?: string }>;
+  functions: string[];
+}
+
+async function tryLoadMethodRegistry(jsFile: string): Promise<MethodRegistrySnapshot | null> {
+  try {
+    const fileUrl = pathToFileURL(path.resolve(jsFile));
+    const cacheBustingUrl = new URL(fileUrl.href);
+    cacheBustingUrl.searchParams.set('registry', Date.now().toString(36));
+
+    const previousEnv = (globalThis as any).env;
+    const previousRegistry = (globalThis as any).__CALIMERO_METHOD_REGISTRY__;
+
+    (globalThis as any).env = createEnvStub();
+    delete (globalThis as any).__CALIMERO_METHOD_REGISTRY__;
+
+    await import(cacheBustingUrl.href);
+
+    const snapshot = (globalThis as any).__CALIMERO_METHOD_REGISTRY__ ?? null;
+
+    if (previousEnv === undefined) {
+      delete (globalThis as any).env;
+    } else {
+      (globalThis as any).env = previousEnv;
+    }
+
+    if (previousRegistry === undefined) {
+      delete (globalThis as any).__CALIMERO_METHOD_REGISTRY__;
+    } else {
+      (globalThis as any).__CALIMERO_METHOD_REGISTRY__ = previousRegistry;
+    }
+
+    return snapshot;
+  } catch {
+    return null;
+  }
+}
+
+function emitHeaders(outputDir: string, methods: string[]): void {
+  const uniqueMethods = Array.from(new Set(methods));
+
+  const methodMacroLines = uniqueMethods.map(method => `DEFINE_CALIMERO_METHOD(${method})`);
+
+  const cSourceLines = [
+    '// Auto-generated method exports',
+    `// Found ${uniqueMethods.length} methods`,
+    '// Note: This file is #included in builder.c',
+    '',
+    ...methodMacroLines,
+    ''
+  ];
 
   const outputFile = path.join(outputDir, 'methods.c');
-  fs.writeFileSync(outputFile, cSource);
-  
-  // Create methods.h with DEFINE_CALIMERO_METHOD macros for wasm.ts to find
+  fs.writeFileSync(outputFile, cSourceLines.join('\n'));
+
   const headerFile = path.join(outputDir, 'methods.h');
-  const headerContent = `
-#ifndef METHODS_H
-#define METHODS_H
-// Method names for export (used by wasm.ts)
-${uniqueMethods.map(m => `#define EXPORT_METHOD_${m.toUpperCase()} 1`).join('\n')}
-${uniqueMethods.map(m => `DEFINE_CALIMERO_METHOD(${m})`).join('\n')}
-#endif // METHODS_H
-`;
-  fs.writeFileSync(headerFile, headerContent);
-  
+  const headerContentLines = [
+    '#ifndef METHODS_H',
+    '#define METHODS_H',
+    '// Method names for export (used by wasm.ts)',
+    ...uniqueMethods.map(m => `#define EXPORT_METHOD_${m.toUpperCase()} 1`),
+    ...methodMacroLines,
+    '#endif // METHODS_H',
+    ''
+  ];
+  fs.writeFileSync(headerFile, headerContentLines.join('\n'));
+
   if (uniqueMethods.length > 0) {
     console.log(`Extracted ${uniqueMethods.length} methods: ${uniqueMethods.join(', ')}`);
   } else {
     console.warn('Warning: No methods found to export');
   }
+}
+
+function createEnvStub(): Record<string, (...args: any[]) => any> {
+  const noOp = () => undefined;
+  const zero = () => 0;
+  const bigZero = () => 0n;
+
+  return {
+    panic_utf8: () => {
+      throw new Error('panic_utf8 called during method registry extraction');
+    },
+    value_return: noOp,
+    log_utf8: noOp,
+    context_id: noOp,
+    executor_id: noOp,
+    storage_read: zero,
+    storage_write: noOp,
+    storage_remove: zero,
+    register_len: zero,
+    read_register: noOp,
+    commit: noOp,
+    time_now: noOp,
+    blob_create: bigZero,
+    blob_open: bigZero,
+    blob_read: bigZero,
+    blob_write: bigZero,
+    blob_close: zero,
+  };
 }
 

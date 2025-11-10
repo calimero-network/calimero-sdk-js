@@ -30,6 +30,23 @@ describe('Counter', () => {
       expect(counter.value()).toBe(3n);
     });
 
+    it('should increment by amount', () => {
+      const counter = new Counter();
+
+      counter.incrementBy(5);
+      expect(counter.value()).toBe(5n);
+
+      counter.incrementBy(0);
+      expect(counter.value()).toBe(5n);
+    });
+
+    it('should reject invalid increment amounts', () => {
+      const counter = new Counter();
+      expect(() => counter.incrementBy(-1)).toThrow();
+      expect(() => counter.incrementBy(1.5)).toThrow();
+      expect(() => counter.incrementBy(Number.NaN)).toThrow();
+    });
+
     it('should handle multiple increments', () => {
       const counter = new Counter();
 
@@ -43,26 +60,22 @@ describe('Counter', () => {
 
   describe('persistence', () => {
     it('should persist across instances', () => {
-      const prefix = 'test_counter';
-
-      const counter1 = new Counter(prefix);
+      const counter1 = new Counter();
       counter1.increment();
       counter1.increment();
 
-      const counter2 = new Counter(prefix);
+      const counter2 = new Counter({ id: counter1.id() });
       expect(counter2.value()).toBe(2n);
     });
 
     it('should accumulate increments', () => {
-      const prefix = 'test_counter2';
-
-      const counter1 = new Counter(prefix);
+      const counter1 = new Counter();
       counter1.increment();
 
-      const counter2 = new Counter(prefix);
+      const counter2 = new Counter({ id: counter1.id() });
       counter2.increment();
 
-      const counter3 = new Counter(prefix);
+      const counter3 = new Counter({ id: counter1.id() });
       expect(counter3.value()).toBe(2n);
     });
   });

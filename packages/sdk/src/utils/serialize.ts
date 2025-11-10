@@ -1,29 +1,19 @@
-/**
- * Serialization utilities
- *
- * Simple JSON-based serialization for MVP.
- * TODO: Implement proper Borsh serialization for compatibility with Rust SDK.
- */
+import { serializeJsValue, deserializeJsValue } from './borsh-value';
 
 /**
- * Serializes a value to bytes
+ * Serializes a value to bytes using Calimero's Borsh encoding.
  *
  * @param value - Value to serialize
- * @returns Serialized bytes
  */
 export function serialize<T>(value: T): Uint8Array {
-  const encoder = new TextEncoder();
-  return encoder.encode(JSON.stringify(value));
+  return serializeJsValue(value);
 }
 
 /**
- * Deserializes bytes to a value
+ * Deserializes bytes produced by {@link serialize}.
  *
  * @param data - Bytes to deserialize
- * @returns Deserialized value
  */
 export function deserialize<T>(data: Uint8Array): T {
-  const decoder = new TextDecoder();
-  return JSON.parse(decoder.decode(data));
+  return deserializeJsValue<T>(data);
 }
-

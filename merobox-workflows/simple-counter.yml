@@ -1,10 +1,13 @@
 description: Simple Counter Application Test Workflow
 name: Counter App Test
 
+no_docker: true
+binary_path: /Users/chefsale/workspace/calimero/core/target/release/merod
+
 nodes:
   chain_id: testnet-1
-  count: 1
-  image: ghcr.io/calimero-network/merod:edge
+  count: 2
+  image: ghcr.io/calimero-network/merod:57b0b20
   prefix: counter-node
 
 steps:
@@ -12,7 +15,7 @@ steps:
   - name: Install Counter Application
     type: install_application
     node: counter-node-1
-    path: "/app/data/contract.wasm"
+    path: "./examples/counter/build/contract.wasm"
     dev: true
     outputs:
       app_id: applicationId
@@ -40,6 +43,8 @@ steps:
     executor_public_key: '{{member_public_key}}'
     method: getCount
     args: {}
+    outputs:
+      initial_count_node_1: result.output
 
   # Step 5: Increment counter
   - name: Increment Counter (First Time)
@@ -63,6 +68,8 @@ steps:
     executor_public_key: '{{member_public_key}}'
     method: getCount
     args: {}
+    outputs:
+      post_increment_count_node_1: result.output
 
   # Step 8: Test string return with hello method
   - name: Call Hello Method
@@ -72,8 +79,26 @@ steps:
     executor_public_key: '{{member_public_key}}'
     method: hello
     args: {}
+    outputs:
+      hello_response_node_1: result.output
+
+  # Step 9: Allow state replication to the second node
+  - name: Wait For Replication
+    type: wait
+    seconds: 2
+
+  # Step 10: Verify count on the second node
+  - name: Get Count On Node 2
+    type: call
+    node: counter-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getCount
+    args: {}
+    outputs:
+      post_increment_count_node_2: result.output
 
 # Configuration options
-stop_all_nodes: false
+stop_all_nodes: true
 restart: false
 wait_timeout: 60

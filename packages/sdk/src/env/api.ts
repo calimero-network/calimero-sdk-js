@@ -5,12 +5,57 @@
  * context information, and more.
  */
 
+import '../polyfills/text-encoding';
+
 import type { HostEnv } from './bindings';
+import { serialize } from '../utils/serialize';
+import { DeltaContext } from '../collections/internal/DeltaContext';
+import { exposeValue } from '../utils/expose';
 
 // This will be provided by QuickJS runtime via builder.c
 declare const env: HostEnv;
 
 const REGISTER_ID = 0n;
+const textEncoder = new TextEncoder();
+
+DeltaContext.setCommitHandler((rootHash, artifact) => {
+  env.commit(rootHash, artifact);
+});
+
+export function registerLen(register: bigint = REGISTER_ID): bigint {
+  return env.register_len(register);
+}
+
+export function readRegister(register: bigint, buffer: Uint8Array): void {
+  env.read_register(register, buffer);
+}
+
+export function input(register: bigint = REGISTER_ID): void {
+  env.input(register);
+}
+
+export function panic(message: string): never {
+  env.panic_utf8(textEncoder.encode(message));
+}
+
+export function valueReturn(value: unknown): void {
+  if (value instanceof Uint8Array) {
+    env.value_return(value);
+    return;
+  }
+
+  if (typeof value === 'bigint') {
+    env.value_return(textEncoder.encode(value.toString()));
+    return;
+  }
+
+  if (typeof value === 'string') {
+    env.value_return(textEncoder.encode(value));
+    return;
+  }
+
+  env.value_return(serialize(exposeValue(value)));
+}
 
 /**
  * Logs a message to the runtime
@@ -24,8 +69,7 @@ const REGISTER_ID = 0n;
  * ```
  */
 export function log(message: string): void {
-  const encoder = new TextEncoder();
-  env.log_utf8(encoder.encode(message));
+  env.log_utf8(textEncoder.encode(message));
 }
 
 /**
@@ -78,6 +122,7 @@ export function storageRead(key: Uint8Array): Uint8Array | null {
  */
 export function storageWrite(key: Uint8Array, value: Uint8Array): void {
   env.storage_write(key, value, REGISTER_ID);
+  DeltaContext.recordUpdate(key.slice(), value.slice(), timeNow());
 }
 
 /**
@@ -87,7 +132,137 @@ export function storageWrite(key: Uint8Array, value: Uint8Array): void {
  * @returns true if key existed, false otherwise
  */
 export function storageRemove(key: Uint8Array): boolean {
-  return Boolean(env.storage_remove(key, REGISTER_ID));
+  const existed = Boolean(env.storage_remove(key, REGISTER_ID));
+  if (existed) {
+    DeltaContext.recordRemove(key.slice(), timeNow());
+  }
+  return existed;
+}
+
+export function jsCrdtMapNew(register: bigint): number {
+  return env.js_crdt_map_new(register);
+}
+
+export function jsCrdtMapGet(mapId: Uint8Array, key: Uint8Array, register: bigint): number {
+  return env.js_crdt_map_get(mapId, key, register);
+}
+
+export function jsCrdtMapInsert(
+  mapId: Uint8Array,
+  key: Uint8Array,
+  value: Uint8Array,
+  register: bigint
+): number {
+  return env.js_crdt_map_insert(mapId, key, value, register);
+}
+
+export function jsCrdtMapRemove(
+  mapId: Uint8Array,
+  key: Uint8Array,
+  register: bigint
+): number {
+  return env.js_crdt_map_remove(mapId, key, register);
+}
+
+export function jsCrdtMapContains(mapId: Uint8Array, key: Uint8Array): number {
+  return env.js_crdt_map_contains(mapId, key);
+}
+
+export function jsCrdtMapIter(mapId: Uint8Array, register: bigint): number {
+  return env.js_crdt_map_iter(mapId, register);
+}
+
+export function jsCrdtVectorNew(register: bigint): number {
+  return env.js_crdt_vector_new(register);
+}
+
+export function jsCrdtVectorLen(vectorId: Uint8Array, register: bigint): number {
+  return env.js_crdt_vector_len(vectorId, register);
+}
+
+export function jsCrdtVectorPush(vectorId: Uint8Array, value: Uint8Array): number {
+  return env.js_crdt_vector_push(vectorId, value);
+}
+
+export function jsCrdtVectorGet(vectorId: Uint8Array, index: bigint, register: bigint): number {
+  return env.js_crdt_vector_get(vectorId, index, register);
+}
+
+export function jsCrdtVectorPop(vectorId: Uint8Array, register: bigint): number {
+  return env.js_crdt_vector_pop(vectorId, register);
+}
+
+export function jsCrdtSetNew(register: bigint): number {
+  return env.js_crdt_set_new(register);
+}
+
+export function jsCrdtSetInsert(setId: Uint8Array, value: Uint8Array): number {
+  return env.js_crdt_set_insert(setId, value);
+}
+
+export function jsCrdtSetContains(setId: Uint8Array, value: Uint8Array): number {
+  return env.js_crdt_set_contains(setId, value);
+}
+
+export function jsCrdtSetRemove(setId: Uint8Array, value: Uint8Array): number {
+  return env.js_crdt_set_remove(setId, value);
+}
+
+export function jsCrdtSetLen(setId: Uint8Array, register: bigint): number {
+  return env.js_crdt_set_len(setId, register);
+}
+
+export function jsCrdtSetIter(setId: Uint8Array, register: bigint): number {
+  return env.js_crdt_set_iter(setId, register);
+}
+
+export function jsCrdtSetClear(setId: Uint8Array): number {
+  return env.js_crdt_set_clear(setId);
+}
+
+export function jsCrdtLwwNew(register: bigint): number {
+  return env.js_crdt_lww_new(register);
+}
+
+export function jsCrdtLwwSet(registerId: Uint8Array, value: Uint8Array | null): number {
+  return env.js_crdt_lww_set(registerId, value);
+}
+
+export function jsCrdtLwwGet(registerId: Uint8Array, register: bigint): number {
+  return env.js_crdt_lww_get(registerId, register);
+}
+
+export function jsCrdtLwwTimestamp(registerId: Uint8Array, register: bigint): number {
+  return env.js_crdt_lww_timestamp(registerId, register);
+}
+
+export function jsCrdtCounterNew(register: bigint): number {
+  return env.js_crdt_counter_new(register);
+}
+
+export function jsCrdtCounterIncrement(counterId: Uint8Array): number {
+  return env.js_crdt_counter_increment(counterId);
+}
+
+export function jsCrdtCounterValue(counterId: Uint8Array, register: bigint): number {
+  return env.js_crdt_counter_value(counterId, register);
+}
+
+export function jsCrdtCounterGetExecutorCount(
+  counterId: Uint8Array,
+  register: bigint,
+  executorId?: Uint8Array
+): number {
+  return env.js_crdt_counter_get_executor_count(counterId, register, executorId);
+}
+
+/**
+ * Flush pending delta actions to the host.
+ *
+ * Returns true if a commit occurred.
+ */
+export function flushDelta(): boolean {
+  return DeltaContext.commit();
 }
 
 /**

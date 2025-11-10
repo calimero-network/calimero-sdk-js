@@ -6,80 +6,84 @@
 
 import { BorshWriter } from './encoder';
 
-/**
- * Simplified Action for init (Update variant only)
- */
-export interface BorshAction {
-  type: 'Update';
-  id: Uint8Array;        // [u8; 32]
-  data: Uint8Array;
-  timestamp: bigint;     // For metadata.created_at and updated_at
-}
+export type BorshAction =
+  | {
+      kind: 'Update';
+      id: Uint8Array; // [u8; 32]
+      data: Uint8Array;
+      timestamp: bigint; // Metadata timestamps
+    }
+  | {
+      kind: 'DeleteRef';
+      id: Uint8Array; // [u8; 32]
+      deletedAt: bigint;
+    };
 
-/**
- * Serialize a storage action to Borsh format
- * 
- * Action::Update {
- *   id: Id,              // [u8; 32]
- *   data: Vec<u8>,
- *   ancestors: Vec<ChildInfo>,
- *   metadata: Metadata { created_at: u64, updated_at: u64 }
- * }
- */
-function serializeAction(writer: BorshWriter, action: BorshAction): void {
-  // Action enum variant - Update = 3
+function serializeUpdate(writer: BorshWriter, action: Extract<BorshAction, { kind: 'Update' }>): void {
+  // Action::Update variant = 3
   writer.writeU8(3);
-  
-  // id: [u8; 32]
   writer.writeFixedArray(action.id);
-  
-  // data: Vec<u8>
-  writer.writeVec(Array.from(action.data), (byte) => writer.writeU8(byte));
-  
-  // ancestors: Vec<ChildInfo> - empty for now
+  writer.writeVec(Array.from(action.data), byte => writer.writeU8(byte));
+  // ancestors: Vec<ChildInfo> (empty)
   writer.writeU32(0);
-  
-  // metadata: Metadata
-  writer.writeU64(action.timestamp);      // created_at
-  writer.writeU64(action.timestamp);      // updated_at
+  // metadata::Metadata { created_at, updated_at }
+  writer.writeU64(action.timestamp);
+  writer.writeU64(action.timestamp);
 }
 
-/**
- * Serialize StorageDelta::Actions
- * 
- * StorageDelta::Actions(Vec<Action>)
- */
+function serializeDeleteRef(
+  writer: BorshWriter,
+  action: Extract<BorshAction, { kind: 'DeleteRef' }>
+): void {
+  // Action::DeleteRef variant = 2
+  writer.writeU8(2);
+  writer.writeFixedArray(action.id);
+  writer.writeU64(action.deletedAt);
+}
+
+function serializeAction(writer: BorshWriter, action: BorshAction): void {
+  switch (action.kind) {
+    case 'Update':
+      serializeUpdate(writer, action);
+      break;
+    case 'DeleteRef':
+      serializeDeleteRef(writer, action);
+      break;
+    default:
+      ((_: never) => {
+        throw new Error('Unknown action kind');
+      })(action);
+  }
+}
+
 export function serializeStorageDelta(actions: BorshAction[]): Uint8Array {
   const writer = new BorshWriter();
-  
-  // Enum variant: StorageDelta::Actions = 0
+  // StorageDelta::Actions = 0
   writer.writeU8(0);
-  
-  // Vec<Action>
-  writer.writeVec(actions, (action) => serializeAction(writer, action));
-  
+  writer.writeVec(actions, action => serializeAction(writer, action));
   return writer.toBytes();
 }
 
 /**
- * Helper to create a random 32-byte ID
+ * Simple deterministic ID from string key (fits into [u8;32])
  */
-export function randomId(): Uint8Array {
-  const id = new Uint8Array(32);
-  for (let i = 0; i < 32; i++) {
-    id[i] = Math.floor(Math.random() * 256);
+export function idFromString(value: string): Uint8Array {
+  const result = new Uint8Array(32);
+  const limit = Math.min(value.length, 32);
+  for (let i = 0; i < limit; i += 1) {
+    result[i] = value.charCodeAt(i) & 0xff;
   }
-  return id;
+  return result;
 }
 
 /**
- * Helper to create ID from string (deterministic)
+ * Generate a random 32-byte identifier
  */
-export function idFromString(str: string): Uint8Array {
-  const id = new Uint8Array(32);
-  for (let i = 0; i < Math.min(str.length, 32); i++) {
-    id[i] = str.charCodeAt(i);
+export function randomId(): Uint8Array {
+  const result = new Uint8Array(32);
+  for (let i = 0; i < result.length; i += 1) {
+    result[i] = Math.floor(Math.random() * 256);
   }
-  return id;
+  return result;
 }
 

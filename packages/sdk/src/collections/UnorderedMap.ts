@@ -1,100 +1,149 @@
 /**
- * UnorderedMap - Last-Write-Wins CRDT Map
- *
- * A distributed key-value map that automatically resolves conflicts
- * using Last-Write-Wins (LWW) strategy based on timestamps.
+ * UnorderedMap - backed by the Rust `JsUnorderedMap` CRDT via storage-wasm.
+ * Keys and values are serialized using the SDK's JSON-based serialization.
  */
 
-import { DeltaContext } from './internal/DeltaContext';
 import { serialize, deserialize } from '../utils/serialize';
 import * as env from '../env/api';
+import {
+  mapNew,
+  mapGet,
+  mapInsert,
+  mapRemove,
+  mapContains,
+  mapEntries
+} from '../runtime/storage-wasm';
+import { registerCollectionType, CollectionSnapshot } from '../runtime/collections';
+
+const SENTINEL_KEY = '__calimeroCollection';
+
+export interface UnorderedMapOptions {
+  /**
+   * Existing map identifier as a 32-byte Uint8Array or 64-character hex string.
+   */
+  id?: Uint8Array | string;
+}
 
 export class UnorderedMap<K, V> {
-  private prefix: Uint8Array;
+  private readonly mapId: Uint8Array;
+
+  constructor(options: UnorderedMapOptions = {}) {
+    if (options.id) {
+      this.mapId = normalizeMapId(options.id);
+      return;
+    }
+
+    try {
+      this.mapId = mapNew();
+    } catch (error) {
+      const message = `[collections::UnorderedMap] mapNew failed: ${error instanceof Error ? error.message : String(error)}`;
+      try {
+        env.log(message);
+      } catch {
+        if (typeof console !== 'undefined' && typeof console.error === 'function') {
+          console.error(message);
+        }
+      }
+      env.panic(message);
+    }
+  }
+
+  static fromId<K, V>(id: Uint8Array | string): UnorderedMap<K, V> {
+    return new UnorderedMap<K, V>({ id });
+  }
 
   /**
-   * Creates a new UnorderedMap
-   *
-   * @param prefix - Optional prefix for storage keys
-   */
-  constructor(prefix: string = '') {
-    const encoder = new TextEncoder();
-    this.prefix = encoder.encode(prefix || this._generatePrefix());
-  }
-
-  private _generatePrefix(): string {
-    // Generate unique prefix
-    return `map_${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  private _key(k: K): Uint8Array {
-    const keyBytes = serialize(k);
-    const combined = new Uint8Array(this.prefix.length + keyBytes.length);
-    combined.set(this.prefix, 0);
-    combined.set(keyBytes, this.prefix.length);
-    return combined;
+    * Returns the underlying map identifier as a hex string.
+    */
+  id(): string {
+    return bytesToHex(this.mapId);
   }
 
   /**
-   * Sets a value for the given key
-   *
-   * @param key - Key to set
-   * @param value - Value to store
+   * Returns a copy of the map identifier bytes.
    */
+  idBytes(): Uint8Array {
+    return new Uint8Array(this.mapId);
+  }
+
   set(key: K, value: V): void {
-    const k = this._key(key);
-    const v = serialize(value);
-
-    env.storageWrite(k, v);
-
-    // Track in delta context
-    DeltaContext.addAction({
-      type: 'Update',
-      key: k,
-      value: v,
-      timestamp: Number(env.timeNow())
-    });
+    const keyBytes = serialize(key);
+    const valueBytes = serialize(value);
+    mapInsert(this.mapId, keyBytes, valueBytes);
   }
 
-  /**
-   * Gets the value for the given key
-   *
-   * @param key - Key to get
-   * @returns Value if exists, null otherwise
-   */
   get(key: K): V | null {
-    const k = this._key(key);
-    const raw = env.storageRead(k);
-    if (!raw) return null;
-    return deserialize<V>(raw);
+    const keyBytes = serialize(key);
+    const raw = mapGet(this.mapId, keyBytes);
+    return raw ? deserialize<V>(raw) : null;
   }
 
-  /**
-   * Checks if a key exists
-   *
-   * @param key - Key to check
-   * @returns true if key exists
-   */
   has(key: K): boolean {
-    const k = this._key(key);
-    return env.storageRead(k) !== null;
+    const keyBytes = serialize(key);
+    return mapContains(this.mapId, keyBytes);
   }
 
-  /**
-   * Removes a key from the map
-   *
-   * @param key - Key to remove
-   */
   remove(key: K): void {
-    const k = this._key(key);
-    env.storageRemove(k);
+    const keyBytes = serialize(key);
+    mapRemove(this.mapId, keyBytes);
+  }
 
-    // Track in delta context
-    DeltaContext.addAction({
-      type: 'Remove',
-      key: k,
-      timestamp: Number(env.timeNow())
-    });
+  entries(): Array<[K, V]> {
+    const serializedEntries = mapEntries(this.mapId);
+    return serializedEntries.map(([keyBytes, valueBytes]) => [
+      deserialize<K>(keyBytes),
+      deserialize<V>(valueBytes)
+    ]);
+  }
+
+  keys(): K[] {
+    return this.entries().map(([key]) => key);
+  }
+
+  values(): V[] {
+    return this.entries().map(([, value]) => value);
+  }
+
+  toJSON(): Record<string, unknown> {
+    return {
+      [SENTINEL_KEY]: 'UnorderedMap',
+      id: this.id()
+    };
   }
 }
+
+function normalizeMapId(id: Uint8Array | string): Uint8Array {
+  if (id instanceof Uint8Array) {
+    if (id.length !== 32) {
+      throw new TypeError('Map id must be 32 bytes');
+    }
+    return new Uint8Array(id);
+  }
+
+  const cleaned = id.trim().toLowerCase();
+  if (cleaned.length !== 64 || !/^[0-9a-f]+$/.test(cleaned)) {
+    throw new TypeError('Map id hex string must be 64 hexadecimal characters');
+  }
+  return hexToBytes(cleaned);
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  let out = '';
+  for (let i = 0; i < bytes.length; i += 1) {
+    out += bytes[i].toString(16).padStart(2, '0');
+  }
+  return out;
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
+  }
+  return bytes;
+}
+
+registerCollectionType('UnorderedMap', (snapshot: CollectionSnapshot) =>
+  UnorderedMap.fromId(snapshot.id)
+);
 
