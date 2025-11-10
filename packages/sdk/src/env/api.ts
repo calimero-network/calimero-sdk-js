@@ -8,7 +8,6 @@
 import '../polyfills/text-encoding';
 
 import type { HostEnv } from './bindings';
-import { serialize } from '../utils/serialize';
 import { DeltaContext } from '../collections/internal/DeltaContext';
 import { exposeValue } from '../utils/expose';
 
@@ -54,7 +53,14 @@ export function valueReturn(value: unknown): void {
     return;
   }
 
-  env.value_return(serialize(exposeValue(value)));
+  const exposed = exposeValue(value);
+  const json =
+    exposed === undefined
+      ? 'null'
+      : JSON.stringify(exposed, (_key, val) =>
+          typeof val === 'bigint' ? val.toString() : val
+        );
+  env.value_return(textEncoder.encode(json ?? 'null'));
 }
 
 /**
