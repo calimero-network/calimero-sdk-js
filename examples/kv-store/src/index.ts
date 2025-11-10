@@ -179,18 +179,6 @@ export class KvStoreLogic extends KvStore {
     this.logHandlerCall('clear_handler', 'all items cleared');
   }
 
-<<<<<<< HEAD
-=======
-  private ensureItemRegister(key: string): LwwRegister<string> {
-    let register = this.items.get(key);
-    if (!register) {
-      register = new LwwRegister<string>();
-      this.items.set(key, register);
-    }
-    return register;
-  }
-
->>>>>>> f364819 (more improvements)
   private respond<T>(payload: T): string {
     return JSON.stringify(payload);
   }
@@ -199,7 +187,6 @@ export class KvStoreLogic extends KvStore {
     this.handlerCounter.increment();
     const sequence = this.handlerCounter.value().toString();
     const key = `${handler}_${sequence}`;
-<<<<<<< HEAD
 
     let register = this.handlersCalled.get(key);
     if (!register) {
@@ -209,10 +196,6 @@ export class KvStoreLogic extends KvStore {
     register.set(details);
     this.handlersCalled.set(key, register);
     env.log(`[kv-store] handler_invocation handler=${handler} sequence=${sequence} details=${details}`);
-=======
-    const register = new LwwRegister<string>({ initialValue: details });
-    this.handlersCalled.set(key, register);
->>>>>>> f364819 (more improvements)
   }
 }
 

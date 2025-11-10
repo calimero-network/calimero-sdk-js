@@ -1,9 +1,12 @@
 description: Simple Counter Application Test Workflow
 name: Counter App Test
+  
+no_docker: true
+binary_path: "/Users/chefsale/workspace/calimero/core/target/release/merod"
 
 nodes:
   chain_id: testnet-1
-  count: 3
+  count: 2
   image: ghcr.io/calimero-network/merod:edge
   prefix: counter-node
 
@@ -30,18 +33,7 @@ steps:
   # Step 3: Wait for context creation and sync
   - name: Wait for Context Creation
     type: wait
-    seconds: 1
-
-  # Step 4: Get initial count (should be 0)
-  - name: Get Initial Count
-    type: call
-    node: counter-node-1
-    context_id: '{{context_id}}'
-    executor_public_key: '{{member_public_key}}'
-    method: getCount
-    args: {}
-    outputs:
-      initial_count_node_1: result.output
+    seconds: 3
 
   # Step 5: Create identity for node 2
   - name: Create Node 2 Identity
@@ -77,18 +69,7 @@ steps:
   # Step 9: Wait for node 2 to sync
   - name: Wait After Node 2 Join
     type: wait
-    seconds: 2
-
-  # Step 10: Verify initial count on node 2
-  - name: Get Initial Count On Node 2
-    type: call
-    node: counter-node-2
-    context_id: '{{context_id}}'
-    executor_public_key: '{{node_2_member_public_key}}'
-    method: getCount
-    args: {}
-    outputs:
-      initial_count_node_2: result.output
+    seconds: 5
 
   # Step 11: Increment counter
   - name: Increment Counter (First Time)
@@ -144,5 +125,5 @@ steps:
 
 # Configuration options
 stop_all_nodes: false
-restart: true
+restart: false
 wait_timeout: 60

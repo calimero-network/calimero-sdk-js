@@ -440,12 +440,28 @@ static JSValue js_value_return(JSContext *ctx, JSValueConst this_val, int argc, 
   uint8_t *value_ptr = JSValueToUint8Array(ctx, argv[0], &value_len);
 
   if (!value_ptr) {
-    const char *str_value = JS_ToCString(ctx, argv[0]);
-    if (!str_value) {
+    JSValue json_value = JS_JSONStringify(ctx, argv[0], JS_UNDEFINED, JS_UNDEFINED);
+    if (JS_IsException(json_value)) {
       return JS_EXCEPTION;
     }
-    calimero_value_return_bytes((const uint8_t *)str_value, strlen(str_value));
-    JS_FreeCString(ctx, str_value);
+
+    size_t json_len = 0;
+    const char *json_cstr = NULL;
+
+    if (JS_IsUndefined(json_value)) {
+      static const char null_literal[] = "null";
+      calimero_value_return_bytes((const uint8_t *)null_literal, sizeof(null_literal) - 1);
+    } else {
+      json_cstr = JS_ToCStringLen(ctx, &json_len, json_value);
+      if (!json_cstr) {
+        JS_FreeValue(ctx, json_value);
+        return JS_EXCEPTION;
+      }
+      calimero_value_return_bytes((const uint8_t *)json_cstr, json_len);
+      JS_FreeCString(ctx, json_cstr);
+    }
+
+    JS_FreeValue(ctx, json_value);
     return JS_UNDEFINED;
   }
 
@@ -1603,4 +1619,5 @@ void calimero_method_##name() { \
 
 // Include generated method exports directly (expanded through DEFINE_CALIMERO_METHOD)
 #include "methods.c"
+
 
