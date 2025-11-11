@@ -109,6 +109,18 @@ steps:
     outputs:
       promote_result: result.output
 
+  # Step 10b: Fetch channel state after promotion
+  - name: Get Events Channel After Promote
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getChannel
+    args:
+      channelId: events
+    outputs:
+      events_channel_after_promote: result.output
+
   # Step 10: Fetch single channel state
   - name: Get Events Channel
     type: call
@@ -135,6 +147,18 @@ steps:
     outputs:
       demote_result: result.output
 
+  # Step 11b: Fetch channel state after demotion
+  - name: Get Events Channel After Demote
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getChannel
+    args:
+      channelId: events
+    outputs:
+      events_channel_after_demote: result.output
+
   # Step 12: Remove member from channel
   - name: Remove Member From Channel
     type: call
@@ -147,6 +171,18 @@ steps:
       userId: user-2
     outputs:
       remove_member_result: result.output
+
+  # Step 12b: Fetch channel state after member removal
+  - name: Get Events Channel After Remove
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getChannel
+    args:
+      channelId: events
+    outputs:
+      events_channel_after_remove: result.output
 
   # Step 13: Delete the channel
   - name: Delete Events Channel
