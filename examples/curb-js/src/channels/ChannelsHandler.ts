@@ -1,12 +1,14 @@
-import { UnorderedSet, Vector } from '@calimero/sdk/collections';
+import { UnorderedMap, Vector } from '@calimero/sdk/collections';
 import * as env from '@calimero/sdk/env';
 
 import type { ChatMemberAccess, ChatState, ChannelId, UserId } from '../types';
 import {
+  ChannelInfoResponse,
   ChannelType,
   type ChannelCreationOptions,
   type ChannelDefaultInit,
-  type ChannelInfo
+  type ChannelInfo,
+  type Message
 } from './types';
 
 const CHANNEL_NAME_MAX_LENGTH = 64;
@@ -34,8 +36,8 @@ export class ChannelsHandler {
         creatorUsername: storedOwnerUsername,
         type: ChannelType.Default,
         readOnly: false,
-        members: [this.state.owner],
-        moderators: [this.state.owner],
+        members: [{ userId: this.state.owner, username: storedOwnerUsername }],
+        moderators: [{ userId: this.state.owner, username: storedOwnerUsername }],
         createdAt: this.state.createdAt
       });
 
@@ -48,7 +50,9 @@ export class ChannelsHandler {
   }
 
   getChannelsForUser(userId: UserId): Array<{ channelId: ChannelId; info: ChannelInfo }> {
-    const entries = this.state.channels.entries().filter(([, info]) => info.metadata.members.has(userId));
+    const entries = this.state.channels.entries().filter(([, info]) =>
+      info.metadata.members.has(userId)
+    );
     return this.mapChannels(entries);
   }
 
@@ -59,7 +63,7 @@ export class ChannelsHandler {
     return this.mapChannels(entries);
   }
 
-  createChannel(channelId: ChannelId, options: ChannelCreationOptions = {}): string {
+  createChannel(channelId: ChannelId, options: ChannelCreationOptions = {}): ChannelInfoResponse | string {
     const normalizedId = this.normalizeChannelId(channelId);
     const validationError = this.validateChannelId(normalizedId);
     if (validationError) {
@@ -86,12 +90,12 @@ export class ChannelsHandler {
       creatorUsername,
       type: channelType,
       readOnly: options.readOnly ?? false,
-      members: [creatorId],
-      moderators: [creatorId]
+      members: [{ userId: creatorId, username: creatorUsername }],
+      moderators: [{ userId: creatorId, username: creatorUsername }]
     });
 
     this.persistChannel(normalizedId, channelInfo);
-    return 'Channel created';
+    return this.toResponse(channelInfo);
   }
 
   deleteChannel(channelId: ChannelId): string {
@@ -108,7 +112,7 @@ export class ChannelsHandler {
     return 'Channel deleted';
   }
 
-  addChannelModerator(channelId: ChannelId, userId: UserId): string {
+  addChannelModerator(channelId: ChannelId, userId: UserId): ChannelInfoResponse | string {
     const channel = this.state.channels.get(channelId);
     if (!channel) {
       return 'Channel not found';
@@ -127,12 +131,17 @@ export class ChannelsHandler {
       return 'User is already a moderator';
     }
 
-    channel.metadata.moderators.add(userId);
+    const username = this.membersAccess.getUsername(userId);
+    if (!username) {
+      return 'User must have a registered username';
+    }
+
+    channel.metadata.moderators.set(userId, username);
     this.persistChannel(channelId, channel);
-    return 'User promoted to moderator';
+    return this.toResponse(channel);
   }
 
-  removeChannelModerator(channelId: ChannelId, userId: UserId): string {
+  removeChannelModerator(channelId: ChannelId, userId: UserId): ChannelInfoResponse | string {
     const channel = this.state.channels.get(channelId);
     if (!channel) {
       return 'Channel not found';
@@ -147,12 +156,12 @@ export class ChannelsHandler {
       return 'User is not a moderator';
     }
 
-    channel.metadata.moderators.delete(userId);
+    channel.metadata.moderators.remove(userId);
     this.persistChannel(channelId, channel);
-    return 'Moderator removed';
+    return this.toResponse(channel);
   }
 
-  addMemberToChannel(channelId: ChannelId, userId: UserId, username?: string): string {
+  addMemberToChannel(channelId: ChannelId, userId: UserId, username?: string): ChannelInfoResponse | string {
     const channel = this.state.channels.get(channelId);
     if (!channel) {
       return 'Channel not found';
@@ -177,12 +186,17 @@ export class ChannelsHandler {
       this.addUserToDefaultChannels(userId);
     }
 
-    channel.metadata.members.add(userId);
+    const usernameToSet = this.state.members.get(userId);
+    if (!usernameToSet) {
+      return 'Failed to resolve member username';
+    }
+
+    channel.metadata.members.set(userId, usernameToSet);
     this.persistChannel(channelId, channel);
-    return 'Member added to channel';
+    return this.toResponse(channel);
   }
 
-  removeMemberFromChannel(channelId: ChannelId, userId: UserId): string {
+  removeMemberFromChannel(channelId: ChannelId, userId: UserId): ChannelInfoResponse | string {
     const channel = this.state.channels.get(channelId);
     if (!channel) {
       return 'Channel not found';
@@ -198,12 +212,12 @@ export class ChannelsHandler {
     }
 
     if (channel.metadata.moderators.has(userId)) {
-      channel.metadata.moderators.delete(userId);
+      channel.metadata.moderators.remove(userId);
     }
 
-    channel.metadata.members.delete(userId);
+    channel.metadata.members.remove(userId);
     this.persistChannel(channelId, channel);
-    return 'Member removed from channel';
+    return this.toResponse(channel);
   }
 
   private createChannelInfo(params: {
@@ -211,18 +225,18 @@ export class ChannelsHandler {
     creatorUsername: string;
     type: ChannelType;
     readOnly: boolean;
-    members: UserId[];
-    moderators: UserId[];
+    members: Array<{ userId: UserId; username: string }>;
+    moderators: Array<{ userId: UserId; username: string }>;
     createdAt?: bigint;
   }): ChannelInfo {
-    const moderators = new UnorderedSet<UserId>();
-    params.moderators.forEach(id => moderators.add(id));
+    const moderators = new UnorderedMap<UserId, string>();
+    params.moderators.forEach(({ userId, username }) => moderators.set(userId, username));
 
-    const members = new UnorderedSet<UserId>();
-    params.members.forEach(id => members.add(id));
+    const members = new UnorderedMap<UserId, string>();
+    params.members.forEach(({ userId, username }) => members.set(userId, username));
 
     return {
-      messages: new Vector<string>(),
+      messages: new Vector<Message>(),
       metadata: {
         createdAt: params.createdAt ?? env.timeNow(),
         createdBy: params.creatorId,
@@ -267,9 +281,34 @@ export class ChannelsHandler {
       }
 
       if (!info.metadata.members.has(userId)) {
-        info.metadata.members.add(userId);
+        const username = this.state.members.get(userId);
+        if (!username) {
+          return;
+        }
+        info.metadata.members.set(userId, username);
         this.persistChannel(defaultChannelId, info);
       }
     });
+  }
+
+  private toResponse(info: ChannelInfo): ChannelInfoResponse {
+    return {
+      type: info.type,
+      metadata: {
+        createdAt: info.metadata.createdAt,
+        createdBy: info.metadata.createdBy,
+        createdByUsername: info.metadata.createdByUsername,
+        readOnly: info.metadata.readOnly,
+        linksAllowed: info.metadata.linksAllowed,
+        moderators: info.metadata.moderators.entries().map(([userId, username]) => ({
+          publicKey: userId,
+          username
+        })),
+        members: info.metadata.members.entries().map(([userId, username]) => ({
+          publicKey: userId,
+          username
+        }))
+      }
+    };
   }
 }

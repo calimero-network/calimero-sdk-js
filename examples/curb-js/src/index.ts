@@ -8,6 +8,8 @@ import {
   type ChannelCreationOptions,
   type ChannelDefaultInit,
   type ChannelInfo,
+  type ChannelInfoResponse,
+  type ChannelMembershipEntry
 } from './channels/types';
 import type { ChatMemberAccess, ChatState, ChannelId, UserId } from './types';
 import {
@@ -155,7 +157,11 @@ class ChatHandler implements ChatMemberAccess {
       }
 
       if (!info.metadata.members.has(executorId)) {
-        info.metadata.members.add(executorId);
+        const username = this.state.members.get(executorId);
+        if (!username) {
+          return;
+        }
+        info.metadata.members.set(executorId, username);
         this.state.channels.set(channelId, info);
       }
     });
@@ -353,14 +359,13 @@ export class CurbLogicChat extends CurbChat {
     return wrapResult('Invalid arguments');
   }
 
-  private formatChannelInfo(info: ChannelInfo | null): unknown {
+  private formatChannelInfo(info: ChannelInfo | null): ChannelInfoResponse | null {
     if (!info) {
       return null;
     }
 
     return {
       type: info.type,
-      messages: info.messages.toArray(),
       metadata: {
         createdAt: info.metadata.createdAt,
         createdBy: info.metadata.createdBy,
@@ -373,13 +378,10 @@ export class CurbLogicChat extends CurbChat {
     };
   }
 
-  private formatMembership(userSet: UnorderedSet<UserId>): Array<{
-    publicKey: UserId;
-    username: string | null;
-  }> {
-    return userSet.toArray().map(userId => ({
+  private formatMembership(userMap: UnorderedMap<UserId, string>): ChannelMembershipEntry[] {
+    return userMap.entries().map(([userId, username]) => ({
       publicKey: userId,
-      username: this.members.get(userId)
+      username
     }));
   }
 }
