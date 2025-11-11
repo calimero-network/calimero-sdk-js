@@ -9,9 +9,12 @@ import {
   type ChannelDefaultInit,
   type ChannelInfo,
   type ChannelInfoResponse,
-  type ChannelMembershipEntry
+  type ChannelMembershipEntry,
+  type Message
 } from './channels/types';
 import type { ChatMemberAccess, ChatState, ChannelId, UserId } from './types';
+import { MessagesHandler } from './messages/MessagesHandler';
+import type { FetchMessagesInput, SendMessageInput } from './messages/types';
 import {
   ensureMemberRegistered,
   isUsernameAvailable,
@@ -90,6 +93,7 @@ export class CurbChat implements ChatState {
   createdAt: bigint = 0n;
   members: UnorderedMap<UserId, string> = new UnorderedMap<UserId, string>();
   channels: UnorderedMap<ChannelId, ChannelInfo> = new UnorderedMap<ChannelId, ChannelInfo>();
+  threads: UnorderedMap<string, Vector<Message>> = new UnorderedMap<string, Vector<Message>>();
   isDMchat = false;
 }
 
@@ -176,6 +180,10 @@ export class CurbLogicChat extends CurbChat {
 
   private createChannelsAccess(membersAccess?: ChatHandler): ChannelsHandler {
     return new ChannelsHandler(this, membersAccess ?? this.createMembersAccess());
+  }
+
+  private createMessagesAccess(membersAccess?: ChatHandler): MessagesHandler {
+    return new MessagesHandler(this, membersAccess ?? this.createMembersAccess());
   }
 
   @Init
@@ -357,6 +365,34 @@ export class CurbLogicChat extends CurbChat {
       );
     }
     return wrapResult('Invalid arguments');
+  }
+
+  sendMessage(arg: SendMessageInput): string {
+    if (!arg || typeof arg !== 'object' || typeof arg.channelId !== 'string' || typeof arg.text !== 'string') {
+      return wrapResult('Invalid arguments');
+    }
+    const membersAccess = this.createMembersAccess();
+    const messagesHandler = this.createMessagesAccess(membersAccess);
+    try {
+      const result = messagesHandler.sendMessage(arg);
+      return wrapResult(result);
+    } catch (error) {
+      return wrapResult(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  getMessages(arg: FetchMessagesInput): string {
+    if (!arg || typeof arg !== 'object' || typeof arg.channelId !== 'string') {
+      return wrapResult('Invalid arguments');
+    }
+    const membersAccess = this.createMembersAccess();
+    const messagesHandler = this.createMessagesAccess(membersAccess);
+    try {
+      const result = messagesHandler.fetchMessages(arg);
+      return wrapResult(result);
+    } catch (error) {
+      return wrapResult(error instanceof Error ? error.message : String(error));
+    }
   }
 
   private formatChannelInfo(info: ChannelInfo | null): ChannelInfoResponse | null {

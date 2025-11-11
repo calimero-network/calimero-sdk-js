@@ -1,4 +1,4 @@
-import type { LwwRegister, UnorderedMap, UnorderedSet, Vector } from '@calimero/sdk/collections';
+import type { UnorderedMap, UnorderedSet, Vector } from '@calimero/sdk/collections';
 
 import type { ChannelId, UserId } from '../types';
 
@@ -27,18 +27,18 @@ export interface Attachment {
 }
 
 export interface Message {
-  timestamp: LwwRegister<bigint>;
+  timestamp: bigint;
   sender: UserId;
-  senderUsername: LwwRegister<string>;
+  senderUsername: string;
   mentions: UnorderedSet<UserId>;
-  mentionsUsernames: Vector<LwwRegister<string>>;
+  mentionsUsernames: Vector<string>;
   files: Vector<Attachment>;
   images: Vector<Attachment>;
-  id: LwwRegister<string>;
-  text: LwwRegister<string>;
-  editedOn: LwwRegister<bigint> | null;
-  deleted: LwwRegister<boolean> | null;
-  group: LwwRegister<string>;
+  id: string;
+  text: string;
+  editedOn: bigint | null;
+  deleted: boolean | null;
+  group: string;
 }
 
 export interface ChannelInfo {

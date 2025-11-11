@@ -1,6 +1,6 @@
-import type { UnorderedMap } from '@calimero/sdk/collections';
+import type { UnorderedMap, Vector } from '@calimero/sdk/collections';
 
-import type { ChannelInfo } from './channels/types';
+import type { ChannelInfo, Message } from './channels/types';
 
 export type UserId = string;
 export type ChannelId = string;
@@ -10,6 +10,7 @@ export interface ChatState {
   createdAt: bigint;
   members: UnorderedMap<UserId, string>;
   channels: UnorderedMap<ChannelId, ChannelInfo>;
+  threads: UnorderedMap<string, Vector<Message>>;
   isDMchat: boolean;
 }
 

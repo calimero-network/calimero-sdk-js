@@ -1,1 +1,1 @@
-rm -rf data && merobox bootstrap run --log-level info test-workflow.yml
+rm -rf data && merobox bootstrap run --log-level error test-workflow.yml
