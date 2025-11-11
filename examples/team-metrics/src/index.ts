@@ -104,7 +104,6 @@ export class TeamMetricsLogic extends TeamMetrics {
       profile.contributions = memberCounter;
     }
 
-    profile.contributions.incrementBy(increments);
     if (note) {
       const entry: ContributionNote = {
         message: note,
