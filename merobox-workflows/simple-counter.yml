@@ -1,13 +1,10 @@
 description: Simple Counter Application Test Workflow
 name: Counter App Test
 
-no_docker: true
-binary_path: /Users/chefsale/workspace/calimero/core/target/release/merod
-
 nodes:
   chain_id: testnet-1
   count: 2
-  image: ghcr.io/calimero-network/merod:57b0b20
+  image: ghcr.io/calimero-network/merod:edge
   prefix: counter-node
 
 steps:

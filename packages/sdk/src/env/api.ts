@@ -8,7 +8,6 @@
 import '../polyfills/text-encoding';
 
 import type { HostEnv } from './bindings';
-import { DeltaContext } from '../collections/internal/DeltaContext';
 import { exposeValue } from '../utils/expose';
 import { serialize } from '../utils/serialize';
 
@@ -17,10 +16,7 @@ declare const env: HostEnv;
 
 const REGISTER_ID = 0n;
 const textEncoder = new TextEncoder();
-
-DeltaContext.setCommitHandler((rootHash, artifact) => {
-  env.commit(rootHash, artifact);
-});
+const LEGACY_ROOT_KEY = textEncoder.encode('__calimero::root_state__');
 
 export function registerLen(register: bigint = REGISTER_ID): bigint {
   return env.register_len(register);
@@ -137,7 +133,61 @@ export function storageRead(key: Uint8Array): Uint8Array | null {
  */
 export function storageWrite(key: Uint8Array, value: Uint8Array): void {
   env.storage_write(key, value, REGISTER_ID);
-  DeltaContext.recordUpdate(key.slice(), value.slice(), timeNow());
+}
+
+/**
+ * Reads the serialized root state using the host interface.
+ *
+ * Falls back to the legacy storage key on older runtimes.
+ */
+export function readRootState(): Uint8Array | null {
+  const host = env as unknown as { read_root_state?: (register: bigint) => number };
+  if (typeof host.read_root_state === 'function') {
+    const result = host.read_root_state(REGISTER_ID);
+    if (!result) {
+      return null;
+    }
+
+    const len = Number(env.register_len(REGISTER_ID));
+    const buf = new Uint8Array(len);
+    env.read_register(REGISTER_ID, buf);
+    return buf;
+  }
+
+  return storageRead(LEGACY_ROOT_KEY);
+}
+
+/**
+ * Persists the serialized root state through the host interface.
+ *
+ * @param doc - Serialized root document
+ * @param createdAt - Original creation timestamp
+ * @param updatedAt - Last updated timestamp
+ *
+ * The Rust SDK updates Merkle state by invoking storage collections directly.
+ * The JS SDK runs inside QuickJS and cannot touch the host storage index, so it
+ * hands the serialized document back to the runtime via this call.
+ */
+export function persistRootState(doc: Uint8Array, createdAt: number, updatedAt: number): void {
+  const host = env as unknown as {
+    persist_root_state?: (doc: Uint8Array, createdAt: number, updatedAt: number) => void;
+  };
+
+  if (typeof host.persist_root_state !== 'function') {
+    throw new Error('persist_root_state host function unavailable');
+  }
+
+  host.persist_root_state(doc, createdAt, updatedAt);
+}
+
+export function applyStorageDelta(delta: Uint8Array): void {
+  const host = env as unknown as { apply_storage_delta?: (delta: Uint8Array) => void };
+
+  if (typeof host.apply_storage_delta !== 'function') {
+    throw new Error('apply_storage_delta host function unavailable');
+  }
+
+  host.apply_storage_delta(delta);
 }
 
 /**
@@ -148,9 +198,6 @@ export function storageWrite(key: Uint8Array, value: Uint8Array): void {
  */
 export function storageRemove(key: Uint8Array): boolean {
   const existed = Boolean(env.storage_remove(key, REGISTER_ID));
-  if (existed) {
-    DeltaContext.recordRemove(key.slice(), timeNow());
-  }
   return existed;
 }
 
@@ -277,17 +324,13 @@ export function jsCrdtCounterGetExecutorCount(
  * Returns true if a commit occurred.
  */
 export function flushDelta(): boolean {
-  return DeltaContext.commit();
-}
+  if (typeof (env as unknown as { flush_delta?: unknown }).flush_delta !== 'function') {
+    env.log_utf8(textEncoder.encode('[env] flush_delta missing on host, falling back to legacy commit'));
+    env.commit(new Uint8Array(32), new Uint8Array(0));
+    return true;
+  }
 
-/**
- * Commits the current delta to storage
- *
- * @param rootHash - Root hash of the Merkle tree
- * @param artifact - Serialized delta artifact
- */
-export function commitDelta(rootHash: Uint8Array, artifact: Uint8Array): void {
-  env.commit(rootHash, artifact);
+  return Boolean(env.flush_delta());
 }
 
 /**

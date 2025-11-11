@@ -20,8 +20,6 @@ interface NormalizedObject {
 }
 type NormalizedValue = NormalizedPrimitive | NormalizedArray | NormalizedObject;
 
-const textEncoder = new TextEncoder();
-
 function isTypedArray(value: unknown): value is ArrayBufferView {
   return ArrayBuffer.isView(value) && !(value instanceof DataView);
 }

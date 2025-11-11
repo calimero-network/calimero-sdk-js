@@ -6,7 +6,7 @@
 
 import * as env from '../env/api';
 import { instantiateCollection } from './collections';
-import { saveRootState, loadRootState, ROOT_STORAGE_KEY } from './root';
+import { saveRootState, loadRootState } from './root';
 
 const LEGACY_STATE_KEY = new TextEncoder().encode('STATE');
 const LEGACY_DECODER = new TextDecoder();

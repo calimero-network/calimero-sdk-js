@@ -2,19 +2,7 @@ import * as env from '../env/api';
 import { serialize, deserialize } from '../utils/serialize';
 import { CollectionSnapshot, instantiateCollection, snapshotCollection } from './collections';
 
-interface PersistedStateDocumentLegacy {
-  version: 1;
-  className: string;
-  values: Record<string, PersistedValueEntry>;
-  collections: Record<string, CollectionSnapshot>;
-  metadata: {
-    createdAt: number;
-    updatedAt: number;
-  };
-}
-
-interface PersistedStateDocumentV2 {
-  version: 2;
+interface PersistedStateDocument {
   className: string;
   values: Record<string, unknown>;
   collections: Record<string, CollectionSnapshot>;
@@ -24,15 +12,8 @@ interface PersistedStateDocumentV2 {
   };
 }
 
-interface PersistedValueEntry {
-  encoding: 'json';
-  data: string;
-}
-
 export const ROOT_STORAGE_KEY = new TextEncoder().encode('__calimero::root_state__');
 const ROOT_METADATA = Symbol.for('__calimeroRootMetadata');
-
-const textDecoder = new TextDecoder();
 
 export function saveRootState(state: any): Uint8Array {
   if (!state || typeof state !== 'object') {
@@ -41,8 +22,7 @@ export function saveRootState(state: any): Uint8Array {
 
   const metadata = ensureMetadata(state);
 
-  const doc: PersistedStateDocumentV2 = {
-    version: 2,
+  const doc: PersistedStateDocument = {
     className: state.constructor?.name ?? 'AnonymousState',
     values: Object.create(null) as Record<string, unknown>,
     collections: Object.create(null) as Record<string, CollectionSnapshot>,
@@ -66,34 +46,61 @@ export function saveRootState(state: any): Uint8Array {
   }
 
   const payload = serialize(doc);
-  env.storageWrite(ROOT_STORAGE_KEY, payload);
+  let persisted = false;
+
+  try {
+    env.persistRootState(payload, metadata.createdAt, metadata.updatedAt);
+    persisted = true;
+  } catch (error) {
+    env.log(`[runtime] persist_root_state unavailable (${String(error)}), falling back to storage_write`);
+  }
+
+  if (!persisted) {
+    env.storageWrite(ROOT_STORAGE_KEY, payload);
+  }
+
   return payload;
 }
 
 export function loadRootState<T>(stateClass: { new (...args: any[]): T }): T | null {
-  const raw = env.storageRead(ROOT_STORAGE_KEY);
+  const raw = env.readRootState();
   if (!raw) {
     return null;
   }
 
-  let doc: PersistedStateDocumentV2 | PersistedStateDocumentLegacy;
-  let isLegacy = false;
-  const json = textDecoder.decode(raw);
+  const decoded = deserialize<any>(raw);
+  if (!decoded || typeof decoded !== 'object') {
+    throw new Error('Unsupported persisted state document');
+  }
 
-  try {
-    const decoded = deserialize<any>(raw);
-    if (decoded && typeof decoded === 'object' && decoded.version === 2) {
-      doc = decoded as PersistedStateDocumentV2;
-    } else {
-      throw new Error('Unexpected document format');
+  const candidate = decoded as Record<string, unknown>;
+  const version = (candidate as { version?: unknown }).version;
+  if (typeof version !== 'undefined' && version !== 2) {
+    throw new Error(`Unsupported persisted state version (expected 2, received ${version})`);
+  }
+
+  const base = (() => {
+    if (typeof version === 'number') {
+      const { version: _ignored, ...rest } = candidate as { version: number } & Record<string, unknown>;
+      return rest;
     }
-  } catch {
-    try {
-      doc = JSON.parse(json) as PersistedStateDocumentLegacy;
-      isLegacy = true;
-    } catch (error) {
-      throw new Error(`Failed to parse persisted state: ${String(error)}`);
-    }
+    return candidate;
+  })();
+
+  const doc = base as unknown as PersistedStateDocument;
+
+  if (
+    typeof doc.className !== 'string' ||
+    typeof doc.metadata !== 'object' ||
+    doc.metadata === null ||
+    typeof doc.metadata.createdAt !== 'number' ||
+    typeof doc.metadata.updatedAt !== 'number' ||
+    typeof doc.values !== 'object' ||
+    doc.values === null ||
+    typeof doc.collections !== 'object' ||
+    doc.collections === null
+  ) {
+    throw new Error('Persisted state document missing required fields');
   }
 
   const instance: any = new stateClass();
@@ -119,48 +126,16 @@ export function loadRootState<T>(stateClass: { new (...args: any[]): T }): T | n
     }
   }
 
-  if (doc.version === 2) {
-    const values = doc.values ?? {};
-    for (const [key, value] of Object.entries(values)) {
-      if (value === undefined) {
-        continue;
-      }
-      const current = target[key];
-      if (shouldMergeIntoExisting(current)) {
-        Object.assign(current, value);
-      } else {
-        target[key] = value;
-      }
+  const values = doc.values ?? {};
+  for (const [key, value] of Object.entries(values)) {
+    if (value === undefined) {
+      continue;
     }
-
-    return instance;
-  }
-
-  // Legacy migration path (version 1 JSON format)
-  try {
-    const values = doc.values ?? {};
-    for (const [key, entry] of Object.entries(values)) {
-      if (entry.encoding !== 'json') {
-        continue;
-      }
-      const bytes = hexToBytes(entry.data);
-      const decoded = JSON.parse(textDecoder.decode(bytes));
-      const current = target[key];
-      if (shouldMergeIntoExisting(current)) {
-        Object.assign(current, decoded);
-      } else {
-        target[key] = decoded;
-      }
-    }
-  } catch (error) {
-    throw new Error(`Failed to migrate legacy state: ${String(error)}`);
-  }
-
-  if (isLegacy) {
-    try {
-      saveRootState(instance);
-    } catch (error) {
-      env.log(`Failed to rewrite state in Borsh format: ${error}`);
+    const current = target[key];
+    if (shouldMergeIntoExisting(current)) {
+      Object.assign(current, value);
+    } else {
+      target[key] = value;
     }
   }
 
@@ -183,15 +158,6 @@ function ensureMetadata(state: any): { createdAt: number; updatedAt: number } {
     writable: true,
   });
   return metadata;
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  const length = hex.length;
-  const result = new Uint8Array(length / 2);
-  for (let i = 0; i < length; i += 2) {
-    result[i / 2] = parseInt(hex.slice(i, i + 2), 16);
-  }
-  return result;
 }
 
 function shouldMergeIntoExisting(value: unknown): value is Record<string, unknown> {

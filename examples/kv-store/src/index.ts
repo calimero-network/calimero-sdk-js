@@ -42,10 +42,22 @@ export class KvStoreLogic extends KvStore {
     return new KvStore();
   }
 
-  set(key: string, value: string): void {
-    const register = this.ensureItemRegister(key);
+  set(arg1: { key: string; value: string } | string, maybeValue?: string): void {
+    const key = typeof arg1 === 'string' ? arg1 : arg1.key;
+    const value = typeof arg1 === 'string' ? maybeValue ?? '' : arg1.value;
+
+    let register = this.items.get(key);
+    if (!register) {
+      register = new LwwRegister<string>();
+    }
+
     const previous = register.get();
     register.set(value);
+    this.items.set(key, register);
+
+    const current = register.get();
+    env.log(`[kv-store] set key=${key} value=${value} previous=${previous}`);
+    env.log(`[kv-store] post-set key=${key} current=${current}`);
 
     if (previous === null) {
       emitWithHandler(new ItemInserted(key, value), 'insertHandler');
@@ -54,19 +66,32 @@ export class KvStoreLogic extends KvStore {
     }
   }
 
-  setWithTags(key: string, value: string, tags: string[]): void {
-    this.set(key, value);
+  setWithTags(
+    arg1: { key: string; value: string; tags: string[] } | string,
+    valueOrTags?: string | string[],
+    maybeTags?: string[]
+  ): void {
+    const key = typeof arg1 === 'string' ? arg1 : arg1.key;
+    const value = typeof arg1 === 'string' ? (valueOrTags as string) : arg1.value;
+    const tags =
+      typeof arg1 === 'string'
+        ? (Array.isArray(valueOrTags) ? valueOrTags : maybeTags ?? [])
+        : arg1.tags;
+
+    this.set({ key, value });
     const tagSet = new UnorderedSet<string>({ initialValues: tags });
     this.tags.set(key, tagSet);
   }
 
-  setValue(value: number): void {
-    this.set('counter', value.toString());
+  setValue(payload: { value: number } | number): void {
+    const value = typeof payload === 'number' ? payload : payload.value;
+    env.log(`[kv-store] setValue payload=${value}`);
+    this.set({ key: 'counter', value: value.toString() });
   }
 
   entries(): string {
     const result: Record<string, string> = Object.create(null);
-    for (const [key, register] of this.safeItemEntries()) {
+    for (const [key, register] of this.items.entries()) {
       const value = register.get();
       if (value !== null) {
         result[key] = value;
@@ -76,49 +101,50 @@ export class KvStoreLogic extends KvStore {
   }
 
   len(): string {
-    return this.respond({ length: this.safeItemEntries().length });
+    return this.respond({ length: this.items.entries().length });
   }
 
   get(key: string): string {
-    const register = this.safeGetItem(key);
+    const register = this.items.get(key);
     return this.respond({ value: register ? register.get() : null });
   }
 
   getValue(): string {
-    const register = this.safeGetItem('counter');
+    const register = this.items.get('counter');
     return this.respond({ value: register ? register.get() : null });
   }
 
   getTags(key: string): string {
-    const tagSet = this.safeGetTagSet(key);
+    const tagSet = this.tags.get(key);
     return this.respond({ tags: tagSet ? tagSet.toArray() : [] });
   }
 
   remove(key: string): void {
-    if (!this.safeHasItem(key)) {
+    if (!this.items.has(key)) {
       return;
     }
-    this.safeRemoveItem(key);
-    this.safeRemoveTag(key);
+    this.items.remove(key);
+    this.tags.remove(key);
     emitWithHandler(new ItemRemoved(key), 'removeHandler');
   }
 
   clear(): void {
-    for (const [key] of this.safeItemEntries()) {
-      this.safeRemoveItem(key);
+    for (const [key] of this.items.entries()) {
+      this.items.remove(key);
     }
-    for (const [key] of this.safeTagEntries()) {
-      this.safeRemoveTag(key);
+    for (const [key] of this.tags.entries()) {
+      this.tags.remove(key);
     }
     emitWithHandler(new StoreCleared(), 'clearHandler');
   }
 
   has(key: string): string {
-    return this.respond({ has: this.safeHasItem(key) });
+    return this.respond({ has: this.items.has(key) });
   }
 
   getHandlersCalled(): string {
-    const handlers = this.safeHandlerValues()
+    const handlers = this.handlersCalled
+      .values()
       .map((register: LwwRegister<string>) => register.get())
       .filter((value: string | null): value is string => value !== null)
       .sort();
@@ -126,7 +152,7 @@ export class KvStoreLogic extends KvStore {
   }
 
   getHandlerExecutionCount(): string {
-    return this.respond({ count: Number(this.safeCounterValue()) });
+    return this.respond({ count: Number(this.handlerCounter.value()) });
   }
 
   insertHandler(event: ItemInserted): void {
@@ -145,137 +171,23 @@ export class KvStoreLogic extends KvStore {
     this.logHandlerCall('clear_handler', 'all items cleared');
   }
 
-  private ensureItemRegister(key: string): LwwRegister<string> {
-    let register: LwwRegister<string> | null = null;
-    try {
-      register = this.items.get(key);
-    } catch (error) {
-      this.items = new UnorderedMap<string, LwwRegister<string>>();
-      register = null;
-    }
-    if (!register) {
-      register = new LwwRegister<string>();
-      this.writeItem(key, register);
-    }
-    return register;
-  }
-
   private respond<T>(payload: T): string {
     return JSON.stringify(payload);
   }
 
   private logHandlerCall(handler: string, details: string): void {
-    this.safeIncrementCounter();
-    const sequence = this.safeCounterValue().toString();
+    this.handlerCounter.increment();
+    const sequence = this.handlerCounter.value().toString();
     const key = `${handler}_${sequence}`;
-    const register = new LwwRegister<string>({ initialValue: details });
-    this.writeHandlerRecord(key, register);
-  }
 
-  private writeItem(key: string, register: LwwRegister<string>): void {
-    try {
-      this.items.set(key, register);
-    } catch (error) {
-      this.items = new UnorderedMap<string, LwwRegister<string>>();
-      this.items.set(key, register);
+    let register = this.handlersCalled.get(key);
+    if (!register) {
+      register = new LwwRegister<string>();
     }
-  }
 
-  private writeHandlerRecord(key: string, register: LwwRegister<string>): void {
-    try {
-      this.handlersCalled.set(key, register);
-    } catch (error) {
-      this.handlersCalled = new UnorderedMap<string, LwwRegister<string>>();
-      this.handlersCalled.set(key, register);
-    }
-  }
-
-  private safeIncrementCounter(): void {
-    try {
-      this.handlerCounter.increment();
-    } catch (error) {
-      this.handlerCounter = new Counter();
-      this.handlerCounter.increment();
-    }
-  }
-
-  private safeCounterValue(): bigint {
-    try {
-      return this.handlerCounter.value();
-    } catch (error) {
-      this.handlerCounter = new Counter();
-      return this.handlerCounter.value();
-    }
-  }
-
-  private safeItemEntries(): Array<[string, LwwRegister<string>]> {
-    try {
-      return this.items.entries();
-    } catch (error) {
-      this.items = new UnorderedMap<string, LwwRegister<string>>();
-      return [];
-    }
-  }
-
-  private safeTagEntries(): Array<[string, UnorderedSet<string>]> {
-    try {
-      return this.tags.entries();
-    } catch (error) {
-      this.tags = new UnorderedMap<string, UnorderedSet<string>>();
-      return [];
-    }
-  }
-
-  private safeHasItem(key: string): boolean {
-    try {
-      return this.items.has(key);
-    } catch (error) {
-      this.items = new UnorderedMap<string, LwwRegister<string>>();
-      return false;
-    }
-  }
-
-  private safeRemoveItem(key: string): void {
-    try {
-      this.items.remove(key);
-    } catch (error) {
-      this.items = new UnorderedMap<string, LwwRegister<string>>();
-    }
-  }
-
-  private safeRemoveTag(key: string): void {
-    try {
-      this.tags.remove(key);
-    } catch (error) {
-      this.tags = new UnorderedMap<string, UnorderedSet<string>>();
-    }
-  }
-
-  private safeGetTagSet(key: string): UnorderedSet<string> | null {
-    try {
-      return this.tags.get(key);
-    } catch (error) {
-      this.tags = new UnorderedMap<string, UnorderedSet<string>>();
-      return null;
-    }
-  }
-
-  private safeGetItem(key: string): LwwRegister<string> | null {
-    try {
-      return this.items.get(key);
-    } catch (error) {
-      this.items = new UnorderedMap<string, LwwRegister<string>>();
-      return null;
-    }
-  }
-
-  private safeHandlerValues(): LwwRegister<string>[] {
-    try {
-      return this.handlersCalled.values();
-    } catch (error) {
-      this.handlersCalled = new UnorderedMap<string, LwwRegister<string>>();
-      return [];
-    }
+    register.set(details);
+    this.handlersCalled.set(key, register);
+    env.log(`[kv-store] handler_invocation handler=${handler} sequence=${sequence} details=${details}`);
   }
 }
 

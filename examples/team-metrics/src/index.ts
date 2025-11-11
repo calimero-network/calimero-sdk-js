@@ -59,11 +59,21 @@ export class TeamMetricsLogic extends TeamMetrics {
       if (roles) {
         existing.roles = Vector.fromArray(roles);
       }
+      const counter = this.memberContributions.get(member);
+      if (counter && existing.contributions !== counter) {
+        existing.contributions = counter;
+      }
       this.memberProfiles.set(member, existing);
       return;
     }
 
-    this.memberProfiles.set(member, createProfileRecord(member, displayName, roles));
+    let counter = this.memberContributions.get(member);
+    if (!counter) {
+      counter = new Counter();
+      this.memberContributions.set(member, counter);
+    }
+
+    this.memberProfiles.set(member, createProfileRecord(member, displayName, roles, counter));
   }
 
   addContribution(
@@ -88,9 +98,12 @@ export class TeamMetricsLogic extends TeamMetrics {
 
     env.log(`Member ${member} counter now ${memberCounter.value().toString()}`);
 
-    const profile = this.memberProfiles.get(member) ?? createProfileRecord(member);
+    const profile =
+      this.memberProfiles.get(member) ?? createProfileRecord(member, undefined, undefined, memberCounter);
+    if (profile.contributions !== memberCounter) {
+      profile.contributions = memberCounter;
+    }
 
-    profile.contributions.incrementBy(increments);
     if (note) {
       const entry: ContributionNote = {
         message: note,
@@ -135,10 +148,15 @@ export class TeamMetricsLogic extends TeamMetrics {
   }
 }
 
-const createProfileRecord = (member: string, displayName?: string, roles?: string[]): MemberProfileRecord => ({
+const createProfileRecord = (
+  member: string,
+  displayName?: string,
+  roles?: string[],
+  contributions?: Counter
+): MemberProfileRecord => ({
   displayName: displayName ?? member,
   roles: Vector.fromArray(roles ?? []),
-  contributions: new Counter(),
+  contributions: contributions ?? new Counter(),
   recentNotes: new Vector<ContributionNote>()
 });
 
