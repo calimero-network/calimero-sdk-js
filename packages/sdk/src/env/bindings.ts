@@ -18,6 +18,7 @@ export interface HostEnv {
   storage_read(key: Uint8Array, register_id: bigint): bigint;
   storage_write(key: Uint8Array, value: Uint8Array, register_id: bigint): bigint;
   storage_remove(key: Uint8Array, register_id: bigint): bigint;
+  xcall(context_id: Uint8Array, function_name: Uint8Array, params: Uint8Array): void;
   js_crdt_map_new(register_id: bigint): number;
   js_crdt_map_get(mapId: Uint8Array, key: Uint8Array, register_id: bigint): number;
   js_crdt_map_insert(mapId: Uint8Array, key: Uint8Array, value: Uint8Array, register_id: bigint): number;
@@ -74,5 +75,7 @@ export interface HostEnv {
   blob_read(fd: bigint, buffer: Uint8Array): bigint;
   blob_write(fd: bigint, data: Uint8Array): bigint;
   blob_close(fd: bigint, blob_id_buf: Uint8Array): boolean;
+  blob_announce_to_context(blob_id: Uint8Array, context_id: Uint8Array): number;
+  random_bytes(buffer: Uint8Array): void;
 }
 

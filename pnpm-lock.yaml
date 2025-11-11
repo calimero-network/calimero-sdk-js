@@ -34,6 +34,22 @@ importers:
         specifier: ^5.3.3
         version: 5.9.3
 
+  examples/blobs:
+    dependencies:
+      '@calimero/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      bs58:
+        specifier: ^5.0.0
+        version: 5.0.0
+    devDependencies:
+      '@calimero/cli':
+        specifier: workspace:*
+        version: link:../../packages/cli
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
   examples/counter:
     dependencies:
       '@calimero/sdk':
@@ -65,6 +81,22 @@ importers:
       '@calimero/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
+    devDependencies:
+      '@calimero/cli':
+        specifier: workspace:*
+        version: link:../../packages/cli
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
+  examples/xcall:
+    dependencies:
+      '@calimero/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      bs58:
+        specifier: ^5.0.0
+        version: 5.0.0
     devDependencies:
       '@calimero/cli':
         specifier: workspace:*
@@ -1244,6 +1276,9 @@ packages:
   balanced-match@1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
 
+  base-x@4.0.1:
+    resolution: {integrity: sha512-uAZ8x6r6S3aUM9rbHGVOIsR15U/ZSc82b3ymnCPsT45Gk1DDvhDPdIgB5MrhirZWt+5K0EEPQH985kNqZgNPFw==}
+
   baseline-browser-mapping@2.8.23:
     resolution: {integrity: sha512-616V5YX4bepJFzNyOfce5Fa8fDJMfoxzOIzDCZwaGL8MKVpFrXqfNUoIpRn9YMI5pXf/VKgzjB4htFMsFKKdiQ==}
     hasBin: true
@@ -1269,6 +1304,9 @@ packages:
   bs-logger@0.2.6:
     resolution: {integrity: sha512-pd8DCoxmbgc7hyPKOvxtqNcjYoOsABPQdcCUjGp3d42VR2CX1ORhk2A87oqqu5R1kk+76nsxZupkmyd+MVtCog==}
     engines: {node: '>= 6'}
+
+  bs58@5.0.0:
+    resolution: {integrity: sha512-r+ihvQJvahgYT50JD05dyJNKlmmSlMoOGwn1lCcEzanPglg7TxYjioQUYehQ9mAR/+hOSd2jRc/Z2y5UxBymvQ==}
 
   bser@2.1.1:
     resolution: {integrity: sha512-gQxTNE/GAfIIrmHLUE3oJyp5FO6HRBfhjnw4/wMmA63ZGDJnWBmgY/lyQBpnDUkGmAhbSe39tx2d/iTOAfglwQ==}
@@ -3803,6 +3841,8 @@ snapshots:
 
   balanced-match@1.0.2: {}
 
+  base-x@4.0.1: {}
+
   baseline-browser-mapping@2.8.23: {}
 
   borsh@1.0.0: {}
@@ -3831,6 +3871,10 @@ snapshots:
   bs-logger@0.2.6:
     dependencies:
       fast-json-stable-stringify: 2.1.0
+
+  bs58@5.0.0:
+    dependencies:
+      base-x: 4.0.1
 
   bser@2.1.1:
     dependencies:

@@ -136,6 +136,22 @@ export function storageWrite(key: Uint8Array, value: Uint8Array): void {
 }
 
 /**
+ * Schedule a cross-context call to run once the current execution finishes.
+ *
+ * @param contextId - Target context identifier (32 bytes)
+ * @param functionName - Function name to invoke in the target context
+ * @param params - Serialized parameters for the call (defaults to empty payload)
+ */
+export function xcall(contextId: Uint8Array, functionName: string, params: Uint8Array = new Uint8Array()): void {
+  if (contextId.length !== 32) {
+    throw new Error('contextId must be exactly 32 bytes');
+  }
+
+  const fnBytes = textEncoder.encode(functionName);
+  env.xcall(contextId, fnBytes, params);
+}
+
+/**
  * Reads the serialized root state using the host interface.
  *
  * Falls back to the legacy storage key on older runtimes.
@@ -398,5 +414,42 @@ export function blobClose(fd: bigint): Uint8Array {
     throw new Error('Failed to close blob');
   }
   return blobId;
+}
+
+/**
+ * Announce a blob to peers inside the current context.
+ *
+ * @param blobId - Identifier produced by {@link blobClose}
+ * @param targetContextId - Context to announce within (must match current context)
+ * @returns true if the runtime accepted the announcement
+ */
+export function blobAnnounceToContext(blobId: Uint8Array, targetContextId: Uint8Array): boolean {
+  if (blobId.length !== 32) {
+    throw new Error('blobId must be exactly 32 bytes');
+  }
+  if (targetContextId.length !== 32) {
+    throw new Error('targetContextId must be exactly 32 bytes');
+  }
+
+  if (typeof (env as HostEnv).blob_announce_to_context !== 'function') {
+    throw new Error('blob_announce_to_context host function unavailable');
+  }
+
+  return Boolean(env.blob_announce_to_context(blobId, targetContextId));
+}
+
+/**
+ * Fill the provided buffer with random bytes sourced from the host runtime.
+ *
+ * @param buffer - Target buffer to populate
+ */
+export function randomBytes(buffer: Uint8Array): void {
+  if (!(buffer instanceof Uint8Array)) {
+    throw new TypeError('randomBytes expects a Uint8Array buffer');
+  }
+  if (typeof (env as HostEnv).random_bytes !== 'function') {
+    throw new Error('random_bytes host function unavailable');
+  }
+  env.random_bytes(buffer);
 }
 

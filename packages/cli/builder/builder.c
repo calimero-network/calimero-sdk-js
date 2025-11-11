@@ -108,6 +108,7 @@ extern void context_id(uint64_t register_id);
 extern void executor_id(uint64_t register_id);
 extern void emit(uint64_t event_ptr);
 extern void emit_with_handler(uint64_t event_ptr, uint64_t handler_buffer_ptr);
+extern void xcall(uint64_t xcall_ptr);
 extern uint32_t storage_read(uint64_t key_buffer_ptr, uint64_t register_id);  // Returns Bool (u32)
 extern uint32_t storage_write(uint64_t key_buffer_ptr, uint64_t value_buffer_ptr, uint64_t register_id);  // Returns Bool (u32)
 extern uint32_t storage_remove(uint64_t key_buffer_ptr, uint64_t register_id);  // Returns Bool (u32)
@@ -143,12 +144,14 @@ extern int32_t read_root_state(uint64_t register_id);
 extern void apply_storage_delta(uint64_t delta_buffer_ptr);
 extern int32_t flush_delta(void);
 extern void time_now(uint64_t buffer_ptr);
+extern void random_bytes(uint64_t buffer_ptr);
 extern void value_return(uint64_t value_ptr);
 extern uint64_t blob_create(void);  // Returns PtrSizedInt (u64)
 extern uint64_t blob_open(uint64_t blob_id_buffer_ptr);  // Returns PtrSizedInt (u64)
 extern uint64_t blob_read(uint64_t fd, uint64_t buffer_ptr);  // Returns PtrSizedInt (u64)
 extern uint64_t blob_write(uint64_t fd, uint64_t data_buffer_ptr);  // Returns PtrSizedInt (u64)
 extern uint32_t blob_close(uint64_t fd, uint64_t blob_id_buffer_ptr);  // Returns Bool (u32)
+extern uint32_t blob_announce_to_context(uint64_t blob_id_buffer_ptr, uint64_t context_id_buffer_ptr);  // Returns Bool (u32)
 
 // Buffer descriptor struct - MUST match calimero-sys Slice<'a, u8>
 // #[repr(C)] struct with ptr: u64, len: u64, _phantom: PhantomData (zero-sized)
@@ -182,6 +185,12 @@ typedef struct {
   uint32_t line;
   uint32_t column;
 } CalimeroLocation;
+
+typedef struct {
+  CalimeroBuffer context_id;
+  CalimeroBuffer function;
+  CalimeroBuffer params;
+} CalimeroXCall;
 
 // Helper to create a Buffer descriptor on the stack
 static inline CalimeroBuffer make_buffer(const void *ptr, size_t len) {
@@ -1147,6 +1156,48 @@ static JSValue js_emit_with_handler(JSContext *ctx, JSValueConst this_val, int a
   return JS_UNDEFINED;
 }
 
+// Wrapper: xcall
+static JSValue js_xcall(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+
+  if (argc < 2) {
+    return JS_ThrowTypeError(ctx, "xcall expects contextId and function name bytes");
+  }
+
+  size_t context_len;
+  uint8_t *context_ptr = JSValueToUint8Array(ctx, argv[0], &context_len);
+  if (!context_ptr) {
+    return JS_EXCEPTION;
+  }
+  if (context_len != 32) {
+    return JS_ThrowRangeError(ctx, "contextId must be 32 bytes");
+  }
+
+  size_t function_len;
+  uint8_t *function_ptr = JSValueToUint8Array(ctx, argv[1], &function_len);
+  if (!function_ptr) {
+    return JS_EXCEPTION;
+  }
+
+  size_t params_len = 0;
+  uint8_t *params_ptr = NULL;
+  if (argc >= 3 && !JS_IsUndefined(argv[2]) && !JS_IsNull(argv[2])) {
+    params_ptr = JSValueToUint8Array(ctx, argv[2], &params_len);
+    if (!params_ptr) {
+      return JS_EXCEPTION;
+    }
+  }
+
+  CalimeroXCall call = {
+    .context_id = make_buffer(context_ptr, context_len),
+    .function = make_buffer(function_ptr, function_len),
+    .params = make_buffer(params_ptr, params_len)
+  };
+
+  xcall((uint64_t)&call);
+  return JS_UNDEFINED;
+}
+
 // Wrapper: commit
 static JSValue js_commit(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   size_t root_len, artifact_len;
@@ -1229,6 +1280,17 @@ static JSValue js_time_now(JSContext *ctx, JSValueConst this_val, int argc, JSVa
   return JS_UNDEFINED;
 }
 
+// Wrapper: random_bytes
+static JSValue js_random_bytes(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  size_t buf_len;
+  uint8_t *buf_ptr = JSValueToUint8Array(ctx, argv[0], &buf_len);
+  if (!buf_ptr) return JS_EXCEPTION;
+
+  CalimeroBuffer buf = make_buffer(buf_ptr, buf_len);
+  random_bytes((uint64_t)&buf);
+  return JS_UNDEFINED;
+}
+
 // Wrapper: blob_create
 static JSValue js_blob_create(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   uint64_t fd = blob_create();
@@ -1285,6 +1347,37 @@ static JSValue js_blob_close(JSContext *ctx, JSValueConst this_val, int argc, JS
   
   CalimeroBuffer buf = make_buffer(buf_ptr, buf_len);
   uint32_t result = blob_close((uint64_t)fd, (uint64_t)&buf);
+  return JS_NewUint32(ctx, result);
+}
+
+// Wrapper: blob_announce_to_context
+static JSValue js_blob_announce_to_context(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    return JS_ThrowTypeError(ctx, "blob_announce_to_context expects blobId and contextId");
+  }
+
+  size_t blob_id_len;
+  uint8_t *blob_id_ptr = JSValueToUint8Array(ctx, argv[0], &blob_id_len);
+  if (!blob_id_ptr) {
+    return JS_EXCEPTION;
+  }
+  if (blob_id_len != 32) {
+    return JS_ThrowRangeError(ctx, "blobId must be 32 bytes");
+  }
+
+  size_t context_id_len;
+  uint8_t *context_id_ptr = JSValueToUint8Array(ctx, argv[1], &context_id_len);
+  if (!context_id_ptr) {
+    return JS_EXCEPTION;
+  }
+  if (context_id_len != 32) {
+    return JS_ThrowRangeError(ctx, "contextId must be 32 bytes");
+  }
+
+  CalimeroBuffer blob_id_buf = make_buffer(blob_id_ptr, blob_id_len);
+  CalimeroBuffer context_id_buf = make_buffer(context_id_ptr, context_id_len);
+
+  uint32_t result = blob_announce_to_context((uint64_t)&blob_id_buf, (uint64_t)&context_id_buf);
   return JS_NewUint32(ctx, result);
 }
 
@@ -1347,6 +1440,7 @@ void js_add_calimero_host_functions(JSContext *ctx) {
   // Events
   JS_SetPropertyStr(ctx, env, "emit", JS_NewCFunction(ctx, js_emit, "emit", 2));
   JS_SetPropertyStr(ctx, env, "emit_with_handler", JS_NewCFunction(ctx, js_emit_with_handler, "emit_with_handler", 3));
+  JS_SetPropertyStr(ctx, env, "xcall", JS_NewCFunction(ctx, js_xcall, "xcall", 3));
   
   // Delta
   JS_SetPropertyStr(ctx, env, "commit", JS_NewCFunction(ctx, js_commit, "commit", 2));
@@ -1357,6 +1451,7 @@ void js_add_calimero_host_functions(JSContext *ctx) {
   
   // Time
   JS_SetPropertyStr(ctx, env, "time_now", JS_NewCFunction(ctx, js_time_now, "time_now", 1));
+  JS_SetPropertyStr(ctx, env, "random_bytes", JS_NewCFunction(ctx, js_random_bytes, "random_bytes", 1));
   
   // Blobs
   JS_SetPropertyStr(ctx, env, "blob_create", JS_NewCFunction(ctx, js_blob_create, "blob_create", 0));
@@ -1364,6 +1459,7 @@ void js_add_calimero_host_functions(JSContext *ctx) {
   JS_SetPropertyStr(ctx, env, "blob_read", JS_NewCFunction(ctx, js_blob_read, "blob_read", 2));
   JS_SetPropertyStr(ctx, env, "blob_write", JS_NewCFunction(ctx, js_blob_write, "blob_write", 2));
   JS_SetPropertyStr(ctx, env, "blob_close", JS_NewCFunction(ctx, js_blob_close, "blob_close", 2));
+  JS_SetPropertyStr(ctx, env, "blob_announce_to_context", JS_NewCFunction(ctx, js_blob_announce_to_context, "blob_announce_to_context", 2));
   
   // Set global env object
   JS_SetPropertyStr(ctx, global, "env", env);

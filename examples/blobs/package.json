@@ -1,0 +1,20 @@
+{
+  "name": "blobs-example",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Blob storage example for the Calimero JavaScript SDK",
+  "scripts": {
+    "build": "pnpm run build:manual",
+    "build:manual": "calimero-sdk build src/index.ts -o build/contract.wasm",
+    "clean": "rm -rf build"
+  },
+  "dependencies": {
+    "@calimero/sdk": "workspace:*",
+    "bs58": "^5.0.0"
+  },
+  "devDependencies": {
+    "@calimero/cli": "workspace:*",
+    "typescript": "^5.3.3"
+  }
+}
+
