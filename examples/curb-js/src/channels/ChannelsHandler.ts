@@ -12,10 +12,14 @@ import {
 const CHANNEL_NAME_MAX_LENGTH = 64;
 
 export class ChannelsHandler {
-  constructor(private readonly state: ChatState, private readonly chat: ChatMemberAccess) {}
+  constructor(
+    private readonly state: ChatState,
+    private readonly membersAccess: ChatMemberAccess
+  ) {}
 
   bootstrapDefaultChannels(defaultChannels: ChannelDefaultInit[], ownerUsername: string): void {
-    const storedOwnerUsername = this.chat.getUsername(this.state.owner) ?? ownerUsername.trim();
+    const storedOwnerUsername =
+      this.membersAccess.getUsername(this.state.owner) ?? ownerUsername.trim();
 
     defaultChannels.forEach(({ name }) => {
       const normalizedId = this.normalizeChannelId(name);
@@ -66,8 +70,8 @@ export class ChannelsHandler {
       return 'Channel already exists';
     }
 
-    const creatorId = this.chat.getExecutorId();
-    const creatorUsername = this.chat.getUsername(creatorId);
+    const creatorId = this.membersAccess.getExecutorId();
+    const creatorUsername = this.membersAccess.getUsername(creatorId);
     if (!creatorUsername) {
       return 'Creator must be a member of the chat';
     }
@@ -110,7 +114,7 @@ export class ChannelsHandler {
       return 'Channel not found';
     }
 
-    const executorId = this.chat.getExecutorId();
+    const executorId = this.membersAccess.getExecutorId();
     if (!channel.metadata.moderators.has(executorId)) {
       return 'Only moderators can promote other users';
     }
@@ -134,7 +138,7 @@ export class ChannelsHandler {
       return 'Channel not found';
     }
 
-    const executorId = this.chat.getExecutorId();
+    const executorId =  this.membersAccess.getExecutorId();
     if (!channel.metadata.moderators.has(executorId)) {
       return 'Only moderators can demote moderators';
     }
@@ -154,7 +158,7 @@ export class ChannelsHandler {
       return 'Channel not found';
     }
 
-    const executorId = this.chat.getExecutorId();
+    const executorId = this.membersAccess.getExecutorId();
     if (!channel.metadata.moderators.has(executorId)) {
       return 'Only moderators can add members to the channel';
     }
@@ -164,7 +168,7 @@ export class ChannelsHandler {
     }
 
     const wasMember = this.state.members.has(userId);
-    const ensureError = this.chat.ensureMemberExists(userId, username);
+    const ensureError = this.membersAccess.ensureMemberExists(userId, username);
     if (ensureError) {
       return ensureError;
     }
@@ -184,7 +188,7 @@ export class ChannelsHandler {
       return 'Channel not found';
     }
 
-    const executorId = this.chat.getExecutorId();
+    const executorId = this.membersAccess.getExecutorId();
     if (!channel.metadata.moderators.has(executorId)) {
       return 'Only moderators can remove members from the channel';
     }

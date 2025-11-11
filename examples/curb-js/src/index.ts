@@ -164,12 +164,12 @@ class ChatHandler implements ChatMemberAccess {
 
 @Logic(CurbChat)
 export class CurbLogicChat extends CurbChat {
-  private createChatHandler(): ChatHandler {
+  private createMembersAccess(): ChatHandler {
     return new ChatHandler(this);
   }
 
-  private createChannelsHandler(chatHandler?: ChatHandler): ChannelsHandler {
-    return new ChannelsHandler(this, chatHandler ?? this.createChatHandler());
+  private createChannelsAccess(membersAccess?: ChatHandler): ChannelsHandler {
+    return new ChannelsHandler(this, membersAccess ?? this.createMembersAccess());
   }
 
   @Init
@@ -198,7 +198,7 @@ export class CurbLogicChat extends CurbChat {
   }
 
   getGlobalMembers(): string {
-    return wrapResult(this.createChatHandler().getGlobalMembers());
+    return wrapResult(this.createMembersAccess().getGlobalMembers());
   }
 
   getChannel(arg: { channelId: ChannelId } | ChannelId): string {
@@ -206,14 +206,14 @@ export class CurbLogicChat extends CurbChat {
     if (typeof channelId !== 'string') {
       return wrapResult(null);
     }
-    const channel = this.createChannelsHandler().getChannel(channelId);
+    const channel = this.createChannelsAccess().getChannel(channelId);
     return wrapResult(this.formatChannelInfo(channel));
   }
 
   getChannels(): string {
-    const chatHandler = this.createChatHandler();
-    const channels = this.createChannelsHandler(chatHandler).getChannelsForUser(
-      chatHandler.getExecutorId()
+    const membersAccess = this.createMembersAccess();
+    const channels = this.createChannelsAccess(membersAccess).getChannelsForUser(
+      membersAccess.getExecutorId()
     );
     const formatted = channels.map(({ channelId, info }) => ({
       channelId,
@@ -223,7 +223,7 @@ export class CurbLogicChat extends CurbChat {
   }
 
   getAllChannels(): string {
-    const channels = this.createChannelsHandler().getDefaultAndPublicChannels();
+    const channels = this.createChannelsAccess().getDefaultAndPublicChannels();
     const formatted = channels.map(({ channelId, info }) => ({
       channelId,
       info: this.formatChannelInfo(info)
@@ -233,7 +233,7 @@ export class CurbLogicChat extends CurbChat {
 
   joinChat(arg: { username: string } | string): string {
     const username = typeof arg === 'string' ? arg : (arg?.username ?? '');
-    const result = this.createChatHandler().join(username);
+    const result = this.createMembersAccess().join(username);
     return wrapResult(result);
   }
 
@@ -242,10 +242,10 @@ export class CurbLogicChat extends CurbChat {
     maybeOptions?: ChannelCreationOptions
   ): string {
     if (typeof arg === 'string') {
-      return wrapResult(this.createChannelsHandler().createChannel(arg, maybeOptions));
+      return wrapResult(this.createChannelsAccess().createChannel(arg, maybeOptions));
     }
     if (arg && typeof arg === 'object' && typeof arg.channelId === 'string') {
-      return wrapResult(this.createChannelsHandler().createChannel(arg.channelId, arg.options));
+      return wrapResult(this.createChannelsAccess().createChannel(arg.channelId, arg.options));
     }
     return wrapResult('Invalid channelId');
   }
@@ -255,7 +255,7 @@ export class CurbLogicChat extends CurbChat {
     if (typeof channelId !== 'string') {
       return wrapResult('Invalid channelId');
     }
-    return wrapResult(this.createChannelsHandler().deleteChannel(channelId));
+    return wrapResult(this.createChannelsAccess().deleteChannel(channelId));
   }
 
   addChannelModerator(
@@ -266,7 +266,7 @@ export class CurbLogicChat extends CurbChat {
       if (typeof maybeUserId !== 'string') {
         return wrapResult('Invalid arguments');
       }
-      return wrapResult(this.createChannelsHandler().addChannelModerator(arg, maybeUserId));
+      return wrapResult(this.createChannelsAccess().addChannelModerator(arg, maybeUserId));
     }
     if (
       arg &&
@@ -275,7 +275,7 @@ export class CurbLogicChat extends CurbChat {
       typeof arg.userId === 'string'
     ) {
       return wrapResult(
-        this.createChannelsHandler().addChannelModerator(arg.channelId, arg.userId)
+        this.createChannelsAccess().addChannelModerator(arg.channelId, arg.userId)
       );
     }
     return wrapResult('Invalid arguments');
@@ -289,7 +289,7 @@ export class CurbLogicChat extends CurbChat {
       if (typeof maybeUserId !== 'string') {
         return wrapResult('Invalid arguments');
       }
-      return wrapResult(this.createChannelsHandler().removeChannelModerator(arg, maybeUserId));
+      return wrapResult(this.createChannelsAccess().removeChannelModerator(arg, maybeUserId));
     }
     if (
       arg &&
@@ -298,7 +298,7 @@ export class CurbLogicChat extends CurbChat {
       typeof arg.userId === 'string'
     ) {
       return wrapResult(
-        this.createChannelsHandler().removeChannelModerator(arg.channelId, arg.userId)
+        this.createChannelsAccess().removeChannelModerator(arg.channelId, arg.userId)
       );
     }
     return wrapResult('Invalid arguments');
@@ -314,7 +314,7 @@ export class CurbLogicChat extends CurbChat {
         return wrapResult('Invalid arguments');
       }
       return wrapResult(
-        this.createChannelsHandler().addMemberToChannel(arg, userIdMaybe, usernameMaybe)
+        this.createChannelsAccess().addMemberToChannel(arg, userIdMaybe, usernameMaybe)
       );
     }
     if (
@@ -324,7 +324,7 @@ export class CurbLogicChat extends CurbChat {
       typeof arg.userId === 'string'
     ) {
       return wrapResult(
-        this.createChannelsHandler().addMemberToChannel(arg.channelId, arg.userId, arg.username)
+        this.createChannelsAccess().addMemberToChannel(arg.channelId, arg.userId, arg.username)
       );
     }
     return wrapResult('Invalid arguments');
@@ -338,7 +338,7 @@ export class CurbLogicChat extends CurbChat {
       if (typeof maybeUserId !== 'string') {
         return wrapResult('Invalid arguments');
       }
-      return wrapResult(this.createChannelsHandler().removeMemberFromChannel(arg, maybeUserId));
+      return wrapResult(this.createChannelsAccess().removeMemberFromChannel(arg, maybeUserId));
     }
     if (
       arg &&
@@ -347,7 +347,7 @@ export class CurbLogicChat extends CurbChat {
       typeof arg.userId === 'string'
     ) {
       return wrapResult(
-        this.createChannelsHandler().removeMemberFromChannel(arg.channelId, arg.userId)
+        this.createChannelsAccess().removeMemberFromChannel(arg.channelId, arg.userId)
       );
     }
     return wrapResult('Invalid arguments');
@@ -367,15 +367,19 @@ export class CurbLogicChat extends CurbChat {
         createdByUsername: info.metadata.createdByUsername,
         readOnly: info.metadata.readOnly,
         linksAllowed: info.metadata.linksAllowed,
-        moderators: this.formatUserSet(info.metadata.moderators),
-        members: this.formatUserSet(info.metadata.members)
+        moderators: this.formatMembership(info.metadata.moderators),
+        members: this.formatMembership(info.metadata.members)
       }
     };
   }
 
-  private formatUserSet(userSet: UnorderedSet<UserId>): Array<Record<string, string | null>> {
+  private formatMembership(userSet: UnorderedSet<UserId>): Array<{
+    publicKey: UserId;
+    username: string | null;
+  }> {
     return userSet.toArray().map(userId => ({
-      [userId]: this.members.get(userId)
+      publicKey: userId,
+      username: this.members.get(userId)
     }));
   }
 }
