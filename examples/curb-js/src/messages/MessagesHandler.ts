@@ -44,7 +44,7 @@ export class MessagesHandler {
         return 'Failed to send message';
       }
 
-      const timestamp = env.timeNow();
+      const timestamp = env.timeNow().toString();
       const messageId = this.buildMessageId(channelId, senderId, timestamp, parentId);
       const message = this.createMessage({
         channelId,
@@ -84,7 +84,8 @@ export class MessagesHandler {
     const limit = Math.max(1, input.limit ?? DEFAULT_PAGE_SIZE);
     const offset = Math.max(0, input.offset ?? 0);
     const messagesVector = parentId ? this.getThread(parentId) : channel.messages;
-    const total = this.vectorLength(messagesVector);
+    const allMessages = this.safeVectorToArray(messagesVector);
+    const total = allMessages.length;
     if (total === 0) {
       return {
         messages: [],
@@ -105,8 +106,8 @@ export class MessagesHandler {
 
       const endIndex = Math.max(0, total - offset);
       const startIndex = Math.max(0, endIndex - limit);
-      const slice = this.collectVectorRange(messagesVector, startIndex, endIndex);
-      const previous = startIndex > 0 ? this.getVectorValue(messagesVector, startIndex - 1) : null;
+      const slice = allMessages.slice(startIndex, endIndex);
+      const previous = startIndex > 0 ? allMessages[startIndex - 1] : null;
       return {
         messages: slice.map(message => this.formatMessage(message, channelId, parentId)),
         nextCursor: previous ? this.getMessageId(previous) : null,
@@ -117,15 +118,17 @@ export class MessagesHandler {
 
     let endIndex = total;
     if (input.cursor) {
-      const cursorIndex = this.findMessageIndex(messagesVector, input.cursor);
+      const cursorIndex = allMessages.findIndex(
+        message => this.getMessageId(message) === input.cursor
+      );
       if (cursorIndex >= 0) {
         endIndex = cursorIndex;
       }
     }
 
     const startIndex = Math.max(0, endIndex - limit);
-    const slice = this.collectVectorRange(messagesVector, startIndex, endIndex);
-    const previous = startIndex > 0 ? this.getVectorValue(messagesVector, startIndex - 1) : null;
+    const slice = allMessages.slice(startIndex, endIndex);
+    const previous = startIndex > 0 ? allMessages[startIndex - 1] : null;
     const formatted = slice.map(message => this.formatMessage(message, channelId, parentId));
 
     return {
@@ -143,7 +146,7 @@ export class MessagesHandler {
     senderId: UserId;
     senderUsername: string;
     text: string;
-    timestamp: bigint;
+    timestamp: string;
     mentions: MentionInput[];
     mentionUsernames: string[];
     files: AttachmentInput[];
@@ -153,9 +156,6 @@ export class MessagesHandler {
     for (const mention of params.mentions) {
       mentions.add(mention.userId);
     }
-
-    const files = this.buildAttachmentVector(params.files, params.timestamp);
-    const images = this.buildAttachmentVector(params.images, params.timestamp);
 
     const mentionsUsernames = new Vector<string>();
     for (const mentionUsername of params.mentionUsernames) {
@@ -168,8 +168,8 @@ export class MessagesHandler {
       senderUsername: params.senderUsername,
       mentions,
       mentionsUsernames,
-      files,
-      images,
+      files: this.buildAttachmentVector(params.files, params.timestamp),
+      images: this.buildAttachmentVector(params.images, params.timestamp),
       id: params.messageId,
       text: params.text,
       editedOn: null,
@@ -183,8 +183,8 @@ export class MessagesHandler {
     channelId: ChannelId,
     parentId: string | null
   ): MessageResponse {
-    const timestamp = this.readBigInt(message.timestamp);
-    const editedAt = message.editedOn !== null ? this.readBigInt(message.editedOn) : null;
+    const timestamp = this.readString(message.timestamp);
+    const editedAt = message.editedOn !== null ? this.readString(message.editedOn) : null;
     const deleted = message.deleted !== null ? this.readBoolean(message.deleted) : false;
     return {
       id: this.getMessageId(message),
@@ -193,8 +193,8 @@ export class MessagesHandler {
       senderId: message.sender,
       senderUsername: this.readString(message.senderUsername),
       text: this.readString(message.text),
-      timestamp: timestamp.toString(),
-      editedAt: editedAt !== null ? editedAt.toString() : null,
+      timestamp,
+      editedAt,
       deleted,
       mentions: message.mentions
         .toArray()
@@ -236,7 +236,7 @@ export class MessagesHandler {
   private buildMessageId(
     channelId: ChannelId,
     senderId: UserId,
-    timestamp: bigint,
+    timestamp: string,
     parentId: string | null
   ): string {
     const parentSegment = parentId ?? 'root';
@@ -245,109 +245,45 @@ export class MessagesHandler {
 
   private buildAttachmentVector(
     inputs: AttachmentInput[],
-    fallbackTimestamp: bigint
+    fallbackTimestamp: string
   ): Vector<Attachment> {
     const vector = new Vector<Attachment>();
     for (const input of inputs) {
       vector.push({
         name: input.name,
         mimeType: input.mimeType,
-        size: BigInt(input.size),
+        size: String(
+          typeof input.size === 'bigint'
+            ? String(input.size)
+            : typeof input.size === 'number'
+            ? String(input.size)
+            : 0
+        ),
         blobId: input.blobId,
-        uploadedAt: input.uploadedAt !== undefined ? BigInt(input.uploadedAt) : fallbackTimestamp,
+        uploadedAt:
+          input.uploadedAt !== undefined
+            ? String(
+                typeof input.uploadedAt === 'bigint'
+                  ? String(input.uploadedAt)
+                  : typeof input.uploadedAt === 'number'
+                  ? String(input.uploadedAt)
+                  : fallbackTimestamp
+              )
+            : fallbackTimestamp,
       });
     }
     return vector;
   }
 
   private serializeAttachments(vector: Vector<Attachment>): AttachmentResponse[] {
-    const attachments = this.collectVectorRange(vector, 0, this.vectorLength(vector));
+    const attachments = this.safeVectorToArray(vector);
     return attachments.map(attachment => ({
       name: this.readString(attachment.name),
       mimeType: this.readString(attachment.mimeType),
-      size: this.readBigInt(attachment.size).toString(),
+      size: this.readString(attachment.size),
       blobId: attachment.blobId,
-      uploadedAt: this.readBigInt(attachment.uploadedAt).toString(),
+      uploadedAt: this.readString(attachment.uploadedAt),
     }));
-  }
-
-  private vectorLength<T>(vector: Vector<T>): number {
-    if (typeof vector.len === 'function') {
-      try {
-        return vector.len();
-      } catch {
-        // fall through to fallback
-      }
-    }
-    const fallback = this.safeVectorToArray(vector);
-    return fallback ? fallback.length : 0;
-  }
-
-  private getVectorValue<T>(vector: Vector<T>, index: number): T | null {
-    if (typeof vector.get === 'function') {
-      try {
-        return vector.get(index);
-      } catch {
-        // fall through
-      }
-    }
-    const fallback = this.safeVectorToArray(vector);
-    if (fallback && index >= 0 && index < fallback.length) {
-      const value = fallback[index];
-      return value !== undefined && value !== null ? value : null;
-    }
-    return null;
-  }
-
-  private collectVectorRange<T>(vector: Vector<T>, start: number, end: number): T[] {
-    const results: T[] = [];
-    let length = 0;
-    if (typeof vector.len === 'function') {
-      try {
-        length = vector.len();
-      } catch {
-        length = 0;
-      }
-    }
-
-    if (length > 0 && typeof vector.get === 'function') {
-      const cappedEnd = Math.min(end, length);
-      for (let index = start; index < cappedEnd; index += 1) {
-        try {
-          const value = vector.get(index);
-          if (value !== null && value !== undefined) {
-            results.push(value);
-          }
-        } catch {
-          break;
-        }
-      }
-      return results;
-    }
-
-    const fallback = this.safeVectorToArray(vector);
-    if (!fallback) {
-      return results;
-    }
-    const cappedEnd = Math.min(end, fallback.length);
-    for (let index = start; index < cappedEnd; index += 1) {
-      const value = fallback[index];
-      if (value !== undefined && value !== null) {
-        results.push(value);
-      }
-    }
-    return results;
-  }
-
-  private findMessageIndex(vector: Vector<Message>, targetId: string): number {
-    const length = this.vectorLength(vector);
-    for (let index = length - 1; index >= 0; index -= 1) {
-      const message = this.getVectorValue(vector, index);
-      if (message && this.getMessageId(message) === targetId) {
-        return index;
-      }
-    }
-    return -1;
   }
 
   private readString(value: unknown): string {
@@ -359,26 +295,6 @@ export class MessagesHandler {
       return typeof extracted === 'string' ? extracted : String(extracted ?? '');
     }
     return String(value ?? '');
-  }
-
-  private readBigInt(value: unknown): bigint {
-    if (typeof value === 'bigint') {
-      return value;
-    }
-    if (typeof value === 'number') {
-      return BigInt(value);
-    }
-    if (typeof value === 'string') {
-      try {
-        return BigInt(value);
-      } catch {
-        return 0n;
-      }
-    }
-    if (this.isRegisterLike(value)) {
-      return this.readBigInt(value.get());
-    }
-    return 0n;
   }
 
   private readBoolean(value: unknown): boolean {
@@ -395,14 +311,25 @@ export class MessagesHandler {
     return Boolean(value) && typeof value === 'object' && typeof (value as { get(): unknown }).get === 'function';
   }
 
-  private safeVectorToArray<T>(vector: Vector<T>): T[] | null {
-    if (typeof (vector as { toArray?: () => T[] }).toArray === 'function') {
-      try {
-        return (vector as { toArray(): T[] }).toArray();
-      } catch {
-        return null;
+  private safeVectorToArray<T>(vector: Vector<T>): T[] {
+    try {
+      return vector.toArray();
+    } catch (error){
+      env.log("FX: ERROR: " + (error as Error).message + " " + (error as Error).stack);
+      const results: T[] = [];
+      for (let index = 0; ; index += 1) {
+        try {
+          const value = vector.get(index);
+          env.log("FX: VALUE: " + value?.toString());
+          if (value === null || value === undefined) {
+            break;
+          }
+          results.push(value);
+        } catch {
+          break;
+        }
       }
+      return results;
     }
-    return null;
   }
 }

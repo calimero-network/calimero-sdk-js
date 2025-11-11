@@ -21,13 +21,13 @@ export interface ChannelMetadata {
 export interface Attachment {
   name: string;
   mimeType: string;
-  size: bigint;
+  size: string;
   blobId: Uint8Array;
-  uploadedAt: bigint;
+  uploadedAt: string;
 }
 
 export interface Message {
-  timestamp: bigint;
+  timestamp: string;
   sender: UserId;
   senderUsername: string;
   mentions: UnorderedSet<UserId>;
@@ -36,7 +36,7 @@ export interface Message {
   images: Vector<Attachment>;
   id: string;
   text: string;
-  editedOn: bigint | null;
+  editedOn: string | null;
   deleted: boolean | null;
   group: string;
 }

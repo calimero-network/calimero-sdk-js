@@ -2,9 +2,9 @@ import type { ChannelId, UserId } from '../types';
 export interface AttachmentInput {
   name: string;
   mimeType: string;
-  size: bigint | number;
+  size: number;
   blobId: Uint8Array;
-  uploadedAt?: bigint | number;
+  uploadedAt?: number;
 }
 
 export interface AttachmentResponse {
