@@ -33,17 +33,13 @@ pnpm add -D @calimero/cli typescript
 Create `src/index.ts`:
 
 ```typescript
-import { State, Logic, Init } from '@calimero/sdk';
-import { Counter } from '@calimero/sdk/collections';
+import { State, Logic, Init, View, createCounter } from '@calimero/sdk';
+import type { Counter } from '@calimero/sdk/collections';
 import * as env from '@calimero/sdk/env';
 
 @State
 export class CounterApp {
-  count: Counter;
-
-  constructor() {
-    this.count = new Counter();
-  }
+  count: Counter = createCounter();
 }
 
 @Logic(CounterApp)
@@ -59,11 +55,17 @@ export class CounterLogic {
     env.log('Counter incremented');
   }
 
+  @View()
   getCount(): bigint {
     return this.count.value();
   }
 }
 ```
+
+Key points:
+
+- Initialize CRDT fields inline (`createCounter()`) so the runtime hydrates persisted state without relying on constructor logic.
+- Mark read-only entry points with `@View()` to skip persistence and avoid emitting redundant storage deltas when returning data.
 
 ### 3. Build Your Contract
 

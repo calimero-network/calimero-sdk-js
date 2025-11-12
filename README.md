@@ -61,8 +61,8 @@ pnpm add -D @calimero/cli typescript
 
    ```typescript
    // src/index.ts
-   import { State, Logic, Init, Event } from '@calimero/sdk';
-   import { UnorderedMap, Counter } from '@calimero/sdk/collections';
+   import { State, Logic, Init, View, Event, createUnorderedMap, createCounter } from '@calimero/sdk';
+   import type { UnorderedMap, Counter } from '@calimero/sdk/collections';
    import * as env from '@calimero/sdk/env';
 
    @Event('ItemStored')
@@ -72,8 +72,8 @@ pnpm add -D @calimero/cli typescript
 
    @State
    export class KvStore {
-     items = new UnorderedMap<string, string>();
-     writes = new Counter();
+     items: UnorderedMap<string, string> = createUnorderedMap();
+     writes: Counter = createCounter();
    }
 
    @Logic(KvStore)
@@ -90,8 +90,9 @@ pnpm add -D @calimero/cli typescript
        env.emit(new ItemStored(key, writes));
      }
 
+     @View()
      get(key: string): string | null {
-       return this.items.get(key);
+       return this.items.get(key) ?? null;
      }
    }
    ```
@@ -134,6 +135,16 @@ pnpm add -D @calimero/cli typescript
 - `@State` classes define persistent data. Fields can be primitive values, CRDT collections, or other serializable classes.
 - `@Logic(StateClass)` binds runtime methods to the state instance. Methods are exposed as public contract entry points.
 - `@Init` marks a static method that constructs the first state snapshot.
+
+#### Initializing State Safely
+
+- Prefer **inline field initialization** (`files = createUnorderedMap()`) over constructors. The runtime reinstantiates your state class on every call and rehydrates persisted fields; constructors that allocate CRDTs each time trigger duplicate IDs and wasted deltas.
+- Keep constructors free of side effects and logging. Use helper factories from `@calimero/sdk` (`createUnorderedMap`, `createCounter`, etc.) to maintain consistent defaults and metadata.
+
+#### Marking Non-Mutating Methods
+
+- Decorate read-only entry points with `@View()`. Views run inside the same QuickJS sandbox but the dispatcher skips `StateManager.save` and `flushDelta`, so no storage delta is emitted.
+- Forgetting `@View()` means the runtime will persist the state snapshot even when nothing has changed; this produces needless DAG nodes and extra gossip traffic. As a rule of thumb, any method that does not mutate `this` should be a view.
 
 ### Decorators & Metadata
 

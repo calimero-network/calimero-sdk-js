@@ -8,6 +8,7 @@ Key-value store application with CRDT UnorderedMap and events.
 - List all entries
 - Event emission (ItemAdded, ItemRemoved)
 - Demonstrates UnorderedMap CRDT
+- Illustrates @View usage for read-only entry points
 - Shows event system usage
 
 ## Build
@@ -37,6 +38,8 @@ meroctl --node-name node1 call \
   --method remove \
   --args '{"key": "name"}'
 ```
+
+Read methods such as `get`, `entries`, and `len` are decorated with `@View()` in `src/index.ts`. This ensures the runtime skips `flushDelta` when servicing pure reads, preventing redundant storage updates while still returning the latest CRDT data.
 
 ## Code
 

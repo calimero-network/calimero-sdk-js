@@ -6,6 +6,8 @@ JavaScript port of the Rust `apps/xcall-example` contract. It showcases:
 - Emitting events when pings are sent and pongs are received
 - Keeping simple state (a pong counter) across invocations
 
+The `getCounter` method in `src/index.ts` is decorated with `@View()`. The dispatcher skips persistence when serving these read-only calls, so repeated status checks do not emit storage deltas or gossip redundant updates.
+
 ## Commands
 
 ```bash

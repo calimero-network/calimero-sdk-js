@@ -7,7 +7,7 @@ Simple counter application demonstrating Calimero SDK basics.
 - Increment/decrement counter
 - Get current count
 - Reset counter
-- Demonstrates @State, @Logic, @Init decorators
+- Demonstrates @State, @Logic, @Init, @View decorators
 - Uses Counter CRDT
 
 ## Build
@@ -37,6 +37,8 @@ meroctl --node-name node1 call \
   --context-id <CONTEXT_ID> \
   --method getCount
 ```
+
+`getCount` is tagged with `@View()` in `src/index.ts`, so the runtime skips persistence when the method runs. Marking read-only entry points as views keeps the storage DAG compact and avoids emitting redundant deltas for simple reads.
 
 ## Code
 

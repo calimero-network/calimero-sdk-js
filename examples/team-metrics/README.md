@@ -37,6 +37,8 @@ meroctl --node-name node1 call \
   --method getTotalContributions
 ```
 
+`TeamMetrics` initializes its CRDT collections inline, and read-only methods such as `getMemberMetrics`, `getTotalContributions`, and `getMemberProfile` are marked with `@View()`. This keeps constructors side-effect free and prevents the runtime from emitting redundant deltas when callers fetch data.
+
 ## Code
 
 See `src/index.ts` for the complete implementation.

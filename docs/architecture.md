@@ -86,6 +86,12 @@ TypeScript Source
 10. Response returned to caller
 ```
 
+### Mutating vs View Dispatch
+
+- During dispatch the SDK inspects decorator metadata to decide whether a method is mutating. Methods marked with `@View()` execute without touching the persistence pipeline—`StateManager.save` and `flush_delta` are skipped entirely.
+- If a method lacks `@View()`, the dispatcher assumes it mutated state. Even if no fields changed, the runtime serialises the state snapshot, emits a `save_raw` call, and packages an empty-but-timestamped delta. This is why it is important to mark read-only entry points explicitly: it keeps the storage DAG small and avoids gossiping redundant updates.
+- Views still run inside the same QuickJS instance and can read CRDT collections safely; they simply do not commit changes back to the host.
+
 ## CRDT Delta Tracking
 
 ```

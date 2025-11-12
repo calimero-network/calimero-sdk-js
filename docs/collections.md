@@ -148,6 +148,11 @@ class GoodApp {
 }
 ```
 
+### Combine with View Decorators
+
+- Initialize CRDT fields inline using the helper factories exposed from `@calimero/sdk` (`createUnorderedMap`, `createVector`, etc.). Constructors run on every invocation, so inline defaults guarantee the runtime reuses the persisted collection IDs.
+- Mark selectors (`get`, `list`, `len`, etc.) with `@View()` so the dispatcher skips persistence when you only read data. This keeps the storage DAG compact and reduces gossip traffic.
+
 ## Performance
 
 | Collection | Get | Set | Remove | Memory |
