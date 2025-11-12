@@ -86,6 +86,44 @@ TypeScript Source
 10. Response returned to caller
 ```
 
+### QuickJS ↔ Host Data Flow
+
+```
+┌───────────────────────────┐
+│ Contract Logic (QuickJS)  │
+│   map.get / set           │
+│   vector.push             │
+│   privateEntry.set        │
+└─────────────┬─────────────┘
+              │ serialize via borsh-value
+              ▼
+┌───────────────────────────┐
+│ storage-wasm bindings     │
+│   js_crdt_* host calls    │
+│   storage_{read,write}    │
+└─────────────┬─────────────┘
+              │ pass raw bytes + CRDT IDs
+              ▼
+┌───────────────────────────┐
+│ Rust storage (crates/     │
+│ storage::js, Interface)   │
+│   UnorderedMap<Vec<u8>,   │
+│   Vec<u8>> wrappers       │
+│   CRDT delta emission     │
+└─────────────┬─────────────┘
+              │ write snapshot / delta
+              ▼
+┌───────────────────────────┐
+│ Node state & Merkle DAG   │
+│   persisted entries       │
+│   broadcast deltas        │
+└───────────────────────────┘
+```
+
+- Serialized CRDT values carry a sentinel such as `{"__calimeroCollection":"Vector","id":"…hex…"}`. The host persists this JSON as a byte array, but the actual CRDT is keyed by the 32-byte ID.
+- `map.get(key)` rehydrates a lightweight handle that retains the ID; mutating the handle (`vector.push`, `set.add`, etc.) issues incremental host calls. Only when you explicitly request the full contents (`toArray()`, returning an entire map) does the SDK stream all entries back into QuickJS.
+- Node-local helpers (`createPrivateEntry`) route through the same `storage_{read,write}` bindings, but their data never appears in CRDT deltas.
+
 ### Mutating vs View Dispatch
 
 - During dispatch the SDK inspects decorator metadata to decide whether a method is mutating. Methods marked with `@View()` execute without touching the persistence pipeline—`StateManager.save` and `flush_delta` are skipped entirely.
@@ -115,6 +153,38 @@ Runtime creates CausalDelta:
        ↓
 Broadcast to network
 ```
+
+### Serialization Shapes (QuickJS → Host)
+
+```
+JS Value                ─┬─ serializeJsValue ──┬─ storage-wasm ──┬─ Host Storage
+                         │                     │                 │
+number / string / bool   │  Borsh scalar       │  raw Vec<u8>     │  stored inline
+                         │  (e.g. F64, string) │                 │
+─────────────────────────┼─────────────────────┼─────────────────┼────────────────
+plain object             │  JSON-like map      │  Vec<u8> blob    │  deserialized
+{ x: 1, y: 'ok' }        │  with primitive     │                  │  only when read
+                         │  fields             │                  │
+─────────────────────────┼─────────────────────┼─────────────────┼────────────────
+UnorderedMap / Vector /  │  { "__calimeroCollection": "Vector",
+UnorderedSet / Counter   │    "id": "…hex…" }  │  Vec<u8>         │  CRDT keyed by
+                         │  (no entries)       │                  │  the 32-byte ID
+─────────────────────────┼─────────────────────┼─────────────────┼────────────────
+Nested CRDT (Map→Vector) │  Outer map entry    │  Vec<u8>         │  Each layer keeps
+                         │  stores the vector  │                  │  its own CRDT ID
+                         │  handle metadata    │                  │
+─────────────────────────┼─────────────────────┼─────────────────┼────────────────
+Private entry helper     │  Borsh-encoded user │  storage_write   │  key/value in
+createPrivateEntry()     │  payload            │  (no delta)      │  node-local KV
+```
+
+- Primitives and plain structs are round-tripped as ordinary Borsh scalars or maps. They are only
+  materialized when your contract reads them back.
+- CRDT values are encoded as lightweight handles; the host stores the opaque metadata while retaining
+  the real CRDT state inside the Rust collection. All CRDT methods (`push`, `add`, `merge`) operate on
+  that ID.
+- Nested CRDTs simply nest handles—each layer reuses the existing ID when you hydrate → mutate →
+  persist.
 
 ### How this differs from the Rust SDK
 

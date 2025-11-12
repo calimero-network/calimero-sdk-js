@@ -62,7 +62,10 @@ export class TeamMetricsState {
   - Invokes the host CRDT merge for collection fields (`UnorderedMap`, `Vector`, `Counter`, etc.).
   - Applies last-writer-wins to scalar fields using the entry timestamps.
 - This matches the historical behaviour while giving developers an opt-in path to override fields that
-  need bespoke reconciliation (e.g. de-duping vectors).
+  need bespoke reconciliation (e.g. de-duping vectors). Today the merge is executed locally (on the node
+  that invokes `set`). During delta replay other nodes simply write the merged snapshot they received.
+  Conflict resolution across the network therefore still falls back to last-write-wins until the Rust
+  runtime understands these descriptors *(see “Limitations & Future Work” below)*.
 
 You can optionally provide a custom merge handler:
 
@@ -145,7 +148,8 @@ must extend the host runtime:
 2. **Default Strategies** — Use existing CRDT merge implementations for collection fields and
    last-writer-wins for scalars based on per-entry timestamps. If a custom handler was applied on the
    leader, the persisted value already contains the reconciled result; followers do not re-run the
-   handler.
+   handler. (Future work: allow registering Rust-side equivalents for custom handlers so conflicts can
+   be resolved during replay as well.)
 
 Given this constraint, v1 of the feature ships with two strategies: `crdt` (default for collections)
 and `lastWriterWins`. Additional strategies can be added once we define a portable representation
@@ -175,3 +179,16 @@ and `lastWriterWins`. Additional strategies can be added once we define a portab
   sufficient?
 - Do we need a migration tool for existing snapshots? Currently out of scope; contracts can add the
   decorator and redeploy with a fresh state.
+
+## Limitations & Future Work (Experimental Status)
+
+- **Leader-only merge:** The current implementation only merges on the node that makes the write. Other
+  nodes replay the merged payload but do not perform conflict resolution themselves yet.
+- **Host unaware of metadata:** The Rust storage layer ignores the merge descriptor today; last-write-wins
+  still applies if two deltas for the same entry arrive concurrently.
+- **Custom handlers:** Executed only on the writing node. There is no host-side registry to re-run them
+  on followers.
+- **Next steps:** carry merge descriptors through the storage delta and teach `Interface::save_internal`
+  / `merge_root_state` to honour them, including a Rust-side registry for contracts that supply custom
+  handlers. Until then, treat `@Mergeable` as an experimental helper that makes local writes safer and
+  prepares metadata for future runtime support.

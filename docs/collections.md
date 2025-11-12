@@ -153,6 +153,83 @@ class GoodApp {
 - Initialize CRDT fields inline using the helper factories exposed from `@calimero/sdk` (`createUnorderedMap`, `createVector`, etc.). Constructors run on every invocation, so inline defaults guarantee the runtime reuses the persisted collection IDs.
 - Mark selectors (`get`, `list`, `len`, etc.) with `@View()` so the dispatcher skips persistence when you only read data. This keeps the storage DAG compact and reduces gossip traffic.
 
+### Handles, Not Deep Copies
+
+- `map.get('key')` for a CRDT value (vector, set, nested map) returns a lightweight handle that retains the underlying CRDT ID. The host does **not** deserialize the entire structure when you fetch it.
+- Mutating that handle (`vector.push`, `set.add`, etc.) issues incremental host calls that touch only the affected entries. Nested CRDTs behave the same way: a conflict on `profiles['alice'].notes` merges just that inner collection.
+- The only time a full structure is materialized in JS is when you explicitly call methods like `toArray()` or return the entire map from a view.
+- Under the hood the serialized value contains a sentinel such as `{"__calimeroCollection":"Vector","id":"…hex…"}`. The Rust side stores that JSON as a `Vec<u8>`, but the CRDT’s real state is keyed by the ID. When you hydrate the handle the SDK reattaches the stored ID, so subsequent operations go straight to the host functions (no deep clone or replay of the entire collection on every call).
+
+#### Example: `UnorderedMap<string, Vector<MyStruct>>`
+
+```
+Map entry "alice" ─┬─> { "__calimeroCollection": "Vector", "id": "caf3…" }
+                   │        │
+                   │        └─ host keeps Vector CRDT with ID caf3… (elements are serialized MyStruct)
+                   │
+Contract flow:
+1. const vec = profiles.get('alice') ?? new Vector<MyStruct>();
+2. vec.push({ score: 10, badge: 'gold' });
+3. profiles.set('alice', vec);
+
+- Step 1 rehydrates the vector handle (ID caf3…).
+- Step 2 calls `js_crdt_vector_push`, mutating the same CRDT on the host.
+- Step 3 persists only the small handle wrapper; the vector contents stay in the CRDT store.
+```
+
+#### Example: `UnorderedMap<string, UnorderedSet<LwwRegister<string>>>`
+
+```
+Map entry "project-x" ─┬─> { "__calimeroCollection": "UnorderedSet", "id": "dead…" }
+                       │        │
+                       │        └─ host keeps Set CRDT with ID dead…
+                       │            each element is a serialized LWW register handle
+                       │
+Set element handle     └─> { "__calimeroCollection": "LwwRegister", "id": "beef…" }
+
+Contract flow:
+1. const set = tags.get('project-x') ?? new UnorderedSet<LwwRegister<string>>();
+2. const register = new LwwRegister<string>();
+   register.set('critical');
+3. set.add(register);
+4. tags.set('project-x', set);
+
+- Step 1 rehydrates the set handle (ID dead…).
+- Step 3 calls the host to add the LWW register (ID beef…) into that set.
+- Step 4 persists only the set handle; both the set and the register keep their IDs in the CRDT store.
+
+### Rehydration
+
+- When you call `map.get('key')` and the value is a CRDT, the host returns a tiny JSON wrapper with the CRDT ID. The JS SDK **rehydrates** the CRDT by instantiating the corresponding class (`Vector`, `UnorderedSet`, `LwwRegister`, …) and attaching that ID.
+- Subsequent operations on the rehydrated instance (`push`, `add`, `set`) invoke the host functions for that ID; the host does not resend the entire structure. Only on explicit full reads (`toArray`, view returning the whole map) is the entire data set streamed back.
+
+### Best Practices by Type
+
+- **UnorderedMap**  
+  Hydrate the existing entry before mutating (`const value = map.get(key) ?? new …`). Setting a brand-new CRDT instance replaces the stored ID and falls back to last-write-wins.
+
+- **Vector**  
+  Use `Vector.fromArray` only for initialization. For updates use `push`, `pop`, `get`, `len` to keep the existing ID. For read-heavy paths prefer `len`/`get` instead of `toArray`.
+
+- **UnorderedSet**  
+  Call `add`, `remove`, `has` on the rehydrated set. Adding a fresh `UnorderedSet` each time replaces the CRDT ID; instead reuse the handle returned by `get`.
+
+- **Counter**  
+  Keep counters inline (`createCounter()`) and use `increment`, `incrementBy`. Avoid replacing the counter with a new instance; mutate the existing handle instead.
+
+- **LwwRegister**  
+  Rehydrate the register with `map.get(key)` (or `createPrivateEntry`) and call `set`. Registers capture the last-writer timestamp; replacing the register object skips merge semantics.
+
+- **Nested Structures**  
+  Work from the inside out: hydrate the outer map, hydrate the inner CRDT, mutate it, set it back on the parent, and finally persist the parent map. Example:
+  ```ts
+  const set = profiles.get('alice') ?? new UnorderedSet<string>();
+  set.add('blue');
+  profiles.set('alice', set);
+  ```
+  Each layer preserves its CRDT ID, so only the mutated structure emits a delta.
+```
+
 ## Performance
 
 | Collection | Get | Set | Remove | Memory |

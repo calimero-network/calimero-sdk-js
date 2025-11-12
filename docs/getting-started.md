@@ -102,6 +102,23 @@ meroctl --node-name node1 call \
 - [Events Guide](./events.md)
 - [Example Applications](../examples/)
 
+## Private Storage (Node-local Data)
+
+Use the private storage helpers for data that should remain on the executing node (e.g. cached secrets, per-node counters):
+
+```typescript
+import { createPrivateEntry } from '@calimero/sdk';
+
+const secrets = createPrivateEntry<{ token: string }>('private:secrets');
+
+const current = secrets.getOrInit(() => ({ token: '' }));
+secrets.modify(value => {
+  value.token = 'rotated-token';
+}, () => ({ token: '' }));
+```
+
+Entries are stored via `storageRead` / `storageWrite` directly and are not replicated via CRDT deltas.
+
 ## Common Issues
 
 ### Build Errors

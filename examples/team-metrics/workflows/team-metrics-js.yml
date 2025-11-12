@@ -1,0 +1,202 @@
+description: Team Metrics Application Workflow (JavaScript SDK)
+name: Team Metrics App Test
+
+force_pull_image: false
+no_docker: true
+binary_path: /Users/chefsale/workspace/calimero/core/target/release/merod
+
+nodes:
+  chain_id: testnet-1
+  count: 2
+  image: ghcr.io/calimero-network/merod:edge
+  prefix: metrics-node
+
+steps:
+  - name: Install Team Metrics Application
+    type: install_application
+    node: metrics-node-1
+    path: "/Users/chefsale/workspace/calimero/core/calimero-sdk-js/examples/team-metrics/build/contract.wasm"
+    dev: true
+    outputs:
+      app_id: applicationId
+
+  - name: Create Team Metrics Context
+    type: create_context
+    node: metrics-node-1
+    application_id: '{{app_id}}'
+    params: '{}'
+    outputs:
+      context_id: contextId
+      member_public_key: memberPublicKey
+
+  - name: Wait for Context Creation
+    type: wait
+    seconds: 1
+
+  - name: Read Initial Total Contributions On Node 1
+    type: call
+    node: metrics-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getTotalContributions
+    args: {}
+    outputs:
+      initial_total_contributions_node_1: result.output
+
+  - name: Create Node 2 Identity
+    type: create_identity
+    node: metrics-node-2
+    outputs:
+      node_2_member_public_key: publicKey
+
+  - name: Wait After Identity Creation
+    type: wait
+    seconds: 1
+
+  - name: Invite Node 2 To Context
+    type: invite_identity
+    node: metrics-node-1
+    context_id: '{{context_id}}'
+    grantee_id: '{{node_2_member_public_key}}'
+    granter_id: '{{member_public_key}}'
+    capability: member
+    outputs:
+      node_2_invitation: invitation
+
+  - name: Node 2 Join Context
+    type: join_context
+    node: metrics-node-2
+    context_id: '{{context_id}}'
+    invitee_id: '{{node_2_member_public_key}}'
+    invitation: '{{node_2_invitation}}'
+
+  - name: Wait After Node 2 Join
+    type: wait
+    seconds: 2
+
+  - name: Read Initial Total Contributions On Node 2
+    type: call
+    node: metrics-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: getTotalContributions
+    args: {}
+    outputs:
+      initial_total_contributions_node_2: result.output
+
+  - name: Assert Initial Totals
+    type: json_assert
+    statements:
+      - 'equal({{initial_total_contributions_node_1}}, 0)'
+      - 'equal({{initial_total_contributions_node_2}}, 0)'
+
+  - name: Add Contribution for Alice
+    type: call
+    node: metrics-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: addContribution
+    args:
+      member: alice
+      points: 3
+
+  - name: Wait After Alice Contribution
+    type: wait
+    seconds: 1
+
+  - name: Add Contribution for Bob
+    type: call
+    node: metrics-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: addContribution
+    args:
+      member: bob
+      points: 2
+
+  - name: Wait After Bob Contribution
+    type: wait
+    seconds: 1
+
+  - name: Read Alice Metrics
+    type: call
+    node: metrics-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getMemberMetrics
+    args:
+      member: alice
+    outputs:
+      alice_metrics_node_1: result.output
+
+  - name: Read Bob Metrics
+    type: call
+    node: metrics-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getMemberMetrics
+    args:
+      member: bob
+    outputs:
+      bob_metrics_node_1: result.output
+
+  - name: Read Total Contributions
+    type: call
+    node: metrics-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getTotalContributions
+    args: {}
+    outputs:
+      total_contributions_node_1: result.output
+
+  - name: Assert Metrics On Node 1
+    type: json_assert
+    statements:
+      - 'equal({{alice_metrics_node_1}}, 3)'
+      - 'equal({{bob_metrics_node_1}}, 2)'
+      - 'equal({{total_contributions_node_1}}, 5)'
+
+  - name: Wait For Replication
+    type: wait
+    seconds: 2
+
+  - name: Read Alice Metrics On Node 2
+    type: call
+    node: metrics-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: getMemberMetrics
+    args:
+      member: alice
+    outputs:
+      alice_metrics_node_2: result.output
+
+  - name: Read Bob Metrics On Node 2
+    type: call
+    node: metrics-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: getMemberMetrics
+    args:
+      member: bob
+    outputs:
+      bob_metrics_node_2: result.output
+
+  - name: Read Total Contributions On Node 2
+    type: call
+    node: metrics-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: getTotalContributions
+    args: {}
+    outputs:
+      total_contributions_node_2: result.output
+
+  - name: Assert Replicated Metrics
+    type: json_assert
+    statements:
+      - 'equal({{alice_metrics_node_2}}, 3)'
+      - 'equal({{bob_metrics_node_2}}, 2)'
+      - 'equal({{total_contributions_node_2}}, 5)'
+
