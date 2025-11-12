@@ -45,6 +45,23 @@ Decorate read-only methods with `@View()` so the runtime skips persistence for c
 
 All values, return payloads, and collection snapshots are serialized with Calimero’s Borsh encoder. Nested CRDTs or complex objects are supported as long as you keep data structures serializable (avoid functions, symbols, etc.).
 
+### Private Storage
+
+Use `createPrivateEntry` for node-local data that should not replicate across the network:
+
+```typescript
+import { createPrivateEntry } from '@calimero/sdk';
+
+const secrets = createPrivateEntry<{ token: string }>('private:secrets');
+
+secrets.getOrInit(() => ({ token: '' }));
+secrets.modify(value => {
+  value.token = 'latest-token';
+}, () => ({ token: '' }));
+```
+
+Values are serialized with the same helper as contract state, but they are written via `storageRead`/`storageWrite` directly and never appear in CRDT deltas.
+
 ## Documentation
 
 ### Updating the storage shim

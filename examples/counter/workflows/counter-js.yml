@@ -1,0 +1,52 @@
+description: Counter Application Workflow (JavaScript SDK)
+name: Counter App Test
+
+force_pull_image: false
+no_docker: true
+binary_path: /Users/chefsale/workspace/calimero/core/target/release/merod
+
+nodes:
+  chain_id: testnet-1
+  count: 2
+  image: ghcr.io/calimero-network/merod:edge
+  prefix: counter-node
+
+steps:
+  - name: Install Counter Application
+    type: install_application
+    node: counter-node-1
+    path: "/Users/chefsale/workspace/calimero/core/calimero-sdk-js/examples/counter/build/contract.wasm"
+    dev: true
+    outputs:
+      app_id: applicationId
+
+  - name: Create Counter Context
+    type: create_context
+    node: counter-node-1
+    application_id: '{{app_id}}'
+    params: '{}'
+    outputs:
+      context_id: contextId
+      member_public_key: memberPublicKey
+
+  - name: Increment Counter
+    type: call
+    node: counter-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: increment
+
+  - name: Get Count
+    type: call
+    node: counter-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getCount
+    outputs:
+      counter_result: result.output
+
+  - name: Assert Count Is One
+    type: json_assert
+    statements:
+      - 'equal({{counter_result}}, 1)'
+
