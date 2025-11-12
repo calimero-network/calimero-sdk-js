@@ -215,6 +215,13 @@ export class CurbLogicChat extends CurbChat {
     return wrapResult(this.createMembersAccess().getGlobalMembers());
   }
 
+  fetchUsername(): string {
+    const executorId = env.executorIdBase58() as UserId;
+    const membersAccess = this.createMembersAccess();
+    const username = membersAccess.getUsername(executorId);
+    return wrapResult(username);
+  }
+
   getChannel(arg: { channelId: ChannelId } | ChannelId): string {
     const channelId = typeof arg === 'string' ? arg : arg?.channelId;
     if (typeof channelId !== 'string') {

@@ -1,12 +1,13 @@
 description: Curb Application Test Workflow
 name: Curb App Test
 
+auth_service: true
+
 nodes:
   chain_id: testnet-1
   count: 1
-  image: ghcr.io/calimero-network/merod:edge
+  image: ghcr.io/calimero-network/merod:0e1f37e
   prefix: curb-node
-
 steps:
   # Step 1: Install the Curb application
   - name: Install Curb Application
@@ -44,134 +45,144 @@ steps:
       initial_members: result.output
       initial_members_json: result.output
 
-  # Step 5: Create a public channel
-  - name: Create Public Channel
+  - name: Get Username
     type: call
     node: curb-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
-    method: createChannel
-    args:
-      channelId: events
-      options:
-        type: public
-        readOnly: false
-
-  # Step 6: Fetch channels for owner
-  - name: Get Owner Channels
-    type: call
-    node: curb-node-1
-    context_id: '{{context_id}}'
-    executor_public_key: '{{member_public_key}}'
-    method: getChannels
+    method: fetchUsername
     args: {}
+    outputs:
+      username: result.output
 
-  # Step 7: Fetch all default & public channels
-  - name: Get All Visible Channels
-    type: call
-    node: curb-node-1
-    context_id: '{{context_id}}'
-    executor_public_key: '{{member_public_key}}'
-    method: getAllChannels
-    args: {}
+  # # Step 5: Create a public channel
+  # - name: Create Public Channel
+  #   type: call
+  #   node: curb-node-1
+  #   context_id: '{{context_id}}'
+  #   executor_public_key: '{{member_public_key}}'
+  #   method: createChannel
+  #   args:
+  #     channelId: events
+  #     options:
+  #       type: public
+  #       readOnly: false
+
+  # # Step 6: Fetch channels for owner
+  # - name: Get Owner Channels
+  #   type: call
+  #   node: curb-node-1
+  #   context_id: '{{context_id}}'
+  #   executor_public_key: '{{member_public_key}}'
+  #   method: getChannels
+  #   args: {}
+
+  # # Step 7: Fetch all default & public channels
+  # - name: Get All Visible Channels
+  #   type: call
+  #   node: curb-node-1
+  #   context_id: '{{context_id}}'
+  #   executor_public_key: '{{member_public_key}}'
+  #   method: getAllChannels
+  #   args: {}
 
 
-  # Step 8: Add another member to the channel
-  - name: Add Member To Channel
-    type: call
-    node: curb-node-1
-    context_id: '{{context_id}}'
-    executor_public_key: '{{member_public_key}}'
-    method: addMemberToChannel
-    args:
-      channelId: events
-      userId: user-2
-      username: user2
+  # # Step 8: Add another member to the channel
+  # - name: Add Member To Channel
+  #   type: call
+  #   node: curb-node-1
+  #   context_id: '{{context_id}}'
+  #   executor_public_key: '{{member_public_key}}'
+  #   method: addMemberToChannel
+  #   args:
+  #     channelId: events
+  #     userId: user-2
+  #     username: user2
 
-  # Step 9: Promote the new member to moderator
-  - name: Promote Channel Moderator
-    type: call
-    node: curb-node-1
-    context_id: '{{context_id}}'
-    executor_public_key: '{{member_public_key}}'
-    method: addChannelModerator
-    args:
-      channelId: events
-      userId: user-2
+  # # Step 9: Promote the new member to moderator
+  # - name: Promote Channel Moderator
+  #   type: call
+  #   node: curb-node-1
+  #   context_id: '{{context_id}}'
+  #   executor_public_key: '{{member_public_key}}'
+  #   method: addChannelModerator
+  #   args:
+  #     channelId: events
+  #     userId: user-2
 
-  # Step 10b: Fetch channel state after promotion
-  - name: Get Events Channel After Promote
-    type: call
-    node: curb-node-1
-    context_id: '{{context_id}}'
-    executor_public_key: '{{member_public_key}}'
-    method: getChannel
-    args:
-      channelId: events
+  # # Step 10b: Fetch channel state after promotion
+  # - name: Get Events Channel After Promote
+  #   type: call
+  #   node: curb-node-1
+  #   context_id: '{{context_id}}'
+  #   executor_public_key: '{{member_public_key}}'
+  #   method: getChannel
+  #   args:
+  #     channelId: events
 
-  # Step 10: Fetch single channel state
-  - name: Get Events Channel
-    type: call
-    node: curb-node-1
-    context_id: '{{context_id}}'
-    executor_public_key: '{{member_public_key}}'
-    method: getChannel
-    args:
-      channelId: events
+  # # Step 10: Fetch single channel state
+  # - name: Get Events Channel
+  #   type: call
+  #   node: curb-node-1
+  #   context_id: '{{context_id}}'
+  #   executor_public_key: '{{member_public_key}}'
+  #   method: getChannel
+  #   args:
+  #     channelId: events
 
-  # Step 11: Demote the moderator
-  - name: Demote Channel Moderator
-    type: call
-    node: curb-node-1
-    context_id: '{{context_id}}'
-    executor_public_key: '{{member_public_key}}'
-    method: removeChannelModerator
-    args:
-      channelId: events
-      userId: user-2
+  # # Step 11: Demote the moderator
+  # - name: Demote Channel Moderator
+  #   type: call
+  #   node: curb-node-1
+  #   context_id: '{{context_id}}'
+  #   executor_public_key: '{{member_public_key}}'
+  #   method: removeChannelModerator
+  #   args:
+  #     channelId: events
+  #     userId: user-2
 
-  # Step 11b: Fetch channel state after demotion
-  - name: Get Events Channel After Demote
-    type: call
-    node: curb-node-1
-    context_id: '{{context_id}}'
-    executor_public_key: '{{member_public_key}}'
-    method: getChannel
-    args:
-      channelId: events
+  # # Step 11b: Fetch channel state after demotion
+  # - name: Get Events Channel After Demote
+  #   type: call
+  #   node: curb-node-1
+  #   context_id: '{{context_id}}'
+  #   executor_public_key: '{{member_public_key}}'
+  #   method: getChannel
+  #   args:
+  #     channelId: events
 
-  # Step 12: Remove member from channel
-  - name: Remove Member From Channel
-    type: call
-    node: curb-node-1
-    context_id: '{{context_id}}'
-    executor_public_key: '{{member_public_key}}'
-    method: removeMemberFromChannel
-    args:
-      channelId: events
-      userId: user-2
+  # # Step 12: Remove member from channel
+  # - name: Remove Member From Channel
+  #   type: call
+  #   node: curb-node-1
+  #   context_id: '{{context_id}}'
+  #   executor_public_key: '{{member_public_key}}'
+  #   method: removeMemberFromChannel
+  #   args:
+  #     channelId: events
+  #     userId: user-2
 
-  # Step 12b: Fetch channel state after member removal
-  - name: Get Events Channel After Remove
-    type: call
-    node: curb-node-1
-    context_id: '{{context_id}}'
-    executor_public_key: '{{member_public_key}}'
-    method: getChannel
-    args:
-      channelId: events
+  # # Step 12b: Fetch channel state after member removal
+  # - name: Get Events Channel After Remove
+  #   type: call
+  #   node: curb-node-1
+  #   context_id: '{{context_id}}'
+  #   executor_public_key: '{{member_public_key}}'
+  #   method: getChannel
+  #   args:
+  #     channelId: events
 
-  # Step 13: Delete the channel
-  - name: Delete Events Channel
-    type: call
-    node: curb-node-1
-    context_id: '{{context_id}}'
-    executor_public_key: '{{member_public_key}}'
-    method: deleteChannel
-    args:
-      channelId: events
+  # # Step 13: Delete the channel
+  # - name: Delete Events Channel
+  #   type: call
+  #   node: curb-node-1
+  #   context_id: '{{context_id}}'
+  #   executor_public_key: '{{member_public_key}}'
+  #   method: deleteChannel
+  #   args:
+  #     channelId: events
 
 # Configuration options
 stop_all_nodes: false
-restart: true
+restart: false
 wait_timeout: 60
