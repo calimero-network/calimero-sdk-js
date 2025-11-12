@@ -4,7 +4,7 @@ import { registerLogic } from '../runtime/method-registry';
  * @Logic decorator
  *
  * Links a logic class to its state class and registers all methods
- * for export as contract functions.
+ * for export as service functions.
  *
  * @example
  * ```typescript

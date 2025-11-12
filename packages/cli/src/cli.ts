@@ -19,16 +19,16 @@ program
 
 program
   .command('build')
-  .description('Build a Calimero contract to WebAssembly')
+  .description('Build a Calimero service to WebAssembly')
   .argument('<source>', 'Source file (e.g., src/index.ts)')
-  .option('-o, --output <path>', 'Output path for WASM file', 'build/contract.wasm')
+  .option('-o, --output <path>', 'Output path for WASM file', 'build/service.wasm')
   .option('--verbose', 'Show detailed build output', false)
   .option('--no-optimize', 'Skip WASM optimization')
   .action(buildCommand);
 
 program
   .command('validate')
-  .description('Validate a Calimero contract')
+  .description('Validate a Calimero service')
   .argument('<source>', 'Source file to validate')
   .option('--verbose', 'Show detailed output', false)
   .action(validateCommand);

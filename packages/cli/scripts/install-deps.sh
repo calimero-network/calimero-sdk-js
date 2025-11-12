@@ -144,7 +144,7 @@ echo "════════════════════════�
 echo "✅ All dependencies installed successfully!"
 echo "════════════════════════════════════════"
 echo ""
-echo "You can now build contracts with:"
+echo "You can now build services with:"
 echo "  calimero-sdk build src/app.ts"
 echo ""
 

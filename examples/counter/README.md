@@ -20,7 +20,7 @@ pnpm build
 
 ```bash
 meroctl --node-name node1 app install \
-  --path build/contract.wasm \
+  --path build/service.wasm \
   --context-id <YOUR_CONTEXT_ID>
 ```
 

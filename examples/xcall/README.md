@@ -1,6 +1,6 @@
 # Cross-Context Call Example (TypeScript)
 
-JavaScript port of the Rust `apps/xcall-example` contract. It showcases:
+JavaScript port of the Rust `apps/xcall-example` service. It showcases:
 
 - Scheduling cross-context calls through `xcall`
 - Emitting events when pings are sent and pongs are received
@@ -15,7 +15,7 @@ pnpm install
 pnpm build
 ```
 
-The compiled WASM artifact is written to `build/contract.wasm`.
+The compiled WASM artifact is written to `build/service.wasm`.
 
 Run the automated Merobox scenario:
 

@@ -26,10 +26,10 @@ This will download:
 
 ## Usage
 
-### Build a Contract
+### Build a Service
 
 ```bash
-calimero-sdk build src/app.ts -o build/contract.wasm
+calimero-sdk build src/app.ts -o build/service.wasm
 ```
 
 ### Options

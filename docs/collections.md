@@ -1,6 +1,6 @@
 # CRDT Collections Guide
 
-Calimero provides conflict-free replicated data types (CRDTs) for automatic state synchronization. Values are serialized with Calimero's Borsh encoder, so data written from JavaScript matches the bytes produced by Rust contracts as long as both sides agree on the same Borsh schema. Complex/nested structures (maps of sets, vectors of maps, etc.) now hydrate automatically thanks to the Borsh migration.
+Calimero provides conflict-free replicated data types (CRDTs) for automatic state synchronization. Values are serialized with Calimero's Borsh encoder, so data written from JavaScript matches the bytes produced by Rust services as long as both sides agree on the same Borsh schema. Complex/nested structures (maps of sets, vectors of maps, etc.) now hydrate automatically thanks to the Borsh migration.
 
 ## UnorderedMap<K, V>
 

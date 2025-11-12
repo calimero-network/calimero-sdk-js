@@ -4,7 +4,7 @@ Use this index to navigate the individual guides in `docs/`.
 
 ## Quick Start
 
-- **[Getting Started](getting-started.md)** – scaffold, build, deploy, and test a TypeScript contract.
+- **[Getting Started](getting-started.md)** – scaffold, build, deploy, and test a TypeScript service.
 - **[API Reference](api-reference.md)** – generated list of decorators, env helpers, and collection methods.
 
 ## Architecture & Runtime
@@ -23,8 +23,8 @@ Use this index to navigate the individual guides in `docs/`.
 
 Each example under `examples/*` contains:
 
-- `src/index.ts` – contract logic
-- `workflows/*.yml` – Merobox scenario that builds nodes, installs the contract, and exercises key paths
+- `src/index.ts` – service logic
+- `workflows/*.yml` – Merobox scenario that builds nodes, installs the service, and exercises key paths
 
 Refer to the [repository README](../README.md#examples--workflows) for a curated list.
 

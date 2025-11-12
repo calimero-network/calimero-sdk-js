@@ -40,7 +40,7 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
     signale.success('JavaScript bundled');
 
     // Step 2: Generate methods header
-    signale.await('Extracting contract methods...');
+    signale.await('Extracting service methods...');
     await generateMethodsHeader(jsBundle, outputDir);
     signale.success('Methods extracted');
 

@@ -4,7 +4,7 @@ This is a sample text file for testing the blob storage functionality.
 
 Features demonstrated:
 - File upload with blob announcement
-- Metadata storage in contract
+- Metadata storage in service
 - Base58 blob ID encoding
 - Multi-node blob discovery
 - File retrieval by blob ID

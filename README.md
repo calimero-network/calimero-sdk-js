@@ -1,6 +1,6 @@
 # Calimero JavaScript SDK
 
-Build stateful peer-to-peer applications for the Calimero Network using TypeScript. The SDK compiles your contract to WebAssembly, runs it inside QuickJS, and keeps state in sync with Calimero’s CRDT layer.
+Build stateful peer-to-peer services for the Calimero Network using TypeScript. The SDK compiles your service bundle to WebAssembly, runs it inside QuickJS, and keeps state in sync with Calimero’s CRDT layer.
 
 > ⚠️ **Experimental:** the JavaScript SDK is still evolving (mergeable metadata, host-side conflict resolution, and private storage APIs are in active development). Expect breaking changes while we stabilise the toolchain.
 
@@ -14,7 +14,7 @@ Build stateful peer-to-peer applications for the Calimero Network using TypeScri
   - [Architecture](docs/architecture.md)
   - [Collections & CRDTs](docs/collections.md)
   - [Mergeable (experimental)](docs/mergeable-js.md)
-- 🧪 **Examples** – full contracts under `examples/`:
+- 🧪 **Examples** – full services under `examples/`:
   - `examples/counter`
   - `examples/simple-store`
   - `examples/team-metrics`
@@ -41,20 +41,20 @@ pnpm add @calimero/sdk
 pnpm add -D @calimero/cli typescript
 ```
 
-### Minimal Contract
+### Minimal Service
 
-```typescript
+   ```typescript
 import { State, Logic, Init, View, createCounter } from '@calimero/sdk';
 import { Counter } from '@calimero/sdk/collections';
 
-@State
+   @State
 export class CounterState {
   value: Counter = createCounter();
-}
+   }
 
 @Logic(CounterState)
 export class CounterLogic extends CounterState {
-  @Init
+     @Init
   static init(): CounterState {
     return new CounterState();
   }
@@ -66,29 +66,29 @@ export class CounterLogic extends CounterState {
   @View()
   getCount(): bigint {
     return this.value.value();
-  }
-}
-```
+     }
+   }
+   ```
 
-Build & deploy:
+Build & deploy the service bundle:
 
-```bash
-npx calimero-sdk build src/index.ts -o build/contract.wasm
-meroctl --node-name <NODE> app install \
-  --path build/contract.wasm \
-  --context-id <CONTEXT_ID>
-```
+   ```bash
+npx calimero-sdk build src/index.ts -o build/service.wasm
+   meroctl --node-name <NODE> app install \
+  --path build/service.wasm \
+     --context-id <CONTEXT_ID>
+   ```
 
 Call it:
 
-```bash
-meroctl --node-name <NODE> call \
-  --context-id <CONTEXT_ID> \
+   ```bash
+   meroctl --node-name <NODE> call \
+     --context-id <CONTEXT_ID> \
   --method increment
-meroctl --node-name <NODE> call \
-  --context-id <CONTEXT_ID> \
+   meroctl --node-name <NODE> call \
+     --context-id <CONTEXT_ID> \
   --method getCount
-```
+   ```
 
 ---
 

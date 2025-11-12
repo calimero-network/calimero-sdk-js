@@ -3,8 +3,8 @@ import { registerInit } from '../runtime/method-registry';
 /**
  * @Init decorator
  *
- * Marks a static method as the contract initializer.
- * This method will be called when the contract is first deployed.
+ * Marks a static method as the service initializer.
+ * This method will be called when the service is first deployed.
  *
  * @example
  * ```typescript

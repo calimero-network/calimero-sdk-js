@@ -67,21 +67,21 @@ Key points:
 - Initialize CRDT fields inline (`createCounter()`) so the runtime hydrates persisted state without relying on constructor logic.
 - Mark read-only entry points with `@View()` to skip persistence and avoid emitting redundant storage deltas when returning data.
 
-### 3. Build Your Contract
+### 3. Build Your Service
 
 ```bash
-npx calimero-sdk build src/index.ts -o build/contract.wasm
+npx calimero-sdk build src/index.ts -o build/service.wasm
 ```
 
-### 4. Deploy to Calimero
+### 4. Deploy the Service
 
 ```bash
 meroctl --node-name node1 app install \
-  --path build/contract.wasm \
+  --path build/service.wasm \
   --context-id <YOUR_CONTEXT_ID>
 ```
 
-### 5. Call Your Contract
+### 5. Call Your Service
 
 ```bash
 # Increment the counter
@@ -130,7 +130,7 @@ If you encounter build errors:
 
 ### Runtime Errors
 
-If your contract fails at runtime:
+If your service fails at runtime:
 1. Check logs with `meroctl logs`
 2. Verify host functions are available
 3. Ensure proper error handling in your code

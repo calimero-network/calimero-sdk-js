@@ -1,9 +1,7 @@
 description: Simple Store Application Workflow (JavaScript SDK)
 name: Simple Store App Test
 
-force_pull_image: false
-no_docker: true
-binary_path: /Users/chefsale/workspace/calimero/core/target/release/merod
+force_pull_image: true
 
 nodes:
   chain_id: testnet-1
@@ -15,7 +13,7 @@ steps:
   - name: Install Simple Store Application
     type: install_application
     node: simple-store-node-1
-    path: "/Users/chefsale/workspace/calimero/core/calimero-sdk-js/examples/simple-store/build/contract.wasm"
+    path: "examples/kv-store/build/service.wasm"
     dev: true
     outputs:
       app_id: applicationId
@@ -55,3 +53,6 @@ steps:
     statements:
       - 'json_equal({{store_result}}, {"value":"hello-world"})'
 
+stop_all_nodes: false
+restart: true
+wait_timeout: 120

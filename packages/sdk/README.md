@@ -60,7 +60,7 @@ secrets.modify(value => {
 }, () => ({ token: '' }));
 ```
 
-Values are serialized with the same helper as contract state, but they are written via `storageRead`/`storageWrite` directly and never appear in CRDT deltas.
+Values are serialized with the same helper as service state, but they are written via `storageRead`/`storageWrite` directly and never appear in CRDT deltas.
 
 ## Documentation
 

@@ -138,7 +138,7 @@ UnorderedMap<string, string>
 - [ ] Update initialization pattern
 - [ ] Remove `?` operator calls
 - [ ] Update import statements
-- [ ] Test contract functionality
+- [ ] Test service functionality
 - [ ] Verify multi-node sync
 
 ## Common Pitfalls

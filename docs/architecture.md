@@ -66,7 +66,7 @@ TypeScript Source
       ↓
  [wasi-stub + wasm-opt] Optimize
       ↓
- Final Contract (~500KB)
+Final Service (~500KB)
 ```
 
 ## Runtime Execution
@@ -75,7 +75,7 @@ TypeScript Source
 
 ```
 1. JSON-RPC call → Calimero node
-2. Node loads WASM contract
+2. Node loads the WASM service module
 3. WASM creates QuickJS runtime
 4. QuickJS loads JavaScript bytecode
 5. JavaScript calls env.* host functions
@@ -90,7 +90,7 @@ TypeScript Source
 
 ```
 ┌───────────────────────────┐
-│ Contract Logic (QuickJS)  │
+│ Service Logic (QuickJS)   │
 │   map.get / set           │
 │   vector.push             │
 │   privateEntry.set        │
@@ -179,7 +179,7 @@ createPrivateEntry()     │  payload            │  (no delta)      │  node-
 ```
 
 - Primitives and plain structs are round-tripped as ordinary Borsh scalars or maps. They are only
-  materialized when your contract reads them back.
+  materialized when your service reads them back.
 - CRDT values are encoded as lightweight handles; the host stores the opaque metadata while retaining
   the real CRDT state inside the Rust collection. All CRDT methods (`push`, `add`, `merge`) operate on
   that ID.
@@ -188,13 +188,13 @@ createPrivateEntry()     │  payload            │  (no delta)      │  node-
 
 ### How this differs from the Rust SDK
 
-Rust contracts are compiled into Wasm but they *execute the storage collections
+Rust services are compiled into Wasm but they *execute the storage collections
 inside the host runtime*. Every mutation goes through
 `calimero_storage::Interface`, which updates Merkle hashes, records CRDT
 actions, and eventually emits a causal delta. In other words, Rust never has to
 “hand data back” to the host – it already lives there.
 
-QuickJS, on the other hand, runs inside an isolated JS VM. Collection methods
+QuickJS, on the other hand, runs inside an isolated JS VM. Service methods
 execute in guest memory and can only interact with the host by calling `env.*`
 functions. To keep the storage DAG and the execution outcome aligned we expose
 three host calls:
@@ -270,7 +270,7 @@ All host functions validate inputs:
 
 ### With Rust SDK
 
-JavaScript and Rust contracts can:
+JavaScript and Rust services can:
 - ✅ Run on same network
 - ✅ Sync state via CRDTs
 - ✅ Emit/receive events

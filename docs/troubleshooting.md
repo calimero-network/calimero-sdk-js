@@ -98,7 +98,7 @@ pnpm build --watch
 
 ### Large WASM Size
 
-**Expected**: ~500KB (QuickJS + contract)
+**Expected**: ~500KB (QuickJS + service)
 
 **Reduce**:
 1. Enable optimization: `--optimize`

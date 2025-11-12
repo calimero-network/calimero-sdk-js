@@ -31,7 +31,7 @@ export async function compileToWasm(
   const wasiSdk = path.join(__dirname, '../../src/deps/wasi-sdk');
   const quickjsDir = path.join(__dirname, '../../src/deps/quickjs');
   const builderC = path.join(__dirname, '../../builder/builder.c');
-  const outputFile = path.join(options.outputDir, 'contract.wasm');
+  const outputFile = path.join(options.outputDir, 'service.wasm');
 
   // Check dependencies
   if (!fs.existsSync(wasiSdk)) {

@@ -1,18 +1,18 @@
-# Mergeable Support for JavaScript Contracts
+# Mergeable Support for JavaScript Services
 
 ## Background
 
-Rust contracts rely on the `calimero_storage::collections::Mergeable` trait to reconcile concurrent
+Rust services rely on the `calimero_storage::collections::Mergeable` trait to reconcile concurrent
 updates to the same root entity. When the runtime detects divergent deltas targeting an identical
 root, it deserialises both snapshots, invokes `Mergeable::merge(&mut ours, &theirs)`, and persists
 the reconciled result. CRDT collections (maps, sets, vectors, counters, registers) already provide
 `Mergeable` implementations, and custom structs derive it via `#[derive(Mergeable)]` or hand-written
-impls. JavaScript contracts currently lack an analogue, so conflicting updates degrade to
+impls. JavaScript services currently lack an analogue, so conflicting updates degrade to
 last-write-wins on the entire snapshot.
 
 ## Goals
 
-- Enable JavaScript contracts to opt into deterministic conflict resolution instead of whole-root
+- Enable JavaScript services to opt into deterministic conflict resolution instead of whole-root
   overwrite semantics.
 - Provide a DX comparable to Rust’s `#[derive(Mergeable)]` (zero/low boilerplate for the common case).
 - Allow custom merge strategies per field when the default CRDT recursion is insufficient.
@@ -23,7 +23,7 @@ last-write-wins on the entire snapshot.
 - We will not implement per-field encryption or private-storage semantics here.
 - We do not plan to expose arbitrary user-defined merge code to the host at replay time; merges must
   remain deterministic and validateable by the runtime.
-- No attempt to retrofit legacy snapshots; the new metadata applies to contracts built with the
+- No attempt to retrofit legacy snapshots; the new metadata applies to services built with the
   updated SDK.
 
 ## Proposed API Surface
@@ -157,7 +157,7 @@ and `lastWriterWins`. Additional strategies can be added once we define a portab
 
 ## Compatibility & Migration
 
-- Existing contracts continue working; absence of `@MergeableState` keeps legacy behaviour.
+- Existing services continue working; absence of `@MergeableState` keeps legacy behaviour.
 - Contracts adopting the decorator must recompile; persisted snapshots will include the new metadata.
 - Nodes running older runtimes will ignore the metadata and fallback to last-write-wins; document this
   runtime requirement.
@@ -177,7 +177,7 @@ and `lastWriterWins`. Additional strategies can be added once we define a portab
   breaking older runtimes? (Proposal: store `doc.metadata.merge.version = 1`.)
 - Do we need ergonomics for marking scalar fields as intentionally last-write-wins, or is the default
   sufficient?
-- Do we need a migration tool for existing snapshots? Currently out of scope; contracts can add the
+- Do we need a migration tool for existing snapshots? Currently out of scope; services can add the
   decorator and redeploy with a fresh state.
 
 ## Limitations & Future Work (Experimental Status)
@@ -189,6 +189,6 @@ and `lastWriterWins`. Additional strategies can be added once we define a portab
 - **Custom handlers:** Executed only on the writing node. There is no host-side registry to re-run them
   on followers.
 - **Next steps:** carry merge descriptors through the storage delta and teach `Interface::save_internal`
-  / `merge_root_state` to honour them, including a Rust-side registry for contracts that supply custom
+  / `merge_root_state` to honour them, including a Rust-side registry for services that supply custom
   handlers. Until then, treat `@Mergeable` as an experimental helper that makes local writes safer and
   prepares metadata for future runtime support.

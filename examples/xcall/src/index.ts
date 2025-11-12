@@ -1,4 +1,4 @@
-import { State, Logic, Init, Event, View, emit } from '@calimero/sdk';
+import { State, Logic, Init, View } from '@calimero/sdk';
 import { contextId, log, xcall } from '@calimero/sdk/env';
 import bs58 from 'bs58';
 
@@ -25,16 +25,6 @@ export class XCallState {
   }
 }
 
-@Event
-export class PingSent {
-  constructor(public toContext: string) {}
-}
-
-@Event
-export class PongReceived {
-  constructor(public fromContext: string, public counter: number) {}
-}
-
 type PongPayload = {
   fromContext: string;
 };
@@ -59,8 +49,6 @@ export class XCallLogic extends XCallState {
     };
 
     xcall(targetBytes, 'pong', textEncoder.encode(JSON.stringify(payload)));
-
-    emit(new PingSent(targetContext));
   }
 
   pong(payload: PongPayload | string): number {
@@ -79,9 +67,6 @@ export class XCallLogic extends XCallState {
     log(
       `[xcall] received pong from=${fromContext} counter=${this.counter}`
     );
-
-    emit(new PongReceived(fromContext, this.counter));
-
     return this.counter;
   }
 

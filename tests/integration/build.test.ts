@@ -25,7 +25,7 @@ describe('Build Pipeline', () => {
   });
 
   describe('Full pipeline', () => {
-    it('should compile example contract', () => {
+    it('should compile example service', () => {
       // TODO: Test full build pipeline
       expect(true).toBe(true);
     });

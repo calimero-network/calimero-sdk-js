@@ -1,6 +1,6 @@
 # Private Data Example (TypeScript)
 
-Store node-local secrets alongside replicated contract state using the Calimero JS SDK.
+Store node-local secrets alongside replicated service state using the Calimero JS SDK.
 
 ## Features
 
@@ -15,7 +15,7 @@ pnpm install
 pnpm run build:manual
 ```
 
-`build:manual` outputs the contract WASM to `build/contract.wasm`.
+`build:manual` outputs the service WASM to `build/service.wasm`.
 
 ### Sample Calls
 

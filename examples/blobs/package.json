@@ -5,7 +5,7 @@
   "description": "Blob storage example for the Calimero JavaScript SDK",
   "scripts": {
     "build": "pnpm run build:manual",
-    "build:manual": "calimero-sdk build src/index.ts -o build/contract.wasm",
+    "build:manual": "calimero-sdk build src/index.ts -o build/service.wasm",
     "clean": "rm -rf build"
   },
   "dependencies": {

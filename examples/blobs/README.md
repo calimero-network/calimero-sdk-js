@@ -1,17 +1,17 @@
 # Blobs Example (TypeScript)
 
-This example mirrors the Rust `apps/blobs` contract and demonstrates how to:
+This example mirrors the Rust `apps/blobs` service and demonstrates how to:
 
 - Persist file metadata in CRDT collections
 - Use the blob streaming API
 - Announce uploaded blobs to the current context
 - Access environment information (executor/context IDs, timestamps, randomness)
 
-The contract exposes helpers for uploading, listing, searching and deleting file metadata while keeping the blob payloads in the Calimero blob store.
+The service exposes helpers for uploading, listing, searching and deleting file metadata while keeping the blob payloads in the Calimero blob store.
 
 ## State Initialization Pattern
 
-State classes in Calimero JS contracts are reinstantiated for every method call. To avoid accidental state loss or unnecessary CRDT allocations:
+State classes in Calimero JS services are reinstantiated for every method call. To avoid accidental state loss or unnecessary CRDT allocations:
 
 - Declare persisted fields with inline defaults instead of using constructors.
 - Initialize CRDT collections directly on the field (`files = createUnorderedMap()`), so the decorator runtime can persist and hydrate them automatically.
@@ -31,7 +31,7 @@ pnpm install
 pnpm build
 ```
 
-`build:manual` will output the compiled WASM artifact to `build/contract.wasm`.
+`build:manual` will output the compiled WASM artifact to `build/service.wasm`.
 
 Run the end-to-end workflow with Merobox:
 

@@ -1,9 +1,7 @@
 description: Counter Application Workflow (JavaScript SDK)
 name: Counter App Test
 
-force_pull_image: false
-no_docker: true
-binary_path: /Users/chefsale/workspace/calimero/core/target/release/merod
+force_pull_image: true
 
 nodes:
   chain_id: testnet-1
@@ -15,7 +13,7 @@ steps:
   - name: Install Counter Application
     type: install_application
     node: counter-node-1
-    path: "/Users/chefsale/workspace/calimero/core/calimero-sdk-js/examples/counter/build/contract.wasm"
+    path: "examples/counter/build/service.wasm"
     dev: true
     outputs:
       app_id: applicationId
@@ -50,3 +48,6 @@ steps:
     statements:
       - 'equal({{counter_result}}, 1)'
 
+stop_all_nodes: false
+restart: true
+wait_timeout: 120

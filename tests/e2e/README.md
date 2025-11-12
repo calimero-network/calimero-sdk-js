@@ -5,7 +5,7 @@ End-to-end tests with real Calimero nodes.
 ## Requirements
 
 - Running Calimero nodes (merod)
-- Built example contracts
+- Built example services
 - meroctl CLI tool
 
 ## Running Tests

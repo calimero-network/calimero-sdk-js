@@ -10,5 +10,5 @@ fi
 
 pnpm build
 
-echo "✅ Build complete: build/contract.wasm"
+echo "✅ Build complete: build/service.wasm"
 

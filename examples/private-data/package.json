@@ -4,7 +4,7 @@
   "private": true,
   "description": "Private storage example for Calimero JS SDK",
   "scripts": {
-    "build:manual": "calimero-sdk build src/index.ts -o build/contract.wasm",
+    "build:manual": "calimero-sdk build src/index.ts -o build/service.wasm",
     "clean": "rm -rf build"
   },
   "dependencies": {

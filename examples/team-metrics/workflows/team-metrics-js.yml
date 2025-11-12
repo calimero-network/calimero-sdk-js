@@ -1,9 +1,7 @@
 description: Team Metrics Application Workflow (JavaScript SDK)
 name: Team Metrics App Test
 
-force_pull_image: false
-no_docker: true
-binary_path: /Users/chefsale/workspace/calimero/core/target/release/merod
+force_pull_image: true
 
 nodes:
   chain_id: testnet-1
@@ -15,7 +13,7 @@ steps:
   - name: Install Team Metrics Application
     type: install_application
     node: metrics-node-1
-    path: "/Users/chefsale/workspace/calimero/core/calimero-sdk-js/examples/team-metrics/build/contract.wasm"
+    path: "examples/team-metrics/build/service.wasm"
     dev: true
     outputs:
       app_id: applicationId
@@ -200,3 +198,6 @@ steps:
       - 'equal({{bob_metrics_node_2}}, 2)'
       - 'equal({{total_contributions_node_2}}, 5)'
 
+stop_all_nodes: false
+restart: true
+wait_timeout: 120

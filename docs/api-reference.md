@@ -28,7 +28,7 @@ export class MyAppLogic {
 
 ### @Init
 
-Marks a static method as the contract initializer.
+Marks a static method as the service initializer.
 
 ```typescript
 @Init
