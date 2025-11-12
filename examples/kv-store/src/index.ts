@@ -1,4 +1,4 @@
-import { State, Logic, Init, Event, emitWithHandler } from '@calimero/sdk';
+import { State, Logic, Init, Event, View, emitWithHandler } from '@calimero/sdk';
 import { UnorderedMap, UnorderedSet, LwwRegister, Counter } from '@calimero/sdk/collections';
 import * as env from '@calimero/sdk/env';
 
@@ -89,6 +89,7 @@ export class KvStoreLogic extends KvStore {
     this.set({ key: 'counter', value: value.toString() });
   }
 
+  @View()
   entries(): string {
     const result: Record<string, string> = Object.create(null);
     for (const [key, register] of this.items.entries()) {
@@ -100,20 +101,24 @@ export class KvStoreLogic extends KvStore {
     return this.respond(result);
   }
 
+  @View()
   len(): string {
     return this.respond({ length: this.items.entries().length });
   }
 
+  @View()
   get(key: string): string {
     const register = this.items.get(key);
     return this.respond({ value: register ? register.get() : null });
   }
 
+  @View()
   getValue(): string {
     const register = this.items.get('counter');
     return this.respond({ value: register ? register.get() : null });
   }
 
+  @View()
   getTags(key: string): string {
     const tagSet = this.tags.get(key);
     return this.respond({ tags: tagSet ? tagSet.toArray() : [] });
@@ -138,10 +143,12 @@ export class KvStoreLogic extends KvStore {
     emitWithHandler(new StoreCleared(), 'clearHandler');
   }
 
+  @View()
   has(key: string): string {
     return this.respond({ has: this.items.has(key) });
   }
 
+  @View()
   getHandlersCalled(): string {
     const handlers = this.handlersCalled
       .values()
@@ -151,6 +158,7 @@ export class KvStoreLogic extends KvStore {
     return this.respond({ handlers });
   }
 
+  @View()
   getHandlerExecutionCount(): string {
     return this.respond({ count: Number(this.handlerCounter.value()) });
   }

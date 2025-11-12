@@ -1,4 +1,4 @@
-import { State, Logic, Init } from '@calimero/sdk';
+import { State, Logic, Init, View } from '@calimero/sdk';
 import { UnorderedMap, Counter, Vector } from '@calimero/sdk/collections';
 import * as env from '@calimero/sdk/env';
 
@@ -115,6 +115,7 @@ export class TeamMetricsLogic extends TeamMetrics {
     this.memberProfiles.set(member, profile);
   }
 
+  @View()
   getMemberMetrics(memberOrPayload: string | { member: string }): bigint {
     const member = typeof memberOrPayload === 'string' ? memberOrPayload : memberOrPayload.member;
     const counter = this.memberContributions.get(member);
@@ -128,10 +129,12 @@ export class TeamMetricsLogic extends TeamMetrics {
     return value;
   }
 
+  @View()
   getTotalContributions(): bigint {
     return this.totalContributions.value();
   }
 
+  @View()
   getMemberProfile(memberOrPayload: string | { member: string }): MemberProfile | null {
     const member = typeof memberOrPayload === 'string' ? memberOrPayload : memberOrPayload.member;
     const profile = this.memberProfiles.get(member);

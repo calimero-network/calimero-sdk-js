@@ -1,4 +1,4 @@
-import { State, Logic, Init, Event, emit } from '@calimero/sdk';
+import { State, Logic, Init, Event, View, emit } from '@calimero/sdk';
 import { contextId, log, xcall } from '@calimero/sdk/env';
 import bs58 from 'bs58';
 
@@ -85,6 +85,7 @@ export class XCallLogic extends XCallState {
     return this.counter;
   }
 
+  @View()
   getCounter(): number {
     log(`[xcall] counter=${this.counter}`);
     return this.counter;

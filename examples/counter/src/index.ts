@@ -1,4 +1,4 @@
-import { State, Logic, Init } from '@calimero/sdk';
+import { State, Logic, Init, View } from '@calimero/sdk';
 import { Counter } from '@calimero/sdk/collections';
 import * as env from '@calimero/sdk/env';
 
@@ -20,10 +20,12 @@ export class CounterLogic extends CounterApp {
     this.count.increment();
   }
 
+  @View()
   getCount(): bigint {
     return this.count.value();
   }
 
+  @View()
   hello(): { message: string } {
     return { message: 'hello world from QuickJS!' };
   }
