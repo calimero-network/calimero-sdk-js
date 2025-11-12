@@ -37,7 +37,7 @@ meroctl --node-name node1 call \
   --method getTotalContributions
 ```
 
-`TeamMetrics` initializes its CRDT collections inline, and read-only methods such as `getMemberMetrics`, `getTotalContributions`, and `getMemberProfile` are marked with `@View()`. This keeps constructors side-effect free and prevents the runtime from emitting redundant deltas when callers fetch data.
+`TeamMetrics` initializes its CRDT collections inline, and read-only methods such as `getMemberMetrics`, `getTotalContributions`, and `getMemberProfile` are marked with `@View()`. `ContributionNoteRecord` is decorated with `@Mergeable()` (default behaviour: CRDT fields recurse, scalars fall back to last-writer-wins), while `MemberProfileRecord` supplies a custom merge handler that deduplicates the roles/note vectors and keeps the larger contribution counter. This keeps constructors side-effect free, avoids redundant deltas for reads, and demonstrates how to control conflict resolution per record.
 
 ## Code
 

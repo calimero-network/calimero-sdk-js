@@ -1,24 +1,36 @@
-import { State, Logic, Init, View } from '@calimero/sdk';
+import { State, Logic, Init, View, Mergeable } from '@calimero/sdk';
 import { UnorderedMap, Counter, Vector } from '@calimero/sdk/collections';
 import * as env from '@calimero/sdk/env';
 
-type ContributionNote = {
-  message: string;
-  timestamp: bigint;
-};
+class ContributionNoteRecord {
+  message: string = '';
+  timestamp: bigint = 0n;
+}
 
-type MemberProfileRecord = {
-  displayName: string;
-  roles: Vector<string>;
-  contributions: Counter;
-  recentNotes: Vector<ContributionNote>;
-};
+@Mergeable({
+  merge: (local, remote) => {
+    const resolved = new MemberProfileRecord();
+    resolved.displayName = remote.displayName ?? local.displayName;
+
+    resolved.roles = mergeVectorOfStrings(local.roles, remote.roles);
+    resolved.contributions = mergeCounter(local.contributions, remote.contributions);
+    resolved.recentNotes = mergeVectorOfNotes(local.recentNotes, remote.recentNotes);
+
+    return resolved;
+  }
+})
+class MemberProfileRecord {
+  displayName: string = '';
+  roles: Vector<string> = new Vector<string>();
+  contributions: Counter = new Counter();
+  recentNotes: Vector<ContributionNoteRecord> = new Vector<ContributionNoteRecord>();
+}
 
 export type MemberProfile = {
   displayName: string;
   roles: string[];
   contributions: bigint;
-  recentNotes: ContributionNote[];
+  recentNotes: ContributionNoteRecord[];
 };
 
 @State
@@ -105,10 +117,9 @@ export class TeamMetricsLogic extends TeamMetrics {
     }
 
     if (note) {
-      const entry: ContributionNote = {
-        message: note,
-        timestamp: BigInt(Date.now())
-      };
+      const entry = new ContributionNoteRecord();
+      entry.message = note;
+      entry.timestamp = BigInt(Date.now());
       profile.recentNotes.push(entry);
     }
 
@@ -156,12 +167,54 @@ const createProfileRecord = (
   displayName?: string,
   roles?: string[],
   contributions?: Counter
-): MemberProfileRecord => ({
-  displayName: displayName ?? member,
-  roles: Vector.fromArray(roles ?? []),
-  contributions: contributions ?? new Counter(),
-  recentNotes: new Vector<ContributionNote>()
-});
+): MemberProfileRecord => {
+  const profile = new MemberProfileRecord();
+  profile.displayName = displayName ?? member;
+  profile.roles = Vector.fromArray(roles ?? []);
+  profile.contributions = contributions ?? new Counter();
+  profile.recentNotes = new Vector<ContributionNoteRecord>();
+  return profile;
+};
+
+function mergeCounter(local: Counter, remote: Counter): Counter {
+  const localValue = local.value();
+  const remoteValue = remote.value();
+  return remoteValue >= localValue ? remote : local;
+}
+
+function mergeVectorOfStrings(local: Vector<string>, remote: Vector<string>): Vector<string> {
+  const merged = Array.from(new Set([...local.toArray(), ...remote.toArray()]));
+  return Vector.fromArray(merged);
+}
+
+function mergeVectorOfNotes(
+  local: Vector<ContributionNoteRecord>,
+  remote: Vector<ContributionNoteRecord>,
+): Vector<ContributionNoteRecord> {
+  const combined = [...local.toArray(), ...remote.toArray()];
+  combined.sort((a, b) => {
+    if (a.timestamp === b.timestamp) {
+      return a.message.localeCompare(b.message);
+    }
+    return a.timestamp < b.timestamp ? -1 : 1;
+  });
+
+  const seen = new Set<string>();
+  const deduped: ContributionNoteRecord[] = [];
+  for (const note of combined) {
+    const key = `${note.timestamp.toString()}-${note.message}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    const copy = new ContributionNoteRecord();
+    copy.message = note.message;
+    copy.timestamp = note.timestamp;
+    deduped.push(copy);
+  }
+
+  return Vector.fromArray(deduped);
+}
 
 function normalizeContributionArgs(
   payloadOrMember: string | { member: string; points: number; note?: string },

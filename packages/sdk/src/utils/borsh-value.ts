@@ -1,6 +1,8 @@
 import { BorshWriter } from '../borsh/encoder';
 import { BorshReader } from '../borsh/decoder';
 import { instantiateCollection, snapshotCollection, hasRegisteredCollection } from '../runtime/collections';
+import { getMergeableType, markMergeableInstance } from '../runtime/mergeable-registry';
+const MERGEABLE_SENTINEL = '__calimeroMergeType';
 
 enum ValueKind {
   Null = 0,
@@ -45,6 +47,33 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return proto === Object.prototype || proto === null;
 }
 
+function normalizeObjectLike(
+  input: Record<string, unknown>,
+  seen: Map<any, any>,
+  mergeType?: string,
+): NormalizedObject {
+  if (seen.has(input)) {
+    throw new TypeError('Cannot serialize circular references');
+  }
+
+  seen.set(input, true);
+  const result: Record<string, NormalizedValue> = Object.create(null);
+  if (mergeType) {
+    result[MERGEABLE_SENTINEL] = mergeType;
+  }
+
+  const keys = Object.keys(input);
+  for (const key of keys) {
+    const value = input[key];
+    if (value === undefined) {
+      continue;
+    }
+    result[key] = normalizeValue(value, seen);
+  }
+  seen.delete(input);
+  return result;
+}
+
 function normalizeValue(input: any, seen: Map<any, any>): NormalizedValue {
   if (input === null || input === undefined) {
     return null;
@@ -76,6 +105,11 @@ function normalizeValue(input: any, seen: Map<any, any>): NormalizedValue {
       __calimeroCollection: collectionSnapshot.type,
       id: collectionSnapshot.id
     } as unknown as NormalizedValue;
+  }
+
+  const mergeType = getMergeableType(input);
+  if (mergeType) {
+    return normalizeObjectLike(input, seen, mergeType);
   }
 
   if (Array.isArray(input)) {
@@ -113,21 +147,7 @@ function normalizeValue(input: any, seen: Map<any, any>): NormalizedValue {
   }
 
   if (isPlainObject(input)) {
-    if (seen.has(input)) {
-      throw new TypeError('Cannot serialize circular references');
-    }
-    seen.set(input, true);
-    const result: Record<string, NormalizedValue> = Object.create(null);
-    const keys = Object.keys(input);
-    for (const key of keys) {
-      const value = input[key];
-      if (value === undefined) {
-        continue;
-      }
-      result[key] = normalizeValue(value, seen);
-    }
-    seen.delete(input);
-    return result;
+    return normalizeObjectLike(input, seen);
   }
 
   // For class instances, fall back to enumerating own properties.
@@ -195,6 +215,19 @@ function reviveValue(input: NormalizedValue): any {
         value: reviveValue(entry.value)
       }))
     };
+  }
+
+  if (typeof maybeCollection[MERGEABLE_SENTINEL] === 'string') {
+    const type = maybeCollection[MERGEABLE_SENTINEL];
+    const result: Record<string, any> = Object.create(null);
+    for (const [key, value] of Object.entries(maybeCollection)) {
+      if (key === MERGEABLE_SENTINEL) {
+        continue;
+      }
+      result[key] = reviveValue(value as NormalizedValue);
+    }
+    markMergeableInstance(result, type);
+    return result;
   }
 
   const result: Record<string, any> = Object.create(null);
@@ -326,9 +359,13 @@ function finalizeCollections(value: any): any {
       };
     }
 
+    const mergeType = getMergeableType(value);
     const result: Record<string, any> = Object.create(null);
     for (const [key, entryValue] of Object.entries(value)) {
       result[key] = finalizeCollections(entryValue);
+    }
+    if (mergeType) {
+      markMergeableInstance(result, mergeType);
     }
     return result;
   }

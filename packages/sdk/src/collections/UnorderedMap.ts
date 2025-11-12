@@ -14,6 +14,8 @@ import {
   mapEntries
 } from '../runtime/storage-wasm';
 import { registerCollectionType, CollectionSnapshot } from '../runtime/collections';
+import { mergeMergeableValues } from '../runtime/mergeable';
+import { getMergeableType } from '../runtime/mergeable-registry';
 
 const SENTINEL_KEY = '__calimeroCollection';
 
@@ -68,7 +70,17 @@ export class UnorderedMap<K, V> {
 
   set(key: K, value: V): void {
     const keyBytes = serialize(key);
-    const valueBytes = serialize(value);
+    let nextValue = value;
+
+    const mergeableType = getMergeableType(value);
+    if (mergeableType) {
+      const current = this.get(key);
+      if (current) {
+        nextValue = mergeMergeableValues(current, value);
+      }
+    }
+
+    const valueBytes = serialize(nextValue);
     mapInsert(this.mapId, keyBytes, valueBytes);
   }
 

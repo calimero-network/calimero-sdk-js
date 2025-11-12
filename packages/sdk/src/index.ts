@@ -10,6 +10,7 @@ export { Logic } from './decorators/logic';
 export { Init } from './decorators/init';
 export { Event } from './decorators/event';
 export { View } from './decorators/view';
+export { Mergeable, type MergeableOptions } from './decorators/mergeable';
 
 // Environment API
 export * as env from './env/api';
