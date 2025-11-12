@@ -6,8 +6,7 @@ import './setup';
 import { serialize, deserialize } from '../utils/serialize';
 import { UnorderedMap } from '../collections/UnorderedMap';
 import { UnorderedSet } from '../collections/UnorderedSet';
-import { saveRootState, loadRootState, ROOT_STORAGE_KEY } from '../runtime/root';
-import * as env from '../env/api';
+import { saveRootState, loadRootState } from '../runtime/root';
 
 interface ComplexState {
   title: string;
@@ -21,11 +20,6 @@ interface ComplexState {
       notes: Record<string, string>;
     }>;
   };
-}
-
-class LegacyState {
-  name = 'legacy';
-  value = 42;
 }
 
 describe('Borsh serialization', () => {
@@ -81,34 +75,6 @@ describe('Borsh serialization', () => {
 
     expect(decoded.get('admins')?.toArray().sort()).toEqual(['carol', 'dave']);
     expect(decoded.get('guests')?.toArray().sort()).toEqual(['eve']);
-  });
-
-  it('migrates legacy JSON state to Borsh', () => {
-    const legacyDoc = {
-      version: 1,
-      className: 'LegacyState',
-      values: {
-        name: { encoding: 'json' as const, data: Buffer.from(JSON.stringify('legacy')).toString('hex') },
-        value: { encoding: 'json' as const, data: Buffer.from(JSON.stringify(42)).toString('hex') }
-      },
-      collections: {},
-      metadata: {
-        createdAt: 0,
-        updatedAt: 0
-      }
-    };
-
-    env.storageWrite(ROOT_STORAGE_KEY, new TextEncoder().encode(JSON.stringify(legacyDoc)));
-
-    const loaded = loadRootState(LegacyState);
-    expect(loaded).not.toBeNull();
-    expect(loaded?.name).toBe('legacy');
-    expect(loaded?.value).toBe(42);
-
-    // After migration, data should be stored in Borsh. Load again to verify.
-    const reloaded = loadRootState(LegacyState);
-    expect(reloaded?.name).toBe('legacy');
-    expect(reloaded?.value).toBe(42);
   });
 });
 

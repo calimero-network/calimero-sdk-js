@@ -1,6 +1,10 @@
 description: Simple Counter Application Test Workflow
 name: Counter App Test
 
+force_pull_image: false
+no_docker: true
+binary_path: /Users/chefsale/workspace/calimero/core/target/release/merod
+
 nodes:
   chain_id: testnet-1
   count: 2

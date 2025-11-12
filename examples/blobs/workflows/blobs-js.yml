@@ -3,11 +3,12 @@ description: Upload, announce, discover and delete blobs using the JavaScript SD
 
 force_pull_image: false
 no_docker: true
+binary_path: /Users/chefsale/workspace/calimero/core/target/release/merod
 
 nodes:
   chain_id: calimero-testnet
   count: 2
-  image: ghcr.io/calimero-network/merod:edge
+  image: ghcr.io/calimero-network/merod:32adff7
   prefix: js-blob
 
 steps:
@@ -81,7 +82,7 @@ steps:
       size: "{{png_blob_size}}"
       mimeType: image/png
     outputs:
-      png_file_id: result.output
+      png_file_id: result.output.fileId
 
   - name: Assert PNG registered
     type: assert
@@ -109,7 +110,7 @@ steps:
       size: "{{txt_blob_size}}"
       mimeType: text/plain
     outputs:
-      txt_file_id: result.output
+      txt_file_id: result.output.fileId
 
   - name: Assert TXT registered
     type: assert
@@ -118,7 +119,7 @@ steps:
 
   - name: Wait for announcements
     type: wait
-    seconds: 3
+    seconds: 6
 
   - name: Check file count on inviter
     type: call
@@ -132,7 +133,7 @@ steps:
   - name: Assert inviter sees two files
     type: json_assert
     statements:
-      - "json_equal({{inviter_count}}, {'output': 2})"
+      - "json_equal({{inviter_count}}, {\"output\": 2})"
 
   - name: Check file count on invitee
     type: call
@@ -146,7 +147,7 @@ steps:
   - name: Assert invitee sees two files
     type: json_assert
     statements:
-      - "json_equal({{invitee_count}}, {'output': 2})"
+      - "json_equal({{invitee_count}}, {\"output\": 2})"
 
   - name: Get PNG file blob id
     type: call
@@ -157,7 +158,7 @@ steps:
     args:
       fileId: "{{png_file_id}}"
     outputs:
-      retrieved_png_blob: result.output
+      retrieved_png_blob: result.output.blobId
 
   - name: Assert PNG blob id matches
     type: assert
@@ -175,7 +176,7 @@ steps:
 
   - name: Wait for delete propagation
     type: wait
-    seconds: 3
+    seconds: 6
 
   - name: Check file count after delete
     type: call
@@ -189,7 +190,7 @@ steps:
   - name: Assert only one file remains
     type: json_assert
     statements:
-      - "json_equal({{final_count}}, {'output': 1})"
+      - "json_equal({{final_count}}, {\"output\": 1})"
 
 stop_all_nodes: false
 restart: false

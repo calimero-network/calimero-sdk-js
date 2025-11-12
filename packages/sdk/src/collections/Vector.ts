@@ -57,7 +57,7 @@ export class Vector<T> {
    * Gets the value at the given index.
    */
   get(index: number): T | null {
-    const raw = vectorGet(this.vectorId, index);
+    const raw = vectorGet(this.vectorId, index, 0n);
     return raw ? deserialize<T>(raw) : null;
   }
 
@@ -83,7 +83,7 @@ export class Vector<T> {
     const length = vectorLen(this.vectorId);
     const values: T[] = [];
     for (let index = 0; index < length; index++) {
-      const raw = vectorGet(this.vectorId, index);
+      const raw = vectorGet(this.vectorId, index, 0n);
       if (raw) {
         values.push(deserialize<T>(raw));
       }

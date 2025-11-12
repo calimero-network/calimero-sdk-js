@@ -293,13 +293,12 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 1;
   },
 
-  js_crdt_vector_get: (vectorId: Uint8Array, index: bigint, register_id: bigint): number => {
+  js_crdt_vector_get: (vectorId: Uint8Array, index: number): number => {
     const store = vectors.get(idToKey(vectorId));
     if (!store) {
       return -1;
     }
-    const idx = Number(index);
-    const value = store.values[idx];
+    const value = store.values[index];
     if (!value) {
       setRegister(null);
       return 0;

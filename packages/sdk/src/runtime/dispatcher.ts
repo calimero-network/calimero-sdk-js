@@ -112,11 +112,19 @@ function createLogicDispatcher(
     let logicInstance: any;
     try {
       let state = StateManager.load();
+
       if (!state && stateCtor) {
         state = new stateCtor();
       }
 
-      logicInstance = state ? Object.assign(new logicCtor(), state) : new logicCtor();
+      if (state) {
+        if (logicCtor && state instanceof logicCtor === false) {
+          Object.setPrototypeOf(state, logicCtor.prototype);
+        }
+        logicInstance = state;
+      } else {
+        logicInstance = new logicCtor();
+      }
       StateManager.setCurrent(logicInstance);
 
       const result = logicInstance[methodName](...args);
@@ -124,6 +132,7 @@ function createLogicDispatcher(
       if (isMutating) {
         StateManager.save(logicInstance);
         flushDelta();
+        StateManager.save(logicInstance);
       }
 
       if (result !== undefined) {
@@ -132,7 +141,7 @@ function createLogicDispatcher(
     } catch (error) {
       handleError(methodName, error);
     } finally {
-      StateManager.setCurrent(null);
+        StateManager.setCurrent(null);
     }
   };
 }
@@ -147,6 +156,7 @@ function createInitDispatcher(
     const payload = readPayload();
     const args = normalizeArgs(payload, paramNames);
 
+    let state: any;
     try {
       const existing = StateManager.load();
       if (existing) {
@@ -154,15 +164,21 @@ function createInitDispatcher(
       }
 
       const result = logicCtor[methodName](...args);
-      const state = result ?? (stateCtor ? new stateCtor() : undefined);
+      state = result ?? (stateCtor ? new stateCtor() : undefined);
       if (!state) {
         panic('Init method must return state instance');
+      }
+
+      if (logicCtor && state instanceof logicCtor === false) {
+        Object.setPrototypeOf(state, logicCtor.prototype);
       }
 
       StateManager.save(state);
       flushDelta();
     } catch (error) {
       handleError(methodName, error);
+    } finally {
+        StateManager.setCurrent(null);
     }
   };
 }

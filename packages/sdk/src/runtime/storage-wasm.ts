@@ -271,13 +271,13 @@ export function vectorPush(vectorId: Uint8Array, value: Uint8Array): void {
   }
 }
 
-export function vectorGet(vectorId: Uint8Array, index: number): Uint8Array | null {
+export function vectorGet(vectorId: Uint8Array, index: number, register: bigint): Uint8Array | null {
   ensureCollectionId(vectorId, 'vectorId');
   if (!Number.isInteger(index) || index < 0) {
     throw new TypeError('index must be a non-negative integer');
   }
 
-  const status = Number(jsCrdtVectorGet(vectorId, BigInt(index), REGISTER_ID));
+  const status = Number(jsCrdtVectorGet(vectorId, index, register));
   if (status < 0) {
     decodeError('vectorGet');
   }

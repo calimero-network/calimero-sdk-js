@@ -9,11 +9,7 @@
  * ```typescript
  * @State
  * export class MyApp {
- *   items: UnorderedMap<string, string>;
- *
- *   constructor() {
- *     this.items = new UnorderedMap();
- *   }
+ *   items: UnorderedMap<string, string> = new UnorderedMap();
  * }
  * ```
  */

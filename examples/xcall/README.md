@@ -2,7 +2,7 @@
 
 JavaScript port of the Rust `apps/xcall-example` contract. It showcases:
 
-- Scheduling cross-context calls with `env.xcall`
+- Scheduling cross-context calls through `xcall`
 - Emitting events when pings are sent and pongs are received
 - Keeping simple state (a pong counter) across invocations
 

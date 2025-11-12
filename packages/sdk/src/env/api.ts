@@ -16,7 +16,6 @@ declare const env: HostEnv;
 
 const REGISTER_ID = 0n;
 const textEncoder = new TextEncoder();
-const LEGACY_ROOT_KEY = textEncoder.encode('__calimero::root_state__');
 
 export function registerLen(register: bigint = REGISTER_ID): bigint {
   return env.register_len(register);
@@ -170,7 +169,7 @@ export function readRootState(): Uint8Array | null {
     return buf;
   }
 
-  return storageRead(LEGACY_ROOT_KEY);
+  throw new Error('read_root_state host function unavailable');
 }
 
 /**
@@ -262,7 +261,7 @@ export function jsCrdtVectorPush(vectorId: Uint8Array, value: Uint8Array): numbe
   return env.js_crdt_vector_push(vectorId, value);
 }
 
-export function jsCrdtVectorGet(vectorId: Uint8Array, index: bigint, register: bigint): number {
+export function jsCrdtVectorGet(vectorId: Uint8Array, index: number, register: bigint): number {
   return env.js_crdt_vector_get(vectorId, index, register);
 }
 

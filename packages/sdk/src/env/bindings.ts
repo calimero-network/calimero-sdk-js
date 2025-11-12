@@ -28,7 +28,7 @@ export interface HostEnv {
   js_crdt_vector_new(register_id: bigint): number;
   js_crdt_vector_len(vectorId: Uint8Array, register_id: bigint): number;
   js_crdt_vector_push(vectorId: Uint8Array, value: Uint8Array): number;
-  js_crdt_vector_get(vectorId: Uint8Array, index: bigint, register_id: bigint): number;
+  js_crdt_vector_get(vectorId: Uint8Array, index: number, register_id: bigint): number;
   js_crdt_vector_pop(vectorId: Uint8Array, register_id: bigint): number;
   js_crdt_set_new(register_id: bigint): number;
   js_crdt_set_insert(setId: Uint8Array, value: Uint8Array): number;

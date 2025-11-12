@@ -2,6 +2,8 @@
  * TextEncoder/TextDecoder polyfill for QuickJS
  */
 
+// TODO: Improve the TextEncode/TextDecoder polyfills to handle bigint/UTF-8 encoding/decoding correctly
+
 // Simple TextEncoder polyfill
 if (typeof TextEncoder === 'undefined') {
   (globalThis as any).TextEncoder = class TextEncoder {

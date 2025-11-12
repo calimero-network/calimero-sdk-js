@@ -1,6 +1,13 @@
-import { State, Logic, Init, Event, emit } from '@calimero/sdk';
-import { UnorderedMap } from '@calimero/sdk/collections';
-import * as env from '@calimero/sdk/env';
+import { State, Logic, Init, Event, View, emit, createUnorderedMap } from '@calimero/sdk';
+import type { UnorderedMap } from '@calimero/sdk/collections';
+import {
+  blobAnnounceToContext,
+  contextId,
+  executorId,
+  log,
+  randomBytes,
+  timeNow
+} from '@calimero/sdk/env';
 import bs58 from 'bs58';
 
 const BLOB_ID_BYTES = 32;
@@ -31,33 +38,19 @@ function blobIdToString(value: Uint8Array): string {
 
 function randomSuffix(bytes = 4): string {
   const buffer = new Uint8Array(bytes);
-  env.randomBytes(buffer);
+  randomBytes(buffer);
   return Array.from(buffer, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-export class FileRecord {
-  constructor(
-    public id: string,
-    public name: string,
-    public blobId: Uint8Array,
-    public size: number,
-    public mimeType: string,
-    public uploadedBy: string,
-    public uploadedAt: bigint
-  ) {}
-
-  toJSON(): Record<string, unknown> {
-    return {
-      id: this.id,
-      name: this.name,
-      blobId: blobIdToString(this.blobId),
-      size: this.size,
-      mimeType: this.mimeType,
-      uploadedBy: this.uploadedBy,
-      uploadedAt: this.uploadedAt.toString()
-    };
-  }
-}
+type FileRecord = {
+  id: string;
+  name: string;
+  blobId: string;
+  size: number;
+  mimeType: string;
+  uploadedBy: string;
+  uploadedAt: string;
+};
 
 @Event
 export class FileUploaded {
@@ -74,114 +67,164 @@ export class FileDeleted {
   constructor(public id: string, public name: string) {}
 }
 
-@State
-export class FileShareState {
-  owner: string;
-  files: UnorderedMap<string, FileRecord>;
-  fileCounter: number;
-
-  constructor() {
-    this.owner = '';
-    this.files = new UnorderedMap<string, FileRecord>();
-    this.fileCounter = 0;
-  }
-}
-
-type UploadArgs = {
+type StoredFileRecord = {
+  id: string;
   name: string;
   blobId: string;
   size: number;
   mimeType: string;
+  uploadedBy: string;
+  uploadedAt: string;
 };
+
+@State
+export class FileShareState {
+  owner: string = '';
+  files: UnorderedMap<string, FileRecord> = createUnorderedMap<string, FileRecord>();
+  fileCounter: number = 0;
+}
 
 @Logic(FileShareState)
 export class FileShareLogic extends FileShareState {
   @Init
   static init(): FileShareState {
-    const state = new FileShareState();
-    state.owner = encodeBase58(env.executorId());
-    env.log(`[blobs] initialized owner=${state.owner}`);
-    return state;
+    try {
+      const state = new FileShareState();
+      state.owner = encodeBase58(executorId());
+      const filesId = state.files?.id?.() ?? '<undefined>';
+      const entryCount = state.files?.entries?.()?.length ?? '<n/a>';
+      log(`[blobs] init owner=${state.owner} files.id=${filesId} entries=${entryCount}`);
+      return state;
+    } catch (error) {
+      log(
+        `[blobs] init failed error=${
+          error instanceof Error ? error.stack ?? error.message : String(error)
+        }`,
+      );
+      throw error;
+    }
   }
 
-  uploadFile(args: UploadArgs): string {
-    const { name, blobId, size, mimeType } = args;
+  uploadFile({ name, blobId, size, mimeType }: { name: string; blobId: string; size: number; mimeType: string }): string {
+    const files = this.files;
+    const before = files.entries();
+    log(
+      `[blobs] uploadFile mapId=${files.id()} received name=${name ?? '<undefined>'} blobId=${blobId ?? '<undefined>'} size=${size ?? '<undefined>'} mimeType=${mimeType ?? '<undefined>'}`,
+    );
+    log(`[blobs] uploadFile typeof files=${files?.constructor?.name ?? '<unknown>'}`);
+    log(`[blobs] uploadFile entries before=${before.length} keys=[${before.map(([key]) => key).join(', ')}]`);
 
     if (!name || !blobId) {
-      throw new Error('Both name and blobId are required');
+      throw new Error(
+        `Both name and blobId are required (name=${String(name)} type=${typeof name}, blobId=${String(blobId)} type=${typeof blobId})`
+      );
     }
 
     const blobBytes = blobIdFromString(blobId);
 
     const fileId = this.generateFileId();
-    const uploader = encodeBase58(env.executorId());
-    const timestamp = env.timeNow();
+    const uploader = encodeBase58(executorId());
+    const timestamp = timeNow();
 
-    const currentContext = env.contextId();
-    const announced = env.blobAnnounceToContext(blobBytes, currentContext);
-    env.log(
+    const currentContext = contextId();
+    const announced = blobAnnounceToContext(blobBytes, currentContext);
+    log(
       `[blobs] announcing blob=${blobId} to context=${encodeBase58(currentContext)} announced=${announced}`
     );
 
-    const record = new FileRecord(fileId, name, blobBytes, size, mimeType, uploader, timestamp);
-    this.files.set(fileId, record);
+    const record: FileRecord = {
+      id: fileId,
+      name,
+      blobId,
+      size,
+      mimeType,
+      uploadedBy: uploader,
+      uploadedAt: timestamp.toString()
+    };
+
+    files.set(fileId, record);
 
     emit(new FileUploaded(fileId, name, size, uploader));
-    env.log(`[blobs] stored file id=${fileId} name=${name} size=${size}`);
+    const after = files.entries();
+    log(
+      `[blobs] stored file id=${fileId} name=${name} size=${size} mapId=${files.id()} entries after=${after.length} keys=[${after
+        .map(([key]) => key)
+        .join(', ')}]`,
+    );
 
-    return fileId;
+    return this.respond({ fileId });
   }
 
   deleteFile(fileId: string): string {
-    const record = this.files.get(fileId);
+    const files = this.files;
+    const record = files.get(fileId);
     if (!record) {
       throw new Error(`File not found: ${fileId}`);
     }
 
-    this.files.remove(fileId);
+    files.remove(fileId);
     emit(new FileDeleted(fileId, record.name));
-    env.log(`[blobs] deleted file id=${fileId}`);
+    log(`[blobs] deleted file id=${fileId}`);
 
     return 'true';
   }
 
+  @View()
   listFiles(): string {
-    const items = this.files.entries().map(([, record]) => record.toJSON());
+    const files = this.files;
+    const entries = files.entries();
+    log(
+      `[blobs] listFiles mapId=${files.id()} entries count=${entries.length} keys=[${entries
+        .map(([key]) => key)
+        .join(', ')}]`
+    );
+    for (const [idx, [key, record]] of entries.entries()) {
+      log(`[blobs] listFiles entry[${idx}] key=${key} value=${JSON.stringify(record)}`);
+    }
+    const items = entries.map(([, record]) => record);
     return this.respond({ files: items });
   }
 
+  @View()
   getFile(fileId: string): string {
-    const record = this.files.get(fileId);
+    const files = this.files;
+    const record = files.get(fileId);
     if (!record) {
       throw new Error(`File not found: ${fileId}`);
     }
-    return this.respond({ file: record.toJSON() });
+    return this.respond({ file: record });
   }
 
+  @View()
   getBlobId(fileId: string): string {
-    const record = this.files.get(fileId);
+    const files = this.files;
+    const record = files.get(fileId);
     if (!record) {
       throw new Error(`File not found: ${fileId}`);
     }
-    return blobIdToString(record.blobId);
+    return this.respond({ blobId: record.blobId });
   }
 
+  @View()
   searchFiles(query: string): string {
     const lowercase = query.toLowerCase();
-    const results = this.files
+    const files = this.files;
+    const results = files
       .entries()
-      .filter(([, record]) => record.name.toLowerCase().includes(lowercase))
-      .map(([, record]) => record.toJSON());
+      .map(([, record]) => record)
+      .filter(record => record.name.toLowerCase().includes(lowercase));
 
-    env.log(`[blobs] search query="${query}" results=${results.length}`);
+    log(`[blobs] search query="${query}" results=${results.length}`);
     return this.respond({ results });
   }
 
+  @View()
   getStats(): string {
-    const totalFiles = this.files.entries().length;
-    const totalBytes = this.files
+    const files = this.files;
+    const totalFiles = files.entries().length;
+    const totalBytes = files
       .entries()
-      .reduce((sum, [, record]) => sum + record.size, 0);
+      .reduce((sum: number, [, record]) => sum + record.size, 0);
 
     const totalMb = totalBytes / BYTES_PER_MB;
 
@@ -193,15 +236,25 @@ export class FileShareLogic extends FileShareState {
     });
   }
 
+  @View()
   getTotalFilesSize(): string {
-    const totalBytes = this.files
+    const files = this.files;
+    const totalBytes = files
       .entries()
-      .reduce((sum, [, record]) => sum + record.size, 0);
+      .reduce((sum: number, [, record]) => sum + record.size, 0);
     return this.respond({ totalBytes });
   }
 
+  @View()
   getFileCount(): number {
-    return this.files.entries().length;
+    const files = this.files;
+    const entries = files.entries();
+    log(
+      `[blobs] getFileCount mapId=${files.id()} typeof=${files.constructor.name} entries=${entries.length} keys=[${entries
+        .map(([key]) => key)
+        .join(', ')}]`,
+    );
+    return entries.length;
   }
 
   private generateFileId(): string {
@@ -217,4 +270,6 @@ export class FileShareLogic extends FileShareState {
     );
   }
 }
+
+
 

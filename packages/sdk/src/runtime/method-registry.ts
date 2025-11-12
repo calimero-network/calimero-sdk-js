@@ -186,6 +186,14 @@ export function markMethodMutating(target: Function, methodName: string): void {
   updateRuntimeMutating(target, stateClass, methodName);
 }
 
+export function markMethodNonMutating(target: Function, methodName: string): void {
+  const runtimeEntry = ensureRuntimeLogicEntry(target, (target as any)._calimeroStateClass);
+  runtimeEntry.mutating.set(methodName, false);
+  if (globalTarget) {
+    globalTarget.__CALIMERO_RUNTIME_LOGIC__ = Array.from(runtimeLogic.values());
+  }
+}
+
 export function registerInit(target: Function, methodName: string): void {
   ensureGlobalRegistry();
 

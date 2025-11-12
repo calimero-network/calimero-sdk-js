@@ -1,7 +1,9 @@
 name: XCall JS Ping-Pong
 description: Cross-context ping/pong using the JavaScript SDK example.
 
-force_pull_image: true
+force_pull_image: false
+no_docker: true
+binary_path: /Users/chefsale/workspace/calimero/core/target/release/merod
 
 nodes:
   chain_id: testnet-1
@@ -111,8 +113,8 @@ steps:
   - name: Assert counters start at zero
     type: json_assert
     statements:
-      - "json_equal({{context_a_initial}}, {'output': 0})"
-      - "json_equal({{context_b_initial}}, {'output': 0})"
+      - "json_equal({{context_a_initial}}, {\"output\": 0})"
+      - "json_equal({{context_b_initial}}, {\"output\": 0})"
 
   - name: Send ping from Context A to Context B
     type: call
@@ -139,7 +141,7 @@ steps:
   - name: Assert Context B counter is 1 on Node 1
     type: json_assert
     statements:
-      - "json_equal({{context_b_after_ping_node1}}, {'output': 1})"
+      - "json_equal({{context_b_after_ping_node1}}, {\"output\": 1})"
 
   - name: Verify Context B synced to Node 2
     type: call
@@ -153,7 +155,7 @@ steps:
   - name: Assert Context B counter is 1 on Node 2
     type: json_assert
     statements:
-      - "json_equal({{context_b_after_ping_node2}}, {'output': 1})"
+      - "json_equal({{context_b_after_ping_node2}}, {\"output\": 1})"
 
   - name: Send ping from Context B to Context A
     type: call
@@ -180,7 +182,7 @@ steps:
   - name: Assert Context A counter is 1
     type: json_assert
     statements:
-      - "json_equal({{context_a_after_ping}}, {'output': 1})"
+      - "json_equal({{context_a_after_ping}}, {\"output\": 1})"
 
 stop_all_nodes: false
 restart: false

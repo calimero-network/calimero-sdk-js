@@ -1,5 +1,5 @@
 import { State, Logic, Init, Event, emit } from '@calimero/sdk';
-import * as env from '@calimero/sdk/env';
+import { contextId, log, xcall } from '@calimero/sdk/env';
 import bs58 from 'bs58';
 
 const textEncoder = new TextEncoder();
@@ -48,9 +48,9 @@ export class XCallLogic extends XCallState {
 
   ping(targetContext: string): void {
     const targetBytes = decodeContextId(targetContext);
-    const currentContext = env.contextId();
+    const currentContext = contextId();
 
-    env.log(
+    log(
       `[xcall] sending ping from=${encodeBase58(currentContext)} to=${targetContext}`
     );
 
@@ -58,37 +58,40 @@ export class XCallLogic extends XCallState {
       fromContext: encodeBase58(currentContext)
     };
 
-    env.xcall(targetBytes, 'pong', textEncoder.encode(JSON.stringify(payload)));
+    xcall(targetBytes, 'pong', textEncoder.encode(JSON.stringify(payload)));
 
     emit(new PingSent(targetContext));
   }
 
-  pong(payload: PongPayload): number {
-    if (!payload?.fromContext) {
+  pong(payload: PongPayload | string): number {
+    const fromContext =
+      typeof payload === 'string' ? payload : payload?.fromContext;
+
+    if (!fromContext) {
       throw new Error('Invalid pong payload');
     }
 
     // Validate input but keep base58 for events/logs
-    decodeContextId(payload.fromContext);
+    decodeContextId(fromContext);
 
     this.counter += 1;
 
-    env.log(
-      `[xcall] received pong from=${payload.fromContext} counter=${this.counter}`
+    log(
+      `[xcall] received pong from=${fromContext} counter=${this.counter}`
     );
 
-    emit(new PongReceived(payload.fromContext, this.counter));
+    emit(new PongReceived(fromContext, this.counter));
 
     return this.counter;
   }
 
   getCounter(): number {
-    env.log(`[xcall] counter=${this.counter}`);
+    log(`[xcall] counter=${this.counter}`);
     return this.counter;
   }
 
   resetCounter(): number {
-    env.log('[xcall] resetting counter');
+    log('[xcall] resetting counter');
     this.counter = 0;
     return this.counter;
   }

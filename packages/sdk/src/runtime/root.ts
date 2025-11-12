@@ -12,7 +12,6 @@ interface PersistedStateDocument {
   };
 }
 
-export const ROOT_STORAGE_KEY = new TextEncoder().encode('__calimero::root_state__');
 const ROOT_METADATA = Symbol.for('__calimeroRootMetadata');
 
 export function saveRootState(state: any): Uint8Array {
@@ -34,6 +33,7 @@ export function saveRootState(state: any): Uint8Array {
 
     const collectionSnapshot = snapshotCollection(value);
     if (collectionSnapshot) {
+      env.log(`[root] snapshotting collection field '${key}' with id=${collectionSnapshot.id}`);
       doc.collections[key] = collectionSnapshot;
       continue;
     }
@@ -46,29 +46,20 @@ export function saveRootState(state: any): Uint8Array {
   }
 
   const payload = serialize(doc);
-  let persisted = false;
-
-  try {
-    env.persistRootState(payload, metadata.createdAt, metadata.updatedAt);
-    persisted = true;
-  } catch (error) {
-    env.log(`[runtime] persist_root_state unavailable (${String(error)}), falling back to storage_write`);
-  }
-
-  if (!persisted) {
-    env.storageWrite(ROOT_STORAGE_KEY, payload);
-  }
-
+  env.log('[root] writing state document to host');
+  env.persistRootState(payload, metadata.createdAt, metadata.updatedAt);
   return payload;
 }
 
 export function loadRootState<T>(stateClass: { new (...args: any[]): T }): T | null {
-  const raw = env.readRootState();
-  if (!raw) {
+  const source = env.readRootState();
+  if (!source) {
+    env.log('[root] host returned no root state payload');
     return null;
   }
 
-  const decoded = deserialize<any>(raw);
+  env.log('[root] host returned persisted state payload');
+  const decoded = deserialize<any>(source);
   if (!decoded || typeof decoded !== 'object') {
     throw new Error('Unsupported persisted state document');
   }
@@ -103,7 +94,8 @@ export function loadRootState<T>(stateClass: { new (...args: any[]): T }): T | n
     throw new Error('Persisted state document missing required fields');
   }
 
-  const instance: any = new stateClass();
+  const instance: any =
+    typeof stateClass === 'function' ? Object.create(stateClass.prototype) : {};
   const target = instance as Record<string, unknown>;
   const metadata = doc.metadata && typeof doc.metadata === 'object'
     ? doc.metadata
@@ -121,6 +113,7 @@ export function loadRootState<T>(stateClass: { new (...args: any[]): T }): T | n
     try {
       const collection = instantiateCollection(snapshot);
       target[key] = collection;
+      env.log(`[root] hydrated collection field '${key}' with id=${snapshot.id}`);
     } catch (error) {
       throw new Error(`Failed to hydrate collection '${key}': ${String(error)}`);
     }
@@ -139,6 +132,7 @@ export function loadRootState<T>(stateClass: { new (...args: any[]): T }): T | n
     }
   }
 
+  env.log('[root] finished hydrating state instance');
   return instance;
 }
 
