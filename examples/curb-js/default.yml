@@ -5,7 +5,7 @@ auth_service: true
 
 nodes:
   chain_id: testnet-1
-  count: 1
+  count: 2
   image: ghcr.io/calimero-network/merod:edge
   prefix: curb-node
 steps:
@@ -33,31 +33,57 @@ steps:
     type: wait
     seconds: 1
 
-  # Fetch initial state and basic info
-  - name: Fetch Initial Members
-    type: call
-    node: curb-node-1
-    context_id: '{{context_id}}'
-    executor_public_key: '{{member_public_key}}'
-    method: getMembers
-    args: {}
+  # Identity creation on node 2 and join flow
+  - name: Create Identity on Node 2
+    type: create_identity
+    node: curb-node-2
     outputs:
-      initial_members: result.output
+      public_key: publicKey
 
-  - name: Invite Secondary Member
-    type: call
+  - name: Wait for Identity Setup
+    type: wait
+    seconds: 8
+
+  - name: Invite Node 2 from Node 1
+    type: invite_identity
     node: curb-node-1
     context_id: '{{context_id}}'
-    executor_public_key: '{{member_public_key}}'
+    grantee_id: '{{public_key}}'
+    granter_id: '{{member_public_key}}'
+    capability: member
+    outputs:
+      invitation: invitation
+
+  - name: Join Context from Node 2
+    type: join_context
+    node: curb-node-2
+    context_id: '{{context_id}}'
+    invitee_id: '{{public_key}}'
+    invitation: '{{invitation}}'
+
+  - name: Wait for Context Sync
+    type: wait
+    seconds: 6
+
+  - name: Join Chat from Node 2
+    type: call
+    node: curb-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{public_key}}'
     method: joinChat
     args:
-      input: 
-        username: user2
-        userId: M5uKf8w2XzWKq95hMmCkQ4f575R2BfC2HJ9q57X2J7L
+      input:
+        username: Alice
+    timeout: 60
     outputs:
-      join_user_two: result.output
+      join_chat_node2: result.output
 
-  - name: Fetch Members After Invite
+  - name: Wait for Join Completion
+    type: wait
+    seconds: 6
+
+  # Fetch state after member join
+  - name: Fetch Members After Join
     type: call
     node: curb-node-1
     context_id: '{{context_id}}'
@@ -65,17 +91,7 @@ steps:
     method: getMembers
     args: {}
     outputs:
-      members_after_invite: result.output
-
-  - name: Fetch Owner Username
-    type: call
-    node: curb-node-1
-    context_id: '{{context_id}}'
-    executor_public_key: '{{member_public_key}}'
-    method: getUsername
-    args: {}
-    outputs:
-      owner_username: result.output
+      members_after_join: result.output
 
   - name: Fetch Initial Directory
     type: call
@@ -119,8 +135,8 @@ steps:
     method: addUserToChannel
     args:
       channelId: announcements
-      userId: M5uKf8w2XzWKq95hMmCkQ4f575R2BfC2HJ9q57X2J7L
-      username: user2
+      userId: '{{public_key}}'
+      username: Alice
     outputs:
       add_user_two_announcements: result.output
 
@@ -132,7 +148,7 @@ steps:
     method: promoteModerator
     args:
       channelId: announcements
-      userId: M5uKf8w2XzWKq95hMmCkQ4f575R2BfC2HJ9q57X2J7L
+      userId: '{{public_key}}'
     outputs:
       promote_user_two_announcements: result.output
 
@@ -144,7 +160,7 @@ steps:
     method: demoteModerator
     args:
       channelId: announcements
-      userId: M5uKf8w2XzWKq95hMmCkQ4f575R2BfC2HJ9q57X2J7L
+      userId: '{{public_key}}'
     outputs:
       demote_user_two_announcements: result.output
 
@@ -156,7 +172,7 @@ steps:
     method: removeUserFromChannel
     args:
       channelId: announcements
-      userId: M5uKf8w2XzWKq95hMmCkQ4f575R2BfC2HJ9q57X2J7L
+      userId: '{{public_key}}'
     outputs:
       remove_user_two_announcements: result.output
 
@@ -193,8 +209,8 @@ steps:
     method: addUserToChannel
     args:
       channelId: community
-      userId: M5uKf8w2XzWKq95hMmCkQ4f575R2BfC2HJ9q57X2J7L
-      username: user2
+      userId: '{{public_key}}'
+      username: Alice
     outputs:
       add_user_two_community: result.output
 
@@ -206,7 +222,7 @@ steps:
     method: promoteModerator
     args:
       channelId: community
-      userId: M5uKf8w2XzWKq95hMmCkQ4f575R2BfC2HJ9q57X2J7L
+      userId: '{{public_key}}'
     outputs:
       promote_user_two_community: result.output
 

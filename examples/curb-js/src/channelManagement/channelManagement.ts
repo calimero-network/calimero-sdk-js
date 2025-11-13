@@ -52,6 +52,10 @@ export class ChannelManager {
   }
 
   createChannel(input: CreateChannelInput, executorId: UserId, executorUsername: Username | undefined): string {
+    if (!input || typeof input !== "object") {
+      return "Invalid channel input";
+    }
+
     const name = input.name?.trim();
     if (!name) {
       return "Channel name cannot be empty";
@@ -231,6 +235,16 @@ export class ChannelManager {
     channel.members.set(executorId, username);
     this.state.channels.set(this.normalizeChannelId(channelId), channel);
     return "Joined channel";
+  }
+
+  addUserToDefaultChannels(userId: UserId, username: Username): void {
+    this.state.channels.entries().forEach(([channelId, metadata]) => {
+      if (metadata.type !== ChannelType.Default || metadata.members.has(userId)) {
+        return;
+      }
+      metadata.members.set(userId, username);
+      this.state.channels.set(channelId, metadata);
+    });
   }
 
   private getChannelOrNull(channelId: ChannelId): ChannelMetadata | null {

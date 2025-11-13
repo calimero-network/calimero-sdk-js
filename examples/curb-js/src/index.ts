@@ -77,7 +77,12 @@ export class CurbChatLogic extends CurbChat {
     return this.wrapResult(members);
   }
 
-  joinChat(input: { username: Username; userId?: UserId }): string {
+  joinChat(
+    rawInput:
+      | { username: Username; userId?: UserId }
+      | { input: { username: Username; userId?: UserId } },
+  ): string {
+    const input = this.extractInput(rawInput);
     if (!input || typeof input.username !== "string") {
       return this.wrapResult("Username is required");
     }
@@ -97,10 +102,16 @@ export class CurbChatLogic extends CurbChat {
     }
 
     this.members.set(userId, username);
+    this.getChannelManager().addUserToDefaultChannels(userId, username);
     return this.wrapResult("User joined chat");
   }
 
-  createChannel(input: CreateChannelInput): string {
+  createChannel(rawInput: CreateChannelInput | { input: CreateChannelInput }): string {
+    const input = this.extractInput(rawInput);
+    if (!input) {
+      return this.wrapResult("Invalid channel input");
+    }
+
     const executorId = this.getExecutorId();
     const executorUsername = this.members.get(executorId);
 
@@ -112,32 +123,66 @@ export class CurbChatLogic extends CurbChat {
     return this.wrapResult(result);
   }
 
-  addUserToChannel(input: ChannelMembershipInput): string {
+  addUserToChannel(rawInput: ChannelMembershipInput | { input: ChannelMembershipInput }): string {
+    const input = this.extractInput(rawInput);
+    if (!input) {
+      return this.wrapResult("Invalid channel membership input");
+    }
+
     const result = this.getChannelManager().addUserToChannel(input, this.getExecutorId());
     return this.wrapResult(result);
   }
 
-  removeUserFromChannel(input: ChannelMembershipInput): string {
+  removeUserFromChannel(
+    rawInput: ChannelMembershipInput | { input: ChannelMembershipInput },
+  ): string {
+    const input = this.extractInput(rawInput);
+    if (!input) {
+      return this.wrapResult("Invalid channel membership input");
+    }
+
     const result = this.getChannelManager().removeUserFromChannel(input, this.getExecutorId());
     return this.wrapResult(result);
   }
 
-  promoteModerator(input: ModeratorInput): string {
+  promoteModerator(rawInput: ModeratorInput | { input: ModeratorInput }): string {
+    const input = this.extractInput(rawInput);
+    if (!input) {
+      return this.wrapResult("Invalid moderator input");
+    }
+
     const result = this.getChannelManager().promoteModerator(input, this.getExecutorId());
     return this.wrapResult(result);
   }
 
-  demoteModerator(input: ModeratorInput): string {
+  demoteModerator(rawInput: ModeratorInput | { input: ModeratorInput }): string {
+    const input = this.extractInput(rawInput);
+    if (!input) {
+      return this.wrapResult("Invalid moderator input");
+    }
+
     const result = this.getChannelManager().demoteModerator(input, this.getExecutorId());
     return this.wrapResult(result);
   }
 
-  deleteChannel(channelId: ChannelId): string {
+  deleteChannel(rawInput: ChannelId | { input: { channelId: ChannelId } }): string {
+    const channelId =
+      typeof rawInput === "string" ? rawInput : this.extractInput(rawInput)?.channelId;
+    if (!channelId) {
+      return this.wrapResult("Invalid channel id");
+    }
+
     const result = this.getChannelManager().deleteChannel(channelId, this.getExecutorId());
     return this.wrapResult(result);
   }
 
-  joinPublicChannel(channelId: ChannelId): string {
+  joinPublicChannel(rawInput: ChannelId | { input: { channelId: ChannelId } }): string {
+    const channelId =
+      typeof rawInput === "string" ? rawInput : this.extractInput(rawInput)?.channelId;
+    if (!channelId) {
+      return this.wrapResult("Invalid channel id");
+    }
+
     const result = this.getChannelManager().joinPublicChannel(channelId, this.getExecutorId());
     return this.wrapResult(result);
   }
@@ -155,6 +200,19 @@ export class CurbChatLogic extends CurbChat {
       { result: value },
       (_key, val) => (typeof val === "bigint" ? val.toString() : val),
     );
+  }
+
+  private extractInput<T>(raw: T | { input?: T } | { input: T } | undefined): T | null {
+    if (!raw) {
+      return null;
+    }
+
+    if (typeof raw === "object" && raw !== null && "input" in raw) {
+      const candidate = (raw as { input?: T }).input;
+      return candidate ?? null;
+    }
+
+    return raw as T;
   }
 
   private static addDefaultChannelToState(
