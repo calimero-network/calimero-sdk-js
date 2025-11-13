@@ -187,6 +187,17 @@ export class CurbChatLogic extends CurbChat {
     return this.wrapResult(result);
   }
 
+  leaveChannel(rawInput: ChannelId | { input: { channelId: ChannelId } }): string {
+    const channelId =
+      typeof rawInput === "string" ? rawInput : this.extractInput(rawInput)?.channelId;
+    if (!channelId) {
+      return this.wrapResult("Invalid channel id");
+    }
+
+    const result = this.getChannelManager().leaveChannel(channelId, this.getExecutorId());
+    return this.wrapResult(result);
+  }
+
   private getChannelManager(): ChannelManager {
     return new ChannelManager(this);
   }

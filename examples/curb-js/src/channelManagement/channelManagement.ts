@@ -237,6 +237,26 @@ export class ChannelManager {
     return "Joined channel";
   }
 
+  leaveChannel(channelId: ChannelId, executorId: UserId): string {
+    const channel = this.getChannelOrNull(channelId);
+    if (!channel) {
+      return "Channel not found";
+    }
+
+    if (channel.type === ChannelType.Default) {
+      return "Cannot leave default channels";
+    }
+
+    if (!channel.members.has(executorId)) {
+      return "User is not a member of the channel";
+    }
+
+    channel.members.remove(executorId);
+    channel.moderators.remove(executorId);
+    this.state.channels.set(this.normalizeChannelId(channelId), channel);
+    return "Left channel";
+  }
+
   addUserToDefaultChannels(userId: UserId, username: Username): void {
     this.state.channels.entries().forEach(([channelId, metadata]) => {
       if (metadata.type !== ChannelType.Default || metadata.members.has(userId)) {
