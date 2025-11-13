@@ -1,0 +1,18 @@
+{
+  "name": "curb-js",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Curb Chat built with Calimero JavaScript SDK",
+  "scripts": {
+    "build:manual": "calimero-sdk build src/index.ts -o build/curb.wasm && find build -type f ! -name 'curb.wasm' -delete && find build -type d -mindepth 1 -empty -delete",
+    "clean": "rm -rf build"
+  },
+  "dependencies": {
+    "@calimero/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@calimero/cli": "workspace:*",
+    "typescript": "^5.3.3"
+  }
+}
+

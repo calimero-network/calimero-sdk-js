@@ -1,0 +1,1 @@
+merobox bootstrap run --log-level info msg-workflow.yml

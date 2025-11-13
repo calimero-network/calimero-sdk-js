@@ -1,0 +1,1 @@
+curb-js % ./build.sh && ./run-workflow.sh
