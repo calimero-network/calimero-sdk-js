@@ -1,430 +1,190 @@
-import { State, Logic, Init } from '@calimero/sdk';
-import { UnorderedMap, UnorderedSet, Vector } from '@calimero/sdk/collections';
-import * as env from '@calimero/sdk/env';
+import { env, Init, Logic, State, View } from "@calimero/sdk";
+import { UnorderedMap } from "@calimero/sdk/collections";
 
-import { ChannelsHandler } from './channels/ChannelsHandler';
+import { ChannelManager } from "./channelManagement/channelManagement";
 import {
   ChannelType,
-  type ChannelCreationOptions,
-  type ChannelDefaultInit,
-  type ChannelInfo,
-  type ChannelInfoResponse,
-  type ChannelMembershipEntry,
-  type Message
-} from './channels/types';
-import type { ChatMemberAccess, ChatState, ChannelId, UserId } from './types';
-import { MessagesHandler } from './messages/MessagesHandler';
-import type { FetchMessagesInput, SendMessageInput } from './messages/types';
-import {
-  ensureMemberRegistered,
-  isUsernameAvailable,
-  normalizeUsername,
-  validateUsername,
-} from './utils/chatUtils';
-
-function wrapResult(value: unknown): string {
-  return JSON.stringify(
-    { result: normalizeResponseValue(value) },
-    (_key, val) => (typeof val === 'bigint' ? val.toString() : val)
-  );
-}
-
-function normalizeResponseValue(value: unknown, seen: WeakSet<object> = new WeakSet()): unknown {
-  if (value === null || typeof value !== 'object') {
-    return value;
-  }
-
-  if (seen.has(value as object)) {
-    return null;
-  }
-
-  seen.add(value as object);
-
-  if (value instanceof UnorderedMap) {
-    const normalizedEntries = value.entries().map(([key, entryValue]) => [
-      normalizeResponseValue(key, seen),
-      normalizeResponseValue(entryValue, seen)
-    ]) as Array<[unknown, unknown]>;
-
-    if (normalizedEntries.every(([key]) => typeof key === 'string')) {
-      const record: Record<string, unknown> = {};
-      for (const [key, entryValue] of normalizedEntries) {
-        record[key as string] = entryValue;
-      }
-      return record;
-    }
-
-    return normalizedEntries;
-  }
-
-  if (value instanceof UnorderedSet) {
-    return value.toArray().map(item => normalizeResponseValue(item, seen));
-  }
-
-  if (value instanceof Vector) {
-    return value.toArray().map(item => normalizeResponseValue(item, seen));
-  }
-
-  if (value instanceof Map) {
-    return Array.from(value.entries()).map(([key, entryValue]) => [
-      normalizeResponseValue(key, seen),
-      normalizeResponseValue(entryValue, seen)
-    ]);
-  }
-
-  if (value instanceof Set) {
-    return Array.from(value.values()).map(item => normalizeResponseValue(item, seen));
-  }
-
-  if (Array.isArray(value)) {
-    return value.map(item => normalizeResponseValue(item, seen));
-  }
-
-  const result: Record<string, unknown> = {};
-  for (const [key, entryValue] of Object.entries(value)) {
-    result[key] = normalizeResponseValue(entryValue, seen);
-  }
-  return result;
-}
+  type ChannelMembershipInput,
+  type ChannelMetadata,
+  type CreateChannelInput,
+  type ModeratorInput,
+} from "./channelManagement/types";
+import type {
+  ChannelId,
+  InitParams,
+  UserId,
+  Username,
+} from "./types";
+import { isUsernameTaken } from "./utils/members";
 
 @State
-export class CurbChat implements ChatState {
-  owner: UserId = '' as UserId;
-  createdAt: bigint = 0n;
-  members: UnorderedMap<UserId, string> = new UnorderedMap<UserId, string>();
-  channels: UnorderedMap<ChannelId, ChannelInfo> = new UnorderedMap<ChannelId, ChannelInfo>();
-  threads: UnorderedMap<string, Vector<Message>> = new UnorderedMap<string, Vector<Message>>();
-  isDMchat = false;
-}
-
-class ChatHandler implements ChatMemberAccess {
-  constructor(private readonly state: ChatState) {}
-
-  initialize(ownerId: UserId, ownerUsername: string): void {
-    this.state.members = new UnorderedMap<UserId, string>();
-    const normalized = normalizeUsername(ownerUsername);
-    const validationError = validateUsername(normalized);
-    if (validationError) {
-      throw new Error(`Invalid owner username: ${validationError}`);
-    }
-    this.state.members.set(ownerId, normalized);
-  }
-
-  join(username: string): string {
-    const executorId = this.getExecutorId();
-
-    if (this.state.members.has(executorId)) {
-      return 'Already a member of the chat';
-    }
-
-    const normalized = normalizeUsername(username);
-    const validationError = validateUsername(normalized);
-    if (validationError) {
-      return validationError;
-    }
-
-    if (!isUsernameAvailable(this.state, normalized)) {
-      return 'Username is already taken';
-    }
-
-    this.state.members.set(executorId, normalized);
-    this.addExecutorToDefaultChannels(executorId);
-    return 'Successfully joined the chat';
-  }
-
-  getGlobalMembers(): Record<UserId, string> {
-    return this.state.members.entries().reduce<Record<UserId, string>>(
-      (acc, [userId, username]) => {
-        acc[userId] = username;
-        return acc;
-      },
-      {} as Record<UserId, string>
-    );
-  }
-
-  getUsername(userId: UserId): string | null {
-    return this.state.members.get(userId);
-  }
-
-  ensureMemberExists(userId: UserId, username?: string): string | null {
-    return ensureMemberRegistered(this.state, userId, username);
-  }
-
-  getExecutorId(): UserId {
-    return env.executorIdBase58();
-  }
-
-  private addExecutorToDefaultChannels(executorId: UserId): void {
-    this.state.channels.entries().forEach(([channelId, info]) => {
-      if (info.type !== ChannelType.Default) {
-        return;
-      }
-
-      if (!info.metadata.members.has(executorId)) {
-        const username = this.state.members.get(executorId);
-        if (!username) {
-          return;
-        }
-        info.metadata.members.set(executorId, username);
-        this.state.channels.set(channelId, info);
-      }
-    });
-  }
+export class CurbChat {
+  owner: UserId = "";
+  members: UnorderedMap<UserId, Username> = new UnorderedMap();
+  channels: UnorderedMap<ChannelId, ChannelMetadata> = new UnorderedMap();
 }
 
 @Logic(CurbChat)
-export class CurbLogicChat extends CurbChat {
-  private createMembersAccess(): ChatHandler {
-    return new ChatHandler(this);
-  }
-
-  private createChannelsAccess(membersAccess?: ChatHandler): ChannelsHandler {
-    return new ChannelsHandler(this, membersAccess ?? this.createMembersAccess());
-  }
-
-  private createMessagesAccess(membersAccess?: ChatHandler): MessagesHandler {
-    return new MessagesHandler(this, membersAccess ?? this.createMembersAccess());
-  }
-
+export class CurbChatLogic extends CurbChat {
   @Init
-  static init({
-    ownerUsername,
-    defaultChannels = [],
-    isDMchat = false,
-  }: {
-    ownerUsername: string;
-    defaultChannels?: ChannelDefaultInit[];
-    isDMchat?: boolean;
-  }): CurbChat {
+  static init({ ownerUsername, defaultChannels = [] }: InitParams): CurbChat {
+    const executorId = env.executorIdBase58();
+    const timestamp = env.timeNow();
+
     const chat = new CurbChat();
+    chat.owner = executorId;
+    chat.members = new UnorderedMap<UserId, Username>();
+    chat.channels = new UnorderedMap<ChannelId, ChannelMetadata>();
 
-    chat.owner = env.executorIdBase58();
-    chat.isDMchat = isDMchat;
-    chat.createdAt = env.timeNow();
+    chat.members.set(executorId, ownerUsername);
 
-    const chatHandler = new ChatHandler(chat);
-    chatHandler.initialize(chat.owner, ownerUsername);
+    for (const { name } of defaultChannels) {
+      this.addDefaultChannelToState(chat, executorId, ownerUsername, timestamp, name);
+    }
 
-    const channelHandler = new ChannelsHandler(chat, chatHandler);
-    channelHandler.bootstrapDefaultChannels(defaultChannels, ownerUsername);
-
+    env.log("CurbChat initialized.");
     return chat;
   }
 
-  getGlobalMembers(): string {
-    return wrapResult(this.createMembersAccess().getGlobalMembers());
+  @View()
+  getUsername(): string {
+    const executorId = this.getExecutorId();
+    const username = this.members.get(executorId) ?? "";
+    return this.wrapResult(username);
   }
 
-  fetchUsername(): string {
-    const executorId = env.executorIdBase58() as UserId;
-    const membersAccess = this.createMembersAccess();
-    const username = membersAccess.getUsername(executorId);
-    return wrapResult(username);
-  }
-
-  getChannel(arg: { channelId: ChannelId } | ChannelId): string {
-    const channelId = typeof arg === 'string' ? arg : arg?.channelId;
-    if (typeof channelId !== 'string') {
-      return wrapResult(null);
-    }
-    const channel = this.createChannelsAccess().getChannel(channelId);
-    return wrapResult(this.formatChannelInfo(channel));
-  }
-
+  @View()
   getChannels(): string {
-    const membersAccess = this.createMembersAccess();
-    const channels = this.createChannelsAccess(membersAccess).getChannelsForUser(
-      membersAccess.getExecutorId()
+    const executorId = this.getExecutorId();
+    const channels = this.getChannelManager().listForMember(executorId);
+    return this.wrapResult(channels);
+  }
+
+  @View()
+  getChannelDirectory(): string {
+    const executorId = this.getExecutorId();
+    const directory = this.getChannelManager().listDirectory(executorId);
+    return this.wrapResult(directory);
+  }
+
+  @View()
+  getMembers(): string {
+    const members = this.members.entries().map(([userId, username]) => ({
+      userId,
+      username,
+    }));
+
+    return this.wrapResult(members);
+  }
+
+  joinChat(input: { username: Username; userId?: UserId }): string {
+    if (!input || typeof input.username !== "string") {
+      return this.wrapResult("Username is required");
+    }
+
+    const userId = input.userId ?? this.getExecutorId();
+    if (this.members.has(userId)) {
+      return this.wrapResult("User is already a member of the chat");
+    }
+
+    const username = input.username.trim();
+    if (!username) {
+      return this.wrapResult("Username is required");
+    }
+
+    if (isUsernameTaken(this.members, username)) {
+      return this.wrapResult("Username is already taken");
+    }
+
+    this.members.set(userId, username);
+    return this.wrapResult("User joined chat");
+  }
+
+  createChannel(input: CreateChannelInput): string {
+    const executorId = this.getExecutorId();
+    const executorUsername = this.members.get(executorId);
+
+    const result = this.getChannelManager().createChannel(
+      input,
+      executorId,
+      executorUsername ?? undefined,
     );
-    const formatted = channels.map(({ channelId, info }) => ({
-      channelId,
-      info: this.formatChannelInfo(info)
-    }));
-    return wrapResult(formatted);
+    return this.wrapResult(result);
   }
 
-  getAllChannels(): string {
-    const channels = this.createChannelsAccess().getDefaultAndPublicChannels();
-    const formatted = channels.map(({ channelId, info }) => ({
-      channelId,
-      info: this.formatChannelInfo(info)
-    }));
-    return wrapResult(formatted);
+  addUserToChannel(input: ChannelMembershipInput): string {
+    const result = this.getChannelManager().addUserToChannel(input, this.getExecutorId());
+    return this.wrapResult(result);
   }
 
-  joinChat(arg: { username: string } | string): string {
-    const username = typeof arg === 'string' ? arg : (arg?.username ?? '');
-    const result = this.createMembersAccess().join(username);
-    return wrapResult(result);
+  removeUserFromChannel(input: ChannelMembershipInput): string {
+    const result = this.getChannelManager().removeUserFromChannel(input, this.getExecutorId());
+    return this.wrapResult(result);
   }
 
-  createChannel(
-    arg: { channelId: ChannelId; options?: ChannelCreationOptions } | ChannelId,
-    maybeOptions?: ChannelCreationOptions
-  ): string {
-    if (typeof arg === 'string') {
-      return wrapResult(this.createChannelsAccess().createChannel(arg, maybeOptions));
-    }
-    if (arg && typeof arg === 'object' && typeof arg.channelId === 'string') {
-      return wrapResult(this.createChannelsAccess().createChannel(arg.channelId, arg.options));
-    }
-    return wrapResult('Invalid channelId');
+  promoteModerator(input: ModeratorInput): string {
+    const result = this.getChannelManager().promoteModerator(input, this.getExecutorId());
+    return this.wrapResult(result);
   }
 
-  deleteChannel(arg: { channelId: ChannelId } | ChannelId): string {
-    const channelId = typeof arg === 'string' ? arg : arg?.channelId;
-    if (typeof channelId !== 'string') {
-      return wrapResult('Invalid channelId');
-    }
-    return wrapResult(this.createChannelsAccess().deleteChannel(channelId));
+  demoteModerator(input: ModeratorInput): string {
+    const result = this.getChannelManager().demoteModerator(input, this.getExecutorId());
+    return this.wrapResult(result);
   }
 
-  addChannelModerator(
-    arg: { channelId: ChannelId; userId: UserId } | ChannelId,
-    maybeUserId?: UserId
-  ): string {
-    if (typeof arg === 'string') {
-      if (typeof maybeUserId !== 'string') {
-        return wrapResult('Invalid arguments');
-      }
-      return wrapResult(this.createChannelsAccess().addChannelModerator(arg, maybeUserId));
-    }
-    if (
-      arg &&
-      typeof arg === 'object' &&
-      typeof arg.channelId === 'string' &&
-      typeof arg.userId === 'string'
-    ) {
-      return wrapResult(
-        this.createChannelsAccess().addChannelModerator(arg.channelId, arg.userId)
-      );
-    }
-    return wrapResult('Invalid arguments');
+  deleteChannel(channelId: ChannelId): string {
+    const result = this.getChannelManager().deleteChannel(channelId, this.getExecutorId());
+    return this.wrapResult(result);
   }
 
-  removeChannelModerator(
-    arg: { channelId: ChannelId; userId: UserId } | ChannelId,
-    maybeUserId?: UserId
-  ): string {
-    if (typeof arg === 'string') {
-      if (typeof maybeUserId !== 'string') {
-        return wrapResult('Invalid arguments');
-      }
-      return wrapResult(this.createChannelsAccess().removeChannelModerator(arg, maybeUserId));
-    }
-    if (
-      arg &&
-      typeof arg === 'object' &&
-      typeof arg.channelId === 'string' &&
-      typeof arg.userId === 'string'
-    ) {
-      return wrapResult(
-        this.createChannelsAccess().removeChannelModerator(arg.channelId, arg.userId)
-      );
-    }
-    return wrapResult('Invalid arguments');
+  joinPublicChannel(channelId: ChannelId): string {
+    const result = this.getChannelManager().joinPublicChannel(channelId, this.getExecutorId());
+    return this.wrapResult(result);
   }
 
-  addMemberToChannel(
-    arg: { channelId: ChannelId; userId: UserId; username?: string } | ChannelId,
-    userIdMaybe?: UserId,
-    usernameMaybe?: string
-  ): string {
-    if (typeof arg === 'string') {
-      if (typeof userIdMaybe !== 'string') {
-        return wrapResult('Invalid arguments');
-      }
-      return wrapResult(
-        this.createChannelsAccess().addMemberToChannel(arg, userIdMaybe, usernameMaybe)
-      );
-    }
-    if (
-      arg &&
-      typeof arg === 'object' &&
-      typeof arg.channelId === 'string' &&
-      typeof arg.userId === 'string'
-    ) {
-      return wrapResult(
-        this.createChannelsAccess().addMemberToChannel(arg.channelId, arg.userId, arg.username)
-      );
-    }
-    return wrapResult('Invalid arguments');
+  private getChannelManager(): ChannelManager {
+    return new ChannelManager(this);
   }
 
-  removeMemberFromChannel(
-    arg: { channelId: ChannelId; userId: UserId } | ChannelId,
-    maybeUserId?: UserId
-  ): string {
-    if (typeof arg === 'string') {
-      if (typeof maybeUserId !== 'string') {
-        return wrapResult('Invalid arguments');
-      }
-      return wrapResult(this.createChannelsAccess().removeMemberFromChannel(arg, maybeUserId));
-    }
-    if (
-      arg &&
-      typeof arg === 'object' &&
-      typeof arg.channelId === 'string' &&
-      typeof arg.userId === 'string'
-    ) {
-      return wrapResult(
-        this.createChannelsAccess().removeMemberFromChannel(arg.channelId, arg.userId)
-      );
-    }
-    return wrapResult('Invalid arguments');
+  private getExecutorId(): UserId {
+    return env.executorIdBase58();
   }
 
-  sendMessage(arg: SendMessageInput): string {
-    if (!arg || typeof arg !== 'object' || typeof arg.channelId !== 'string' || typeof arg.text !== 'string') {
-      return wrapResult('Invalid arguments');
-    }
-    const membersAccess = this.createMembersAccess();
-    const messagesHandler = this.createMessagesAccess(membersAccess);
-    try {
-      const result = messagesHandler.sendMessage(arg);
-      return wrapResult(result);
-    } catch (error) {
-      return wrapResult(error instanceof Error ? error.message : String(error));
-    }
+  private wrapResult(value: unknown): string {
+    return JSON.stringify(
+      { result: value },
+      (_key, val) => (typeof val === "bigint" ? val.toString() : val),
+    );
   }
 
-  getMessages(arg: FetchMessagesInput): string {
-    if (!arg || typeof arg !== 'object' || typeof arg.channelId !== 'string') {
-      return wrapResult('Invalid arguments');
-    }
-    const membersAccess = this.createMembersAccess();
-    const messagesHandler = this.createMessagesAccess(membersAccess);
-    try {
-      const result = messagesHandler.fetchMessages(arg);
-      return wrapResult(result);
-    } catch (error) {
-      return wrapResult(error instanceof Error ? error.message : String(error));
-    }
-  }
-
-  private formatChannelInfo(info: ChannelInfo | null): ChannelInfoResponse | null {
-    if (!info) {
-      return null;
+  private static addDefaultChannelToState(
+    state: CurbChat,
+    ownerId: UserId,
+    ownerUsername: Username,
+    timestamp: bigint,
+    rawName: ChannelId,
+  ): void {
+    const channelId = rawName.trim().toLowerCase();
+    if (!channelId || state.channels.has(channelId)) {
+      return;
     }
 
-    return {
-      type: info.type,
-      metadata: {
-        createdAt: info.metadata.createdAt,
-        createdBy: info.metadata.createdBy,
-        createdByUsername: info.metadata.createdByUsername,
-        readOnly: info.metadata.readOnly,
-        linksAllowed: info.metadata.linksAllowed,
-        moderators: this.formatMembership(info.metadata.moderators),
-        members: this.formatMembership(info.metadata.members)
-      }
+    const moderators = new UnorderedMap<UserId, Username>();
+    moderators.set(ownerId, ownerUsername);
+
+    const members = new UnorderedMap<UserId, Username>();
+    members.set(ownerId, ownerUsername);
+
+    const metadata: ChannelMetadata = {
+      type: ChannelType.Default,
+      createdAt: timestamp,
+      createdBy: ownerId,
+      createdByUsername: ownerUsername,
+      readOnly: false,
+      moderators,
+      members,
     };
-  }
 
-  private formatMembership(userMap: UnorderedMap<UserId, string>): ChannelMembershipEntry[] {
-    return userMap.entries().map(([userId, username]) => ({
-      publicKey: userId,
-      username
-    }));
+    state.channels.set(channelId, metadata);
   }
 }

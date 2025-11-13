@@ -1,1 +1,0 @@
-./build.sh && ./run-workflow.sh && docker logs curb-node-1 | grep -i FRAN:

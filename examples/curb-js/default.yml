@@ -1,0 +1,248 @@
+description: Curb Application Test Workflow
+name: Curb App Test
+
+auth_service: true
+
+nodes:
+  chain_id: testnet-1
+  count: 1
+  image: ghcr.io/calimero-network/merod:edge
+  prefix: curb-node
+steps:
+  # Step 1: Install the Curb application
+  - name: Install Curb Application
+    type: install_application
+    node: curb-node-1
+    path: './build/curb.wasm'
+    dev: true
+    outputs:
+      app_id: applicationId
+
+  # Step 2: Create a context for the Curb app
+  - name: Create Curb Context
+    type: create_context
+    node: curb-node-1
+    application_id: '{{app_id}}'
+    params: '{"ownerUsername": "testuser", "defaultChannels": [{"name": "general"}, {"name": "events"}, {"name": "general-dm"}], "isDMchat": false}'
+    outputs:
+      context_id: contextId
+      member_public_key: memberPublicKey
+
+  # Step 3: Wait for context creation and sync
+  - name: Wait For Context Sync
+    type: wait
+    seconds: 1
+
+  # Fetch initial state and basic info
+  - name: Fetch Initial Members
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getMembers
+    args: {}
+    outputs:
+      initial_members: result.output
+
+  - name: Invite Secondary Member
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: joinChat
+    args:
+      input: 
+        username: user2
+        userId: M5uKf8w2XzWKq95hMmCkQ4f575R2BfC2HJ9q57X2J7L
+    outputs:
+      join_user_two: result.output
+
+  - name: Fetch Members After Invite
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getMembers
+    args: {}
+    outputs:
+      members_after_invite: result.output
+
+  - name: Fetch Owner Username
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getUsername
+    args: {}
+    outputs:
+      owner_username: result.output
+
+  - name: Fetch Initial Directory
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getChannelDirectory
+    args: {}
+    outputs:
+      initial_directory: result.output
+
+  # Channel management for announcements
+  - name: Create Announcements Channel
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: createChannel
+    args:
+      name: announcements
+      type: public
+      readOnly: false
+    outputs:
+      create_announcements: result.output
+
+  - name: Fetch Channels After Announcements
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getChannels
+    args: {}
+    outputs:
+      channels_after_announcements: result.output
+
+  - name: Add User Two To Announcements
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: addUserToChannel
+    args:
+      channelId: announcements
+      userId: M5uKf8w2XzWKq95hMmCkQ4f575R2BfC2HJ9q57X2J7L
+      username: user2
+    outputs:
+      add_user_two_announcements: result.output
+
+  - name: Promote User Two In Announcements
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: promoteModerator
+    args:
+      channelId: announcements
+      userId: M5uKf8w2XzWKq95hMmCkQ4f575R2BfC2HJ9q57X2J7L
+    outputs:
+      promote_user_two_announcements: result.output
+
+  - name: Demote User Two In Announcements
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: demoteModerator
+    args:
+      channelId: announcements
+      userId: M5uKf8w2XzWKq95hMmCkQ4f575R2BfC2HJ9q57X2J7L
+    outputs:
+      demote_user_two_announcements: result.output
+
+  - name: Remove User Two From Announcements
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: removeUserFromChannel
+    args:
+      channelId: announcements
+      userId: M5uKf8w2XzWKq95hMmCkQ4f575R2BfC2HJ9q57X2J7L
+    outputs:
+      remove_user_two_announcements: result.output
+
+  - name: Delete Announcements Channel
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: deleteChannel
+    args:
+      channelId: announcements
+    outputs:
+      delete_announcements: result.output
+
+  # Channel management for community + public join flow
+  - name: Create Community Channel
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: createChannel
+    args:
+      name: community
+      type: public
+      readOnly: false
+    outputs:
+      create_community: result.output
+
+  - name: Add User Two To Community
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: addUserToChannel
+    args:
+      channelId: community
+      userId: M5uKf8w2XzWKq95hMmCkQ4f575R2BfC2HJ9q57X2J7L
+      username: user2
+    outputs:
+      add_user_two_community: result.output
+
+  - name: Promote User Two In Community
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: promoteModerator
+    args:
+      channelId: community
+      userId: M5uKf8w2XzWKq95hMmCkQ4f575R2BfC2HJ9q57X2J7L
+    outputs:
+      promote_user_two_community: result.output
+
+  - name: Owner Leaves Community Channel
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: removeUserFromChannel
+    args:
+      channelId: community
+      userId: '{{member_public_key}}'
+    outputs:
+      owner_leave_community: result.output
+
+  - name: Owner Rejoins Community Via Public Join
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: joinPublicChannel
+    args:
+      channelId: community
+    outputs:
+      owner_rejoin_community: result.output
+
+  - name: Fetch Directory After Community Flow
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getChannelDirectory
+    args: {}
+    outputs:
+      directory_after_community: result.output
+
+stop_all_nodes: false
+restart: true
+wait_timeout: 60
