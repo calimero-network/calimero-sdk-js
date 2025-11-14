@@ -1,5 +1,5 @@
 import { env, Init, Logic, State, View } from "@calimero/sdk";
-import { UnorderedMap } from "@calimero/sdk/collections";
+import { UnorderedMap, Vector } from "@calimero/sdk/collections";
 
 import { ChannelManager } from "./channelManagement/channelManagement";
 import {
@@ -15,6 +15,13 @@ import type {
   UserId,
   Username,
 } from "./types";
+import {
+  DmManagement,
+  type DMChatInfo,
+  type CreateDMChatArgs,
+  type UpdateIdentityArgs,
+  type DeleteDMArgs,
+} from "./dmManagement";
 import { isUsernameTaken } from "./utils/members";
 
 @State
@@ -22,6 +29,7 @@ export class CurbChat {
   owner: UserId = "";
   members: UnorderedMap<UserId, Username> = new UnorderedMap();
   channels: UnorderedMap<ChannelId, ChannelMetadata> = new UnorderedMap();
+  dmChats: UnorderedMap<UserId, Vector<DMChatInfo>> = new UnorderedMap();
 }
 
 @Logic(CurbChat)
@@ -35,6 +43,7 @@ export class CurbChatLogic extends CurbChat {
     chat.owner = executorId;
     chat.members = new UnorderedMap<UserId, Username>();
     chat.channels = new UnorderedMap<ChannelId, ChannelMetadata>();
+    chat.dmChats = new UnorderedMap<UserId, Vector<DMChatInfo>>();
 
     chat.members.set(executorId, ownerUsername);
 
@@ -75,6 +84,50 @@ export class CurbChatLogic extends CurbChat {
     }));
 
     return this.wrapResult(members);
+  }
+
+  @View()
+  getDMs(): string {
+    const executorId = this.getExecutorId();
+    return this.wrapResult(this.getDmManager().getDMs(executorId));
+  }
+
+  createDMChat(rawInput: CreateDMChatArgs | { input: CreateDMChatArgs }): string {
+    const args = this.extractInput(rawInput);
+    if (!args) {
+      return this.wrapResult("Invalid DM input");
+    }
+
+    const executorId = this.getExecutorId();
+    const usernames = this.members.entries().reduce<Record<UserId, string>>((acc, [id, name]) => {
+      acc[id] = name;
+      return acc;
+    }, {});
+
+    const result = this.getDmManager().createDMChat(executorId, args, usernames);
+    return this.wrapResult(result);
+  }
+
+  updateNewIdentity(rawInput: UpdateIdentityArgs | { input: UpdateIdentityArgs }): string {
+    const args = this.extractInput(rawInput);
+    if (!args) {
+      return this.wrapResult("Invalid identity input");
+    }
+
+    const executorId = this.getExecutorId();
+    const result = this.getDmManager().updateNewIdentity(executorId, args);
+    return this.wrapResult(result);
+  }
+
+  deleteDM(rawInput: DeleteDMArgs | { input: DeleteDMArgs }): string {
+    const args = this.extractInput(rawInput);
+    if (!args) {
+      return this.wrapResult("Invalid delete input");
+    }
+
+    const executorId = this.getExecutorId();
+    const result = this.getDmManager().deleteDM(executorId, args);
+    return this.wrapResult(result);
   }
 
   joinChat(
@@ -233,6 +286,10 @@ export class CurbChatLogic extends CurbChat {
     return new ChannelManager(this);
   }
 
+  private getDmManager(): DmManagement {
+    return new DmManagement(this.dmChats);
+  }
+
   private getExecutorId(): UserId {
     return env.executorIdBase58();
   }
@@ -269,18 +326,18 @@ export class CurbChatLogic extends CurbChat {
       return;
     }
 
-    const moderators = new UnorderedMap<UserId, Username>();
+      const moderators = new UnorderedMap<UserId, Username>();
     moderators.set(ownerId, ownerUsername);
 
-    const members = new UnorderedMap<UserId, Username>();
+      const members = new UnorderedMap<UserId, Username>();
     members.set(ownerId, ownerUsername);
 
     const metadata: ChannelMetadata = {
-      type: ChannelType.Default,
+        type: ChannelType.Default,
       createdAt: timestamp,
       createdBy: ownerId,
-      createdByUsername: ownerUsername,
-      readOnly: false,
+        createdByUsername: ownerUsername,
+        readOnly: false,
       moderators,
       members,
     };
