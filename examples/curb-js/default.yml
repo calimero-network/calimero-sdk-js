@@ -333,6 +333,86 @@ steps:
     outputs:
       node1_dms_after_delete: result.output
 
+  # Message management flow
+  - name: Send Channel Message
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: sendMessage
+    args:
+      input:
+        channelId: general
+        text: "Hello from workflow"
+        messageId: workflow-message-1
+    outputs:
+      workflow_message_id: result.output
+
+  - name: Get Channel Messages
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getMessages
+    args:
+      input:
+        channelId: general
+    outputs:
+      general_messages: result.output
+
+  - name: Edit Channel Message
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: editMessage
+    args:
+      input:
+        channelId: general
+        messageId: workflow-message-1
+        text: "Hello (edited)"
+    outputs:
+      edit_message_result: result.output
+
+  - name: Update Reaction From Node 2
+    type: call
+    node: curb-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{public_key}}'
+    method: updateReaction
+    args:
+      input:
+        messageId: workflow-message-1
+        emoji: 👍
+        add: true
+    outputs:
+      reaction_update_result: result.output
+
+  - name: Delete Channel Message
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: deleteMessage
+    args:
+      input:
+        channelId: general
+        messageId: workflow-message-1
+    outputs:
+      delete_message_result: result.output
+
+  - name: Get Channel Messages After Delete
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getMessages
+    args:
+      input:
+        channelId: general
+    outputs:
+      general_messages_after_delete: result.output
+
 stop_all_nodes: false
 restart: true
 wait_timeout: 60

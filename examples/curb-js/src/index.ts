@@ -1,5 +1,5 @@
 import { env, Init, Logic, State, View } from "@calimero/sdk";
-import { UnorderedMap, Vector } from "@calimero/sdk/collections";
+import { UnorderedMap, UnorderedSet, Vector } from "@calimero/sdk/collections";
 
 import { ChannelManager } from "./channelManagement/channelManagement";
 import {
@@ -22,6 +22,15 @@ import {
   type UpdateIdentityArgs,
   type DeleteDMArgs,
 } from "./dmManagement";
+import {
+  MessageManagement,
+  type SendMessageArgs,
+  type GetMessagesArgs,
+  type EditMessageArgs,
+  type DeleteMessageArgs,
+  type UpdateReactionArgs,
+  type StoredMessage,
+} from "./messageManagement";
 import { isUsernameTaken } from "./utils/members";
 
 @State
@@ -30,6 +39,10 @@ export class CurbChat {
   members: UnorderedMap<UserId, Username> = new UnorderedMap();
   channels: UnorderedMap<ChannelId, ChannelMetadata> = new UnorderedMap();
   dmChats: UnorderedMap<UserId, Vector<DMChatInfo>> = new UnorderedMap();
+  channelMessages: UnorderedMap<ChannelId, Vector<StoredMessage>> = new UnorderedMap();
+  threadMessages: UnorderedMap<string, Vector<StoredMessage>> = new UnorderedMap();
+  messageReactions: UnorderedMap<string, UnorderedMap<string, UnorderedSet<UserId>>> =
+    new UnorderedMap();
 }
 
 @Logic(CurbChat)
@@ -44,6 +57,12 @@ export class CurbChatLogic extends CurbChat {
     chat.members = new UnorderedMap<UserId, Username>();
     chat.channels = new UnorderedMap<ChannelId, ChannelMetadata>();
     chat.dmChats = new UnorderedMap<UserId, Vector<DMChatInfo>>();
+    chat.channelMessages = new UnorderedMap<ChannelId, Vector<StoredMessage>>();
+    chat.threadMessages = new UnorderedMap<string, Vector<StoredMessage>>();
+    chat.messageReactions = new UnorderedMap<
+      string,
+      UnorderedMap<string, UnorderedSet<UserId>>
+    >();
 
     chat.members.set(executorId, ownerUsername);
 
@@ -282,12 +301,99 @@ export class CurbChatLogic extends CurbChat {
     return this.wrapResult(invitees);
   }
 
+  sendMessage(rawInput: SendMessageArgs | { input: SendMessageArgs }): string {
+    const args = this.extractInput(rawInput);
+    if (!args || typeof args.channelId !== "string" || typeof args.text !== "string") {
+      return this.wrapResult("Invalid message input");
+    }
+
+    const executorId = this.getExecutorId();
+    const channel = this.ensureChannelAccess(args.channelId, executorId);
+    if (typeof channel === "string") {
+      return this.wrapResult(channel);
+    }
+
+    const username =
+      channel.members.get(executorId) ?? this.members.get(executorId) ?? executorId;
+    const messageId = this.getMessageManager().sendMessage(executorId, username, args);
+    return this.wrapResult(messageId);
+  }
+
+  @View()
+  getMessages(rawInput: GetMessagesArgs | { input: GetMessagesArgs }): string {
+    const args = this.extractInput(rawInput);
+    if (!args || typeof args.channelId !== "string") {
+      return this.wrapResult("Invalid message input");
+    }
+
+    const executorId = this.getExecutorId();
+    const channel = this.ensureChannelAccess(args.channelId, executorId);
+    if (typeof channel === "string") {
+      return this.wrapResult(channel);
+    }
+
+    const messages = this.getMessageManager().getMessages(args);
+    return this.wrapResult(messages);
+  }
+
+  editMessage(rawInput: EditMessageArgs | { input: EditMessageArgs }): string {
+    const args = this.extractInput(rawInput);
+    if (!args || typeof args.channelId !== "string" || typeof args.messageId !== "string") {
+      return this.wrapResult("Invalid edit input");
+    }
+
+    const executorId = this.getExecutorId();
+    const channel = this.ensureChannelAccess(args.channelId, executorId);
+    if (typeof channel === "string") {
+      return this.wrapResult(channel);
+    }
+
+    const result = this.getMessageManager().editMessage(executorId, args);
+    return this.wrapResult(result);
+  }
+
+  deleteMessage(rawInput: DeleteMessageArgs | { input: DeleteMessageArgs }): string {
+    const args = this.extractInput(rawInput);
+    if (!args || typeof args.channelId !== "string" || typeof args.messageId !== "string") {
+      return this.wrapResult("Invalid delete input");
+    }
+
+    const executorId = this.getExecutorId();
+    const channel = this.ensureChannelAccess(args.channelId, executorId);
+    if (typeof channel === "string") {
+      return this.wrapResult(channel);
+    }
+
+    const isModerator =
+      channel.moderators.has(executorId) ||
+      channel.createdBy === executorId ||
+      this.owner === executorId;
+
+    const result = this.getMessageManager().deleteMessage(executorId, args, isModerator);
+    return this.wrapResult(result);
+  }
+
+  updateReaction(rawInput: UpdateReactionArgs | { input: UpdateReactionArgs }): string {
+    const args = this.extractInput(rawInput);
+    if (!args || typeof args.messageId !== "string" || typeof args.emoji !== "string") {
+      return this.wrapResult("Invalid reaction input");
+    }
+
+    const executorId = this.getExecutorId();
+    const result = this.getMessageManager().updateReaction(executorId, args);
+    return this.wrapResult(result);
+  }
+
   private getChannelManager(): ChannelManager {
     return new ChannelManager(this);
   }
 
   private getDmManager(): DmManagement {
     return new DmManagement(this.dmChats);
+  }
+
+  private getMessageManager(): MessageManagement {
+    return new MessageManagement(this.channelMessages, this.threadMessages, this.messageReactions);
   }
 
   private getExecutorId(): UserId {
@@ -312,6 +418,17 @@ export class CurbChatLogic extends CurbChat {
     }
 
     return raw as T;
+  }
+
+  private ensureChannelAccess(channelId: ChannelId, executorId: UserId): ChannelMetadata | string {
+    const channel = this.channels.get(channelId);
+    if (!channel) {
+      return "Channel not found";
+    }
+    if (!channel.members.has(executorId)) {
+      return "You are not a member of this channel";
+    }
+    return channel;
   }
 
   private static addDefaultChannelToState(
