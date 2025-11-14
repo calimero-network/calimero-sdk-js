@@ -1,4 +1,4 @@
-import { env } from "@calimero/sdk";
+import { emit, env } from "@calimero/sdk";
 import { UnorderedMap } from "@calimero/sdk/collections";
 
 import { isUsernameTaken } from "../utils/members";
@@ -13,6 +13,16 @@ import {
   type CreateChannelInput,
   type ModeratorInput,
 } from "./types";
+import {
+  ChannelCreated,
+  ChannelDeleted,
+  ChannelInvited,
+  ChannelJoined,
+  ChannelLeft,
+  ChannelModeratorDemoted,
+  ChannelModeratorPromoted,
+  ChannelUninvited,
+} from "./events";
 
 export interface ChannelState {
   owner: UserId;
@@ -96,11 +106,13 @@ export class ChannelManager {
     };
 
     this.state.channels.set(normalizedId, metadata);
+    emit(new ChannelCreated(normalizedId, executorId, type));
     return "Channel created";
   }
 
   addUserToChannel(input: ChannelMembershipInput, executorId: UserId): string {
-    const channel = this.getChannelOrNull(input.channelId);
+    const normalizedId = this.normalizeChannelId(input.channelId);
+    const channel = this.state.channels.get(normalizedId);
     if (!channel) {
       return "Channel not found";
     }
@@ -127,12 +139,14 @@ export class ChannelManager {
     }
 
     channel.members.set(input.userId, username);
-    this.state.channels.set(this.normalizeChannelId(input.channelId), channel);
+    this.state.channels.set(normalizedId, channel);
+    emit(new ChannelInvited(normalizedId, executorId, input.userId));
     return "Member added to channel";
   }
 
   removeUserFromChannel(input: ChannelMembershipInput, executorId: UserId): string {
-    const channel = this.getChannelOrNull(input.channelId);
+    const normalizedId = this.normalizeChannelId(input.channelId);
+    const channel = this.state.channels.get(normalizedId);
     if (!channel) {
       return "Channel not found";
     }
@@ -147,12 +161,14 @@ export class ChannelManager {
 
     channel.moderators.remove(input.userId);
     channel.members.remove(input.userId);
-    this.state.channels.set(this.normalizeChannelId(input.channelId), channel);
+    this.state.channels.set(normalizedId, channel);
+    emit(new ChannelUninvited(normalizedId, executorId, input.userId));
     return "Member removed from channel";
   }
 
   promoteModerator(input: ModeratorInput, executorId: UserId): string {
-    const channel = this.getChannelOrNull(input.channelId);
+    const normalizedId = this.normalizeChannelId(input.channelId);
+    const channel = this.state.channels.get(normalizedId);
     if (!channel) {
       return "Channel not found";
     }
@@ -171,12 +187,14 @@ export class ChannelManager {
     }
 
     channel.moderators.set(input.userId, username);
-    this.state.channels.set(this.normalizeChannelId(input.channelId), channel);
+    this.state.channels.set(normalizedId, channel);
+    emit(new ChannelModeratorPromoted(normalizedId, executorId, input.userId));
     return "Moderator added";
   }
 
   demoteModerator(input: ModeratorInput, executorId: UserId): string {
-    const channel = this.getChannelOrNull(input.channelId);
+    const normalizedId = this.normalizeChannelId(input.channelId);
+    const channel = this.state.channels.get(normalizedId);
     if (!channel) {
       return "Channel not found";
     }
@@ -190,7 +208,8 @@ export class ChannelManager {
     }
 
     channel.moderators.remove(input.userId);
-    this.state.channels.set(this.normalizeChannelId(input.channelId), channel);
+    this.state.channels.set(normalizedId, channel);
+    emit(new ChannelModeratorDemoted(normalizedId, executorId, input.userId));
     return "Moderator removed";
   }
 
@@ -210,11 +229,13 @@ export class ChannelManager {
     }
 
     this.state.channels.remove(normalizedId);
+    emit(new ChannelDeleted(normalizedId, executorId));
     return "Channel deleted";
   }
 
   joinPublicChannel(channelId: ChannelId, executorId: UserId): string {
-    const channel = this.getChannelOrNull(channelId);
+    const normalizedId = this.normalizeChannelId(channelId);
+    const channel = this.state.channels.get(normalizedId);
     if (!channel) {
       return "Channel not found";
     }
@@ -233,12 +254,14 @@ export class ChannelManager {
     }
 
     channel.members.set(executorId, username);
-    this.state.channels.set(this.normalizeChannelId(channelId), channel);
+    this.state.channels.set(normalizedId, channel);
+    emit(new ChannelJoined(normalizedId, executorId));
     return "Joined channel";
   }
 
   leaveChannel(channelId: ChannelId, executorId: UserId): string {
-    const channel = this.getChannelOrNull(channelId);
+    const normalizedId = this.normalizeChannelId(channelId);
+    const channel = this.state.channels.get(normalizedId);
     if (!channel) {
       return "Channel not found";
     }
@@ -253,7 +276,8 @@ export class ChannelManager {
 
     channel.members.remove(executorId);
     channel.moderators.remove(executorId);
-    this.state.channels.set(this.normalizeChannelId(channelId), channel);
+    this.state.channels.set(normalizedId, channel);
+    emit(new ChannelLeft(normalizedId, executorId));
     return "Left channel";
   }
 
@@ -265,10 +289,6 @@ export class ChannelManager {
       metadata.members.set(userId, username);
       this.state.channels.set(channelId, metadata);
     });
-  }
-
-  private getChannelOrNull(channelId: ChannelId): ChannelMetadata | null {
-    return this.state.channels.get(this.normalizeChannelId(channelId)) ?? null;
   }
 
   private normalizeChannelId(channelId: ChannelId): ChannelId {

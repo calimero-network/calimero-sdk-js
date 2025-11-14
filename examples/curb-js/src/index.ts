@@ -198,6 +198,37 @@ export class CurbChatLogic extends CurbChat {
     return this.wrapResult(result);
   }
 
+  @View()
+  getInvitees(rawInput: ChannelId | { input: { channelId: ChannelId } }): string {
+    const channelId =
+      typeof rawInput === "string" ? rawInput : this.extractInput(rawInput)?.channelId;
+    if (!channelId) {
+      return this.wrapResult("Invalid channel id");
+    }
+
+    const normalizedId = channelId.trim().toLowerCase();
+    if (!normalizedId) {
+      return this.wrapResult("Invalid channel id");
+    }
+
+    const channel = this.channels.get(normalizedId);
+    if (!channel) {
+      return this.wrapResult("Channel not found");
+    }
+
+    const executorId = this.getExecutorId();
+    if (!channel.members.has(executorId)) {
+      return this.wrapResult("Only channel members can view invitees");
+    }
+
+    const invitees = this.members
+      .entries()
+      .filter(([userId]) => !channel.members.has(userId))
+      .map(([userId, username]) => ({ userId, username }));
+
+    return this.wrapResult(invitees);
+  }
+
   private getChannelManager(): ChannelManager {
     return new ChannelManager(this);
   }
