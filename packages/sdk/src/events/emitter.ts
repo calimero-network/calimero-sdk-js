@@ -42,8 +42,16 @@ function extractPayload(event: unknown): Uint8Array {
 }
 
 function eventConstructorName(event: unknown): string {
-  if (event && typeof event === 'object' && 'constructor' in event && typeof (event as any).constructor?.name === 'string') {
-    return (event as any).constructor.name;
+  if (event && typeof event === 'object' && 'constructor' in event) {
+    const ctor = (event as any).constructor;
+    if (ctor) {
+      if ('eventName' in ctor && typeof ctor.eventName === 'string') {
+        return ctor.eventName;
+      }
+      if (typeof ctor.name === 'string' && ctor.name.length > 0) {
+        return ctor.name;
+      }
+    }
   }
   return 'AnonymousEvent';
 }
