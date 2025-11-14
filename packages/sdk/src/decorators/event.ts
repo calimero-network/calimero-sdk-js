@@ -28,11 +28,24 @@ type EventConstructor<TBase extends Constructor> = TBase & {
 export function Event<TBase extends Constructor>(target: TBase): EventConstructor<TBase> {
   const enhanced = class extends target implements AppEvent {
     serialize(): string {
-      return JSON.stringify(this);
+      const plain: Record<string, unknown> = {};
+      for (const key in this) {
+        if (Object.prototype.hasOwnProperty.call(this, key)) {
+          plain[key] = (this as Record<string, unknown>)[key];
+        }
+      }
+
+      return JSON.stringify({
+        eventType: (this.constructor as typeof enhanced).eventName,
+        ...plain,
+      });
     }
 
     static deserialize(data: string): InstanceType<TBase> & AppEvent {
       const parsed = JSON.parse(data);
+      if (parsed && typeof parsed === 'object' && 'eventType' in parsed) {
+        delete parsed.eventType;
+      }
       return Object.assign(new target(), parsed) as InstanceType<TBase> & AppEvent;
     }
 

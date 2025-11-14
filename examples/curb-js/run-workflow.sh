@@ -1,1 +1,0 @@
-rm -rf data && merobox bootstrap run --log-level error test-workflow.yml
