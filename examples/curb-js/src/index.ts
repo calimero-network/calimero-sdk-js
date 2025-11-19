@@ -315,8 +315,8 @@ export class CurbChatLogic extends CurbChat {
 
     const username =
       channel.members.get(executorId) ?? this.members.get(executorId) ?? executorId;
-    const messageId = this.getMessageManager().sendMessage(executorId, username, args);
-    return this.wrapResult(messageId);
+    const message = this.getMessageManager().sendMessage(executorId, username, args);
+    return this.wrapResult(message);
   }
 
   @View()
@@ -379,8 +379,7 @@ export class CurbChatLogic extends CurbChat {
       return this.wrapResult("Invalid reaction input");
     }
 
-    const executorId = this.getExecutorId();
-    const result = this.getMessageManager().updateReaction(executorId, args);
+    const result = this.getMessageManager().updateReaction(args);
     return this.wrapResult(result);
   }
 

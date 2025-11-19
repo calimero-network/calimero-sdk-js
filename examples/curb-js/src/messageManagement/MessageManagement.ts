@@ -1,7 +1,7 @@
 import { emit, env } from "@calimero/sdk";
 import { UnorderedMap, UnorderedSet, Vector } from "@calimero/sdk/collections";
 
-import type { StoredMessage, MessageAttachments, SendMessageArgs, EditMessageArgs, DeleteMessageArgs, UpdateReactionArgs, GetMessagesArgs } from "./types";
+import type { StoredMessage, SendMessageArgs, EditMessageArgs, DeleteMessageArgs, UpdateReactionArgs, GetMessagesArgs, FullMessageResponse, MessageWithReactions, Reaction } from "./types";
 import type { UserId } from "../types";
 import { MessageSent, MessageSentThread, ReactionUpdated } from "./events";
 
@@ -16,7 +16,7 @@ export class MessageManagement {
     executorId: UserId,
     username: string | null,
     args: SendMessageArgs,
-  ): string {
+  ): StoredMessage {
     const timestamp = env.timeNow();
     const messageId =
       args.messageId ?? this.generateMessageId(args.channelId, executorId, timestamp);
@@ -31,7 +31,8 @@ export class MessageManagement {
       parentId: args.parentId ?? null,
       deleted: false,
       editedAt: null,
-      attachments: args.attachments,
+      images: args.images,
+      files: args.files,
     };
 
     if (args.parentId) {
@@ -42,14 +43,54 @@ export class MessageManagement {
       emit(new MessageSent(args.channelId, messageId));
     }
 
-    return messageId;
+    return payload;
   }
 
-  getMessages(args: GetMessagesArgs): StoredMessage[] {
-    if (args.parentId) {
-      return this.sliceVector(this.threads.get(args.parentId), args.limit, args.offset);
+  getMessages(args: GetMessagesArgs): FullMessageResponse {
+    const vector = args.parentId ? this.threads.get(args.parentId) : this.messages.get(args.channelId);
+
+    if (!vector) {
+      return {
+        messages: [],
+        total_count: 0,
+        start_position: args.offset ?? 0,
+      };
     }
-    return this.sliceVector(this.messages.get(args.channelId), args.limit, args.offset);
+
+    const allItems = vector.toArray();
+    const totalCount = allItems.length;
+    const startPosition = args.offset ?? 0;
+    const limit = args.limit;
+
+    // Get the sliced messages
+    const slicedMessages = this.sliceVector(vector, limit, startPosition);
+
+    // Add reactions to each message
+    const messagesWithReactions: MessageWithReactions[] = slicedMessages.map(message => {
+      const reactionMap = this.reactions.get(message.id);
+      const reactions: Reaction[] = [];
+
+      if (reactionMap) {
+        const emojiEntries = reactionMap.entries();
+        for (const [emoji, users] of emojiEntries) {
+          reactions.push({
+            emoji,
+            users: users.toArray(),
+          });
+        }
+      }
+
+      return {
+        ...message,
+        reactions,
+      };
+    });
+
+    return {
+      messages: messagesWithReactions,
+      total_count: totalCount,
+      start_position: startPosition,
+    };
   }
 
   editMessage(executorId: UserId, args: EditMessageArgs): string {
@@ -123,7 +164,7 @@ export class MessageManagement {
     return "Message deleted";
   }
 
-  updateReaction(executorId: UserId, args: UpdateReactionArgs): string {
+  updateReaction(args: UpdateReactionArgs): string {
     let reactionMap = this.reactions.get(args.messageId);
     if (!reactionMap) {
       reactionMap = new UnorderedMap<string, UnorderedSet<UserId>>();
@@ -135,9 +176,9 @@ export class MessageManagement {
     }
 
     if (args.add) {
-      users.add(executorId);
+      users.add(args.username);
     } else {
-      users.delete(executorId);
+      users.delete(args.username);
     }
 
     reactionMap.set(args.emoji, users);

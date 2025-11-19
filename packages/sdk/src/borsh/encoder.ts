@@ -75,25 +75,16 @@ export class BorshWriter {
 
   /**
    * Write a string (u32 length + UTF-8 bytes)
+   * Uses TextEncoder to properly handle all Unicode characters including emojis
    */
   writeString(str: string): void {
-    const bytes: number[] = [];
-    for (let i = 0; i < str.length; i++) {
-      const code = str.charCodeAt(i);
-      if (code < 0x80) {
-        bytes.push(code);
-      } else if (code < 0x800) {
-        bytes.push(0xc0 | (code >> 6));
-        bytes.push(0x80 | (code & 0x3f));
-      } else if (code < 0x10000) {
-        bytes.push(0xe0 | (code >> 12));
-        bytes.push(0x80 | ((code >> 6) & 0x3f));
-        bytes.push(0x80 | (code & 0x3f));
-      }
-    }
+    // Use TextEncoder to properly encode UTF-8, handling all Unicode characters
+    // including emojis and surrogate pairs correctly
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(str);
     this.writeU32(bytes.length);
-    for (const byte of bytes) {
-      this.buffer.push(byte);
+    for (let i = 0; i < bytes.length; i++) {
+      this.buffer.push(bytes[i]);
     }
   }
 
