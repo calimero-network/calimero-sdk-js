@@ -1,0 +1,423 @@
+description: Curb Application Test Workflow
+name: Curb App Test
+
+auth_service: true
+
+nodes:
+  chain_id: testnet-1
+  count: 2
+  image: ghcr.io/calimero-network/merod:edge
+  prefix: curb-node
+steps:
+  # Step 1: Install the Curb application
+  - name: Install Curb Application
+    type: install_application
+    node: curb-node-1
+    path: './build/curb.wasm'
+    dev: true
+    outputs:
+      app_id: applicationId
+
+  # Step 2: Create a context for the Curb app
+  - name: Create Curb Context
+    type: create_context
+    node: curb-node-1
+    application_id: '{{app_id}}'
+    params: '{"ownerUsername": "testuser", "defaultChannels": [{"name": "general"}, {"name": "events"}, {"name": "general-dm"}], "isDMchat": false}'
+    outputs:
+      context_id: contextId
+      member_public_key: memberPublicKey
+
+  # Step 3: Wait for context creation and sync
+  - name: Wait For Context Sync
+    type: wait
+    seconds: 1
+
+  # Identity creation on node 2 and join flow
+  - name: Create Identity on Node 2
+    type: create_identity
+    node: curb-node-2
+    outputs:
+      public_key: publicKey
+
+  - name: Wait for Identity Setup
+    type: wait
+    seconds: 8
+
+  - name: Invite Node 2 from Node 1
+    type: invite_identity
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    grantee_id: '{{public_key}}'
+    granter_id: '{{member_public_key}}'
+    capability: member
+    outputs:
+      invitation: invitation
+
+  - name: Join Context from Node 2
+    type: join_context
+    node: curb-node-2
+    context_id: '{{context_id}}'
+    invitee_id: '{{public_key}}'
+    invitation: '{{invitation}}'
+
+  - name: Wait for Context Sync
+    type: wait
+    seconds: 6
+
+  - name: Join Chat from Node 2
+    type: call
+    node: curb-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{public_key}}'
+    method: joinChat
+    args:
+      input:
+        username: Alice
+    timeout: 60
+    outputs:
+      join_chat_node2: result.output
+
+  - name: Wait for Join Completion
+    type: wait
+    seconds: 6
+
+  # Fetch state after member join
+  - name: Fetch Members After Join
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getMembers
+    args: {}
+    outputs:
+      members_after_join: result.output
+
+  - name: Fetch Initial Directory
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getChannelDirectory
+    args: {}
+    outputs:
+      initial_directory: result.output
+
+  # Channel management for announcements
+  - name: Create Announcements Channel
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: createChannel
+    args:
+      name: announcements
+      type: public
+      readOnly: false
+    outputs:
+      create_announcements: result.output
+
+  - name: Fetch Channels After Announcements
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getChannels
+    args: {}
+    outputs:
+      channels_after_announcements: result.output
+
+  - name: Add User Two To Announcements
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: addUserToChannel
+    args:
+      channelId: announcements
+      userId: '{{public_key}}'
+      username: Alice
+    outputs:
+      add_user_two_announcements: result.output
+
+  - name: Promote User Two In Announcements
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: promoteModerator
+    args:
+      channelId: announcements
+      userId: '{{public_key}}'
+    outputs:
+      promote_user_two_announcements: result.output
+
+  - name: Demote User Two In Announcements
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: demoteModerator
+    args:
+      channelId: announcements
+      userId: '{{public_key}}'
+    outputs:
+      demote_user_two_announcements: result.output
+
+  - name: Remove User Two From Announcements
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: removeUserFromChannel
+    args:
+      channelId: announcements
+      userId: '{{public_key}}'
+    outputs:
+      remove_user_two_announcements: result.output
+
+  - name: Delete Announcements Channel
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: deleteChannel
+    args:
+      channelId: announcements
+    outputs:
+      delete_announcements: result.output
+
+  # Channel management for community + public join flow
+  - name: Create Community Channel
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: createChannel
+    args:
+      name: community
+      type: public
+      readOnly: false
+    outputs:
+      create_community: result.output
+
+  - name: Add User Two To Community
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: addUserToChannel
+    args:
+      channelId: community
+      userId: '{{public_key}}'
+      username: Alice
+    outputs:
+      add_user_two_community: result.output
+
+  - name: Promote User Two In Community
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: promoteModerator
+    args:
+      channelId: community
+      userId: '{{public_key}}'
+    outputs:
+      promote_user_two_community: result.output
+
+  - name: Owner Leaves Community Channel
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: removeUserFromChannel
+    args:
+      channelId: community
+      userId: '{{member_public_key}}'
+    outputs:
+      owner_leave_community: result.output
+
+  - name: Owner Rejoins Community Via Public Join
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: joinPublicChannel
+    args:
+      channelId: community
+    outputs:
+      owner_rejoin_community: result.output
+
+  - name: Fetch Directory After Community Flow
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getChannelDirectory
+    args: {}
+    outputs:
+      directory_after_community: result.output
+
+  # DM management flow
+  - name: Create DM Chat
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: createDMChat
+    args:
+      input:
+        contextId: dm-context-1
+        creator: '{{member_public_key}}'
+        creatorNewIdentity: '{{member_public_key}}-dm-new'
+        invitee: '{{public_key}}'
+        timestamp: '1710000000000'
+        contextHash: dm-hash-1
+        invitationPayload: '{"note":"demo invitation"}'
+    outputs:
+      dm_created: result.output
+
+  - name: Fetch DMs Node 1
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getDMs
+    args: {}
+    outputs:
+      node1_dms_initial: result.output
+
+  - name: Node 2 Accepts DM Invitation
+    type: call
+    node: curb-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{public_key}}'
+    method: updateNewIdentity
+    args:
+      input:
+        otherUser: '{{member_public_key}}'
+        newIdentity: '{{public_key}}-dm-new'
+    outputs:
+      dm_identity_updated: result.output
+
+  - name: Fetch DMs Node 2
+    type: call
+    node: curb-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{public_key}}'
+    method: getDMs
+    args: {}
+    outputs:
+      node2_dms: result.output
+
+  - name: Delete DM Chat
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: deleteDM
+    args:
+      input:
+        otherUser: '{{public_key}}'
+    outputs:
+      dm_deleted: result.output
+
+  - name: Fetch DMs After Delete
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getDMs
+    args: {}
+    outputs:
+      node1_dms_after_delete: result.output
+
+  # Message management flow
+  - name: Send Channel Message
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: sendMessage
+    args:
+      input:
+        channelId: general
+        text: "Hello from workflow"
+        messageId: workflow-message-1
+    outputs:
+      workflow_message_id: result.output
+
+  - name: Get Channel Messages
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getMessages
+    args:
+      input:
+        channelId: general
+    outputs:
+      general_messages: result.output
+
+  - name: Edit Channel Message
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: editMessage
+    args:
+      input:
+        channelId: general
+        messageId: workflow-message-1
+        text: "Hello (edited)"
+    outputs:
+      edit_message_result: result.output
+
+  # Wait for message to sync to Node 2 before reacting
+  - name: Wait for Message Sync to Node 2
+    type: wait
+    seconds: 5
+
+  - name: Update Reaction From Node 2
+    type: call
+    node: curb-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{public_key}}'
+    method: updateReaction
+    args:
+      input:
+        messageId: workflow-message-1
+        emoji: 👍
+        add: true
+    outputs:
+      reaction_update_result: result.output
+
+  - name: Delete Channel Message
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: deleteMessage
+    args:
+      input:
+        channelId: general
+        messageId: workflow-message-1
+    outputs:
+      delete_message_result: result.output
+
+  - name: Get Channel Messages After Delete
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getMessages
+    args:
+      input:
+        channelId: general
+    outputs:
+      general_messages_after_delete: result.output
+
+stop_all_nodes: false
+restart: true
+wait_timeout: 60
