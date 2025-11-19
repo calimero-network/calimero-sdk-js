@@ -65,7 +65,7 @@ export class MessageManagement {
     // Get the sliced messages
     const slicedMessages = this.sliceVector(vector, limit, startPosition);
 
-    // Add reactions to each message
+    // Add reactions and thread info to each message
     const messagesWithReactions: MessageWithReactions[] = slicedMessages.map(message => {
       const reactionMap = this.reactions.get(message.id);
       const reactions: Reaction[] = [];
@@ -80,9 +80,34 @@ export class MessageManagement {
         }
       }
 
+      // Calculate thread count and last timestamp for this message
+      let threadCount = 0;
+      let threadLastTimestamp: bigint | undefined = undefined;
+
+      // Only calculate thread info if this is NOT a thread message itself (no parentId)
+      if (!message.parentId) {
+        const threadVector = this.threads.get(message.id);
+        if (threadVector) {
+          try {
+            const threadMessages = threadVector.toArray();
+            threadCount = threadMessages.length;
+            if (threadCount > 0) {
+              // Get the last message in the thread (most recent)
+              const lastMessage = threadMessages[threadMessages.length - 1];
+              threadLastTimestamp = lastMessage.timestamp;
+            }
+          } catch {
+            // Thread vector might not be synced yet
+            threadCount = 0;
+          }
+        }
+      }
+
       return {
         ...message,
         reactions,
+        threadCount,
+        threadLastTimestamp,
       };
     });
 

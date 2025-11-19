@@ -374,6 +374,11 @@ steps:
     outputs:
       edit_message_result: result.output
 
+  # Wait for message to sync to Node 2 before reacting
+  - name: Wait for Message Sync to Node 2
+    type: wait
+    seconds: 5
+
   - name: Update Reaction From Node 2
     type: call
     node: curb-node-2

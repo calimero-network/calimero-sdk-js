@@ -19,6 +19,8 @@ export type StoredMessage = {
   editedAt?: bigint | null;
   images?: Attachment[];
   files?: Attachment[];
+  threadCount?: number;
+  threadLastTimestamp?: bigint;
 };
 
 export type SendMessageArgs = {
