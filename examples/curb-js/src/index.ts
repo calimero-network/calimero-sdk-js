@@ -379,7 +379,25 @@ export class CurbChatLogic extends CurbChat {
       return this.wrapResult("Invalid reaction input");
     }
 
-    const result = this.getMessageManager().updateReaction(args);
+    const executorId = this.getExecutorId();
+    
+    // Find the message to get its channelId and verify access
+    const channelId = this.getMessageManager().findMessageChannelId(args.messageId);
+    if (!channelId) {
+      return this.wrapResult("Message not found");
+    }
+
+    // Verify the user has access to the channel containing this message
+    const channel = this.ensureChannelAccess(channelId, executorId);
+    if (typeof channel === "string") {
+      return this.wrapResult(channel);
+    }
+
+    // Get username from channel members or global members
+    // Use provided username or fallback to channel/global members
+    const username = args.username ?? channel.members.get(executorId) ?? this.members.get(executorId) ?? executorId;
+
+    const result = this.getMessageManager().updateReaction(args, username);
     return this.wrapResult(result);
   }
 
@@ -420,7 +438,13 @@ export class CurbChatLogic extends CurbChat {
   }
 
   private ensureChannelAccess(channelId: ChannelId, executorId: UserId): ChannelMetadata | string {
-    const channel = this.channels.get(channelId);
+    // Normalize channelId to match how channels are stored (trim + lowercase)
+    const normalizedId = channelId.trim().toLowerCase();
+    if (!normalizedId) {
+      return "Invalid channel id";
+    }
+    
+    const channel = this.channels.get(normalizedId);
     if (!channel) {
       return "Channel not found";
     }

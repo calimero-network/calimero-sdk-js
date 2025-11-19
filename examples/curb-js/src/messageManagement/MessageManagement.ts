@@ -164,7 +164,52 @@ export class MessageManagement {
     return "Message deleted";
   }
 
-  updateReaction(args: UpdateReactionArgs): string {
+  /**
+   * Finds a message by ID and returns its channelId
+   * Returns null if message not found
+   * Searches both regular messages and thread messages
+   */
+  findMessageChannelId(messageId: string): string | null {
+    // First, check in all channels (regular messages)
+    const channelEntries = this.messages.entries();
+    for (const [, vector] of channelEntries) {
+      if (!vector) {
+        continue;
+      }
+      try {
+        const messages = vector.toArray();
+        const message = messages.find(msg => msg.id === messageId);
+        if (message) {
+          return message.channelId;
+        }
+      } catch {
+        // Vector might not be synced yet, skip
+        continue;
+      }
+    }
+
+    // If not found, check in all threads
+    const threadEntries = this.threads.entries();
+    for (const [, vector] of threadEntries) {
+      if (!vector) {
+        continue;
+      }
+      try {
+        const messages = vector.toArray();
+        const message = messages.find(msg => msg.id === messageId);
+        if (message) {
+          return message.channelId;
+        }
+      } catch {
+        // Vector might not be synced yet, skip
+        continue;
+      }
+    }
+
+    return null;
+  }
+
+  updateReaction(args: UpdateReactionArgs, username: string): string {
     let reactionMap = this.reactions.get(args.messageId);
     if (!reactionMap) {
       reactionMap = new UnorderedMap<string, UnorderedSet<UserId>>();
@@ -176,9 +221,9 @@ export class MessageManagement {
     }
 
     if (args.add) {
-      users.add(args.username);
+      users.add(username);
     } else {
-      users.delete(args.username);
+      users.delete(username);
     }
 
     reactionMap.set(args.emoji, users);

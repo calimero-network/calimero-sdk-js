@@ -47,7 +47,7 @@ export type UpdateReactionArgs = {
   messageId: string;
   emoji: string;
   add: boolean;
-  username: string;
+  username?: string; // Optional - will be retrieved from channel members if not provided
 };
 
 export type GetMessagesArgs = {
