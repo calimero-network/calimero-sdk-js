@@ -57,13 +57,29 @@ export class MessageManagement {
       };
     }
 
-    const allItems = vector.toArray();
-    const totalCount = allItems.length;
+    // Try to get all items, but handle case where vector might not be fully synced
+    let allItems: StoredMessage[] = [];
+    let totalCount = 0;
+    try {
+      allItems = vector.toArray();
+      totalCount = allItems.length;
+    } catch (error) {
+      // Vector might not be fully synced yet, return empty result
+      env.log(`Warning: Vector not fully synced for ${args.parentId ? `thread ${args.parentId}` : `channel ${args.channelId}`}`);
+      return {
+        messages: [],
+        total_count: 0,
+        start_position: args.offset ?? 0,
+      };
+    }
+
     const startPosition = args.offset ?? 0;
     const limit = args.limit;
 
-    // Get the sliced messages
-    const slicedMessages = this.sliceVector(vector, limit, startPosition);
+    // Get the sliced messages (use allItems we already fetched to avoid calling toArray again)
+    const start = startPosition;
+    const end = limit ? start + limit : allItems.length;
+    const slicedMessages = allItems.slice(Math.max(0, start), Math.min(allItems.length, end));
 
     // Add reactions and thread info to each message
     const messagesWithReactions: MessageWithReactions[] = slicedMessages.map(message => {
@@ -71,12 +87,21 @@ export class MessageManagement {
       const reactions: Reaction[] = [];
 
       if (reactionMap) {
-        const emojiEntries = reactionMap.entries();
-        for (const [emoji, users] of emojiEntries) {
-          reactions.push({
-            emoji,
-            users: users.toArray(),
-          });
+        try {
+          const emojiEntries = reactionMap.entries();
+          for (const [emoji, users] of emojiEntries) {
+            try {
+              reactions.push({
+                emoji,
+                users: users.toArray(),
+              });
+            } catch {
+              // User set might not be synced yet, skip this reaction
+              continue;
+            }
+          }
+        } catch {
+          // Reaction map might not be synced yet, skip reactions
         }
       }
 
