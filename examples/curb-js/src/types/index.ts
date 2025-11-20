@@ -9,5 +9,8 @@ export type ChannelDefaultInit = {
 export type InitParams = {
   ownerUsername: Username;
   defaultChannels?: ChannelDefaultInit[];
+  isDm?: boolean;
+  invitee?: UserId;
+  inviteeUsername?: Username;
 };
 
