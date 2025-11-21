@@ -48,7 +48,13 @@ export class CurbChat {
 @Logic(CurbChat)
 export class CurbChatLogic extends CurbChat {
   @Init
-  static init({ ownerUsername, defaultChannels = [] }: InitParams): CurbChat {
+  static init({ 
+    ownerUsername, 
+    defaultChannels = [], 
+    isDm = false, 
+    invitee, 
+    inviteeUsername 
+  }: InitParams): CurbChat {
     const executorId = env.executorIdBase58();
     const timestamp = env.timeNow();
 
@@ -64,10 +70,25 @@ export class CurbChatLogic extends CurbChat {
       UnorderedMap<string, UnorderedSet<UserId>>
     >();
 
+    // Add owner to members and map username
     chat.members.set(executorId, ownerUsername);
 
+    // If DM, add invitee to members and map their username
+    if (isDm && invitee) {
+      chat.members.set(invitee, inviteeUsername ?? invitee);
+    }
+
+    // Create default channels
     for (const { name } of defaultChannels) {
-      this.addDefaultChannelToState(chat, executorId, ownerUsername, timestamp, name);
+      this.addDefaultChannelToState(
+        chat, 
+        executorId, 
+        ownerUsername, 
+        timestamp, 
+        name,
+        isDm ? invitee : undefined,
+        isDm ? inviteeUsername : undefined
+      );
     }
 
     env.log("CurbChat initialized.");
@@ -460,24 +481,31 @@ export class CurbChatLogic extends CurbChat {
     ownerUsername: Username,
     timestamp: bigint,
     rawName: ChannelId,
+    invitee?: UserId,
+    inviteeUsername?: Username,
   ): void {
     const channelId = rawName.trim().toLowerCase();
     if (!channelId || state.channels.has(channelId)) {
       return;
     }
 
-      const moderators = new UnorderedMap<UserId, Username>();
+    const moderators = new UnorderedMap<UserId, Username>();
     moderators.set(ownerId, ownerUsername);
 
-      const members = new UnorderedMap<UserId, Username>();
+    const members = new UnorderedMap<UserId, Username>();
     members.set(ownerId, ownerUsername);
 
+    // If DM, add invitee to channel members
+    if (invitee) {
+      members.set(invitee, inviteeUsername ?? invitee);
+    }
+
     const metadata: ChannelMetadata = {
-        type: ChannelType.Default,
+      type: ChannelType.Default,
       createdAt: timestamp,
       createdBy: ownerId,
-        createdByUsername: ownerUsername,
-        readOnly: false,
+      createdByUsername: ownerUsername,
+      readOnly: false,
       moderators,
       members,
     };
