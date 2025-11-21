@@ -63,6 +63,19 @@ importers:
         specifier: ^5.3.3
         version: 5.9.3
 
+  examples/curb-js:
+    dependencies:
+      '@calimero/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+    devDependencies:
+      '@calimero/cli':
+        specifier: workspace:*
+        version: link:../../packages/cli
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
   examples/kv-store:
     dependencies:
       '@calimero/sdk':

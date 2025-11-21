@@ -33,6 +33,8 @@ export class MessageManagement {
       editedAt: null,
       images: args.images,
       files: args.files,
+      mentions: args.mentions ?? [],
+      mentionUsernames: args.mentionUsernames ?? [],
     };
 
     if (args.parentId) {
