@@ -1,5 +1,5 @@
-import { emit, env, createUnorderedMap } from "@calimero/sdk";
-import { UnorderedMap } from "@calimero/sdk/collections";
+import { emit, env, createVector } from "@calimero/sdk";
+import { UnorderedMap, Vector } from "@calimero/sdk/collections";
 
 import { isUsernameTaken } from "../utils/members";
 import type { ChannelId, UserId, Username } from "../types";
@@ -28,16 +28,85 @@ export interface ChannelState {
   owner: UserId;
   members: UnorderedMap<UserId, Username>;
   channels: UnorderedMap<ChannelId, ChannelMetadata>;
+  channelMembers: UnorderedMap<ChannelId, Vector<UserId>>;
+  channelModerators: UnorderedMap<ChannelId, Vector<UserId>>;
 }
 
 export class ChannelManager {
   constructor(private readonly state: ChannelState) {}
 
+  private getOrCreateMembersVector(channelId: ChannelId): Vector<UserId> {
+    let members = this.state.channelMembers.get(channelId);
+    if (!members) {
+      members = createVector<UserId>();
+      this.state.channelMembers.set(channelId, members);
+    }
+    return members;
+  }
+
+  private getOrCreateModeratorsVector(channelId: ChannelId): Vector<UserId> {
+    let moderators = this.state.channelModerators.get(channelId);
+    if (!moderators) {
+      moderators = createVector<UserId>();
+      this.state.channelModerators.set(channelId, moderators);
+    }
+    return moderators;
+  }
+
+  private getChannelMembers(channelId: ChannelId): UserId[] {
+    const members = this.state.channelMembers.get(channelId);
+    return members ? members.toArray() : [];
+  }
+
+  private getChannelModerators(channelId: ChannelId): UserId[] {
+    const moderators = this.state.channelModerators.get(channelId);
+    return moderators ? moderators.toArray() : [];
+  }
+
+  private isChannelMember(channelId: ChannelId, userId: UserId): boolean {
+    const members = this.state.channelMembers.get(channelId);
+    if (!members) {
+      return false;
+    }
+    return members.toArray().includes(userId);
+  }
+
+  private isChannelModerator(channelId: ChannelId, userId: UserId): boolean {
+    const moderators = this.state.channelModerators.get(channelId);
+    if (!moderators) {
+      return false;
+    }
+    return moderators.toArray().includes(userId);
+  }
+
+  private addToVector(vector: Vector<UserId>, userId: UserId): void {
+    if (!vector.toArray().includes(userId)) {
+      vector.push(userId);
+    }
+  }
+
+  private removeFromVector(vector: Vector<UserId>, userId: UserId): void {
+    const items = vector.toArray();
+    const newVector = createVector<UserId>();
+    for (const item of items) {
+      if (item !== userId) {
+        newVector.push(item);
+      }
+    }
+    // Replace the vector
+    while (vector.pop()) {
+      // Clear existing vector
+    }
+    for (const item of newVector.toArray()) {
+      vector.push(item);
+    }
+  }
+
   listForMember(userId: UserId): ChannelMetadataResponse[] {
     const channels: ChannelMetadataResponse[] = [];
 
     this.state.channels.entries().forEach(([channelId, metadata]) => {
-      if (metadata.members.has(userId)) {
+      if (this.isChannelMember(channelId, userId)) {
         channels.push(this.formatChannelResponse(channelId, metadata));
       }
     });
@@ -51,7 +120,8 @@ export class ChannelManager {
 
     this.state.channels.entries().forEach(([channelId, metadata]) => {
       const formatted = this.formatChannelResponse(channelId, metadata);
-      if (metadata.members.has(userId)) {
+      
+      if (this.isChannelMember(channelId, userId)) {
         joined.push(formatted);
       } else if (metadata.type === ChannelType.Public) {
         availablePublic.push(formatted);
@@ -89,23 +159,25 @@ export class ChannelManager {
       return "Channel type must be public or private";
     }
 
-    const moderators = createUnorderedMap<UserId, Username>();
-    moderators.set(executorId, executorUsername);
-
-    const members = createUnorderedMap<UserId, Username>();
-    members.set(executorId, executorUsername);
-
     const metadata: ChannelMetadata = {
       type,
       createdAt: env.timeNow(),
       createdBy: executorId,
       createdByUsername: executorUsername,
       readOnly: input.readOnly ?? false,
-      moderators,
-      members,
     };
 
     this.state.channels.set(normalizedId, metadata);
+    
+    // Add creator as member and moderator
+    const members = createVector<UserId>();
+    members.push(executorId);
+    this.state.channelMembers.set(normalizedId, members);
+    
+    const moderators = createVector<UserId>();
+    moderators.push(executorId);
+    this.state.channelModerators.set(normalizedId, moderators);
+    
     emit(new ChannelCreated(normalizedId, executorId, type));
     return "Channel created";
   }
@@ -117,11 +189,11 @@ export class ChannelManager {
       return "Channel not found";
     }
 
-    if (!channel.moderators.has(executorId)) {
+    if (!this.isChannelModerator(normalizedId, executorId)) {
       return "Only moderators can add members to the channel";
     }
 
-    if (channel.members.has(input.userId)) {
+    if (this.isChannelMember(normalizedId, input.userId)) {
       return "User is already a member of the channel";
     }
 
@@ -138,8 +210,9 @@ export class ChannelManager {
       username = provided;
     }
 
-    channel.members.set(input.userId, username);
-    this.state.channels.set(normalizedId, channel);
+    const members = this.getOrCreateMembersVector(normalizedId);
+    this.addToVector(members, input.userId);
+    this.state.channelMembers.set(normalizedId, members);
     emit(new ChannelInvited(normalizedId, executorId, input.userId));
     return "Member added to channel";
   }
@@ -151,17 +224,20 @@ export class ChannelManager {
       return "Channel not found";
     }
 
-    if (!channel.moderators.has(executorId)) {
+    if (!this.isChannelModerator(normalizedId, executorId)) {
       return "Only moderators can remove members from the channel";
     }
 
-    if (!channel.members.has(input.userId)) {
+    if (!this.isChannelMember(normalizedId, input.userId)) {
       return "User is not a member of the channel";
     }
 
-    channel.moderators.remove(input.userId);
-    channel.members.remove(input.userId);
-    this.state.channels.set(normalizedId, channel);
+    const members = this.getOrCreateMembersVector(normalizedId);
+    const moderators = this.getOrCreateModeratorsVector(normalizedId);
+    this.removeFromVector(members, input.userId);
+    this.removeFromVector(moderators, input.userId);
+    this.state.channelMembers.set(normalizedId, members);
+    this.state.channelModerators.set(normalizedId, moderators);
     emit(new ChannelUninvited(normalizedId, executorId, input.userId));
     return "Member removed from channel";
   }
@@ -173,11 +249,11 @@ export class ChannelManager {
       return "Channel not found";
     }
 
-    if (!channel.moderators.has(executorId)) {
+    if (!this.isChannelModerator(normalizedId, executorId)) {
       return "Only moderators can promote other members";
     }
 
-    if (!channel.members.has(input.userId)) {
+    if (!this.isChannelMember(normalizedId, input.userId)) {
       return "User must be a member of the channel";
     }
 
@@ -186,8 +262,9 @@ export class ChannelManager {
       return "User must join the chat first";
     }
 
-    channel.moderators.set(input.userId, username);
-    this.state.channels.set(normalizedId, channel);
+    const moderators = this.getOrCreateModeratorsVector(normalizedId);
+    this.addToVector(moderators, input.userId);
+    this.state.channelModerators.set(normalizedId, moderators);
     emit(new ChannelModeratorPromoted(normalizedId, executorId, input.userId));
     return "Moderator added";
   }
@@ -199,16 +276,17 @@ export class ChannelManager {
       return "Channel not found";
     }
 
-    if (!channel.moderators.has(executorId)) {
+    if (!this.isChannelModerator(normalizedId, executorId)) {
       return "Only moderators can demote moderators";
     }
 
-    if (!channel.moderators.has(input.userId)) {
+    if (!this.isChannelModerator(normalizedId, input.userId)) {
       return "User is not a moderator";
     }
 
-    channel.moderators.remove(input.userId);
-    this.state.channels.set(normalizedId, channel);
+    const moderators = this.getOrCreateModeratorsVector(normalizedId);
+    this.removeFromVector(moderators, input.userId);
+    this.state.channelModerators.set(normalizedId, moderators);
     emit(new ChannelModeratorDemoted(normalizedId, executorId, input.userId));
     return "Moderator removed";
   }
@@ -224,11 +302,13 @@ export class ChannelManager {
       return "Default channels cannot be deleted";
     }
 
-    if (!channel.moderators.has(executorId)) {
+    if (!this.isChannelModerator(normalizedId, executorId)) {
       return "Only moderators can delete a channel";
     }
 
     this.state.channels.remove(normalizedId);
+    this.state.channelMembers.remove(normalizedId);
+    this.state.channelModerators.remove(normalizedId);
     emit(new ChannelDeleted(normalizedId, executorId));
     return "Channel deleted";
   }
@@ -244,7 +324,7 @@ export class ChannelManager {
       return "Channel is not public";
     }
 
-    if (channel.members.has(executorId)) {
+    if (this.isChannelMember(normalizedId, executorId)) {
       return "Already a member of the channel";
     }
 
@@ -253,9 +333,9 @@ export class ChannelManager {
       return "Join the chat before joining channels";
     }
 
-    // Modify the nested CRDT - changes persist automatically
-    // No need to re-set the channel, nested CRDT changes are persisted directly
-    channel.members.set(executorId, username);
+    const members = this.getOrCreateMembersVector(normalizedId);
+    this.addToVector(members, executorId);
+    this.state.channelMembers.set(normalizedId, members);
     emit(new ChannelJoined(normalizedId, executorId));
     return "Joined channel";
   }
@@ -271,25 +351,33 @@ export class ChannelManager {
       return "Cannot leave default channels";
     }
 
-    if (!channel.members.has(executorId)) {
+    if (!this.isChannelMember(normalizedId, executorId)) {
       return "User is not a member of the channel";
     }
 
-    // Modify the nested CRDTs - changes persist automatically
-    // No need to re-set the channel, nested CRDT changes are persisted directly
-    channel.members.remove(executorId);
-    channel.moderators.remove(executorId);
+    const members = this.getOrCreateMembersVector(normalizedId);
+    const moderators = this.getOrCreateModeratorsVector(normalizedId);
+    this.removeFromVector(members, executorId);
+    this.removeFromVector(moderators, executorId);
+    this.state.channelMembers.set(normalizedId, members);
+    this.state.channelModerators.set(normalizedId, moderators);
     emit(new ChannelLeft(normalizedId, executorId));
     return "Left channel";
   }
 
-  addUserToDefaultChannels(userId: UserId, username: Username): void {
+  addUserToDefaultChannels(userId: UserId, _username: Username): void {
     this.state.channels.entries().forEach(([channelId, metadata]) => {
-      if (metadata.type !== ChannelType.Default || metadata.members.has(userId)) {
+      if (metadata.type !== ChannelType.Default) {
         return;
       }
-      metadata.members.set(userId, username);
-      this.state.channels.set(channelId, metadata);
+
+      if (this.isChannelMember(channelId, userId)) {
+        return;
+      }
+
+      const members = this.getOrCreateMembersVector(channelId);
+      this.addToVector(members, userId);
+      this.state.channelMembers.set(channelId, members);
     });
   }
 
@@ -298,13 +386,24 @@ export class ChannelManager {
   }
 
   private formatChannelResponse(channelId: ChannelId, metadata: ChannelMetadata): ChannelMetadataResponse {
-    // Ensure nested maps are properly hydrated by using their IDs
-    // This ensures we're working with the actual CRDT instances
-    const membersId = metadata.members.id();
-    const moderatorsId = metadata.moderators.id();
+    // Get member and moderator user IDs from Vectors
+    const memberIds = this.getChannelMembers(channelId);
+    const moderatorIds = this.getChannelModerators(channelId);
     
-    const members = UnorderedMap.fromId<UserId, Username>(membersId);
-    const moderators = UnorderedMap.fromId<UserId, Username>(moderatorsId);
+    // Fetch usernames from this.members and combine
+    const members: ChannelMembershipEntry[] = memberIds
+      .map(userId => {
+        const username = this.state.members.get(userId);
+        return username ? { publicKey: userId, username } : null;
+      })
+      .filter((entry): entry is ChannelMembershipEntry => entry !== null);
+
+    const moderators: ChannelMembershipEntry[] = moderatorIds
+      .map(userId => {
+        const username = this.state.members.get(userId);
+        return username ? { publicKey: userId, username } : null;
+      })
+      .filter((entry): entry is ChannelMembershipEntry => entry !== null);
     
     return {
       channelId,
@@ -313,16 +412,8 @@ export class ChannelManager {
       createdBy: metadata.createdBy,
       createdByUsername: metadata.createdByUsername,
       readOnly: metadata.readOnly,
-      moderators: this.formatMembership(moderators),
-      members: this.formatMembership(members),
+      moderators,
+      members,
     };
   }
-
-  private formatMembership(map: UnorderedMap<UserId, Username>): ChannelMembershipEntry[] {
-    return map.entries().map(([userId, username]) => ({
-      publicKey: userId,
-      username,
-    }));
-  }
 }
-

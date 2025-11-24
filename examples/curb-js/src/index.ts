@@ -1,4 +1,4 @@
-import { env, Init, Logic, State, View, createUnorderedMap } from "@calimero/sdk";
+import { env, Init, Logic, State, View, createUnorderedMap, createVector } from "@calimero/sdk";
 import { UnorderedMap, UnorderedSet, Vector } from "@calimero/sdk/collections";
 
 import { ChannelManager } from "./channelManagement/channelManagement";
@@ -38,6 +38,8 @@ export class CurbChat {
   owner: UserId = "";
   members: UnorderedMap<UserId, Username> = createUnorderedMap();
   channels: UnorderedMap<ChannelId, ChannelMetadata> = createUnorderedMap();
+  channelMembers: UnorderedMap<ChannelId, Vector<UserId>> = createUnorderedMap();
+  channelModerators: UnorderedMap<ChannelId, Vector<UserId>> = createUnorderedMap();
   dmChats: UnorderedMap<UserId, Vector<DMChatInfo>> = createUnorderedMap();
   channelMessages: UnorderedMap<ChannelId, Vector<StoredMessage>> = createUnorderedMap();
   threadMessages: UnorderedMap<string, Vector<StoredMessage>> = createUnorderedMap();
@@ -62,6 +64,8 @@ export class CurbChatLogic extends CurbChat {
     chat.owner = executorId;
     chat.members = createUnorderedMap<UserId, Username>();
     chat.channels = createUnorderedMap<ChannelId, ChannelMetadata>();
+    chat.channelMembers = createUnorderedMap<string, Vector<UserId>>();
+    chat.channelModerators = createUnorderedMap<string, Vector<UserId>>();
     chat.dmChats = createUnorderedMap<UserId, Vector<DMChatInfo>>();
     chat.channelMessages = createUnorderedMap<ChannelId, Vector<StoredMessage>>();
     chat.threadMessages = createUnorderedMap<string, Vector<StoredMessage>>();
@@ -310,13 +314,17 @@ export class CurbChatLogic extends CurbChat {
     }
 
     const executorId = this.getExecutorId();
-    if (!channel.members.has(executorId)) {
+    const members = this.channelMembers.get(normalizedId);
+    if (!members || !members.toArray().includes(executorId)) {
       return this.wrapResult("Only channel members can view invitees");
     }
 
+    // Get all channel member IDs
+    const channelMemberIds = new Set(members.toArray());
+
     const invitees = this.members
       .entries()
-      .filter(([userId]) => !channel.members.has(userId))
+      .filter(([userId]) => !channelMemberIds.has(userId))
       .map(([userId, username]) => ({ userId, username }));
 
     return this.wrapResult(invitees);
@@ -334,8 +342,7 @@ export class CurbChatLogic extends CurbChat {
       return this.wrapResult(channel);
     }
 
-    const username =
-      channel.members.get(executorId) ?? this.members.get(executorId) ?? executorId;
+    const username = this.members.get(executorId) ?? executorId;
     const message = this.getMessageManager().sendMessage(executorId, username, args);
     return this.wrapResult(message);
   }
@@ -385,8 +392,10 @@ export class CurbChatLogic extends CurbChat {
       return this.wrapResult(channel);
     }
 
+    const normalizedId = args.channelId.trim().toLowerCase();
+    const moderators = this.channelModerators.get(normalizedId);
     const isModerator =
-      channel.moderators.has(executorId) ||
+      (moderators?.toArray().includes(executorId) ?? false) ||
       channel.createdBy === executorId ||
       this.owner === executorId;
 
@@ -414,9 +423,9 @@ export class CurbChatLogic extends CurbChat {
       return this.wrapResult(channel);
     }
 
-    // Get username from channel members or global members
-    // Use provided username or fallback to channel/global members
-    const username = args.username ?? channel.members.get(executorId) ?? this.members.get(executorId) ?? executorId;
+    // Get username from global members
+    // Use provided username or fallback to global members
+    const username = args.username ?? this.members.get(executorId) ?? executorId;
 
     const result = this.getMessageManager().updateReaction(args, username);
     return this.wrapResult(result);
@@ -469,7 +478,9 @@ export class CurbChatLogic extends CurbChat {
     if (!channel) {
       return "Channel not found";
     }
-    if (!channel.members.has(executorId)) {
+    
+    const members = this.channelMembers.get(normalizedId);
+    if (!members || !members.toArray().includes(executorId)) {
       return "You are not a member of this channel";
     }
     return channel;
@@ -482,22 +493,11 @@ export class CurbChatLogic extends CurbChat {
     timestamp: bigint,
     rawName: ChannelId,
     invitee?: UserId,
-    inviteeUsername?: Username,
+    _inviteeUsername?: Username,
   ): void {
     const channelId = rawName.trim().toLowerCase();
     if (!channelId || state.channels.has(channelId)) {
       return;
-    }
-
-    const moderators = createUnorderedMap<UserId, Username>();
-    moderators.set(ownerId, ownerUsername);
-
-    const members = createUnorderedMap<UserId, Username>();
-    members.set(ownerId, ownerUsername);
-
-    // If DM, add invitee to channel members
-    if (invitee) {
-      members.set(invitee, inviteeUsername ?? invitee);
     }
 
     const metadata: ChannelMetadata = {
@@ -506,10 +506,23 @@ export class CurbChatLogic extends CurbChat {
       createdBy: ownerId,
       createdByUsername: ownerUsername,
       readOnly: false,
-      moderators,
-      members,
     };
 
     state.channels.set(channelId, metadata);
+    
+    // Add owner as member and moderator
+    const members = createVector<UserId>();
+    members.push(ownerId);
+    state.channelMembers.set(channelId, members);
+    
+    const moderators = createVector<UserId>();
+    moderators.push(ownerId);
+    state.channelModerators.set(channelId, moderators);
+    
+    // If DM, add invitee to channel members
+    if (invitee) {
+      members.push(invitee);
+      state.channelMembers.set(channelId, members);
+    }
   }
 }
