@@ -1,5 +1,5 @@
-import { env, Init, Logic, State, View, createUnorderedMap, createVector } from "@calimero/sdk";
-import { UnorderedMap, UnorderedSet, Vector } from "@calimero/sdk/collections";
+import { env, Init, Logic, State, View, createUnorderedMap, createVector, createLwwRegister } from "@calimero/sdk";
+import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from "@calimero/sdk/collections";
 
 import { ChannelManager } from "./channelManagement/channelManagement";
 import {
@@ -38,8 +38,8 @@ export class CurbChat {
   owner: UserId = "";
   members: UnorderedMap<UserId, Username> = createUnorderedMap();
   channels: UnorderedMap<ChannelId, ChannelMetadata> = createUnorderedMap();
-  channelMembers: UnorderedMap<ChannelId, Vector<UserId>> = createUnorderedMap();
-  channelModerators: UnorderedMap<ChannelId, Vector<UserId>> = createUnorderedMap();
+  channelMembers: UnorderedMap<ChannelId, LwwRegister<Vector<UserId>>> = createUnorderedMap();
+  channelModerators: UnorderedMap<ChannelId, LwwRegister<Vector<UserId>>> = createUnorderedMap();
   dmChats: UnorderedMap<UserId, Vector<DMChatInfo>> = createUnorderedMap();
   channelMessages: UnorderedMap<ChannelId, Vector<StoredMessage>> = createUnorderedMap();
   threadMessages: UnorderedMap<string, Vector<StoredMessage>> = createUnorderedMap();
@@ -64,8 +64,8 @@ export class CurbChatLogic extends CurbChat {
     chat.owner = executorId;
     chat.members = createUnorderedMap<UserId, Username>();
     chat.channels = createUnorderedMap<ChannelId, ChannelMetadata>();
-    chat.channelMembers = createUnorderedMap<string, Vector<UserId>>();
-    chat.channelModerators = createUnorderedMap<string, Vector<UserId>>();
+    chat.channelMembers = createUnorderedMap<ChannelId, LwwRegister<Vector<UserId>>>();
+    chat.channelModerators = createUnorderedMap<ChannelId, LwwRegister<Vector<UserId>>>();
     chat.dmChats = createUnorderedMap<UserId, Vector<DMChatInfo>>();
     chat.channelMessages = createUnorderedMap<ChannelId, Vector<StoredMessage>>();
     chat.threadMessages = createUnorderedMap<string, Vector<StoredMessage>>();
@@ -314,7 +314,8 @@ export class CurbChatLogic extends CurbChat {
     }
 
     const executorId = this.getExecutorId();
-    const members = this.channelMembers.get(normalizedId);
+    const membersRegister = this.channelMembers.get(normalizedId);
+    const members = membersRegister?.get();
     if (!members || !members.toArray().includes(executorId)) {
       return this.wrapResult("Only channel members can view invitees");
     }
@@ -393,7 +394,8 @@ export class CurbChatLogic extends CurbChat {
     }
 
     const normalizedId = args.channelId.trim().toLowerCase();
-    const moderators = this.channelModerators.get(normalizedId);
+    const moderatorsRegister = this.channelModerators.get(normalizedId);
+    const moderators = moderatorsRegister?.get();
     const isModerator =
       (moderators?.toArray().includes(executorId) ?? false) ||
       channel.createdBy === executorId ||
@@ -479,7 +481,8 @@ export class CurbChatLogic extends CurbChat {
       return "Channel not found";
     }
     
-    const members = this.channelMembers.get(normalizedId);
+    const membersRegister = this.channelMembers.get(normalizedId);
+    const members = membersRegister?.get();
     if (!members || !members.toArray().includes(executorId)) {
       return "You are not a member of this channel";
     }
@@ -511,18 +514,17 @@ export class CurbChatLogic extends CurbChat {
     state.channels.set(channelId, metadata);
     
     // Add owner as member and moderator
-    const members = createVector<UserId>();
-    members.push(ownerId);
-    state.channelMembers.set(channelId, members);
-    
-    const moderators = createVector<UserId>();
-    moderators.push(ownerId);
-    state.channelModerators.set(channelId, moderators);
-    
-    // If DM, add invitee to channel members
+    const membersVector = createVector<UserId>();
+    membersVector.push(ownerId);
     if (invitee) {
-      members.push(invitee);
-      state.channelMembers.set(channelId, members);
+      membersVector.push(invitee);
     }
+    const membersRegister = createLwwRegister<Vector<UserId>>({ initialValue: membersVector });
+    state.channelMembers.set(channelId, membersRegister);
+    
+    const moderatorsVector = createVector<UserId>();
+    moderatorsVector.push(ownerId);
+    const moderatorsRegister = createLwwRegister<Vector<UserId>>({ initialValue: moderatorsVector });
+    state.channelModerators.set(channelId, moderatorsRegister);
   }
 }
