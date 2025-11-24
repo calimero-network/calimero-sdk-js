@@ -8,7 +8,8 @@
     "clean": "rm -rf build"
   },
   "dependencies": {
-    "@calimero/sdk": "workspace:*"
+    "@calimero/sdk": "workspace:*",
+    "bs58": "^5.0.0"
   },
   "devDependencies": {
     "@calimero/cli": "workspace:*",

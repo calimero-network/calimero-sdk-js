@@ -1,4 +1,4 @@
-import { emit } from "@calimero/sdk";
+import { emit, createVector } from "@calimero/sdk";
 import { UnorderedMap, Vector } from "@calimero/sdk/collections";
 
 import { ChannelType } from "../channelManagement/types";
@@ -108,7 +108,7 @@ export class DmManagement {
   private addDmToUser(userId: UserId, chat: DMChatInfo): void {
     let vector = this.dmChats.get(userId);
     if (!vector) {
-      vector = new Vector<DMChatInfo>();
+      vector = createVector<DMChatInfo>();
     }
     vector.push(chat);
     this.dmChats.set(userId, vector);
@@ -119,7 +119,7 @@ export class DmManagement {
     if (!existing) {
       return;
     }
-    const remaining = new Vector<DMChatInfo>();
+    const remaining = createVector<DMChatInfo>();
     for (const chat of existing.toArray()) {
       if (chat.otherIdentityOld !== otherUser) {
         remaining.push(chat);
@@ -129,7 +129,7 @@ export class DmManagement {
   }
 
   private updateOwnIdentity(vector: Vector<DMChatInfo>, otherUser: UserId, newIdentity: UserId): Vector<DMChatInfo> {
-    const updated = new Vector<DMChatInfo>();
+    const updated = createVector<DMChatInfo>();
     for (const chat of vector.toArray()) {
       if (chat.otherIdentityOld === otherUser) {
         updated.push({
@@ -145,7 +145,7 @@ export class DmManagement {
   }
 
   private updateOtherIdentity(vector: Vector<DMChatInfo>, executorId: UserId, newIdentity: UserId): Vector<DMChatInfo> {
-    const updated = new Vector<DMChatInfo>();
+    const updated = createVector<DMChatInfo>();
     for (const chat of vector.toArray()) {
       if (chat.otherIdentityOld === executorId) {
         updated.push({

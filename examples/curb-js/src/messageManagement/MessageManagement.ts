@@ -1,9 +1,21 @@
-import { emit, env } from "@calimero/sdk";
+import { emit, env, createUnorderedMap, createVector, createUnorderedSet } from "@calimero/sdk";
 import { UnorderedMap, UnorderedSet, Vector } from "@calimero/sdk/collections";
+import { blobAnnounceToContext, contextId } from "@calimero/sdk/env";
+import bs58 from "bs58";
 
 import type { StoredMessage, SendMessageArgs, EditMessageArgs, DeleteMessageArgs, UpdateReactionArgs, GetMessagesArgs, FullMessageResponse, MessageWithReactions, Reaction } from "./types";
 import type { UserId } from "../types";
 import { MessageSent, MessageSentThread, ReactionUpdated } from "./events";
+
+const BLOB_ID_BYTES = 32;
+
+function blobIdFromString(value: string): Uint8Array {
+  const decoded = bs58.decode(value);
+  if (decoded.length !== BLOB_ID_BYTES) {
+    throw new Error(`Blob ID must decode to exactly ${BLOB_ID_BYTES} bytes`);
+  }
+  return decoded;
+}
 
 export class MessageManagement {
   constructor(
@@ -20,6 +32,39 @@ export class MessageManagement {
     const timestamp = env.timeNow();
     const messageId =
       args.messageId ?? this.generateMessageId(args.channelId, executorId, timestamp);
+
+    // Announce blobs to context for discovery
+    const currentContext = contextId();
+    
+    // Announce image blobs
+    if (args.images) {
+      for (const image of args.images) {
+        try {
+          const blobBytes = blobIdFromString(image.blob_id_str);
+          const announced = blobAnnounceToContext(blobBytes, currentContext);
+          if (!announced) {
+            env.log(`Warning: failed to announce image blob ${image.blob_id_str} to context`);
+          }
+        } catch (error) {
+          env.log(`Warning: failed to decode image blob ID ${image.blob_id_str}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+    }
+
+    // Announce file blobs
+    if (args.files) {
+      for (const file of args.files) {
+        try {
+          const blobBytes = blobIdFromString(file.blob_id_str);
+          const announced = blobAnnounceToContext(blobBytes, currentContext);
+          if (!announced) {
+            env.log(`Warning: failed to announce file blob ${file.blob_id_str} to context`);
+          }
+        } catch (error) {
+          env.log(`Warning: failed to decode file blob ID ${file.blob_id_str}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+    }
 
     const payload: StoredMessage = {
       id: messageId,
@@ -264,12 +309,12 @@ export class MessageManagement {
   updateReaction(args: UpdateReactionArgs, username: string): string {
     let reactionMap = this.reactions.get(args.messageId);
     if (!reactionMap) {
-      reactionMap = new UnorderedMap<string, UnorderedSet<UserId>>();
+      reactionMap = createUnorderedMap<string, UnorderedSet<UserId>>();
     }
 
     let users = reactionMap.get(args.emoji);
     if (!users) {
-      users = new UnorderedSet<UserId>();
+      users = createUnorderedSet<UserId>();
     }
 
     if (args.add) {
@@ -288,7 +333,7 @@ export class MessageManagement {
   private appendToVector(map: UnorderedMap<string, Vector<StoredMessage>>, key: string, value: StoredMessage): void {
     let vector = map.get(key);
     if (!vector) {
-      vector = new Vector<StoredMessage>();
+      vector = createVector<StoredMessage>();
     }
     vector.push(value);
     map.set(key, vector);
@@ -320,7 +365,7 @@ export class MessageManagement {
           return result.error;
         }
         const updated = result.value;
-        const newVector = new Vector<StoredMessage>();
+        const newVector = createVector<StoredMessage>();
         for (let i = 0; i < items.length; i += 1) {
           newVector.push(i === index ? updated : items[i]);
         }

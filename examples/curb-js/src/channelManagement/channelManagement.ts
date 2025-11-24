@@ -1,4 +1,4 @@
-import { emit, env } from "@calimero/sdk";
+import { emit, env, createUnorderedMap } from "@calimero/sdk";
 import { UnorderedMap } from "@calimero/sdk/collections";
 
 import { isUsernameTaken } from "../utils/members";
@@ -89,10 +89,10 @@ export class ChannelManager {
       return "Channel type must be public or private";
     }
 
-    const moderators = new UnorderedMap<UserId, Username>();
+    const moderators = createUnorderedMap<UserId, Username>();
     moderators.set(executorId, executorUsername);
 
-    const members = new UnorderedMap<UserId, Username>();
+    const members = createUnorderedMap<UserId, Username>();
     members.set(executorId, executorUsername);
 
     const metadata: ChannelMetadata = {
@@ -253,8 +253,9 @@ export class ChannelManager {
       return "Join the chat before joining channels";
     }
 
+    // Modify the nested CRDT - changes persist automatically
+    // No need to re-set the channel, nested CRDT changes are persisted directly
     channel.members.set(executorId, username);
-    this.state.channels.set(normalizedId, channel);
     emit(new ChannelJoined(normalizedId, executorId));
     return "Joined channel";
   }
@@ -274,9 +275,10 @@ export class ChannelManager {
       return "User is not a member of the channel";
     }
 
+    // Modify the nested CRDTs - changes persist automatically
+    // No need to re-set the channel, nested CRDT changes are persisted directly
     channel.members.remove(executorId);
     channel.moderators.remove(executorId);
-    this.state.channels.set(normalizedId, channel);
     emit(new ChannelLeft(normalizedId, executorId));
     return "Left channel";
   }
@@ -296,6 +298,14 @@ export class ChannelManager {
   }
 
   private formatChannelResponse(channelId: ChannelId, metadata: ChannelMetadata): ChannelMetadataResponse {
+    // Ensure nested maps are properly hydrated by using their IDs
+    // This ensures we're working with the actual CRDT instances
+    const membersId = metadata.members.id();
+    const moderatorsId = metadata.moderators.id();
+    
+    const members = UnorderedMap.fromId<UserId, Username>(membersId);
+    const moderators = UnorderedMap.fromId<UserId, Username>(moderatorsId);
+    
     return {
       channelId,
       type: metadata.type,
@@ -303,8 +313,8 @@ export class ChannelManager {
       createdBy: metadata.createdBy,
       createdByUsername: metadata.createdByUsername,
       readOnly: metadata.readOnly,
-      moderators: this.formatMembership(metadata.moderators),
-      members: this.formatMembership(metadata.members),
+      moderators: this.formatMembership(moderators),
+      members: this.formatMembership(members),
     };
   }
 

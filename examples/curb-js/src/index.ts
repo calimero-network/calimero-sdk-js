@@ -1,4 +1,4 @@
-import { env, Init, Logic, State, View } from "@calimero/sdk";
+import { env, Init, Logic, State, View, createUnorderedMap } from "@calimero/sdk";
 import { UnorderedMap, UnorderedSet, Vector } from "@calimero/sdk/collections";
 
 import { ChannelManager } from "./channelManagement/channelManagement";
@@ -36,13 +36,13 @@ import { isUsernameTaken } from "./utils/members";
 @State
 export class CurbChat {
   owner: UserId = "";
-  members: UnorderedMap<UserId, Username> = new UnorderedMap();
-  channels: UnorderedMap<ChannelId, ChannelMetadata> = new UnorderedMap();
-  dmChats: UnorderedMap<UserId, Vector<DMChatInfo>> = new UnorderedMap();
-  channelMessages: UnorderedMap<ChannelId, Vector<StoredMessage>> = new UnorderedMap();
-  threadMessages: UnorderedMap<string, Vector<StoredMessage>> = new UnorderedMap();
+  members: UnorderedMap<UserId, Username> = createUnorderedMap();
+  channels: UnorderedMap<ChannelId, ChannelMetadata> = createUnorderedMap();
+  dmChats: UnorderedMap<UserId, Vector<DMChatInfo>> = createUnorderedMap();
+  channelMessages: UnorderedMap<ChannelId, Vector<StoredMessage>> = createUnorderedMap();
+  threadMessages: UnorderedMap<string, Vector<StoredMessage>> = createUnorderedMap();
   messageReactions: UnorderedMap<string, UnorderedMap<string, UnorderedSet<UserId>>> =
-    new UnorderedMap();
+    createUnorderedMap();
 }
 
 @Logic(CurbChat)
@@ -60,12 +60,12 @@ export class CurbChatLogic extends CurbChat {
 
     const chat = new CurbChat();
     chat.owner = executorId;
-    chat.members = new UnorderedMap<UserId, Username>();
-    chat.channels = new UnorderedMap<ChannelId, ChannelMetadata>();
-    chat.dmChats = new UnorderedMap<UserId, Vector<DMChatInfo>>();
-    chat.channelMessages = new UnorderedMap<ChannelId, Vector<StoredMessage>>();
-    chat.threadMessages = new UnorderedMap<string, Vector<StoredMessage>>();
-    chat.messageReactions = new UnorderedMap<
+    chat.members = createUnorderedMap<UserId, Username>();
+    chat.channels = createUnorderedMap<ChannelId, ChannelMetadata>();
+    chat.dmChats = createUnorderedMap<UserId, Vector<DMChatInfo>>();
+    chat.channelMessages = createUnorderedMap<ChannelId, Vector<StoredMessage>>();
+    chat.threadMessages = createUnorderedMap<string, Vector<StoredMessage>>();
+    chat.messageReactions = createUnorderedMap<
       string,
       UnorderedMap<string, UnorderedSet<UserId>>
     >();
@@ -489,10 +489,10 @@ export class CurbChatLogic extends CurbChat {
       return;
     }
 
-    const moderators = new UnorderedMap<UserId, Username>();
+    const moderators = createUnorderedMap<UserId, Username>();
     moderators.set(ownerId, ownerUsername);
 
-    const members = new UnorderedMap<UserId, Username>();
+    const members = createUnorderedMap<UserId, Username>();
     members.set(ownerId, ownerUsername);
 
     // If DM, add invitee to channel members
