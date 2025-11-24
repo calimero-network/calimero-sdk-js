@@ -254,7 +254,6 @@ export class ChannelManager {
       newVector.push(input.userId);
     }
     register.set(newVector);
-    this.state.channelMembers.set(normalizedId, register);
     emit(new ChannelInvited(normalizedId, executorId, input.userId));
     return "Member added to channel";
   }
@@ -286,7 +285,6 @@ export class ChannelManager {
       }
     }
     membersRegister.set(newMembers);
-    this.state.channelMembers.set(normalizedId, membersRegister);
     
     const currentModerators = moderatorsRegister.get() ?? createVector<UserId>();
     const newModerators = createVector<UserId>();
@@ -296,7 +294,6 @@ export class ChannelManager {
       }
     }
     moderatorsRegister.set(newModerators);
-    this.state.channelModerators.set(normalizedId, moderatorsRegister);
     
     emit(new ChannelUninvited(normalizedId, executorId, input.userId));
     return "Member removed from channel";
@@ -334,7 +331,6 @@ export class ChannelManager {
       newVector.push(input.userId);
     }
     register.set(newVector);
-    this.state.channelModerators.set(normalizedId, register);
     emit(new ChannelModeratorPromoted(normalizedId, executorId, input.userId));
     return "Moderator added";
   }
@@ -364,7 +360,6 @@ export class ChannelManager {
       }
     }
     register.set(newVector);
-    this.state.channelModerators.set(normalizedId, register);
     emit(new ChannelModeratorDemoted(normalizedId, executorId, input.userId));
     return "Moderator removed";
   }
@@ -423,7 +418,6 @@ export class ChannelManager {
       newVector.push(executorId);
     }
     register.set(newVector);
-    this.state.channelMembers.set(normalizedId, register);
     emit(new ChannelJoined(normalizedId, executorId));
     return "Joined channel";
   }
@@ -455,7 +449,6 @@ export class ChannelManager {
       }
     }
     membersRegister.set(newMembers);
-    this.state.channelMembers.set(normalizedId, membersRegister);
     
     // Create new moderators vector without the leaving user
     const currentModerators = moderatorsRegister.get() ?? createVector<UserId>();
@@ -466,7 +459,6 @@ export class ChannelManager {
       }
     }
     moderatorsRegister.set(newModerators);
-    this.state.channelModerators.set(normalizedId, moderatorsRegister);
     
     emit(new ChannelLeft(normalizedId, executorId));
     return "Left channel";
@@ -500,7 +492,6 @@ export class ChannelManager {
         newVector.push(userId);
       }
       register.set(newVector);
-      this.state.channelMembers.set(channelId, register);
     });
   }
 
