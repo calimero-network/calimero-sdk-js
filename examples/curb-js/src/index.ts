@@ -43,7 +43,7 @@ export class CurbChat {
   dmChats: UnorderedMap<UserId, Vector<DMChatInfo>> = createUnorderedMap();
   channelMessages: UnorderedMap<ChannelId, LwwRegister<Vector<StoredMessage>>> = createUnorderedMap();
   threadMessages: UnorderedMap<string, LwwRegister<Vector<StoredMessage>>> = createUnorderedMap();
-  messageReactions: UnorderedMap<string, UnorderedMap<string, UnorderedSet<UserId>>> =
+  messageReactions: UnorderedMap<string, LwwRegister<UnorderedMap<string, UnorderedSet<UserId>>>> =
     createUnorderedMap();
 }
 
@@ -71,7 +71,7 @@ export class CurbChatLogic extends CurbChat {
     chat.threadMessages = createUnorderedMap<string, LwwRegister<Vector<StoredMessage>>>();
     chat.messageReactions = createUnorderedMap<
       string,
-      UnorderedMap<string, UnorderedSet<UserId>>
+      LwwRegister<UnorderedMap<string, UnorderedSet<UserId>>>
     >();
 
     // Add owner to members and map username

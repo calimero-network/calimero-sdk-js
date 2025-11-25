@@ -9,7 +9,7 @@ export class MessageManagement {
   constructor(
     private readonly messages: UnorderedMap<string, LwwRegister<Vector<StoredMessage>>>,
     private readonly threads: UnorderedMap<string, LwwRegister<Vector<StoredMessage>>>,
-    private readonly reactions: UnorderedMap<string, UnorderedMap<string, UnorderedSet<UserId>>>,
+    private readonly reactions: UnorderedMap<string, LwwRegister<UnorderedMap<string, UnorderedSet<UserId>>>>,
   ) {}
 
   sendMessage(
@@ -93,25 +93,28 @@ export class MessageManagement {
 
     // Add reactions and thread info to each message
     const messagesWithReactions: MessageWithReactions[] = slicedMessages.map(message => {
-      const reactionMap = this.reactions.get(message.id);
+      const reactionRegister = this.reactions.get(message.id);
       const reactions: Reaction[] = [];
 
-      if (reactionMap) {
-        try {
-          const emojiEntries = reactionMap.entries();
-          for (const [emoji, users] of emojiEntries) {
-            try {
-              reactions.push({
-                emoji,
-                users: users.toArray(),
-              });
-            } catch {
-              // User set might not be synced yet, skip this reaction
-              continue;
+      if (reactionRegister) {
+        const reactionMap = reactionRegister.get();
+        if (reactionMap) {
+          try {
+            const emojiEntries = reactionMap.entries();
+            for (const [emoji, users] of emojiEntries) {
+              try {
+                reactions.push({
+                  emoji,
+                  users: users.toArray(),
+                });
+              } catch {
+                // User set might not be synced yet, skip this reaction
+                continue;
+              }
             }
+          } catch {
+            // Reaction map might not be synced yet, skip reactions
           }
-        } catch {
-          // Reaction map might not be synced yet, skip reactions
         }
       }
 
@@ -241,7 +244,13 @@ export class MessageManagement {
       emit(new MessageSent(args.channelId, args.messageId));
     }
 
-    this.reactions.remove(args.messageId);
+    // Remove reactions for deleted message
+    const reactionRegister = this.reactions.get(args.messageId);
+    if (reactionRegister) {
+      // Create an empty map and set it in the register to clear reactions
+      const emptyMap = createUnorderedMap<string, UnorderedSet<UserId>>();
+      reactionRegister.set(emptyMap);
+    }
     return "Message deleted";
   }
 
@@ -299,10 +308,14 @@ export class MessageManagement {
   }
 
   updateReaction(args: UpdateReactionArgs, username: string): string {
-    let reactionMap = this.reactions.get(args.messageId);
-    if (!reactionMap) {
-      reactionMap = createUnorderedMap<string, UnorderedSet<UserId>>();
+    let reactionRegister = this.reactions.get(args.messageId);
+    if (!reactionRegister) {
+      const reactionMap = createUnorderedMap<string, UnorderedSet<UserId>>();
+      reactionRegister = createLwwRegister<UnorderedMap<string, UnorderedSet<UserId>>>({ initialValue: reactionMap });
+      this.reactions.set(args.messageId, reactionRegister);
     }
+
+    let reactionMap = reactionRegister.get() ?? createUnorderedMap<string, UnorderedSet<UserId>>();
 
     let users = reactionMap.get(args.emoji);
     if (!users) {
@@ -316,7 +329,8 @@ export class MessageManagement {
     }
 
     reactionMap.set(args.emoji, users);
-    this.reactions.set(args.messageId, reactionMap);
+    // Set the updated map back in the register
+    reactionRegister.set(reactionMap);
 
     emit(new ReactionUpdated(args.messageId));
     return "Reaction updated";
