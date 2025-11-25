@@ -41,8 +41,8 @@ export class CurbChat {
   channelMembers: UnorderedMap<ChannelId, LwwRegister<Vector<UserId>>> = createUnorderedMap();
   channelModerators: UnorderedMap<ChannelId, LwwRegister<Vector<UserId>>> = createUnorderedMap();
   dmChats: UnorderedMap<UserId, Vector<DMChatInfo>> = createUnorderedMap();
-  channelMessages: UnorderedMap<ChannelId, Vector<StoredMessage>> = createUnorderedMap();
-  threadMessages: UnorderedMap<string, Vector<StoredMessage>> = createUnorderedMap();
+  channelMessages: UnorderedMap<ChannelId, LwwRegister<Vector<StoredMessage>>> = createUnorderedMap();
+  threadMessages: UnorderedMap<string, LwwRegister<Vector<StoredMessage>>> = createUnorderedMap();
   messageReactions: UnorderedMap<string, UnorderedMap<string, UnorderedSet<UserId>>> =
     createUnorderedMap();
 }
@@ -67,8 +67,8 @@ export class CurbChatLogic extends CurbChat {
     chat.channelMembers = createUnorderedMap<ChannelId, LwwRegister<Vector<UserId>>>();
     chat.channelModerators = createUnorderedMap<ChannelId, LwwRegister<Vector<UserId>>>();
     chat.dmChats = createUnorderedMap<UserId, Vector<DMChatInfo>>();
-    chat.channelMessages = createUnorderedMap<ChannelId, Vector<StoredMessage>>();
-    chat.threadMessages = createUnorderedMap<string, Vector<StoredMessage>>();
+    chat.channelMessages = createUnorderedMap<ChannelId, LwwRegister<Vector<StoredMessage>>>();
+    chat.threadMessages = createUnorderedMap<string, LwwRegister<Vector<StoredMessage>>>();
     chat.messageReactions = createUnorderedMap<
       string,
       UnorderedMap<string, UnorderedSet<UserId>>
