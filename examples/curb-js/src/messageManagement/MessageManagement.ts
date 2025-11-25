@@ -364,34 +364,67 @@ export class MessageManagement {
       this.reactions.set(args.messageId, reactionRegister);
     }
 
-    const reactionMap = reactionRegister.get() ?? createUnorderedMap<string, UnorderedSet<UserId>>();
+    const currentMap = reactionRegister.get() ?? createUnorderedMap<string, UnorderedSet<UserId>>();
+    
+    // Create a new map to ensure proper CRDT synchronization
+    const newMap = createUnorderedMap<string, UnorderedSet<UserId>>();
 
-    let users = reactionMap.get(args.emoji);
-    if (!users) {
-      users = createUnorderedSet<UserId>();
-    }
-
-    if (args.add) {
-      users.add(username);
-      reactionMap.set(args.emoji, users);
-    } else {
-      users.delete(username);
-      // If the users set is now empty, remove the emoji from the map entirely
-      try {
-        const userArray = users.toArray();
-        if (userArray.length === 0) {
-          reactionMap.remove(args.emoji);
-        } else {
-          reactionMap.set(args.emoji, users);
+    // Copy all existing reactions except the one we're modifying
+    const entries = currentMap.entries();
+    for (const [emoji, users] of entries) {
+      if (emoji !== args.emoji) {
+        // Copy non-empty user sets to the new map
+        try {
+          const userArray = users.toArray();
+          if (userArray.length > 0) {
+            newMap.set(emoji, users);
+          }
+        } catch {
+          // If toArray fails, skip this entry
+          continue;
         }
-      } catch {
-        // If toArray fails, assume it's empty and remove the emoji
-        reactionMap.remove(args.emoji);
       }
     }
 
-    // Set the updated map back in the register
-    reactionRegister.set(reactionMap);
+    // Handle the emoji we're updating
+    if (args.add) {
+      // Adding a reaction
+      const existingUsers = currentMap.get(args.emoji);
+      let users: UnorderedSet<UserId>;
+      
+      if (existingUsers) {
+        // Use existing set and add the user
+        users = existingUsers;
+        users.add(username);
+      } else {
+        // Create new set with the user
+        users = createUnorderedSet<UserId>();
+        users.add(username);
+      }
+      newMap.set(args.emoji, users);
+    } else {
+      // Removing a reaction
+      const existingUsers = currentMap.get(args.emoji);
+      if (existingUsers) {
+        const updatedUsers = existingUsers;
+        updatedUsers.delete(username);
+        
+        // Only add to new map if there are still users
+        try {
+          const userArray = updatedUsers.toArray();
+          if (userArray.length > 0) {
+            newMap.set(args.emoji, updatedUsers);
+          }
+          // If empty, don't add it to the new map (effectively removing it)
+        } catch {
+          // If toArray fails, assume empty and don't add it
+        }
+      }
+      // If emoji doesn't exist, nothing to remove
+    }
+
+    // Set the new map back in the register
+    reactionRegister.set(newMap);
 
     emit(new ReactionUpdated(args.messageId));
     return "Reaction updated";
