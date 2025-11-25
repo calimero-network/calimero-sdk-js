@@ -1,9 +1,21 @@
 import { emit, env, createUnorderedMap, createVector, createUnorderedSet, createLwwRegister } from "@calimero/sdk";
 import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from "@calimero/sdk/collections";
+import { blobAnnounceToContext, contextId } from "@calimero/sdk/env";
+import bs58 from "bs58";
 
 import type { StoredMessage, SendMessageArgs, EditMessageArgs, DeleteMessageArgs, UpdateReactionArgs, GetMessagesArgs, FullMessageResponse, MessageWithReactions, Reaction } from "./types";
 import type { UserId } from "../types";
 import { MessageSent, MessageSentThread, ReactionUpdated } from "./events";
+
+const BLOB_ID_BYTES = 32;
+
+function blobIdFromString(value: string): Uint8Array {
+  const decoded = bs58.decode(value);
+  if (decoded.length !== BLOB_ID_BYTES) {
+    throw new Error(`Blob ID must decode to exactly ${BLOB_ID_BYTES} bytes`);
+  }
+  return decoded;
+}
 
 export class MessageManagement {
   constructor(
@@ -20,6 +32,39 @@ export class MessageManagement {
     const timestamp = env.timeNow();
     const messageId =
       args.messageId ?? this.generateMessageId(args.channelId, executorId, timestamp);
+
+    // Announce blobs to context for discovery
+    const currentContext = contextId();
+
+    // Announce image blobs
+    if (args.images) {
+      for (const image of args.images) {
+        try {
+          const blobBytes = blobIdFromString(image.blob_id_str);
+          const announced = blobAnnounceToContext(blobBytes, currentContext);
+          if (!announced) {
+            env.log(`Warning: failed to announce image blob ${image.blob_id_str} to context`);
+          }
+        } catch (error) {
+          env.log(`Warning: failed to decode image blob ID ${image.blob_id_str}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+    }
+
+    // Announce file blobs
+    if (args.files) {
+      for (const file of args.files) {
+        try {
+          const blobBytes = blobIdFromString(file.blob_id_str);
+          const announced = blobAnnounceToContext(blobBytes, currentContext);
+          if (!announced) {
+            env.log(`Warning: failed to announce file blob ${file.blob_id_str} to context`);
+          }
+        } catch (error) {
+          env.log(`Warning: failed to decode file blob ID ${file.blob_id_str}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+    }
 
     const payload: StoredMessage = {
       id: messageId,
@@ -103,10 +148,14 @@ export class MessageManagement {
             const emojiEntries = reactionMap.entries();
             for (const [emoji, users] of emojiEntries) {
               try {
-                reactions.push({
-                  emoji,
-                  users: users.toArray(),
-                });
+                const userArray = users.toArray();
+                // Only include reactions that have at least one user
+                if (userArray.length > 0) {
+                  reactions.push({
+                    emoji,
+                    users: userArray,
+                  });
+                }
               } catch {
                 // User set might not be synced yet, skip this reaction
                 continue;
@@ -163,7 +212,7 @@ export class MessageManagement {
     const map = args.parentId ? this.threads : this.messages;
     const key = args.parentId ? args.parentId : args.channelId;
     
-    let register = map.get(key);
+    const register = map.get(key);
     if (!register) {
       return "Message not found";
     }
@@ -207,7 +256,7 @@ export class MessageManagement {
     const map = args.parentId ? this.threads : this.messages;
     const key = args.parentId ? args.parentId : args.channelId;
     
-    let register = map.get(key);
+    const register = map.get(key);
     if (!register) {
       return "Message not found";
     }
@@ -315,7 +364,7 @@ export class MessageManagement {
       this.reactions.set(args.messageId, reactionRegister);
     }
 
-    let reactionMap = reactionRegister.get() ?? createUnorderedMap<string, UnorderedSet<UserId>>();
+    const reactionMap = reactionRegister.get() ?? createUnorderedMap<string, UnorderedSet<UserId>>();
 
     let users = reactionMap.get(args.emoji);
     if (!users) {
@@ -324,11 +373,23 @@ export class MessageManagement {
 
     if (args.add) {
       users.add(username);
+      reactionMap.set(args.emoji, users);
     } else {
       users.delete(username);
+      // If the users set is now empty, remove the emoji from the map entirely
+      try {
+        const userArray = users.toArray();
+        if (userArray.length === 0) {
+          reactionMap.remove(args.emoji);
+        } else {
+          reactionMap.set(args.emoji, users);
+        }
+      } catch {
+        // If toArray fails, assume it's empty and remove the emoji
+        reactionMap.remove(args.emoji);
+      }
     }
 
-    reactionMap.set(args.emoji, users);
     // Set the updated map back in the register
     reactionRegister.set(reactionMap);
 
