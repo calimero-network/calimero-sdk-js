@@ -13,6 +13,7 @@
     "test:unit": "cd tests/unit && pnpm test",
     "test:integration": "cd tests/integration && pnpm test",
     "test:e2e": "cd tests/e2e && pnpm test",
+    "test:workflows": "bash scripts/test-workflows.sh",
     "lint": "eslint . --ext .ts,.js",
     "lint:fix": "eslint . --ext .ts,.js --fix",
     "format": "prettier --write \"**/*.{ts,js,json,md}\"",
