@@ -1,4 +1,4 @@
-import { env, Init, Logic, State, View, createUnorderedMap, createVector, createLwwRegister } from "@calimero/sdk";
+import { env, Init, Logic, State, View, createUnorderedMap, createVector, createLwwRegister, createUnorderedSet } from "@calimero/sdk";
 import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from "@calimero/sdk/collections";
 
 import { ChannelManager } from "./channelManagement/channelManagement";
@@ -29,6 +29,9 @@ import {
   type EditMessageArgs,
   type DeleteMessageArgs,
   type UpdateReactionArgs,
+  type ReadMessageProps,
+  type ReadDmProps,
+  type UpdateDmHashProps,
   type StoredMessage,
 } from "./messageManagement";
 import { isUsernameTaken } from "./utils/members";
@@ -38,13 +41,11 @@ export class CurbChat {
   owner: UserId = "";
   members: UnorderedMap<UserId, Username> = createUnorderedMap();
   channels: UnorderedMap<ChannelId, ChannelMetadata> = createUnorderedMap();
-  channelMembers: UnorderedMap<ChannelId, LwwRegister<Vector<UserId>>> = createUnorderedMap();
-  channelModerators: UnorderedMap<ChannelId, LwwRegister<Vector<UserId>>> = createUnorderedMap();
   dmChats: UnorderedMap<UserId, Vector<DMChatInfo>> = createUnorderedMap();
-  channelMessages: UnorderedMap<ChannelId, LwwRegister<Vector<StoredMessage>>> = createUnorderedMap();
-  threadMessages: UnorderedMap<string, LwwRegister<Vector<StoredMessage>>> = createUnorderedMap();
-  messageReactions: UnorderedMap<string, LwwRegister<UnorderedMap<string, UnorderedSet<UserId>>>> =
-    createUnorderedMap();
+  // Track last read message timestamp per user per channel
+  channelReadPositions: UnorderedMap<ChannelId, UnorderedMap<UserId, LwwRegister<bigint>>> = createUnorderedMap();
+  // Track last read hash per user per DM context
+  dmReadHashes: UnorderedMap<string, UnorderedMap<UserId, LwwRegister<string>>> = createUnorderedMap();
 }
 
 @Logic(CurbChat)
@@ -64,15 +65,9 @@ export class CurbChatLogic extends CurbChat {
     chat.owner = executorId;
     chat.members = createUnorderedMap<UserId, Username>();
     chat.channels = createUnorderedMap<ChannelId, ChannelMetadata>();
-    chat.channelMembers = createUnorderedMap<ChannelId, LwwRegister<Vector<UserId>>>();
-    chat.channelModerators = createUnorderedMap<ChannelId, LwwRegister<Vector<UserId>>>();
     chat.dmChats = createUnorderedMap<UserId, Vector<DMChatInfo>>();
-    chat.channelMessages = createUnorderedMap<ChannelId, LwwRegister<Vector<StoredMessage>>>();
-    chat.threadMessages = createUnorderedMap<string, LwwRegister<Vector<StoredMessage>>>();
-    chat.messageReactions = createUnorderedMap<
-      string,
-      LwwRegister<UnorderedMap<string, UnorderedSet<UserId>>>
-    >();
+    chat.channelReadPositions = createUnorderedMap<ChannelId, UnorderedMap<UserId, LwwRegister<bigint>>>();
+    chat.dmReadHashes = createUnorderedMap<string, UnorderedMap<UserId, LwwRegister<string>>>();
 
     // Add owner to members and map username
     chat.members.set(executorId, ownerUsername);
@@ -314,9 +309,8 @@ export class CurbChatLogic extends CurbChat {
     }
 
     const executorId = this.getExecutorId();
-    const membersRegister = this.channelMembers.get(normalizedId);
-    const members = membersRegister?.get();
-    if (!members || !members.toArray().includes(executorId)) {
+    const members = channel.channelMembers.get();
+    if (!members || !members.has(executorId)) {
       return this.wrapResult("Only channel members can view invitees");
     }
 
@@ -393,11 +387,9 @@ export class CurbChatLogic extends CurbChat {
       return this.wrapResult(channel);
     }
 
-    const normalizedId = args.channelId.trim().toLowerCase();
-    const moderatorsRegister = this.channelModerators.get(normalizedId);
-    const moderators = moderatorsRegister?.get();
+    const moderators = channel.channelModerators.get();
     const isModerator =
-      (moderators?.toArray().includes(executorId) ?? false) ||
+      (moderators?.has(executorId) ?? false) ||
       channel.createdBy === executorId ||
       this.owner === executorId;
 
@@ -433,16 +425,59 @@ export class CurbChatLogic extends CurbChat {
     return this.wrapResult(result);
   }
 
+  readMessage(rawInput: ReadMessageProps | { input: ReadMessageProps }): string {
+    const args = this.extractInput(rawInput);
+    if (!args || typeof args.channelId !== "string" || typeof args.messageId !== "string") {
+      return this.wrapResult("Invalid read message input");
+    }
+
+    const executorId = this.getExecutorId();
+    const channel = this.ensureChannelAccess(args.channelId, executorId);
+    if (typeof channel === "string") {
+      return this.wrapResult(channel);
+    }
+
+    const result = this.getMessageManager().readMessage(executorId, args, channel);
+    return this.wrapResult(result);
+  }
+
+  updateDmHash(rawInput: UpdateDmHashProps | { input: UpdateDmHashProps }): string {
+    const args = this.extractInput(rawInput);
+    if (!args || typeof args.contextId !== "string" || typeof args.newHash !== "string") {
+      return this.wrapResult("Invalid update DM hash input");
+    }
+
+    const executorId = this.getExecutorId();
+    const result = this.getDmManager().updateDmHash(executorId, args.contextId, args.newHash);
+    return this.wrapResult(result);
+  }
+
+  readDm(rawInput: ReadDmProps | { input: ReadDmProps }): string {
+    const args = this.extractInput(rawInput);
+    if (!args || typeof args.contextId !== "string") {
+      return this.wrapResult("Invalid read DM input");
+    }
+
+    const executorId = this.getExecutorId();
+    const result = this.getDmManager().readDm(executorId, args.contextId);
+    return this.wrapResult(result);
+  }
+
   private getChannelManager(): ChannelManager {
-    return new ChannelManager(this);
+    return new ChannelManager({
+      owner: this.owner,
+      members: this.members,
+      channels: this.channels,
+      channelReadPositions: this.channelReadPositions,
+    });
   }
 
   private getDmManager(): DmManagement {
-    return new DmManagement(this.dmChats);
+    return new DmManagement(this.dmChats, this.dmReadHashes);
   }
 
   private getMessageManager(): MessageManagement {
-    return new MessageManagement(this.channelMessages, this.threadMessages, this.messageReactions);
+    return new MessageManagement(this.channels, this.channelReadPositions);
   }
 
   private getExecutorId(): UserId {
@@ -481,9 +516,8 @@ export class CurbChatLogic extends CurbChat {
       return "Channel not found";
     }
     
-    const membersRegister = this.channelMembers.get(normalizedId);
-    const members = membersRegister?.get();
-    if (!members || !members.toArray().includes(executorId)) {
+    const members = channel.channelMembers.get();
+    if (!members || !members.has(executorId)) {
       return "You are not a member of this channel";
     }
     return channel;
@@ -503,28 +537,37 @@ export class CurbChatLogic extends CurbChat {
       return;
     }
 
+    // Add owner as member and moderator
+    const membersSet = createUnorderedSet<UserId>();
+    membersSet.add(ownerId);
+    if (invitee) {
+      membersSet.add(invitee);
+    }
+    const membersRegister = createLwwRegister<UnorderedSet<UserId>>({ initialValue: membersSet });
+    
+    const moderatorsSet = createUnorderedSet<UserId>();
+    moderatorsSet.add(ownerId);
+    const moderatorsRegister = createLwwRegister<UnorderedSet<UserId>>({ initialValue: moderatorsSet });
+    
+    // Initialize channel messages, thread messages, and reactions
+    const channelMessagesVector = createVector<StoredMessage>();
+    const channelMessagesRegister = createLwwRegister<Vector<StoredMessage>>({ initialValue: channelMessagesVector });
+    const threadMessages = createUnorderedMap<string, LwwRegister<Vector<StoredMessage>>>();
+    const messageReactions = createUnorderedMap<string, UnorderedMap<string, UnorderedSet<UserId>>>();
+
     const metadata: ChannelMetadata = {
       type: ChannelType.Default,
       createdAt: timestamp,
       createdBy: ownerId,
       createdByUsername: ownerUsername,
       readOnly: false,
+      channelMembers: membersRegister,
+      channelModerators: moderatorsRegister,
+      channelMessages: channelMessagesRegister,
+      threadMessages: threadMessages,
+      messageReactions: messageReactions,
     };
 
     state.channels.set(channelId, metadata);
-    
-    // Add owner as member and moderator
-    const membersVector = createVector<UserId>();
-    membersVector.push(ownerId);
-    if (invitee) {
-      membersVector.push(invitee);
-    }
-    const membersRegister = createLwwRegister<Vector<UserId>>({ initialValue: membersVector });
-    state.channelMembers.set(channelId, membersRegister);
-    
-    const moderatorsVector = createVector<UserId>();
-    moderatorsVector.push(ownerId);
-    const moderatorsRegister = createLwwRegister<Vector<UserId>>({ initialValue: moderatorsVector });
-    state.channelModerators.set(channelId, moderatorsRegister);
   }
 }

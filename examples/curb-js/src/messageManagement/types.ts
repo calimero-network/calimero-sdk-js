@@ -63,6 +63,20 @@ export type GetMessagesArgs = {
   offset?: number;
 };
 
+export type ReadMessageProps = {
+  channelId: string;
+  messageId: string;
+};
+
+export type ReadDmProps = {
+  contextId: string;
+};
+
+export type UpdateDmHashProps = {
+  contextId: string;
+  newHash: string;
+};
+
 export type Reaction = {
   emoji: string;
   users: string[];
@@ -77,4 +91,3 @@ export interface FullMessageResponse {
   total_count: number;
   start_position: number;
 }
-
