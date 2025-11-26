@@ -1,0 +1,123 @@
+description: Curb Application Test Workflow
+name: Curb App Test
+
+auth_service: true
+
+nodes:
+  chain_id: testnet-1
+  count: 2
+  image: ghcr.io/calimero-network/merod:edge
+  prefix: curb-node
+
+steps:
+  # Step 1: Install the Curb application
+  - name: Install Curb Application
+    type: install_application
+    node: curb-node-1
+    path: "examples/curb-js/build/curb.wasm"
+    dev: true
+    outputs:
+      app_id: applicationId
+
+  # Step 2: Create a context for the Curb app
+  - name: Create Curb Context
+    type: create_context
+    node: curb-node-1
+    application_id: '{{app_id}}'
+    params: '{"ownerUsername": "testuser", "defaultChannels": [{"name": "general"}], "isDMchat": false}'
+    outputs:
+      context_id: contextId
+      member_public_key: memberPublicKey
+
+  # Step 3: Wait for context creation and sync
+  - name: Wait For Context Sync
+    type: wait
+    seconds: 1
+
+  # Step 4: Create a new public channel
+  - name: Create New Channel
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: createChannel
+    args:
+      input:
+        name: new-channel
+        type: public
+    outputs:
+      create_result: result.output
+
+  # Step 5: Wait for channel creation to sync
+  - name: Wait For Channel Creation
+    type: wait
+    seconds: 2
+
+  # Step 6: Fetch channels (should include new-channel with creator as member)
+  - name: Fetch Channels After Creation
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getChannels
+    outputs:
+      channels_after_create: result.output
+
+  # Step 7: Leave the channel
+  - name: Leave Channel
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: leaveChannel
+    args:
+      channelId: new-channel
+    outputs:
+      leave_result: result.output
+
+  # Step 8: Wait for leave to sync
+  - name: Wait For Leave Sync
+    type: wait
+    seconds: 2
+
+  # Step 9: Fetch channels after leaving (should not include new-channel in joined list)
+  - name: Fetch Channels After Leave
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getChannels
+    outputs:
+      channels_after_leave: result.output
+
+  # Step 10: Join the channel again
+  - name: Join Channel
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: joinPublicChannel
+    args:
+      channelId: new-channel
+    outputs:
+      join_result: result.output
+
+  # Step 11: Wait for join to sync
+  - name: Wait For Join Sync
+    type: wait
+    seconds: 2
+
+  # Step 12: Fetch channels after joining (should include new-channel with members)
+  - name: Fetch Channels After Join
+    type: call
+    node: curb-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getChannels
+    outputs:
+      channels_after_join: result.output
+
+# Configuration options
+stop_all_nodes: false
+restart: true
+wait_timeout: 120
