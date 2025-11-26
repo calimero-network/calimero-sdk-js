@@ -4,7 +4,7 @@ description: Upload, announce, discover and delete blobs using the JavaScript SD
 force_pull_image: true
 
 nodes:
-  chain_id: calimero-testnet
+  chain_id: testnet-1
   count: 2
   image: ghcr.io/calimero-network/merod:edge
   prefix: js-blob
