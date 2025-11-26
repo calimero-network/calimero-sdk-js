@@ -1,12 +1,30 @@
-import { emit, env, createUnorderedMap, createVector, createUnorderedSet, createLwwRegister } from "@calimero/sdk";
-import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from "@calimero/sdk/collections";
-import { blobAnnounceToContext, contextId } from "@calimero/sdk/env";
-import bs58 from "bs58";
+import {
+  emit,
+  env,
+  createUnorderedMap,
+  createVector,
+  createUnorderedSet,
+  createLwwRegister,
+} from '@calimero/sdk';
+import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from '@calimero/sdk/collections';
+import { blobAnnounceToContext, contextId } from '@calimero/sdk/env';
+import bs58 from 'bs58';
 
-import type { StoredMessage, SendMessageArgs, EditMessageArgs, DeleteMessageArgs, UpdateReactionArgs, GetMessagesArgs, FullMessageResponse, MessageWithReactions, Reaction, ReadMessageProps } from "./types";
-import type { UserId, ChannelId } from "../types";
-import type { ChannelMetadata } from "../channelManagement/types";
-import { MessageSent, MessageSentThread, ReactionUpdated } from "./events";
+import type {
+  StoredMessage,
+  SendMessageArgs,
+  EditMessageArgs,
+  DeleteMessageArgs,
+  UpdateReactionArgs,
+  GetMessagesArgs,
+  FullMessageResponse,
+  MessageWithReactions,
+  Reaction,
+  ReadMessageProps,
+} from './types';
+import type { UserId, ChannelId } from '../types';
+import type { ChannelMetadata } from '../channelManagement/types';
+import { MessageSent, MessageSentThread, ReactionUpdated } from './events';
 
 const BLOB_ID_BYTES = 32;
 
@@ -21,7 +39,10 @@ function blobIdFromString(value: string): Uint8Array {
 export class MessageManagement {
   constructor(
     private readonly channels: UnorderedMap<ChannelId, ChannelMetadata>,
-    private readonly channelReadPositions: UnorderedMap<ChannelId, UnorderedMap<UserId, LwwRegister<bigint>>>,
+    private readonly channelReadPositions: UnorderedMap<
+      ChannelId,
+      UnorderedMap<UserId, LwwRegister<bigint>>
+    >
   ) {}
 
   sendMessage(executorId: UserId, username: string | null, args: SendMessageArgs): StoredMessage {
@@ -117,8 +138,8 @@ export class MessageManagement {
       };
     }
 
-    const register = args.parentId 
-      ? channel.threadMessages.get(args.parentId) 
+    const register = args.parentId
+      ? channel.threadMessages.get(args.parentId)
       : channel.channelMessages;
     if (!register) {
       return {
@@ -236,10 +257,10 @@ export class MessageManagement {
     const normalizedChannelId = args.channelId.trim().toLowerCase();
     const channel = this.channels.get(normalizedChannelId);
     if (!channel) {
-      return "Channel not found";
+      return 'Channel not found';
     }
 
-    const register = args.parentId 
+    const register = args.parentId
       ? channel.threadMessages.get(args.parentId)
       : channel.channelMessages;
     if (!register) {
@@ -285,10 +306,10 @@ export class MessageManagement {
     const normalizedChannelId = args.channelId.trim().toLowerCase();
     const channel = this.channels.get(normalizedChannelId);
     if (!channel) {
-      return "Channel not found";
+      return 'Channel not found';
     }
 
-    const register = args.parentId 
+    const register = args.parentId
       ? channel.threadMessages.get(args.parentId)
       : channel.channelMessages;
     if (!register) {
@@ -329,7 +350,7 @@ export class MessageManagement {
 
     // Remove reactions for deleted message
     channel.messageReactions.remove(args.messageId);
-    return "Message deleted";
+    return 'Message deleted';
   }
 
   /**
@@ -393,13 +414,13 @@ export class MessageManagement {
     // Find the channel that contains this message
     const channelId = this.findMessageChannelId(args.messageId);
     if (!channelId) {
-      return "Message not found";
+      return 'Message not found';
     }
 
     const normalizedChannelId = channelId.trim().toLowerCase();
     const channel = this.channels.get(normalizedChannelId);
     if (!channel) {
-      return "Channel not found";
+      return 'Channel not found';
     }
 
     // Get or create the reaction map for this message
@@ -421,7 +442,7 @@ export class MessageManagement {
       users.add(username);
     } else {
       users.delete(username);
-      
+
       // If the set is now empty, remove the emoji entry from the map
       if (users.size() === 0) {
         reactionMap.remove(args.emoji);
@@ -432,7 +453,10 @@ export class MessageManagement {
     return 'Reaction updated';
   }
 
-  private appendToVectorToRegister(register: LwwRegister<Vector<StoredMessage>>, value: StoredMessage): void {
+  private appendToVectorToRegister(
+    register: LwwRegister<Vector<StoredMessage>>,
+    value: StoredMessage
+  ): void {
     const currentVector = register.get() ?? createVector<StoredMessage>();
 
     // Create a new vector to ensure proper CRDT synchronization
@@ -498,16 +522,16 @@ export class MessageManagement {
     return { ok: false, error: 'Message not found' };
   }
 
-  readMessage(executorId: UserId, args: ReadMessageProps, channel: ChannelMetadata): string {
+  readMessage(executorId: UserId, args: ReadMessageProps, _channel: ChannelMetadata): string {
     const normalizedChannelId = args.channelId.trim().toLowerCase();
-    
+
     // Get messages to find the specific message
     const messages = this.getMessages({ channelId: normalizedChannelId });
-    
+
     // Find the message
     const message = messages.messages.find(m => m.id === args.messageId);
     if (!message) {
-      return "Message not found";
+      return 'Message not found';
     }
 
     // Update last read position for this user in this channel
@@ -526,7 +550,7 @@ export class MessageManagement {
     // Set the message timestamp as the last read position
     readRegister.set(message.timestamp);
 
-    return "Message marked as read";
+    return 'Message marked as read';
   }
 
   private generateMessageId(channelId: string, executorId: UserId, timestamp: bigint): string {

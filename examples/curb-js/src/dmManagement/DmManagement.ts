@@ -1,20 +1,15 @@
-import { emit, createVector, createUnorderedMap, createLwwRegister } from "@calimero/sdk";
-import { UnorderedMap, Vector, LwwRegister } from "@calimero/sdk/collections";
+import { emit, createVector, createUnorderedMap, createLwwRegister } from '@calimero/sdk';
+import { UnorderedMap, Vector, LwwRegister } from '@calimero/sdk/collections';
 
-import { ChannelType } from "../channelManagement/types";
-import type { UserId } from "../types";
-import type {
-  CreateDMChatArgs,
-  DeleteDMArgs,
-  DMChatInfo,
-  UpdateIdentityArgs,
-} from "./types";
-import { DMCreated, NewIdentityUpdated, DMDeleted } from "./events";
+import { ChannelType } from '../channelManagement/types';
+import type { UserId } from '../types';
+import type { CreateDMChatArgs, DeleteDMArgs, DMChatInfo, UpdateIdentityArgs } from './types';
+import { DMCreated, NewIdentityUpdated, DMDeleted } from './events';
 
 export class DmManagement {
   constructor(
     private readonly dmChats: UnorderedMap<UserId, Vector<DMChatInfo>>,
-    private readonly dmReadHashes: UnorderedMap<string, UnorderedMap<UserId, LwwRegister<string>>>,
+    private readonly dmReadHashes: UnorderedMap<string, UnorderedMap<UserId, LwwRegister<string>>>
   ) {}
 
   getDMs(executorId: UserId): DMChatInfo[] {
@@ -197,16 +192,16 @@ export class DmManagement {
     // Update the hash
     hashRegister.set(newHash);
 
-    return "DM hash updated";
+    return 'DM hash updated';
   }
 
   readDm(executorId: UserId, contextId: string): string {
     // Get the DM chat info to find the current hash
     const dms = this.getDMs(executorId);
     const dm = dms.find(d => d.contextId === contextId);
-    
+
     if (!dm) {
-      return "DM not found";
+      return 'DM not found';
     }
 
     // Update the last read hash to the current newHash
@@ -225,6 +220,6 @@ export class DmManagement {
     // Set the current hash as the last read hash
     hashRegister.set(dm.newHash);
 
-    return "DM marked as read";
+    return 'DM marked as read';
   }
 }

@@ -1,7 +1,17 @@
-import { env, Init, Logic, State, View, createUnorderedMap, createVector, createLwwRegister, createUnorderedSet } from "@calimero/sdk";
-import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from "@calimero/sdk/collections";
+import {
+  env,
+  Init,
+  Logic,
+  State,
+  View,
+  createUnorderedMap,
+  createVector,
+  createLwwRegister,
+  createUnorderedSet,
+} from '@calimero/sdk';
+import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from '@calimero/sdk/collections';
 
-import { ChannelManager } from "./channelManagement/channelManagement";
+import { ChannelManager } from './channelManagement/channelManagement';
 import {
   ChannelType,
   type ChannelMembershipInput,
@@ -38,9 +48,11 @@ export class CurbChat {
   channels: UnorderedMap<ChannelId, ChannelMetadata> = createUnorderedMap();
   dmChats: UnorderedMap<UserId, Vector<DMChatInfo>> = createUnorderedMap();
   // Track last read message timestamp per user per channel
-  channelReadPositions: UnorderedMap<ChannelId, UnorderedMap<UserId, LwwRegister<bigint>>> = createUnorderedMap();
+  channelReadPositions: UnorderedMap<ChannelId, UnorderedMap<UserId, LwwRegister<bigint>>> =
+    createUnorderedMap();
   // Track last read hash per user per DM context
-  dmReadHashes: UnorderedMap<string, UnorderedMap<UserId, LwwRegister<string>>> = createUnorderedMap();
+  dmReadHashes: UnorderedMap<string, UnorderedMap<UserId, LwwRegister<string>>> =
+    createUnorderedMap();
 }
 
 @Logic(CurbChat)
@@ -61,7 +73,10 @@ export class CurbChatLogic extends CurbChat {
     chat.members = createUnorderedMap<UserId, Username>();
     chat.channels = createUnorderedMap<ChannelId, ChannelMetadata>();
     chat.dmChats = createUnorderedMap<UserId, Vector<DMChatInfo>>();
-    chat.channelReadPositions = createUnorderedMap<ChannelId, UnorderedMap<UserId, LwwRegister<bigint>>>();
+    chat.channelReadPositions = createUnorderedMap<
+      ChannelId,
+      UnorderedMap<UserId, LwwRegister<bigint>>
+    >();
     chat.dmReadHashes = createUnorderedMap<string, UnorderedMap<UserId, LwwRegister<string>>>();
 
     // Add owner to members and map username
@@ -306,7 +321,7 @@ export class CurbChatLogic extends CurbChat {
     const executorId = this.getExecutorId();
     const members = channel.channelMembers.get();
     if (!members || !members.has(executorId)) {
-      return this.wrapResult("Only channel members can view invitees");
+      return this.wrapResult('Only channel members can view invitees');
     }
 
     // Get all channel member IDs
@@ -422,13 +437,13 @@ export class CurbChatLogic extends CurbChat {
 
   readMessage(rawInput: ReadMessageProps | { input: ReadMessageProps }): string {
     const args = this.extractInput(rawInput);
-    if (!args || typeof args.channelId !== "string" || typeof args.messageId !== "string") {
-      return this.wrapResult("Invalid read message input");
+    if (!args || typeof args.channelId !== 'string' || typeof args.messageId !== 'string') {
+      return this.wrapResult('Invalid read message input');
     }
 
     const executorId = this.getExecutorId();
     const channel = this.ensureChannelAccess(args.channelId, executorId);
-    if (typeof channel === "string") {
+    if (typeof channel === 'string') {
       return this.wrapResult(channel);
     }
 
@@ -438,8 +453,8 @@ export class CurbChatLogic extends CurbChat {
 
   updateDmHash(rawInput: UpdateDmHashProps | { input: UpdateDmHashProps }): string {
     const args = this.extractInput(rawInput);
-    if (!args || typeof args.contextId !== "string" || typeof args.newHash !== "string") {
-      return this.wrapResult("Invalid update DM hash input");
+    if (!args || typeof args.contextId !== 'string' || typeof args.newHash !== 'string') {
+      return this.wrapResult('Invalid update DM hash input');
     }
 
     const executorId = this.getExecutorId();
@@ -449,8 +464,8 @@ export class CurbChatLogic extends CurbChat {
 
   readDm(rawInput: ReadDmProps | { input: ReadDmProps }): string {
     const args = this.extractInput(rawInput);
-    if (!args || typeof args.contextId !== "string") {
-      return this.wrapResult("Invalid read DM input");
+    if (!args || typeof args.contextId !== 'string') {
+      return this.wrapResult('Invalid read DM input');
     }
 
     const executorId = this.getExecutorId();
@@ -509,10 +524,10 @@ export class CurbChatLogic extends CurbChat {
     if (!channel) {
       return 'Channel not found';
     }
-    
+
     const members = channel.channelMembers.get();
     if (!members || !members.has(executorId)) {
-      return "You are not a member of this channel";
+      return 'You are not a member of this channel';
     }
     return channel;
   }
@@ -538,16 +553,23 @@ export class CurbChatLogic extends CurbChat {
       membersSet.add(invitee);
     }
     const membersRegister = createLwwRegister<UnorderedSet<UserId>>({ initialValue: membersSet });
-    
+
     const moderatorsSet = createUnorderedSet<UserId>();
     moderatorsSet.add(ownerId);
-    const moderatorsRegister = createLwwRegister<UnorderedSet<UserId>>({ initialValue: moderatorsSet });
-    
+    const moderatorsRegister = createLwwRegister<UnorderedSet<UserId>>({
+      initialValue: moderatorsSet,
+    });
+
     // Initialize channel messages, thread messages, and reactions
     const channelMessagesVector = createVector<StoredMessage>();
-    const channelMessagesRegister = createLwwRegister<Vector<StoredMessage>>({ initialValue: channelMessagesVector });
+    const channelMessagesRegister = createLwwRegister<Vector<StoredMessage>>({
+      initialValue: channelMessagesVector,
+    });
     const threadMessages = createUnorderedMap<string, LwwRegister<Vector<StoredMessage>>>();
-    const messageReactions = createUnorderedMap<string, UnorderedMap<string, UnorderedSet<UserId>>>();
+    const messageReactions = createUnorderedMap<
+      string,
+      UnorderedMap<string, UnorderedSet<UserId>>
+    >();
 
     const metadata: ChannelMetadata = {
       type: ChannelType.Default,

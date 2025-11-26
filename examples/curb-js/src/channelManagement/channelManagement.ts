@@ -1,9 +1,16 @@
-import { emit, env, createVector, createLwwRegister, createUnorderedMap, createUnorderedSet } from "@calimero/sdk";
-import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from "@calimero/sdk/collections";
+import {
+  emit,
+  env,
+  createVector,
+  createLwwRegister,
+  createUnorderedMap,
+  createUnorderedSet,
+} from '@calimero/sdk';
+import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from '@calimero/sdk/collections';
 
-import { isUsernameTaken } from "../utils/members";
-import type { ChannelId, UserId, Username } from "../types";
-import type { StoredMessage } from "../messageManagement/types";
+import { isUsernameTaken } from '../utils/members';
+import type { ChannelId, UserId, Username } from '../types';
+import type { StoredMessage } from '../messageManagement/types';
 import {
   ChannelType,
   type ChannelDirectoryResponse,
@@ -145,7 +152,7 @@ export class ChannelManager {
 
     this.state.channels.entries().forEach(([channelId, metadata]) => {
       const formatted = this.formatChannelResponse(channelId, metadata, userId);
-      
+
       if (this.isChannelMember(channelId, userId)) {
         joined.push(formatted);
       } else if (metadata.type === ChannelType.Public) {
@@ -192,16 +199,23 @@ export class ChannelManager {
     const membersSet = createUnorderedSet<UserId>();
     membersSet.add(executorId);
     const membersRegister = createLwwRegister<UnorderedSet<UserId>>({ initialValue: membersSet });
-    
+
     const moderatorsSet = createUnorderedSet<UserId>();
     moderatorsSet.add(executorId);
-    const moderatorsRegister = createLwwRegister<UnorderedSet<UserId>>({ initialValue: moderatorsSet });
-    
+    const moderatorsRegister = createLwwRegister<UnorderedSet<UserId>>({
+      initialValue: moderatorsSet,
+    });
+
     // Initialize channel messages, thread messages, and reactions
     const channelMessagesVector = createVector<StoredMessage>();
-    const channelMessagesRegister = createLwwRegister<Vector<StoredMessage>>({ initialValue: channelMessagesVector });
+    const channelMessagesRegister = createLwwRegister<Vector<StoredMessage>>({
+      initialValue: channelMessagesVector,
+    });
     const threadMessages = createUnorderedMap<string, LwwRegister<Vector<StoredMessage>>>();
-    const messageReactions = createUnorderedMap<string, UnorderedMap<string, UnorderedSet<UserId>>>();
+    const messageReactions = createUnorderedMap<
+      string,
+      UnorderedMap<string, UnorderedSet<UserId>>
+    >();
 
     const metadata: ChannelMetadata = {
       type,
@@ -217,7 +231,7 @@ export class ChannelManager {
     };
 
     this.state.channels.set(normalizedId, metadata);
-    
+
     emit(new ChannelCreated(normalizedId, executorId, type));
     return 'Channel created';
   }
@@ -262,7 +276,7 @@ export class ChannelManager {
     }
     newSet.add(input.userId);
     membersRegister.set(newSet);
-    
+
     // If the user being added is the channel owner, add them to moderators
     if (input.userId === channel.createdBy) {
       const moderatorsRegister = this.getOrCreateModeratorsRegister(normalizedId);
@@ -278,7 +292,7 @@ export class ChannelManager {
       newModeratorsSet.add(input.userId);
       moderatorsRegister.set(newModeratorsSet);
     }
-    
+
     emit(new ChannelInvited(normalizedId, executorId, input.userId));
     return 'Member added to channel';
   }
@@ -300,7 +314,7 @@ export class ChannelManager {
 
     const membersRegister = this.getOrCreateMembersRegister(normalizedId);
     const moderatorsRegister = this.getOrCreateModeratorsRegister(normalizedId);
-    
+
     // Create new sets without the removed user
     const currentMembers = membersRegister.get() ?? createUnorderedSet<UserId>();
     const newMembers = createUnorderedSet<UserId>();
@@ -314,7 +328,7 @@ export class ChannelManager {
       // Set might not be hydrated yet
     }
     membersRegister.set(newMembers);
-    
+
     const currentModerators = moderatorsRegister.get() ?? createUnorderedSet<UserId>();
     const newModerators = createUnorderedSet<UserId>();
     try {
@@ -452,7 +466,7 @@ export class ChannelManager {
     }
     newSet.add(executorId);
     membersRegister.set(newSet);
-    
+
     // If the user joining is the channel owner, add them to moderators
     if (executorId === channel.createdBy) {
       const moderatorsRegister = this.getOrCreateModeratorsRegister(normalizedId);
@@ -468,7 +482,7 @@ export class ChannelManager {
       newModeratorsSet.add(executorId);
       moderatorsRegister.set(newModeratorsSet);
     }
-    
+
     emit(new ChannelJoined(normalizedId, executorId));
     return 'Joined channel';
   }
@@ -490,7 +504,7 @@ export class ChannelManager {
 
     const membersRegister = this.getOrCreateMembersRegister(normalizedId);
     const moderatorsRegister = this.getOrCreateModeratorsRegister(normalizedId);
-    
+
     // Create new sets without the leaving user
     const currentMembers = membersRegister.get() ?? createUnorderedSet<UserId>();
     const newMembers = createUnorderedSet<UserId>();
@@ -504,7 +518,7 @@ export class ChannelManager {
       // Set might not be hydrated yet
     }
     membersRegister.set(newMembers);
-    
+
     const currentModerators = moderatorsRegister.get() ?? createUnorderedSet<UserId>();
     const newModerators = createUnorderedSet<UserId>();
     try {
@@ -557,7 +571,11 @@ export class ChannelManager {
     return channelId.trim().toLowerCase();
   }
 
-  private formatChannelResponse(channelId: ChannelId, metadata: ChannelMetadata, userId: UserId): ChannelMetadataResponse {
+  private formatChannelResponse(
+    channelId: ChannelId,
+    metadata: ChannelMetadata,
+    userId: UserId
+  ): ChannelMetadataResponse {
     // Get member and moderator user IDs from Vectors
     const memberIds = this.getChannelMembers(channelId);
     const moderatorIds = this.getChannelModerators(channelId);
@@ -576,10 +594,10 @@ export class ChannelManager {
         return username ? { publicKey: userId, username } : null;
       })
       .filter((entry): entry is ChannelMembershipEntry => entry !== null);
-    
+
     // Calculate unread messages
     const unreadMessages = this.calculateUnreadMessages(channelId, userId, metadata);
-    
+
     return {
       channelId,
       type: metadata.type,
@@ -593,7 +611,11 @@ export class ChannelManager {
     };
   }
 
-  private calculateUnreadMessages(channelId: ChannelId, userId: UserId, metadata: ChannelMetadata): { count: number; mentions: number } {
+  private calculateUnreadMessages(
+    channelId: ChannelId,
+    userId: UserId,
+    metadata: ChannelMetadata
+  ): { count: number; mentions: number } {
     // Get last read timestamp for this user in this channel
     let lastReadTimestamp = 0n;
     const userReadMap = this.state.channelReadPositions.get(channelId);
@@ -641,27 +663,27 @@ export class ChannelManager {
 
         // Check if user is mentioned in this message
         let isMentioned = false;
-        
+
         // Check direct user ID mentions
         if (message.mentions && message.mentions.includes(userId)) {
           isMentioned = true;
         }
-        
+
         // Check for @here and @everyone mentions (these notify all channel members)
         if (message.mentionUsernames && message.mentionUsernames.length > 0) {
-          const hasHere = message.mentionUsernames.some(u => 
-            u.toLowerCase() === "here" || u.toLowerCase() === "@here"
+          const hasHere = message.mentionUsernames.some(
+            u => u.toLowerCase() === 'here' || u.toLowerCase() === '@here'
           );
-          const hasEveryone = message.mentionUsernames.some(u => 
-            u.toLowerCase() === "everyone" || u.toLowerCase() === "@everyone"
+          const hasEveryone = message.mentionUsernames.some(
+            u => u.toLowerCase() === 'everyone' || u.toLowerCase() === '@everyone'
           );
-          
+
           if (hasHere || hasEveryone) {
             // User is a member of the channel (we're already in listForMember), so they're mentioned
             isMentioned = true;
           }
         }
-        
+
         if (isMentioned) {
           mentionCount++;
         }
