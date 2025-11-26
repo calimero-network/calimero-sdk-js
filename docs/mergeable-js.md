@@ -65,7 +65,7 @@ export class TeamMetricsState {
   need bespoke reconciliation (e.g. de-duping vectors). Today the merge is executed locally (on the node
   that invokes `set`). During delta replay other nodes simply write the merged snapshot they received.
   Conflict resolution across the network therefore still falls back to last-write-wins until the Rust
-  runtime understands these descriptors *(see “Limitations & Future Work” below)*.
+  runtime understands these descriptors _(see “Limitations & Future Work” below)_.
 
 You can optionally provide a custom merge handler:
 

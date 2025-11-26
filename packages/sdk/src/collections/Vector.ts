@@ -4,7 +4,11 @@
 
 import { serialize, deserialize } from '../utils/serialize';
 import { vectorNew, vectorLen, vectorPush, vectorGet, vectorPop } from '../runtime/storage-wasm';
-import { registerCollectionType, CollectionSnapshot, hasRegisteredCollection } from '../runtime/collections';
+import {
+  registerCollectionType,
+  CollectionSnapshot,
+  hasRegisteredCollection,
+} from '../runtime/collections';
 import { nestedTracker } from '../runtime/nested-tracking';
 
 export interface VectorOptions {
@@ -60,7 +64,7 @@ export class Vector<T> {
     }
 
     vectorPush(this.vectorId, serialize(value));
-    
+
     // Notify tracker of modification
     nestedTracker.notifyCollectionModified(this);
   }
@@ -85,10 +89,10 @@ export class Vector<T> {
    */
   pop(): T | null {
     const raw = vectorPop(this.vectorId);
-    
+
     // Notify tracker of modification
     nestedTracker.notifyCollectionModified(this);
-    
+
     return raw ? deserialize<T>(raw) : null;
   }
 
@@ -110,7 +114,7 @@ export class Vector<T> {
   toJSON(): Record<string, unknown> {
     return {
       __calimeroCollection: 'Vector',
-      id: this.id()
+      id: this.id(),
     };
   }
 }

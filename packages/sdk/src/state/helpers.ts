@@ -15,21 +15,15 @@ import type { VectorOptions } from '../collections/Vector';
 import type { CounterOptions } from '../collections/Counter';
 import type { LwwRegisterOptions } from '../collections/LwwRegister';
 
-export function createUnorderedMap<K, V>(
-  options?: UnorderedMapOptions
-): UnorderedMap<K, V> {
+export function createUnorderedMap<K, V>(options?: UnorderedMapOptions): UnorderedMap<K, V> {
   return new UnorderedMap<K, V>(options);
 }
 
-export function createUnorderedSet<T>(
-  options?: UnorderedSetOptions<T>
-): UnorderedSet<T> {
+export function createUnorderedSet<T>(options?: UnorderedSetOptions<T>): UnorderedSet<T> {
   return new UnorderedSet<T>(options);
 }
 
-export function createVector<T>(
-  options?: VectorOptions
-): Vector<T> {
+export function createVector<T>(options?: VectorOptions): Vector<T> {
   return new Vector<T>(options);
 }
 
@@ -44,9 +38,6 @@ export function createCounter(
   return counter;
 }
 
-export function createLwwRegister<T>(
-  options?: LwwRegisterOptions<T>
-): LwwRegister<T> {
+export function createLwwRegister<T>(options?: LwwRegisterOptions<T>): LwwRegister<T> {
   return new LwwRegister<T>(options);
 }
-

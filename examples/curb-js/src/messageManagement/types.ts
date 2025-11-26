@@ -1,4 +1,4 @@
-import type { UserId } from "../types";
+import type { UserId } from '../types';
 
 export type Attachment = {
   name: string;
@@ -77,4 +77,3 @@ export interface FullMessageResponse {
   total_count: number;
   start_position: number;
 }
-

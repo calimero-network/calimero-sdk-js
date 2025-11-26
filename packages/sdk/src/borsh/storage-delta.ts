@@ -1,6 +1,6 @@
 /**
  * Storage Delta Borsh Serialization
- * 
+ *
  * Serializes CRDT actions to Borsh format matching calimero-storage
  */
 
@@ -19,7 +19,10 @@ export type BorshAction =
       deletedAt: bigint;
     };
 
-function serializeUpdate(writer: BorshWriter, action: Extract<BorshAction, { kind: 'Update' }>): void {
+function serializeUpdate(
+  writer: BorshWriter,
+  action: Extract<BorshAction, { kind: 'Update' }>
+): void {
   // Action::Update variant = 3
   writer.writeU8(3);
   writer.writeFixedArray(action.id);
@@ -86,4 +89,3 @@ export function randomId(): Uint8Array {
   }
   return result;
 }
-

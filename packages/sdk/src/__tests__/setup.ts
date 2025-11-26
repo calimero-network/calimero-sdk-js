@@ -66,9 +66,7 @@ function writeU64ToRegister(value: bigint): void {
 }
 
 function serializeVec(values: Uint8Array[]): Uint8Array {
-  const totalLength =
-    4 +
-    values.reduce((acc, value) => acc + 4 + value.length, 0);
+  const totalLength = 4 + values.reduce((acc, value) => acc + 4 + value.length, 0);
   const buffer = new Uint8Array(totalLength);
   const view = new DataView(buffer.buffer);
   view.setUint32(0, values.length, true);
@@ -214,7 +212,12 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 1;
   },
 
-  js_crdt_map_insert: (mapId: Uint8Array, key: Uint8Array, value: Uint8Array, _register_id: bigint): number => {
+  js_crdt_map_insert: (
+    mapId: Uint8Array,
+    key: Uint8Array,
+    value: Uint8Array,
+    _register_id: bigint
+  ): number => {
     const store = maps.get(idToKey(mapId));
     if (!store) {
       return -1;
@@ -392,7 +395,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     lwwRegisters.set(idToKey(id), {
       value: null,
       timestamp: 0n,
-      nodeId: mockExecutorId.slice(0, 16)
+      nodeId: mockExecutorId.slice(0, 16),
     });
     setRegister(id);
     return 1;
@@ -462,7 +465,10 @@ function getExecutorKey(executor?: Uint8Array): string {
     if (!store) {
       return -1;
     }
-    const total = Array.from(store.totalsByExecutor.values()).reduce((acc, value) => acc + value, 0n);
+    const total = Array.from(store.totalsByExecutor.values()).reduce(
+      (acc, value) => acc + value,
+      0n
+    );
     writeU64ToRegister(total);
     return 1;
   },
@@ -480,7 +486,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     const total = store.totalsByExecutor.get(key) ?? 0n;
     writeU64ToRegister(total);
     return 1;
-  }
+  },
 };
 
 // Helper to clear storage between tests
@@ -498,4 +504,3 @@ export function clearStorage() {
 export function getStorage() {
   return storage;
 }
-

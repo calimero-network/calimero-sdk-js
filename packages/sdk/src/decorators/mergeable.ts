@@ -20,7 +20,9 @@ export function Mergeable(options: MergeableOptions = {}) {
   return function mergeableDecorator(ctor: new (...args: any[]) => any): void {
     const typeName = options.type ?? ctor.name;
     if (!typeName) {
-      throw new Error('@Mergeable requires the target class to have a name or an explicit type option');
+      throw new Error(
+        '@Mergeable requires the target class to have a name or an explicit type option'
+      );
     }
 
     registerMergeableType(ctor as any, {
@@ -29,4 +31,3 @@ export function Mergeable(options: MergeableOptions = {}) {
     });
   };
 }
-

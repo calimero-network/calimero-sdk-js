@@ -1,6 +1,6 @@
 /**
  * Nested Collection Tracking System
- * 
+ *
  * Automatically tracks changes in nested collections and propagates them
  * to parent collections for proper synchronization.
  */
@@ -37,7 +37,7 @@ class NestedCollectionTracker {
         id: snapshot.id,
         type: snapshot.type,
         parents: new Set(),
-        children: new Set()
+        children: new Set(),
       };
       this.trackers.set(snapshot.id, tracker);
     }
@@ -47,7 +47,7 @@ class NestedCollectionTracker {
       const parentSnapshot = snapshotCollection(parentCollection);
       if (parentSnapshot) {
         tracker.parents.add({ collection: parentCollection, key: parentKey });
-        
+
         const parentTracker = this.trackers.get(parentSnapshot.id);
         if (parentTracker) {
           parentTracker.children.add(snapshot.id);
@@ -73,7 +73,7 @@ class NestedCollectionTracker {
    */
   private markForUpdate(collectionId: string): void {
     this.pendingUpdates.add(collectionId);
-    
+
     if (!this.updateScheduled) {
       this.updateScheduled = true;
       // Use microtask to batch updates
@@ -121,7 +121,7 @@ class NestedCollectionTracker {
         // Temporarily unwrap to avoid infinite recursion
         const originalSet = Object.getPrototypeOf(parentCollection).set;
         originalSet.call(parentCollection, key, currentValue);
-        
+
         // Mark parent for update too
         this.markForUpdate(parentSnapshot.id);
       }
@@ -131,16 +131,21 @@ class NestedCollectionTracker {
       // the normal CRDT synchronization mechanism, but we mark the parent for update
       // to ensure proper propagation timing.
       this.markForUpdate(parentSnapshot.id);
-    } else if (parentSnapshot.type === 'UnorderedSet' && parentCollection.has && parentCollection.add && parentCollection.delete) {
+    } else if (
+      parentSnapshot.type === 'UnorderedSet' &&
+      parentCollection.has &&
+      parentCollection.add &&
+      parentCollection.delete
+    ) {
       // For UnorderedSet, we need to remove and re-add the nested collection
       // The 'key' in this case is the nested collection itself
       if (parentCollection.has(key)) {
         const originalDelete = Object.getPrototypeOf(parentCollection).delete;
         const originalAdd = Object.getPrototypeOf(parentCollection).add;
-        
+
         originalDelete.call(parentCollection, key);
         originalAdd.call(parentCollection, key);
-        
+
         // Mark parent for update too
         this.markForUpdate(parentSnapshot.id);
       }

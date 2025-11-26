@@ -50,7 +50,10 @@ export function valueReturn(value: unknown): void {
   }
 
   const exposed = exposeValue(value);
-  const ctor = value !== null && typeof value === 'object' ? (value as Record<string, unknown>).constructor : undefined;
+  const ctor =
+    value !== null && typeof value === 'object'
+      ? (value as Record<string, unknown>).constructor
+      : undefined;
   const isStateInstance = Boolean(ctor && (ctor as any)._calimeroState);
 
   if (isStateInstance) {
@@ -61,9 +64,7 @@ export function valueReturn(value: unknown): void {
   const json =
     exposed === undefined
       ? 'null'
-      : JSON.stringify(exposed, (_key, val) =>
-          typeof val === 'bigint' ? val.toString() : val
-        );
+      : JSON.stringify(exposed, (_key, val) => (typeof val === 'bigint' ? val.toString() : val));
   env.value_return(textEncoder.encode(json ?? 'null'));
 }
 
@@ -201,7 +202,11 @@ export function storageWrite(key: Uint8Array, value: Uint8Array): void {
  * @param functionName - Function name to invoke in the target context
  * @param params - Serialized parameters for the call (defaults to empty payload)
  */
-export function xcall(contextId: Uint8Array, functionName: string, params: Uint8Array = new Uint8Array()): void {
+export function xcall(
+  contextId: Uint8Array,
+  functionName: string,
+  params: Uint8Array = new Uint8Array()
+): void {
   if (contextId.length !== 32) {
     throw new Error('contextId must be exactly 32 bytes');
   }
@@ -293,11 +298,7 @@ export function jsCrdtMapInsert(
   return env.js_crdt_map_insert(mapId, key, value, register);
 }
 
-export function jsCrdtMapRemove(
-  mapId: Uint8Array,
-  key: Uint8Array,
-  register: bigint
-): number {
+export function jsCrdtMapRemove(mapId: Uint8Array, key: Uint8Array, register: bigint): number {
   return env.js_crdt_map_remove(mapId, key, register);
 }
 
@@ -400,7 +401,9 @@ export function jsCrdtCounterGetExecutorCount(
  */
 export function flushDelta(): boolean {
   if (typeof (env as unknown as { flush_delta?: unknown }).flush_delta !== 'function') {
-    env.log_utf8(textEncoder.encode('[env] flush_delta missing on host, falling back to legacy commit'));
+    env.log_utf8(
+      textEncoder.encode('[env] flush_delta missing on host, falling back to legacy commit')
+    );
     env.commit(new Uint8Array(32), new Uint8Array(0));
     return true;
   }
@@ -511,4 +514,3 @@ export function randomBytes(buffer: Uint8Array): void {
   }
   env.random_bytes(buffer);
 }
-

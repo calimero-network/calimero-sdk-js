@@ -29,4 +29,3 @@ meroctl call --method setPrivateNote --args-json '{"note":"secret token"}'
 # read back private note (returns null on other nodes)
 meroctl call --method getPrivateNote
 ```
-

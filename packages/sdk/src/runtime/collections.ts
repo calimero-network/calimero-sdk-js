@@ -55,4 +55,3 @@ export function snapshotCollection(value: any): CollectionSnapshot | null {
 
   return { type, id };
 }
-

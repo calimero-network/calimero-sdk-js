@@ -27,4 +27,3 @@ Each example under `examples/*` contains:
 - `workflows/*.yml` – Merobox scenario that builds nodes, installs the service, and exercises key paths
 
 Refer to the [repository README](../README.md#examples--workflows) for a curated list.
-

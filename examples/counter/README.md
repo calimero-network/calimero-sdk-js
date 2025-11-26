@@ -43,4 +43,3 @@ meroctl --node-name node1 call \
 ## Code
 
 See `src/index.ts` for the complete implementation.
-

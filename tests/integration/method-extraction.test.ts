@@ -24,13 +24,16 @@ describe('Method Extraction', () => {
   it('should extract methods from simple class', async () => {
     // Create test JavaScript file
     const testJs = path.join(outputDir, 'test.js');
-    fs.writeFileSync(testJs, `
+    fs.writeFileSync(
+      testJs,
+      `
       class CounterLogic {
         increment() {}
         decrement() {}
         getCount() {}
       }
-    `);
+    `
+    );
 
     await generateMethodsHeader(testJs, outputDir);
 
@@ -45,12 +48,15 @@ describe('Method Extraction', () => {
 
   it('should not include static methods', async () => {
     const testJs = path.join(outputDir, 'test-static.js');
-    fs.writeFileSync(testJs, `
+    fs.writeFileSync(
+      testJs,
+      `
       class TestLogic {
         static initialize() {}
         regularMethod() {}
       }
-    `);
+    `
+    );
 
     await generateMethodsHeader(testJs, outputDir);
 
@@ -59,4 +65,3 @@ describe('Method Extraction', () => {
     expect(header).not.toContain('DEFINE_CALIMERO_METHOD(initialize)');
   });
 });
-

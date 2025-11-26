@@ -25,7 +25,7 @@ function isObjectLike(value: unknown): value is Record<string, unknown> {
 function mergeDefaultFields(
   descriptor: MergeableDescriptor,
   localValue: any,
-  remoteValue: any,
+  remoteValue: any
 ): any {
   if (!isObjectLike(remoteValue)) {
     return remoteValue ?? localValue;
@@ -55,9 +55,7 @@ function mergeDefaultFields(
 }
 
 export function mergeMergeableValues<T>(localValue: T, remoteValue: T): T {
-  const mergeableType =
-    getMergeableType(remoteValue) ??
-    getMergeableType(localValue);
+  const mergeableType = getMergeableType(remoteValue) ?? getMergeableType(localValue);
 
   if (!mergeableType) {
     return remoteValue;
@@ -69,10 +67,7 @@ export function mergeMergeableValues<T>(localValue: T, remoteValue: T): T {
   }
 
   if (descriptor.merge) {
-    const merged = descriptor.merge(
-      cloneForMerge(localValue),
-      cloneForMerge(remoteValue),
-    );
+    const merged = descriptor.merge(cloneForMerge(localValue), cloneForMerge(remoteValue));
     if (isObjectLike(merged)) {
       markMergeableInstance(merged, mergeableType);
     }
@@ -81,4 +76,3 @@ export function mergeMergeableValues<T>(localValue: T, remoteValue: T): T {
 
   return mergeDefaultFields(descriptor, localValue, remoteValue);
 }
-

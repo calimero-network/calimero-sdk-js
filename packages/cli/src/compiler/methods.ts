@@ -34,7 +34,7 @@ export async function generateMethodsHeader(jsFile: string, outputDir: string): 
 
   const ast = parse(jsCode, {
     sourceType: 'module',
-    plugins: []
+    plugins: [],
   });
 
   const exportedNames = new Set<string>();
@@ -62,7 +62,7 @@ export async function generateMethodsHeader(jsFile: string, outputDir: string): 
           }
         });
       }
-    }
+    },
   });
 
   exportedNames.forEach(name => {
@@ -127,7 +127,7 @@ function emitHeaders(outputDir: string, methods: string[]): void {
     '// Note: This file is #included in builder.c',
     '',
     ...methodMacroLines,
-    ''
+    '',
   ];
 
   const outputFile = path.join(outputDir, 'methods.c');
@@ -141,7 +141,7 @@ function emitHeaders(outputDir: string, methods: string[]): void {
     ...uniqueMethods.map(m => `#define EXPORT_METHOD_${m.toUpperCase()} 1`),
     ...methodMacroLines,
     '#endif // METHODS_H',
-    ''
+    '',
   ];
   fs.writeFileSync(headerFile, headerContentLines.join('\n'));
 
@@ -179,4 +179,3 @@ function createEnvStub(): Record<string, (...args: any[]) => any> {
     blob_close: zero,
   };
 }
-

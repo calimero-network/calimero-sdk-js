@@ -49,7 +49,7 @@ export class PrivateEntryHandle<T> {
   /**
    * Removes the value from storage.
    *
-  * @returns `true` if the key existed.
+   * @returns `true` if the key existed.
    */
   remove(): boolean {
     return storageRemove(this.key);
@@ -99,4 +99,3 @@ export class PrivateEntryHandle<T> {
 export function createPrivateEntry<T>(key: KeyInput): PrivateEntryHandle<T> {
   return new PrivateEntryHandle<T>(key);
 }
-

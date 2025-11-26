@@ -44,4 +44,3 @@ Read methods such as `get`, `entries`, and `len` are decorated with `@View()` in
 ## Code
 
 See `src/index.ts` for the complete implementation.
-

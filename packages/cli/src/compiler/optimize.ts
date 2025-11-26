@@ -51,18 +51,18 @@ export async function optimizeWasm(
     if (options.verbose) {
       console.log('Removing WASI imports with wasi-stub...');
     }
-    
+
     // Use absolute paths for input/output
     const absInput = path.resolve(input);
     const absOutput = path.resolve(output);
-    
+
     // Use bash to run the script (which handles library paths)
-    const cmd = wasiStub.endsWith('.sh') 
+    const cmd = wasiStub.endsWith('.sh')
       ? `bash ${wasiStub} ${absInput} -o ${absOutput}`
       : `${wasiStub} ${absInput} -o ${absOutput}`;
-    
+
     execSync(cmd, {
-      stdio: options.verbose ? 'inherit' : 'pipe'
+      stdio: options.verbose ? 'inherit' : 'pipe',
     });
 
     // Step 2: Optimize with wasm-opt (if available)
@@ -71,12 +71,9 @@ export async function optimizeWasm(
         console.log('Running wasm-opt...');
       }
       const tempOptimized = output.replace('.wasm', '.opt.wasm');
-      execSync(
-        `${wasmOpt} ${output} -O3 --strip-debug --strip-producers -o ${tempOptimized}`,
-        {
-          stdio: options.verbose ? 'inherit' : 'pipe'
-        }
-      );
+      execSync(`${wasmOpt} ${output} -O3 --strip-debug --strip-producers -o ${tempOptimized}`, {
+        stdio: options.verbose ? 'inherit' : 'pipe',
+      });
       // Replace original with optimized
       fs.renameSync(tempOptimized, output);
     } else if (options.verbose) {
@@ -96,4 +93,3 @@ export async function optimizeWasm(
     fs.copyFileSync(input, output);
   }
 }
-

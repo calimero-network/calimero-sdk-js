@@ -1,9 +1,9 @@
-import type { ChannelId, UserId, Username } from "../types";
+import type { ChannelId, UserId, Username } from '../types';
 
 export enum ChannelType {
-  Default = "default",
-  Private = "private",
-  Public = "public",
+  Default = 'default',
+  Private = 'private',
+  Public = 'public',
 }
 
 export type ChannelMetadata = {
@@ -51,4 +51,3 @@ export type ModeratorInput = {
   channelId: ChannelId;
   userId: UserId;
 };
-

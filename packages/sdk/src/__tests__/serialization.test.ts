@@ -7,7 +7,6 @@ import { serialize, deserialize } from '../utils/serialize';
 import { UnorderedMap } from '../collections/UnorderedMap';
 import { UnorderedSet } from '../collections/UnorderedSet';
 
-
 interface ComplexState {
   title: string;
   count: bigint;
@@ -26,14 +25,14 @@ describe('Borsh serialization', () => {
   it('round-trips complex values', () => {
     const map = new Map<string, { score: number }>([
       ['alpha', { score: 10.5 }],
-      ['beta', { score: -20.25 }]
+      ['beta', { score: -20.25 }],
     ]);
     const set = new Set(['ready', 'steady']);
 
     const nestedOwners = new UnorderedSet<string>({ initialValues: ['alice', 'bob'] });
     const nestedArray = [
       { tags: ['urgent'], notes: { description: 'critical', owner: 'alice' } },
-      { tags: ['review'], notes: { description: 'needs review', owner: 'bob' } }
+      { tags: ['review'], notes: { description: 'needs review', owner: 'bob' } },
     ];
 
     const value: ComplexState = {
@@ -43,8 +42,8 @@ describe('Borsh serialization', () => {
       metadata: map,
       nested: {
         owners: nestedOwners,
-        additional: nestedArray
-      }
+        additional: nestedArray,
+      },
     };
 
     const bytes = serialize(value);
@@ -58,7 +57,7 @@ describe('Borsh serialization', () => {
     expect(restored.metadata).toEqual(
       new Map<string, { score: number }>([
         ['alpha', { score: 10.5 }],
-        ['beta', { score: -20.25 }]
+        ['beta', { score: -20.25 }],
       ])
     );
     expect(restored.nested.additional).toEqual(nestedArray);
@@ -77,5 +76,3 @@ describe('Borsh serialization', () => {
     expect(decoded.get('guests')?.toArray().sort()).toEqual(['eve']);
   });
 });
-
-

@@ -29,4 +29,3 @@ if (typeof TextDecoder === 'undefined') {
     }
   };
 }
-

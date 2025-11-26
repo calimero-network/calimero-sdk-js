@@ -44,7 +44,10 @@ Marks a class as an event type.
 ```typescript
 @Event
 export class ItemAdded {
-  constructor(public key: string, public value: string) {}
+  constructor(
+    public key: string,
+    public value: string
+  ) {}
 }
 ```
 
@@ -127,8 +130,8 @@ emitWithHandler(new ItemAdded('key', 'value'), 'onItemAdded');
 ## Collections
 
 See [Collections Guide](./collections.md) for detailed documentation on:
+
 - UnorderedMap
 - Vector
 - Counter
 - LwwRegister
-

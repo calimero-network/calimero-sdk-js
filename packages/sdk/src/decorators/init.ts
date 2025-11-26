@@ -17,11 +17,7 @@ import { registerInit } from '../runtime/method-registry';
  * }
  * ```
  */
-export function Init(
-  target: any,
-  propertyKey: string,
-  _descriptor: PropertyDescriptor
-): void {
+export function Init(target: any, propertyKey: string, _descriptor: PropertyDescriptor): void {
   if (typeof target !== 'function') {
     throw new Error('@Init decorator can only be used on static methods');
   }
@@ -30,5 +26,3 @@ export function Init(
 
   registerInit(target, propertyKey);
 }
-
-

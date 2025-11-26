@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 import { State, Logic, Init, View, createPrivateEntry, createUnorderedMap } from '@calimero/sdk';
 import { UnorderedMap } from '@calimero/sdk/collections';
@@ -57,14 +57,9 @@ export class PrivateDataLogic extends PrivateDataState {
     return state;
   }
 
-  setPublicNote(
-    payload: { title: string; content: string } | string,
-    maybeContent?: string,
-  ): void {
+  setPublicNote(payload: { title: string; content: string } | string, maybeContent?: string): void {
     const { title, content } =
-      typeof payload === 'string'
-        ? { title: payload, content: maybeContent ?? '' }
-        : payload;
+      typeof payload === 'string' ? { title: payload, content: maybeContent ?? '' } : payload;
 
     if (!title) {
       throw new Error('setPublicNote requires a title');
@@ -78,9 +73,9 @@ export class PrivateDataLogic extends PrivateDataState {
   @View()
   getPublicNote(payload: { title: string } | string): { value: string } | null {
     const title = typeof payload === 'string' ? payload : payload?.title;
-    const value = title ? this.publicNotes.get(title) ?? null : null;
+    const value = title ? (this.publicNotes.get(title) ?? null) : null;
     env.log(
-      `[private-data] get public note title=${title ?? 'undefined'} value=${value ?? 'null'}`,
+      `[private-data] get public note title=${title ?? 'undefined'} value=${value ?? 'null'}`
     );
     return value === null ? null : { value };
   }
@@ -95,7 +90,7 @@ export class PrivateDataLogic extends PrivateDataState {
       () => ({
         note,
         updatedAt: env.timeNow(),
-      }),
+      })
     );
     env.log('[private-data] private note updated');
   }
@@ -105,7 +100,7 @@ export class PrivateDataLogic extends PrivateDataState {
     const entry = privateNoteHandle();
     const result = entry.get();
     env.log(
-      `[private-data] get private note executor=${executorHex()} value=${result?.note ?? 'null'}`,
+      `[private-data] get private note executor=${executorHex()} value=${result?.note ?? 'null'}`
     );
     return result;
   }
@@ -117,4 +112,3 @@ export class PrivateDataLogic extends PrivateDataState {
     }
   }
 }
-

@@ -1,37 +1,42 @@
-import { emit, createVector } from "@calimero/sdk";
-import { UnorderedMap, Vector } from "@calimero/sdk/collections";
+import { emit, createVector } from '@calimero/sdk';
+import { UnorderedMap, Vector } from '@calimero/sdk/collections';
 
-import { ChannelType } from "../channelManagement/types";
-import type { UserId } from "../types";
-import type {
-  CreateDMChatArgs,
-  DeleteDMArgs,
-  DMChatInfo,
-  UpdateIdentityArgs,
-} from "./types";
-import { DMCreated, NewIdentityUpdated, DMDeleted } from "./events";
+import { ChannelType } from '../channelManagement/types';
+import type { UserId } from '../types';
+import type { CreateDMChatArgs, DeleteDMArgs, DMChatInfo, UpdateIdentityArgs } from './types';
+import { DMCreated, NewIdentityUpdated, DMDeleted } from './events';
 
 export class DmManagement {
-  constructor(
-    private readonly dmChats: UnorderedMap<UserId, Vector<DMChatInfo>>,
-  ) {}
+  constructor(private readonly dmChats: UnorderedMap<UserId, Vector<DMChatInfo>>) {}
 
   getDMs(executorId: UserId): DMChatInfo[] {
     const vector = this.dmChats.get(executorId);
     return vector ? vector.toArray() : [];
   }
 
-  createDMChat(executorId: UserId, args: CreateDMChatArgs, usernames: Record<UserId, string>): string {
-    const { contextId, creator, creatorNewIdentity, invitee, timestamp, contextHash, invitationPayload } = args;
+  createDMChat(
+    executorId: UserId,
+    args: CreateDMChatArgs,
+    usernames: Record<UserId, string>
+  ): string {
+    const {
+      contextId,
+      creator,
+      creatorNewIdentity,
+      invitee,
+      timestamp,
+      contextHash,
+      invitationPayload,
+    } = args;
 
     if (executorId !== creator) {
-      return "You are not the inviter";
+      return 'You are not the inviter';
     }
 
     const ownUsername = usernames[creator];
     const otherUsername = usernames[invitee];
     if (!ownUsername || !otherUsername) {
-      return "Usernames not found";
+      return 'Usernames not found';
     }
 
     const creatorChat: DMChatInfo = {
@@ -93,7 +98,7 @@ export class DmManagement {
     }
 
     emit(new NewIdentityUpdated(otherUser));
-    return "Identity updated successfully";
+    return 'Identity updated successfully';
   }
 
   deleteDM(executorId: UserId, args: DeleteDMArgs): string {
@@ -102,7 +107,7 @@ export class DmManagement {
     this.removeDmFromUser(otherUser, executorId);
 
     emit(new DMDeleted(executorId));
-    return "DM deleted successfully";
+    return 'DM deleted successfully';
   }
 
   private addDmToUser(userId: UserId, chat: DMChatInfo): void {
@@ -128,7 +133,11 @@ export class DmManagement {
     this.dmChats.set(userId, remaining);
   }
 
-  private updateOwnIdentity(vector: Vector<DMChatInfo>, otherUser: UserId, newIdentity: UserId): Vector<DMChatInfo> {
+  private updateOwnIdentity(
+    vector: Vector<DMChatInfo>,
+    otherUser: UserId,
+    newIdentity: UserId
+  ): Vector<DMChatInfo> {
     const updated = createVector<DMChatInfo>();
     for (const chat of vector.toArray()) {
       if (chat.otherIdentityOld === otherUser) {
@@ -144,7 +153,11 @@ export class DmManagement {
     return updated;
   }
 
-  private updateOtherIdentity(vector: Vector<DMChatInfo>, executorId: UserId, newIdentity: UserId): Vector<DMChatInfo> {
+  private updateOtherIdentity(
+    vector: Vector<DMChatInfo>,
+    executorId: UserId,
+    newIdentity: UserId
+  ): Vector<DMChatInfo> {
     const updated = createVector<DMChatInfo>();
     for (const chat of vector.toArray()) {
       if (chat.otherIdentityOld === executorId) {
@@ -159,4 +172,3 @@ export class DmManagement {
     return updated;
   }
 }
-

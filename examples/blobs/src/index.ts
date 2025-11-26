@@ -6,7 +6,7 @@ import {
   executorId,
   log,
   randomBytes,
-  timeNow
+  timeNow,
 } from '@calimero/sdk/env';
 import bs58 from 'bs58';
 
@@ -29,12 +29,10 @@ function blobIdFromString(value: string): Uint8Array {
   return decodeBase58(value, BLOB_ID_BYTES);
 }
 
-
-
 function randomSuffix(bytes = 4): string {
   const buffer = new Uint8Array(bytes);
   randomBytes(buffer);
-  return Array.from(buffer, (b) => b.toString(16).padStart(2, '0')).join('');
+  return Array.from(buffer, b => b.toString(16).padStart(2, '0')).join('');
 }
 
 type FileRecord = {
@@ -59,10 +57,11 @@ export class FileUploaded {
 
 @Event
 export class FileDeleted {
-  constructor(public id: string, public name: string) {}
+  constructor(
+    public id: string,
+    public name: string
+  ) {}
 }
-
-
 
 @State
 export class FileShareState {
@@ -85,21 +84,33 @@ export class FileShareLogic extends FileShareState {
     } catch (error) {
       log(
         `[blobs] init failed error=${
-          error instanceof Error ? error.stack ?? error.message : String(error)
-        }`,
+          error instanceof Error ? (error.stack ?? error.message) : String(error)
+        }`
       );
       throw error;
     }
   }
 
-  uploadFile({ name, blobId, size, mimeType }: { name: string; blobId: string; size: number; mimeType: string }): string {
+  uploadFile({
+    name,
+    blobId,
+    size,
+    mimeType,
+  }: {
+    name: string;
+    blobId: string;
+    size: number;
+    mimeType: string;
+  }): string {
     const files = this.files;
     const before = files.entries();
     log(
-      `[blobs] uploadFile mapId=${files.id()} received name=${name ?? '<undefined>'} blobId=${blobId ?? '<undefined>'} size=${size ?? '<undefined>'} mimeType=${mimeType ?? '<undefined>'}`,
+      `[blobs] uploadFile mapId=${files.id()} received name=${name ?? '<undefined>'} blobId=${blobId ?? '<undefined>'} size=${size ?? '<undefined>'} mimeType=${mimeType ?? '<undefined>'}`
     );
     log(`[blobs] uploadFile typeof files=${files?.constructor?.name ?? '<unknown>'}`);
-    log(`[blobs] uploadFile entries before=${before.length} keys=[${before.map(([key]) => key).join(', ')}]`);
+    log(
+      `[blobs] uploadFile entries before=${before.length} keys=[${before.map(([key]) => key).join(', ')}]`
+    );
 
     if (!name || !blobId) {
       throw new Error(
@@ -126,7 +137,7 @@ export class FileShareLogic extends FileShareState {
       size,
       mimeType,
       uploadedBy: uploader,
-      uploadedAt: timestamp.toString()
+      uploadedAt: timestamp.toString(),
     };
 
     files.set(fileId, record);
@@ -136,7 +147,7 @@ export class FileShareLogic extends FileShareState {
     log(
       `[blobs] stored file id=${fileId} name=${name} size=${size} mapId=${files.id()} entries after=${after.length} keys=[${after
         .map(([key]) => key)
-        .join(', ')}]`,
+        .join(', ')}]`
     );
 
     return this.respond({ fileId });
@@ -209,9 +220,7 @@ export class FileShareLogic extends FileShareState {
   getStats(): string {
     const files = this.files;
     const totalFiles = files.entries().length;
-    const totalBytes = files
-      .entries()
-      .reduce((sum: number, [, record]) => sum + record.size, 0);
+    const totalBytes = files.entries().reduce((sum: number, [, record]) => sum + record.size, 0);
 
     const totalMb = totalBytes / BYTES_PER_MB;
 
@@ -219,16 +228,14 @@ export class FileShareLogic extends FileShareState {
       totalFiles,
       totalBytes,
       totalMb: Number(totalMb.toFixed(2)),
-      owner: this.owner
+      owner: this.owner,
     });
   }
 
   @View()
   getTotalFilesSize(): string {
     const files = this.files;
-    const totalBytes = files
-      .entries()
-      .reduce((sum: number, [, record]) => sum + record.size, 0);
+    const totalBytes = files.entries().reduce((sum: number, [, record]) => sum + record.size, 0);
     return this.respond({ totalBytes });
   }
 
@@ -239,7 +246,7 @@ export class FileShareLogic extends FileShareState {
     log(
       `[blobs] getFileCount mapId=${files.id()} typeof=${files.constructor.name} entries=${entries.length} keys=[${entries
         .map(([key]) => key)
-        .join(', ')}]`,
+        .join(', ')}]`
     );
     return entries.length;
   }
@@ -257,6 +264,3 @@ export class FileShareLogic extends FileShareState {
     );
   }
 }
-
-
-

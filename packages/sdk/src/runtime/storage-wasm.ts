@@ -37,7 +37,7 @@ import {
   jsCrdtCounterNew,
   jsCrdtCounterIncrement,
   jsCrdtCounterValue,
-  jsCrdtCounterGetExecutorCount
+  jsCrdtCounterGetExecutorCount,
 } from '../env/api';
 
 const REGISTER_ID = 0n;
@@ -107,7 +107,11 @@ export function mapGet(mapId: Uint8Array, key: Uint8Array): Uint8Array | null {
   return value;
 }
 
-export function mapInsert(mapId: Uint8Array, key: Uint8Array, value: Uint8Array): Uint8Array | null {
+export function mapInsert(
+  mapId: Uint8Array,
+  key: Uint8Array,
+  value: Uint8Array
+): Uint8Array | null {
   ensureCollectionId(mapId, 'mapId');
   ensureUint8Array(key, 'key');
   ensureUint8Array(value, 'value');
@@ -264,7 +268,11 @@ export function vectorPush(vectorId: Uint8Array, value: Uint8Array): void {
   }
 }
 
-export function vectorGet(vectorId: Uint8Array, index: number, register: bigint): Uint8Array | null {
+export function vectorGet(
+  vectorId: Uint8Array,
+  index: number,
+  register: bigint
+): Uint8Array | null {
   ensureCollectionId(vectorId, 'vectorId');
   if (!Number.isInteger(index) || index < 0) {
     throw new TypeError('index must be a non-negative integer');
@@ -509,5 +517,3 @@ export function counterGetExecutorCount(counterId: Uint8Array, executorId?: Uint
   const value = readBigUint64();
   return value;
 }
-
-

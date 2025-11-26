@@ -7,11 +7,10 @@ module.exports = {
   collectCoverageFrom: [
     '../../packages/sdk/src/**/*.ts',
     '!../../packages/sdk/src/**/*.d.ts',
-    '!../../packages/sdk/src/**/*.test.ts'
+    '!../../packages/sdk/src/**/*.test.ts',
   ],
   moduleNameMapper: {
     '^@calimero/sdk$': '<rootDir>/../../packages/sdk/src/index.ts',
-    '^@calimero/sdk/(.*)$': '<rootDir>/../../packages/sdk/src/$1'
-  }
+    '^@calimero/sdk/(.*)$': '<rootDir>/../../packages/sdk/src/$1',
+  },
 };
-

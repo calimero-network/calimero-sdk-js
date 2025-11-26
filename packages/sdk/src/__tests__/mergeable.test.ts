@@ -79,4 +79,3 @@ describe('Mergeable decorator', () => {
     expect(resolved?.losses).toBe(3);
   });
 });
-

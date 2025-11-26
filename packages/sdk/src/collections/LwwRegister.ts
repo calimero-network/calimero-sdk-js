@@ -62,12 +62,15 @@ export class LwwRegister<T> {
   toJSON(): Record<string, unknown> {
     return {
       __calimeroCollection: 'LwwRegister',
-      id: this.id()
+      id: this.id(),
     };
   }
 }
 
-registerCollectionType('LwwRegister', (snapshot: CollectionSnapshot) => new LwwRegister({ id: snapshot.id }));
+registerCollectionType(
+  'LwwRegister',
+  (snapshot: CollectionSnapshot) => new LwwRegister({ id: snapshot.id })
+);
 
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes)

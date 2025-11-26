@@ -1,11 +1,28 @@
-import { emit, env, createUnorderedMap, createVector, createUnorderedSet, createLwwRegister } from "@calimero/sdk";
-import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from "@calimero/sdk/collections";
-import { blobAnnounceToContext, contextId } from "@calimero/sdk/env";
-import bs58 from "bs58";
+import {
+  emit,
+  env,
+  createUnorderedMap,
+  createVector,
+  createUnorderedSet,
+  createLwwRegister,
+} from '@calimero/sdk';
+import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from '@calimero/sdk/collections';
+import { blobAnnounceToContext, contextId } from '@calimero/sdk/env';
+import bs58 from 'bs58';
 
-import type { StoredMessage, SendMessageArgs, EditMessageArgs, DeleteMessageArgs, UpdateReactionArgs, GetMessagesArgs, FullMessageResponse, MessageWithReactions, Reaction } from "./types";
-import type { UserId } from "../types";
-import { MessageSent, MessageSentThread, ReactionUpdated } from "./events";
+import type {
+  StoredMessage,
+  SendMessageArgs,
+  EditMessageArgs,
+  DeleteMessageArgs,
+  UpdateReactionArgs,
+  GetMessagesArgs,
+  FullMessageResponse,
+  MessageWithReactions,
+  Reaction,
+} from './types';
+import type { UserId } from '../types';
+import { MessageSent, MessageSentThread, ReactionUpdated } from './events';
 
 const BLOB_ID_BYTES = 32;
 
@@ -21,14 +38,13 @@ export class MessageManagement {
   constructor(
     private readonly messages: UnorderedMap<string, LwwRegister<Vector<StoredMessage>>>,
     private readonly threads: UnorderedMap<string, LwwRegister<Vector<StoredMessage>>>,
-    private readonly reactions: UnorderedMap<string, LwwRegister<UnorderedMap<string, UnorderedSet<UserId>>>>,
+    private readonly reactions: UnorderedMap<
+      string,
+      LwwRegister<UnorderedMap<string, UnorderedSet<UserId>>>
+    >
   ) {}
 
-  sendMessage(
-    executorId: UserId,
-    username: string | null,
-    args: SendMessageArgs,
-  ): StoredMessage {
+  sendMessage(executorId: UserId, username: string | null, args: SendMessageArgs): StoredMessage {
     const timestamp = env.timeNow();
     const messageId =
       args.messageId ?? this.generateMessageId(args.channelId, executorId, timestamp);
@@ -46,7 +62,9 @@ export class MessageManagement {
             env.log(`Warning: failed to announce image blob ${image.blob_id_str} to context`);
           }
         } catch (error) {
-          env.log(`Warning: failed to decode image blob ID ${image.blob_id_str}: ${error instanceof Error ? error.message : String(error)}`);
+          env.log(
+            `Warning: failed to decode image blob ID ${image.blob_id_str}: ${error instanceof Error ? error.message : String(error)}`
+          );
         }
       }
     }
@@ -61,7 +79,9 @@ export class MessageManagement {
             env.log(`Warning: failed to announce file blob ${file.blob_id_str} to context`);
           }
         } catch (error) {
-          env.log(`Warning: failed to decode file blob ID ${file.blob_id_str}: ${error instanceof Error ? error.message : String(error)}`);
+          env.log(
+            `Warning: failed to decode file blob ID ${file.blob_id_str}: ${error instanceof Error ? error.message : String(error)}`
+          );
         }
       }
     }
@@ -94,7 +114,9 @@ export class MessageManagement {
   }
 
   getMessages(args: GetMessagesArgs): FullMessageResponse {
-    const register = args.parentId ? this.threads.get(args.parentId) : this.messages.get(args.channelId);
+    const register = args.parentId
+      ? this.threads.get(args.parentId)
+      : this.messages.get(args.channelId);
     if (!register) {
       return {
         messages: [],
@@ -120,7 +142,9 @@ export class MessageManagement {
       totalCount = allItems.length;
     } catch (error) {
       // Vector might not be fully synced yet, return empty result
-      env.log(`Warning: Vector not fully synced for ${args.parentId ? `thread ${args.parentId}` : `channel ${args.channelId}`}`);
+      env.log(
+        `Warning: Vector not fully synced for ${args.parentId ? `thread ${args.parentId}` : `channel ${args.channelId}`}`
+      );
       return {
         messages: [],
         total_count: 0,
@@ -211,20 +235,20 @@ export class MessageManagement {
   editMessage(executorId: UserId, args: EditMessageArgs): string {
     const map = args.parentId ? this.threads : this.messages;
     const key = args.parentId ? args.parentId : args.channelId;
-    
+
     const register = map.get(key);
     if (!register) {
-      return "Message not found";
+      return 'Message not found';
     }
 
     const vector = register.get() ?? createVector<StoredMessage>();
     if (!vector) {
-      return "Message not found";
+      return 'Message not found';
     }
 
     const result = this.updateMessage(vector, args.messageId, message => {
       if (message.senderId !== executorId) {
-        return { ok: false, error: "You can only edit your messages" };
+        return { ok: false, error: 'You can only edit your messages' };
       }
       return {
         ok: true,
@@ -249,21 +273,21 @@ export class MessageManagement {
       emit(new MessageSent(args.channelId, args.messageId));
     }
 
-    return "Message updated";
+    return 'Message updated';
   }
 
   deleteMessage(executorId: UserId, args: DeleteMessageArgs, isModerator: boolean): string {
     const map = args.parentId ? this.threads : this.messages;
     const key = args.parentId ? args.parentId : args.channelId;
-    
+
     const register = map.get(key);
     if (!register) {
-      return "Message not found";
+      return 'Message not found';
     }
 
     const vector = register.get() ?? createVector<StoredMessage>();
     if (!vector) {
-      return "Message not found";
+      return 'Message not found';
     }
 
     const result = this.updateMessage(vector, args.messageId, message => {
@@ -274,7 +298,7 @@ export class MessageManagement {
         ok: true,
         value: {
           ...message,
-          text: "",
+          text: '',
           deleted: true,
         },
       };
@@ -300,7 +324,7 @@ export class MessageManagement {
       const emptyMap = createUnorderedMap<string, UnorderedSet<UserId>>();
       reactionRegister.set(emptyMap);
     }
-    return "Message deleted";
+    return 'Message deleted';
   }
 
   /**
@@ -360,12 +384,14 @@ export class MessageManagement {
     let reactionRegister = this.reactions.get(args.messageId);
     if (!reactionRegister) {
       const reactionMap = createUnorderedMap<string, UnorderedSet<UserId>>();
-      reactionRegister = createLwwRegister<UnorderedMap<string, UnorderedSet<UserId>>>({ initialValue: reactionMap });
+      reactionRegister = createLwwRegister<UnorderedMap<string, UnorderedSet<UserId>>>({
+        initialValue: reactionMap,
+      });
       this.reactions.set(args.messageId, reactionRegister);
     }
 
     const currentMap = reactionRegister.get() ?? createUnorderedMap<string, UnorderedSet<UserId>>();
-    
+
     // Create a new map to ensure proper CRDT synchronization
     const newMap = createUnorderedMap<string, UnorderedSet<UserId>>();
 
@@ -391,7 +417,7 @@ export class MessageManagement {
       // Adding a reaction
       const existingUsers = currentMap.get(args.emoji);
       const users = createUnorderedSet<UserId>();
-      
+
       if (existingUsers) {
         // Copy existing users to the new set
         try {
@@ -419,7 +445,7 @@ export class MessageManagement {
               updatedUsers.add(user);
             }
           }
-          
+
           // Only add to new map if there are still users
           const userArray = updatedUsers.toArray();
           if (userArray.length > 0) {
@@ -437,10 +463,14 @@ export class MessageManagement {
     reactionRegister.set(newMap);
 
     emit(new ReactionUpdated(args.messageId));
-    return "Reaction updated";
+    return 'Reaction updated';
   }
 
-  private appendToVector(map: UnorderedMap<string, LwwRegister<Vector<StoredMessage>>>, key: string, value: StoredMessage): void {
+  private appendToVector(
+    map: UnorderedMap<string, LwwRegister<Vector<StoredMessage>>>,
+    key: string,
+    value: StoredMessage
+  ): void {
     let register = map.get(key);
     if (!register) {
       const vector = createVector<StoredMessage>();
@@ -448,10 +478,10 @@ export class MessageManagement {
       map.set(key, register);
     }
     const currentVector = register.get() ?? createVector<StoredMessage>();
-    
+
     // Create a new vector to ensure proper CRDT synchronization
     const newVector = createVector<StoredMessage>();
-    
+
     // Copy existing items to the new vector
     try {
       const existingItems = currentVector.toArray();
@@ -461,15 +491,19 @@ export class MessageManagement {
     } catch {
       // If toArray fails, start with empty vector
     }
-    
+
     // Add the new item
     newVector.push(value);
-    
+
     // Set the new vector back in the register
     register.set(newVector);
   }
 
-  private sliceVector(vector: Vector<StoredMessage> | null, limit?: number, offset?: number): StoredMessage[] {
+  private sliceVector(
+    vector: Vector<StoredMessage> | null,
+    limit?: number,
+    offset?: number
+  ): StoredMessage[] {
     if (!vector) {
       return [];
     }
@@ -485,7 +519,9 @@ export class MessageManagement {
   private updateMessage(
     vector: Vector<StoredMessage>,
     messageId: string,
-    transform: (message: StoredMessage) => { ok: true; value: StoredMessage } | { ok: false; error: string },
+    transform: (
+      message: StoredMessage
+    ) => { ok: true; value: StoredMessage } | { ok: false; error: string }
   ): { ok: true; vector: Vector<StoredMessage> } | { ok: false; error: string } {
     const items = vector.toArray();
     for (let index = 0; index < items.length; index += 1) {
@@ -503,7 +539,7 @@ export class MessageManagement {
         return { ok: true, vector: newVector };
       }
     }
-    return { ok: false, error: "Message not found" };
+    return { ok: false, error: 'Message not found' };
   }
 
   private generateMessageId(channelId: string, executorId: UserId, timestamp: bigint): string {
@@ -511,4 +547,3 @@ export class MessageManagement {
     return `${channelId}-${executorId}-${timestamp}-${random}`;
   }
 }
-

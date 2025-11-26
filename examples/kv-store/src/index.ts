@@ -4,12 +4,18 @@ import * as env from '@calimero/sdk/env';
 
 @Event
 export class ItemInserted {
-  constructor(public key: string, public value: string) {}
+  constructor(
+    public key: string,
+    public value: string
+  ) {}
 }
 
 @Event
 export class ItemUpdated {
-  constructor(public key: string, public value: string) {}
+  constructor(
+    public key: string,
+    public value: string
+  ) {}
 }
 
 @Event
@@ -44,7 +50,7 @@ export class KvStoreLogic extends KvStore {
 
   set(arg1: { key: string; value: string } | string, maybeValue?: string): void {
     const key = typeof arg1 === 'string' ? arg1 : arg1.key;
-    const value = typeof arg1 === 'string' ? maybeValue ?? '' : arg1.value;
+    const value = typeof arg1 === 'string' ? (maybeValue ?? '') : arg1.value;
 
     let register = this.items.get(key);
     if (!register) {
@@ -75,7 +81,9 @@ export class KvStoreLogic extends KvStore {
     const value = typeof arg1 === 'string' ? (valueOrTags as string) : arg1.value;
     const tags =
       typeof arg1 === 'string'
-        ? (Array.isArray(valueOrTags) ? valueOrTags : maybeTags ?? [])
+        ? Array.isArray(valueOrTags)
+          ? valueOrTags
+          : (maybeTags ?? [])
         : arg1.tags;
 
     this.set({ key, value });
@@ -195,7 +203,8 @@ export class KvStoreLogic extends KvStore {
 
     register.set(details);
     this.handlersCalled.set(key, register);
-    env.log(`[kv-store] handler_invocation handler=${handler} sequence=${sequence} details=${details}`);
+    env.log(
+      `[kv-store] handler_invocation handler=${handler} sequence=${sequence} details=${details}`
+    );
   }
 }
-
