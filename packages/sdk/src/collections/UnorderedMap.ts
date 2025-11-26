@@ -83,13 +83,16 @@ export class UnorderedMap<K, V> {
       }
     }
 
-    // Register nested collections for automatic tracking
+    const valueBytes = serialize(nextValue);
+    mapInsert(this.mapId, keyBytes, valueBytes);
+    
+    // Register nested collections for automatic tracking after storage
     if (hasRegisteredCollection(nextValue)) {
       nestedTracker.registerCollection(nextValue, this, key);
     }
-
-    const valueBytes = serialize(nextValue);
-    mapInsert(this.mapId, keyBytes, valueBytes);
+    
+    // Notify tracker of modification
+    nestedTracker.notifyCollectionModified(this);
   }
 
   get(key: K): V | null {

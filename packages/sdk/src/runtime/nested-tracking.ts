@@ -55,79 +55,16 @@ class NestedCollectionTracker {
       }
     }
 
-    // Wrap collection methods to detect changes
-    this.wrapCollectionMethods(collection);
+    // Collection is now registered for tracking
   }
 
   /**
-   * Wrap collection methods to automatically detect changes
+   * Notify that a collection has been modified
    */
-  private wrapCollectionMethods(collection: any): void {
+  notifyCollectionModified(collection: any): void {
     const snapshot = snapshotCollection(collection);
-    if (!snapshot) return;
-
-    // For UnorderedMap
-    if (snapshot.type === 'UnorderedMap' && collection.set) {
-      const originalSet = collection.set.bind(collection);
-      collection.set = (key: any, value: any) => {
-        // Check if value is a nested collection
-        if (hasRegisteredCollection(value)) {
-          this.registerCollection(value, collection, key);
-        }
-        
-        const result = originalSet(key, value);
-        this.markForUpdate(snapshot.id);
-        return result;
-      };
-
-      const originalRemove = collection.remove.bind(collection);
-      collection.remove = (key: any) => {
-        const result = originalRemove(key);
-        this.markForUpdate(snapshot.id);
-        return result;
-      };
-    }
-
-    // For UnorderedSet
-    if (snapshot.type === 'UnorderedSet' && collection.add) {
-      const originalAdd = collection.add.bind(collection);
-      collection.add = (value: any) => {
-        if (hasRegisteredCollection(value)) {
-          this.registerCollection(value, collection, value);
-        }
-        
-        const result = originalAdd(value);
-        this.markForUpdate(snapshot.id);
-        return result;
-      };
-
-      const originalDelete = collection.delete.bind(collection);
-      collection.delete = (value: any) => {
-        const result = originalDelete(value);
-        this.markForUpdate(snapshot.id);
-        return result;
-      };
-    }
-
-    // For Vector
-    if (snapshot.type === 'Vector' && collection.push) {
-      const originalPush = collection.push.bind(collection);
-      collection.push = (value: any) => {
-        if (hasRegisteredCollection(value)) {
-          this.registerCollection(value, collection, collection.length());
-        }
-        
-        const result = originalPush(value);
-        this.markForUpdate(snapshot.id);
-        return result;
-      };
-
-      const originalPop = collection.pop.bind(collection);
-      collection.pop = () => {
-        const result = originalPop();
-        this.markForUpdate(snapshot.id);
-        return result;
-      };
+    if (snapshot) {
+      this.markForUpdate(snapshot.id);
     }
   }
 

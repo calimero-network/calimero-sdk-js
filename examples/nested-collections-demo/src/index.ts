@@ -4,8 +4,13 @@ import * as env from '@calimero/sdk/env';
 
 @State
 export class NestedCollectionsDemo {
-  messageReactions: UnorderedMap<string, UnorderedMap<string, UnorderedSet<string>>> = new UnorderedMap();
-  userGroups: UnorderedMap<string, UnorderedSet<string>> = new UnorderedMap();
+  messageReactions: UnorderedMap<string, UnorderedMap<string, UnorderedSet<string>>>;
+  userGroups: UnorderedMap<string, UnorderedSet<string>>;
+
+  constructor() {
+    this.messageReactions = new UnorderedMap();
+    this.userGroups = new UnorderedMap();
+  }
 }
 
 @Logic(NestedCollectionsDemo)
@@ -17,7 +22,10 @@ export class NestedCollectionsDemoLogic extends NestedCollectionsDemo {
   }
 
   // Now this works automatically without manual re-serialization!
-  addReaction(messageId: string, emoji: string, userId: string): void {
+  addReaction(args: { messageId: string; emoji: string; userId: string }): void {
+    const messageId = args.messageId;
+    const emoji = args.emoji;
+    const userId = args.userId;
     env.log(`Adding reaction ${emoji} from ${userId} to message ${messageId}`);
     
     // Get or create the reaction map for this message
@@ -34,20 +42,23 @@ export class NestedCollectionsDemoLogic extends NestedCollectionsDemo {
       reactionMap.set(emoji, userSet);
     }
 
-    // Add the user - this change will now automatically propagate!
+    // Add the user - changes automatically propagate thanks to nested tracking!
     userSet.add(userId);
     
     env.log(`Reaction added successfully`);
   }
 
-  removeReaction(messageId: string, emoji: string, userId: string): void {
+  removeReaction(args: { messageId: string; emoji: string; userId: string }): void {
+    const messageId = args.messageId;
+    const emoji = args.emoji;
+    const userId = args.userId;
     const reactionMap = this.messageReactions.get(messageId);
     if (!reactionMap) return;
 
     const userSet = reactionMap.get(emoji);
     if (!userSet) return;
 
-    // Remove the user - this change will automatically propagate!
+    // Remove the user - changes automatically propagate thanks to nested tracking!
     userSet.delete(userId);
     
     // Clean up empty sets
@@ -56,19 +67,26 @@ export class NestedCollectionsDemoLogic extends NestedCollectionsDemo {
     }
   }
 
-  addUserToGroup(groupName: string, userId: string): void {
+  addUserToGroup(args: { groupName: string; userId: string }): void {
+    const groupName = args.groupName;
+    const userId = args.userId;
+    env.log(`Adding user ${userId} to group ${groupName}`);
     let group = this.userGroups.get(groupName);
+    env.log(`Retrieved group: ${group ? 'exists' : 'null'}, type: ${typeof group}`);
     if (!group) {
       group = new UnorderedSet<string>();
+      env.log(`Created new UnorderedSet for group ${groupName}`);
       this.userGroups.set(groupName, group);
     }
 
-    // This change will automatically propagate!
+    // Add user - changes automatically propagate thanks to nested tracking!
     group.add(userId);
+    env.log(`Added ${userId} to group, group now has ${group.size()} members`);
   }
 
   @View()
-  getReactions(messageId: string): string {
+  getReactions(arg1: { messageId: string } | string): string {
+    const messageId = typeof arg1 === 'string' ? arg1 : arg1.messageId;
     const reactionMap = this.messageReactions.get(messageId);
     if (!reactionMap) {
       return JSON.stringify({});
@@ -83,16 +101,24 @@ export class NestedCollectionsDemoLogic extends NestedCollectionsDemo {
   }
 
   @View()
-  getGroupMembers(groupName: string): string {
+  getGroupMembers(arg1: { groupName: string } | string): string {
+    const groupName = typeof arg1 === 'string' ? arg1 : arg1.groupName;
     const group = this.userGroups.get(groupName);
     return JSON.stringify(group ? group.toArray() : []);
   }
 
   @View()
   getAllGroups(): string {
+    env.log(`getAllGroups called, userGroups has ${this.userGroups.keys().length} keys`);
     const result: Record<string, string[]> = {};
     for (const [groupName, userSet] of this.userGroups.entries()) {
-      result[groupName] = userSet.toArray();
+      env.log(`Processing group: ${groupName}, userSet type: ${typeof userSet}, constructor: ${userSet?.constructor?.name}`);
+      if (userSet && typeof userSet.toArray === 'function') {
+        result[groupName] = userSet.toArray();
+      } else {
+        env.log(`userSet is not a proper UnorderedSet: ${JSON.stringify(userSet)}`);
+        result[groupName] = [];
+      }
     }
     return JSON.stringify(result);
   }

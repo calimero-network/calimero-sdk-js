@@ -54,7 +54,12 @@ export class UnorderedSet<T> {
       nestedTracker.registerCollection(value, this, value);
     }
 
-    return setInsert(this.setId, serialize(value));
+    const result = setInsert(this.setId, serialize(value));
+    
+    // Notify tracker of modification
+    nestedTracker.notifyCollectionModified(this);
+    
+    return result;
   }
 
   has(value: T): boolean {

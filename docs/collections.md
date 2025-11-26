@@ -84,9 +84,24 @@ if (reactionMap) {
 
 **✅ With automatic propagation:**
 ```typescript
-// Just write natural code - it works!
+// Just write natural code - it works seamlessly!
 const userSet = messageReactions.get(messageId)?.get(emoji);
-userSet?.add(userId); // Automatically propagates!
+userSet?.add(userId); // Automatically propagates across all nodes!
+
+// Or create and modify in one flow:
+let reactionMap = messageReactions.get(messageId);
+if (!reactionMap) {
+  reactionMap = new UnorderedMap<string, UnorderedSet<string>>();
+  messageReactions.set(messageId, reactionMap);
+}
+
+let userSet = reactionMap.get(emoji);
+if (!userSet) {
+  userSet = new UnorderedSet<string>();
+  reactionMap.set(emoji, userSet);
+}
+
+userSet.add(userId); // That's it! No manual re-serialization needed.
 ```
 
 ### How It Works
@@ -201,6 +216,22 @@ const timestamp = register.timestamp(); // when it was set
 - **Vector**: Ordered lists (logs, history, queues)
 - **Counter**: Metrics, totals, counts
 - **LwwRegister**: Single values (status, config value)
+
+### Write Natural Code with Nested Collections
+
+✅ **Just modify nested collections directly** - the SDK handles propagation automatically:
+
+```typescript
+// This works seamlessly across all nodes!
+const userSet = this.messageReactions.get(messageId)?.get(emoji);
+userSet?.add(userId);
+
+// Or build complex structures naturally:
+const group = this.userGroups.get(groupName) || new UnorderedSet<string>();
+group.add(userId);
+this.userGroups.set(groupName, group);
+// No manual re-serialization needed!
+```
 
 ### Avoid Anti-Patterns
 
