@@ -637,7 +637,29 @@ export class ChannelManager {
         unreadCount++;
 
         // Check if user is mentioned in this message
+        let isMentioned = false;
+        
+        // Check direct user ID mentions
         if (message.mentions && message.mentions.includes(userId)) {
+          isMentioned = true;
+        }
+        
+        // Check for @here and @everyone mentions (these notify all channel members)
+        if (message.mentionUsernames && message.mentionUsernames.length > 0) {
+          const hasHere = message.mentionUsernames.some(u => 
+            u.toLowerCase() === "here" || u.toLowerCase() === "@here"
+          );
+          const hasEveryone = message.mentionUsernames.some(u => 
+            u.toLowerCase() === "everyone" || u.toLowerCase() === "@everyone"
+          );
+          
+          if (hasHere || hasEveryone) {
+            // User is a member of the channel (we're already in listForMember), so they're mentioned
+            isMentioned = true;
+          }
+        }
+        
+        if (isMentioned) {
           mentionCount++;
         }
       }
