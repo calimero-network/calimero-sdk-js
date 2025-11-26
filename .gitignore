@@ -72,8 +72,7 @@ packages/cli/src/deps/quickjs/
 packages/cli/src/deps/wasi-sdk/
 packages/cli/src/deps/binaryen/
 
-# Merobox workflows (local testing only)
-merobox-workflows/
+
 
 # Generated files
 packages/cli/builder/code.h
