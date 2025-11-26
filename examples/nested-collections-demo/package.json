@@ -1,0 +1,16 @@
+{
+  "name": "nested-collections-demo",
+  "version": "1.0.0",
+  "description": "Demo showing automatic nested collection tracking",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@calimero/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

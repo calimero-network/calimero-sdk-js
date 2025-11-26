@@ -4,7 +4,8 @@
 
 import { serialize, deserialize } from '../utils/serialize';
 import { vectorNew, vectorLen, vectorPush, vectorGet, vectorPop } from '../runtime/storage-wasm';
-import { registerCollectionType, CollectionSnapshot } from '../runtime/collections';
+import { registerCollectionType, CollectionSnapshot, hasRegisteredCollection } from '../runtime/collections';
+import { nestedTracker } from '../runtime/nested-tracking';
 
 export interface VectorOptions {
   id?: Uint8Array | string;
@@ -19,6 +20,9 @@ export class Vector<T> {
     } else {
       this.vectorId = vectorNew();
     }
+
+    // Register with nested tracker for automatic change propagation
+    nestedTracker.registerCollection(this);
   }
 
   /**
@@ -50,6 +54,11 @@ export class Vector<T> {
    * Appends a value to the end of the vector.
    */
   push(value: T): void {
+    // Register nested collections for automatic tracking
+    if (hasRegisteredCollection(value)) {
+      nestedTracker.registerCollection(value, this, this.len());
+    }
+
     vectorPush(this.vectorId, serialize(value));
   }
 
