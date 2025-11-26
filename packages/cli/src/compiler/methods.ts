@@ -34,17 +34,31 @@ export async function generateMethodsHeader(jsFile: string, outputDir: string): 
 
   const ast = parse(jsCode, {
     sourceType: 'module',
-    plugins: [],
+    plugins: ['classProperties', 'typescript'],
   });
 
   const exportedNames = new Set<string>();
   const functionDeclarations = new Set<string>();
+  const classMethods = new Set<string>();
 
   traverse(ast, {
     FunctionDeclaration(nodePath: any) {
       const name = nodePath.node.id?.name;
       if (name && !name.startsWith('_') && !/^[A-Z]/.test(name) && name !== 'constructor') {
         functionDeclarations.add(name);
+      }
+    },
+    ClassMethod(nodePath: any) {
+      const name = nodePath.node.key?.name;
+      const isStatic = nodePath.node.static === true;
+      if (
+        name &&
+        !name.startsWith('_') &&
+        !/^[A-Z]/.test(name) &&
+        name !== 'constructor' &&
+        !isStatic
+      ) {
+        classMethods.add(name);
       }
     },
     ExportNamedDeclaration(nodePath: any) {
@@ -69,6 +83,10 @@ export async function generateMethodsHeader(jsFile: string, outputDir: string): 
     if (functionDeclarations.has(name)) {
       methodSet.add(name);
     }
+  });
+
+  classMethods.forEach(name => {
+    methodSet.add(name);
   });
 
   methodSet.add('__calimero_sync_next');
