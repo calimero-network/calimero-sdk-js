@@ -335,7 +335,7 @@ export class MessageManagement {
   findMessageChannelId(messageId: string): string | null {
     // First, check in all channels (regular messages)
     const channelEntries = this.messages.entries();
-    for (const [, register] of channelEntries) {
+    for (const [_channel, register] of channelEntries) {
       if (!register) {
         continue;
       }
