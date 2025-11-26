@@ -4,7 +4,7 @@
   "description": "Demo showing automatic nested collection tracking",
   "main": "src/index.ts",
   "scripts": {
-    "build": "npx calimero-sdk build src/index.ts -o build/service.wasm",
+    "build:manual": "calimero-sdk build src/index.ts -o build/service.wasm",
     "build:ts": "tsc",
     "dev": "tsc --watch"
   },
