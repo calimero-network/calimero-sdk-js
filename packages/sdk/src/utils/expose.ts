@@ -31,7 +31,9 @@ function innerExpose(value: unknown): unknown {
   }
 
   if (value instanceof UnorderedMap) {
-    const entries = value.entries().map(([key, val]) => [innerExpose(key), innerExpose(val)] as [unknown, unknown]);
+    const entries = value
+      .entries()
+      .map(([key, val]) => [innerExpose(key), innerExpose(val)] as [unknown, unknown]);
     if (entries.every(([key]) => typeof key === 'string')) {
       const record: Record<string, unknown> = Object.create(null);
       for (const [key, val] of entries as [string, unknown][]) {
@@ -56,4 +58,3 @@ function innerExpose(value: unknown): unknown {
   }
   return result;
 }
-

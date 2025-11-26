@@ -112,9 +112,12 @@ import { createPrivateEntry } from '@calimero/sdk';
 const secrets = createPrivateEntry<{ token: string }>('private:secrets');
 
 const current = secrets.getOrInit(() => ({ token: '' }));
-secrets.modify(value => {
-  value.token = 'rotated-token';
-}, () => ({ token: '' }));
+secrets.modify(
+  value => {
+    value.token = 'rotated-token';
+  },
+  () => ({ token: '' })
+);
 ```
 
 Entries are stored via `storageRead` / `storageWrite` directly and are not replicated via CRDT deltas.
@@ -124,6 +127,7 @@ Entries are stored via `storageRead` / `storageWrite` directly and are not repli
 ### Build Errors
 
 If you encounter build errors:
+
 1. Ensure all dependencies are installed: `pnpm install`
 2. Check TypeScript version: `pnpm list typescript`
 3. Use `--verbose` flag for detailed output
@@ -131,6 +135,7 @@ If you encounter build errors:
 ### Runtime Errors
 
 If your service fails at runtime:
+
 1. Check logs with `meroctl logs`
 2. Verify host functions are available
 3. Ensure proper error handling in your code
@@ -140,4 +145,3 @@ If your service fails at runtime:
 - [GitHub Issues](https://github.com/calimero-network/calimero-sdk-js/issues)
 - [Discord](https://discord.gg/calimero)
 - [Documentation](https://docs.calimero.network)
-

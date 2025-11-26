@@ -8,7 +8,6 @@ module.exports = {
   moduleNameMapper: {
     '^@calimero/sdk$': '<rootDir>/../../packages/sdk/src/index.ts',
     '^@calimero/sdk/(.*)$': '<rootDir>/../../packages/sdk/src/$1',
-    '^@calimero/cli$': '<rootDir>/../../packages/cli/src/cli.ts'
-  }
+    '^@calimero/cli$': '<rootDir>/../../packages/cli/src/cli.ts',
+  },
 };
-

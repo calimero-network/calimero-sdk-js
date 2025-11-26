@@ -30,4 +30,3 @@ export class CounterLogic extends CounterApp {
     return { message: 'hello world from QuickJS!' };
   }
 }
-

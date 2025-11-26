@@ -40,7 +40,7 @@ describe('exposeValue', () => {
 
     expect(exposeValue(map)).toEqual([
       [1, 10],
-      [2, 20]
+      [2, 20],
     ]);
   });
 
@@ -58,7 +58,7 @@ describe('exposeValue', () => {
     const profile = {
       name: 'Alice',
       tags: new UnorderedSet({ initialValues: ['lead', 'remote'] }),
-      history: Vector.fromArray([first, second])
+      history: Vector.fromArray([first, second]),
     };
 
     const exposed = exposeValue(profile) as Record<string, unknown>;
@@ -67,4 +67,3 @@ describe('exposeValue', () => {
     expect(exposed.history).toEqual([{ year: 2023 }, { year: 2024 }]);
   });
 });
-

@@ -24,10 +24,7 @@ interface QuickJSOptions {
  * @param options - Compiler options
  * @returns Path to generated C header file
  */
-export async function compileToC(
-  jsFile: string,
-  options: QuickJSOptions
-): Promise<string> {
+export async function compileToC(jsFile: string, options: QuickJSOptions): Promise<string> {
   const qjscPath = path.join(__dirname, '../../src/deps/qjsc');
   const outputFile = path.join(options.outputDir, 'code.h');
 
@@ -35,7 +32,7 @@ export async function compileToC(
   if (!fs.existsSync(qjscPath)) {
     throw new Error(
       'QuickJS compiler not found. Please run: pnpm install\n' +
-      'This will download QuickJS automatically.'
+        'This will download QuickJS automatically.'
     );
   }
 
@@ -53,7 +50,7 @@ export async function compileToC(
   try {
     execSync(cmd, {
       stdio: options.verbose ? 'inherit' : 'pipe',
-      cwd: process.cwd()
+      cwd: process.cwd(),
     });
   } catch (error) {
     throw new Error(`QuickJS compilation failed: ${error}`);
@@ -65,4 +62,3 @@ export async function compileToC(
 
   return outputFile;
 }
-

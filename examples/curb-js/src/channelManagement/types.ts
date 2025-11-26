@@ -1,11 +1,11 @@
-import type { ChannelId, UserId, Username } from "../types";
-import type { StoredMessage } from "../messageManagement/types";
-import { LwwRegister, UnorderedMap, UnorderedSet, Vector } from "@calimero/sdk/collections";
+import type { ChannelId, UserId, Username } from '../types';
+import type { StoredMessage } from '../messageManagement/types';
+import { LwwRegister, UnorderedMap, UnorderedSet, Vector } from '@calimero/sdk/collections';
 
 export enum ChannelType {
-  Default = "default",
-  Private = "private",
-  Public = "public",
+  Default = 'default',
+  Private = 'private',
+  Public = 'public',
 }
 
 export type ChannelMetadata = {
@@ -62,4 +62,3 @@ export type ModeratorInput = {
   channelId: ChannelId;
   userId: UserId;
 };
-

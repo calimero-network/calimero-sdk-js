@@ -9,7 +9,7 @@ const descriptors = new Map<string, MergeableDescriptor>();
 
 export function registerMergeableType(
   ctor: { prototype: object },
-  descriptor: MergeableDescriptor,
+  descriptor: MergeableDescriptor
 ): void {
   const { type } = descriptor;
   descriptors.set(type, descriptor);
@@ -68,4 +68,3 @@ export function markMergeableInstance(target: any, type: string): void {
     enumerable: false,
   });
 }
-

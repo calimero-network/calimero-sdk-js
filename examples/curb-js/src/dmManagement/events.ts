@@ -1,4 +1,4 @@
-import { Event } from "@calimero/sdk";
+import { Event } from '@calimero/sdk';
 
 @Event
 export class DMCreated {
@@ -14,4 +14,3 @@ export class NewIdentityUpdated {
 export class DMDeleted {
   constructor(public actorId: string) {}
 }
-

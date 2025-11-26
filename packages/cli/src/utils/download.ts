@@ -39,4 +39,3 @@ export async function download(url: string, dest: string): Promise<void> {
       });
   });
 }
-

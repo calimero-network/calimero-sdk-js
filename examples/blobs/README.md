@@ -38,4 +38,3 @@ Run the end-to-end workflow with Merobox:
 ```bash
 merobox workflows run examples/blobs/workflows/blobs-js.yml
 ```
-

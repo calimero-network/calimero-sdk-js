@@ -13,4 +13,3 @@ export type InitParams = {
   invitee?: UserId;
   inviteeUsername?: Username;
 };
-

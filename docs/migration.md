@@ -71,16 +71,17 @@ export class KvStoreLogic {
 
 ### 1. Decorators vs Macros
 
-| Rust | JavaScript |
-|------|------------|
-| `#[app::state]` | `@State` |
+| Rust            | JavaScript           |
+| --------------- | -------------------- |
+| `#[app::state]` | `@State`             |
 | `#[app::logic]` | `@Logic(StateClass)` |
-| `#[app::init]` | `@Init` |
-| `#[app::event]` | `@Event` |
+| `#[app::init]`  | `@Init`              |
+| `#[app::event]` | `@Event`             |
 
 ### 2. Error Handling
 
 **Rust**: Explicit with `Result<T, E>` and `?` operator
+
 ```rust
 pub fn set(&mut self, key: String) -> app::Result<()> {
     self.items.insert(key, value)?;
@@ -89,6 +90,7 @@ pub fn set(&mut self, key: String) -> app::Result<()> {
 ```
 
 **JavaScript**: Collections throw on error
+
 ```typescript
 set(key: string): void {
   this.items.set(key, value); // throws on error
@@ -98,6 +100,7 @@ set(key: string): void {
 ### 3. Initialization
 
 **Rust**: Field initialization in struct literal
+
 ```rust
 KvStore {
     items: UnorderedMap::new(),
@@ -105,6 +108,7 @@ KvStore {
 ```
 
 **JavaScript**: Constructor
+
 ```typescript
 constructor() {
   this.items = new UnorderedMap();
@@ -114,23 +118,25 @@ constructor() {
 ### 4. Types
 
 **Rust**: Explicit generic types
+
 ```rust
 UnorderedMap<String, String>
 ```
 
 **JavaScript**: TypeScript generics
+
 ```typescript
-UnorderedMap<string, string>
+UnorderedMap<string, string>;
 ```
 
 ## Collection Mapping
 
-| Rust | JavaScript | Notes |
-|------|------------|-------|
-| `UnorderedMap<K, V>` | `UnorderedMap<K, V>` | Same API |
-| `Vector<T>` | `Vector<T>` | Same API |
-| `Counter` | `Counter` | Same behavior |
-| `LwwRegister<T>` | `LwwRegister<T>` | Same API |
+| Rust                 | JavaScript           | Notes         |
+| -------------------- | -------------------- | ------------- |
+| `UnorderedMap<K, V>` | `UnorderedMap<K, V>` | Same API      |
+| `Vector<T>`          | `Vector<T>`          | Same API      |
+| `Counter`            | `Counter`            | Same behavior |
+| `LwwRegister<T>`     | `LwwRegister<T>`     | Same API      |
 
 ## Migration Checklist
 
@@ -146,6 +152,7 @@ UnorderedMap<string, string>
 ### 1. Forgetting Constructor
 
 ❌ **BAD**:
+
 ```typescript
 @State
 export class MyApp {
@@ -154,6 +161,7 @@ export class MyApp {
 ```
 
 ✅ **GOOD**:
+
 ```typescript
 @State
 export class MyApp {
@@ -168,18 +176,21 @@ export class MyApp {
 ### 2. Mixing State and Logic
 
 ❌ **BAD**:
+
 ```typescript
 @State
 export class MyApp {
   items: UnorderedMap<string, string>;
 
-  set(key: string, value: string) { // ❌ Methods go in @Logic!
+  set(key: string, value: string) {
+    // ❌ Methods go in @Logic!
     this.items.set(key, value);
   }
 }
 ```
 
 ✅ **GOOD**:
+
 ```typescript
 @State
 export class MyApp {
@@ -188,7 +199,8 @@ export class MyApp {
 
 @Logic(MyApp)
 export class MyAppLogic {
-  set(key: string, value: string) { // ✅
+  set(key: string, value: string) {
+    // ✅
     this.items.set(key, value);
   }
 }
@@ -196,24 +208,25 @@ export class MyAppLogic {
 
 ## Performance Comparison
 
-| Metric | Rust | JavaScript | Difference |
-|--------|------|------------|------------|
-| WASM Size | ~100KB | ~500KB | 5x larger |
-| Build Time | 5-10s | 3-8s | Similar |
-| Execution | Native | ~2x slower | Acceptable |
+| Metric     | Rust   | JavaScript | Difference |
+| ---------- | ------ | ---------- | ---------- |
+| WASM Size  | ~100KB | ~500KB     | 5x larger  |
+| Build Time | 5-10s  | 3-8s       | Similar    |
+| Execution  | Native | ~2x slower | Acceptable |
 
 ## When to Use Each
 
 **Use Rust SDK** when:
+
 - Performance is critical
 - Building complex algorithms
 - Need smallest WASM size
 
 **Use JavaScript SDK** when:
+
 - Rapid prototyping
 - Team knows JavaScript/TypeScript
 - npm ecosystem needed
 - Developer experience priority
 
 Both SDKs are fully compatible and can interact on the same network!
-

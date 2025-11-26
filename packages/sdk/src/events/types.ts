@@ -32,4 +32,3 @@ export interface EventMetadata {
    */
   handler?: string;
 }
-

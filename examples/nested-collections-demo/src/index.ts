@@ -6,16 +6,16 @@ import * as env from '@calimero/sdk/env';
 export class NestedCollectionsTest {
   // Test Map<Map<Set>> pattern (like message reactions)
   mapMapSet: UnorderedMap<string, UnorderedMap<string, UnorderedSet<string>>>;
-  
+
   // Test Map<Set> pattern (like user groups)
   mapSet: UnorderedMap<string, UnorderedSet<string>>;
-  
+
   // Test Map<Vector> pattern
   mapVector: UnorderedMap<string, Vector<string>>;
-  
+
   // Test Vector<Map> pattern (Vector as parent)
   vectorMap: Vector<UnorderedMap<string, string>>;
-  
+
   // Test Set<Map> pattern (Set as parent)
   setMap: UnorderedSet<UnorderedMap<string, string>>;
 
@@ -41,7 +41,7 @@ export class NestedCollectionsTestLogic extends NestedCollectionsTest {
   addToMapMapSet(args: { outerKey: string; innerKey: string; value: string }): void {
     const { outerKey, innerKey, value } = args;
     env.log(`Adding ${value} to mapMapSet[${outerKey}][${innerKey}]`);
-    
+
     // Get or create the inner map
     let innerMap = this.mapMapSet.get(outerKey);
     if (!innerMap) {
@@ -65,7 +65,7 @@ export class NestedCollectionsTestLogic extends NestedCollectionsTest {
   removeFromMapMapSet(args: { outerKey: string; innerKey: string; value: string }): void {
     const { outerKey, innerKey, value } = args;
     env.log(`Removing ${value} from mapMapSet[${outerKey}][${innerKey}]`);
-    
+
     const innerMap = this.mapMapSet.get(outerKey);
     if (!innerMap) return;
 
@@ -74,7 +74,7 @@ export class NestedCollectionsTestLogic extends NestedCollectionsTest {
 
     // Remove the value - changes automatically propagate thanks to nested tracking!
     set.delete(value);
-    
+
     // Clean up empty sets
     if (set.size() === 0) {
       innerMap.remove(innerKey);
@@ -86,7 +86,7 @@ export class NestedCollectionsTestLogic extends NestedCollectionsTest {
   addToMapSet(args: { key: string; value: string }): void {
     const { key, value } = args;
     env.log(`Adding ${value} to mapSet[${key}]`);
-    
+
     let set = this.mapSet.get(key);
     if (!set) {
       set = new UnorderedSet<string>();
@@ -102,7 +102,7 @@ export class NestedCollectionsTestLogic extends NestedCollectionsTest {
   getMapMapSet(args: { outerKey: string } | string): string {
     // Handle both object and string parameter formats for @View methods
     const outerKey = typeof args === 'string' ? args : args.outerKey;
-    
+
     const innerMap = this.mapMapSet.get(outerKey);
     if (!innerMap) {
       return JSON.stringify({});
@@ -112,7 +112,7 @@ export class NestedCollectionsTestLogic extends NestedCollectionsTest {
     for (const [innerKey, set] of innerMap.entries()) {
       result[innerKey] = set.toArray();
     }
-    
+
     return JSON.stringify(result);
   }
 
@@ -134,10 +134,14 @@ export class NestedCollectionsTestLogic extends NestedCollectionsTest {
   }
 
   // Test UnorderedSet operations: delete and clear (testing missing notifications)
-  testSetOperations(args: { key: string; value: string; operation: 'add' | 'delete' | 'clear' }): void {
+  testSetOperations(args: {
+    key: string;
+    value: string;
+    operation: 'add' | 'delete' | 'clear';
+  }): void {
     const { key, value, operation } = args;
     env.log(`Testing set operation: ${operation} on key=${key}, value=${value}`);
-    
+
     let set = this.mapSet.get(key);
     if (!set) {
       set = new UnorderedSet<string>();
@@ -160,7 +164,7 @@ export class NestedCollectionsTestLogic extends NestedCollectionsTest {
   testMapRemove(args: { outerKey: string; innerKey: string }): void {
     const { outerKey, innerKey } = args;
     env.log(`Testing map remove: outerKey=${outerKey}, innerKey=${innerKey}`);
-    
+
     const innerMap = this.mapMapSet.get(outerKey);
     if (innerMap) {
       innerMap.remove(innerKey);
@@ -172,7 +176,7 @@ export class NestedCollectionsTestLogic extends NestedCollectionsTest {
   testVectorOperations(args: { key: string; value: string; operation: 'push' | 'pop' }): void {
     const { key, value, operation } = args;
     env.log(`Testing vector operation: ${operation} on key=${key}, value=${value}`);
-    
+
     let vector = this.mapVector.get(key);
     if (!vector) {
       vector = new Vector<string>();
@@ -192,7 +196,7 @@ export class NestedCollectionsTestLogic extends NestedCollectionsTest {
   testVectorParent(args: { index: number; key: string; value: string }): void {
     const { index, key, value } = args;
     env.log(`Testing vector parent: index=${index}, key=${key}, value=${value}`);
-    
+
     // Ensure we have enough maps in the vector
     while (this.vectorMap.len() <= index) {
       this.vectorMap.push(new UnorderedMap<string, string>());
@@ -209,12 +213,12 @@ export class NestedCollectionsTestLogic extends NestedCollectionsTest {
   testSetParent(args: { mapId: string; key: string; value: string }): void {
     const { mapId, key, value } = args;
     env.log(`Testing set parent: mapId=${mapId}, key=${key}, value=${value}`);
-    
+
     // Create a map with a unique identifier
     const map = new UnorderedMap<string, string>();
     map.set('_id', mapId); // Use this as identifier
     map.set(key, value);
-    
+
     this.setMap.add(map);
     env.log(`Added map ${mapId} with ${key}=${value} to set`);
   }
@@ -224,7 +228,7 @@ export class NestedCollectionsTestLogic extends NestedCollectionsTest {
     const results = {
       mapVector: {} as Record<string, string[]>,
       vectorMap: [] as Record<string, string>[],
-      setMap: [] as Record<string, string>[]
+      setMap: [] as Record<string, string>[],
     };
 
     // Collect mapVector

@@ -11,9 +11,13 @@ import {
   mapInsert,
   mapRemove,
   mapContains,
-  mapEntries
+  mapEntries,
 } from '../runtime/storage-wasm';
-import { registerCollectionType, CollectionSnapshot, hasRegisteredCollection } from '../runtime/collections';
+import {
+  registerCollectionType,
+  CollectionSnapshot,
+  hasRegisteredCollection,
+} from '../runtime/collections';
 import { mergeMergeableValues } from '../runtime/mergeable';
 import { getMergeableType } from '../runtime/mergeable-registry';
 import { nestedTracker } from '../runtime/nested-tracking';
@@ -58,8 +62,8 @@ export class UnorderedMap<K, V> {
   }
 
   /**
-    * Returns the underlying map identifier as a hex string.
-    */
+   * Returns the underlying map identifier as a hex string.
+   */
   id(): string {
     return bytesToHex(this.mapId);
   }
@@ -85,12 +89,12 @@ export class UnorderedMap<K, V> {
 
     const valueBytes = serialize(nextValue);
     mapInsert(this.mapId, keyBytes, valueBytes);
-    
+
     // Register nested collections for automatic tracking after storage
     if (hasRegisteredCollection(nextValue)) {
       nestedTracker.registerCollection(nextValue, this, key);
     }
-    
+
     // Notify tracker of modification
     nestedTracker.notifyCollectionModified(this);
   }
@@ -109,7 +113,7 @@ export class UnorderedMap<K, V> {
   remove(key: K): void {
     const keyBytes = serialize(key);
     mapRemove(this.mapId, keyBytes);
-    
+
     // Notify tracker of modification
     nestedTracker.notifyCollectionModified(this);
   }
@@ -118,7 +122,7 @@ export class UnorderedMap<K, V> {
     const serializedEntries = mapEntries(this.mapId);
     return serializedEntries.map(([keyBytes, valueBytes]) => [
       deserialize<K>(keyBytes),
-      deserialize<V>(valueBytes)
+      deserialize<V>(valueBytes),
     ]);
   }
 
@@ -133,7 +137,7 @@ export class UnorderedMap<K, V> {
   toJSON(): Record<string, unknown> {
     return {
       [SENTINEL_KEY]: 'UnorderedMap',
-      id: this.id()
+      id: this.id(),
     };
   }
 }
@@ -172,4 +176,3 @@ function hexToBytes(hex: string): Uint8Array {
 registerCollectionType('UnorderedMap', (snapshot: CollectionSnapshot) =>
   UnorderedMap.fromId(snapshot.id)
 );
-

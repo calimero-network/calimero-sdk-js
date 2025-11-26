@@ -27,9 +27,10 @@ export function Logic(stateClass: any) {
     (target as any)._calimeroLogic = true;
 
     const methodNames = Object.getOwnPropertyNames(target.prototype).filter(
-      name => name !== 'constructor' &&
-             name !== '_calimeroInitMethod' &&
-             typeof target.prototype[name] === 'function'
+      name =>
+        name !== 'constructor' &&
+        name !== '_calimeroInitMethod' &&
+        typeof target.prototype[name] === 'function'
     );
 
     (target as any)._calimeroMethods = methodNames;
@@ -39,4 +40,3 @@ export function Logic(stateClass: any) {
     return target;
   };
 }
-

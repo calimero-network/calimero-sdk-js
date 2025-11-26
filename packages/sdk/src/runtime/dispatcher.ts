@@ -141,7 +141,7 @@ function createLogicDispatcher(
     } catch (error) {
       handleError(methodName, error);
     } finally {
-        StateManager.setCurrent(null);
+      StateManager.setCurrent(null);
     }
   };
 }
@@ -178,7 +178,7 @@ function createInitDispatcher(
     } catch (error) {
       handleError(methodName, error);
     } finally {
-        StateManager.setCurrent(null);
+      StateManager.setCurrent(null);
     }
   };
 }
@@ -202,13 +202,7 @@ function registerDispatchers(): void {
       }
 
       const mutating = entry.mutating.get(methodName) ?? true;
-      const dispatcher = createLogicDispatcher(
-        logicCtor,
-        stateCtor,
-        methodName,
-        params,
-        mutating
-      );
+      const dispatcher = createLogicDispatcher(logicCtor, stateCtor, methodName, params, mutating);
       (globalThis as any)[methodName] = dispatcher;
     }
   }
@@ -223,5 +217,3 @@ declare global {
   // eslint-disable-next-line no-var
   var __CALIMERO_DISPATCHERS_INITIALIZED__: boolean | undefined;
 }
-
-

@@ -1,27 +1,32 @@
-import { env, Init, Logic, State, View, createUnorderedMap, createVector, createLwwRegister, createUnorderedSet } from "@calimero/sdk";
-import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from "@calimero/sdk/collections";
+import {
+  env,
+  Init,
+  Logic,
+  State,
+  View,
+  createUnorderedMap,
+  createVector,
+  createLwwRegister,
+  createUnorderedSet,
+} from '@calimero/sdk';
+import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from '@calimero/sdk/collections';
 
-import { ChannelManager } from "./channelManagement/channelManagement";
+import { ChannelManager } from './channelManagement/channelManagement';
 import {
   ChannelType,
   type ChannelMembershipInput,
   type ChannelMetadata,
   type CreateChannelInput,
   type ModeratorInput,
-} from "./channelManagement/types";
-import type {
-  ChannelId,
-  InitParams,
-  UserId,
-  Username,
-} from "./types";
+} from './channelManagement/types';
+import type { ChannelId, InitParams, UserId, Username } from './types';
 import {
   DmManagement,
   type DMChatInfo,
   type CreateDMChatArgs,
   type UpdateIdentityArgs,
   type DeleteDMArgs,
-} from "./dmManagement";
+} from './dmManagement';
 import {
   MessageManagement,
   type SendMessageArgs,
@@ -33,30 +38,32 @@ import {
   type ReadDmProps,
   type UpdateDmHashProps,
   type StoredMessage,
-} from "./messageManagement";
-import { isUsernameTaken } from "./utils/members";
+} from './messageManagement';
+import { isUsernameTaken } from './utils/members';
 
 @State
 export class CurbChat {
-  owner: UserId = "";
+  owner: UserId = '';
   members: UnorderedMap<UserId, Username> = createUnorderedMap();
   channels: UnorderedMap<ChannelId, ChannelMetadata> = createUnorderedMap();
   dmChats: UnorderedMap<UserId, Vector<DMChatInfo>> = createUnorderedMap();
   // Track last read message timestamp per user per channel
-  channelReadPositions: UnorderedMap<ChannelId, UnorderedMap<UserId, LwwRegister<bigint>>> = createUnorderedMap();
+  channelReadPositions: UnorderedMap<ChannelId, UnorderedMap<UserId, LwwRegister<bigint>>> =
+    createUnorderedMap();
   // Track last read hash per user per DM context
-  dmReadHashes: UnorderedMap<string, UnorderedMap<UserId, LwwRegister<string>>> = createUnorderedMap();
+  dmReadHashes: UnorderedMap<string, UnorderedMap<UserId, LwwRegister<string>>> =
+    createUnorderedMap();
 }
 
 @Logic(CurbChat)
 export class CurbChatLogic extends CurbChat {
   @Init
-  static init({ 
-    ownerUsername, 
-    defaultChannels = [], 
-    isDm = false, 
-    invitee, 
-    inviteeUsername 
+  static init({
+    ownerUsername,
+    defaultChannels = [],
+    isDm = false,
+    invitee,
+    inviteeUsername,
   }: InitParams): CurbChat {
     const executorId = env.executorIdBase58();
     const timestamp = env.timeNow();
@@ -66,7 +73,10 @@ export class CurbChatLogic extends CurbChat {
     chat.members = createUnorderedMap<UserId, Username>();
     chat.channels = createUnorderedMap<ChannelId, ChannelMetadata>();
     chat.dmChats = createUnorderedMap<UserId, Vector<DMChatInfo>>();
-    chat.channelReadPositions = createUnorderedMap<ChannelId, UnorderedMap<UserId, LwwRegister<bigint>>>();
+    chat.channelReadPositions = createUnorderedMap<
+      ChannelId,
+      UnorderedMap<UserId, LwwRegister<bigint>>
+    >();
     chat.dmReadHashes = createUnorderedMap<string, UnorderedMap<UserId, LwwRegister<string>>>();
 
     // Add owner to members and map username
@@ -80,24 +90,24 @@ export class CurbChatLogic extends CurbChat {
     // Create default channels
     for (const { name } of defaultChannels) {
       this.addDefaultChannelToState(
-        chat, 
-        executorId, 
-        ownerUsername, 
-        timestamp, 
+        chat,
+        executorId,
+        ownerUsername,
+        timestamp,
         name,
         isDm ? invitee : undefined,
         isDm ? inviteeUsername : undefined
       );
     }
 
-    env.log("CurbChat initialized.");
+    env.log('CurbChat initialized.');
     return chat;
   }
 
   @View()
   getUsername(): string {
     const executorId = this.getExecutorId();
-    const username = this.members.get(executorId) ?? "";
+    const username = this.members.get(executorId) ?? '';
     return this.wrapResult(username);
   }
 
@@ -134,7 +144,7 @@ export class CurbChatLogic extends CurbChat {
   createDMChat(rawInput: CreateDMChatArgs | { input: CreateDMChatArgs }): string {
     const args = this.extractInput(rawInput);
     if (!args) {
-      return this.wrapResult("Invalid DM input");
+      return this.wrapResult('Invalid DM input');
     }
 
     const executorId = this.getExecutorId();
@@ -150,7 +160,7 @@ export class CurbChatLogic extends CurbChat {
   updateNewIdentity(rawInput: UpdateIdentityArgs | { input: UpdateIdentityArgs }): string {
     const args = this.extractInput(rawInput);
     if (!args) {
-      return this.wrapResult("Invalid identity input");
+      return this.wrapResult('Invalid identity input');
     }
 
     const executorId = this.getExecutorId();
@@ -161,7 +171,7 @@ export class CurbChatLogic extends CurbChat {
   deleteDM(rawInput: DeleteDMArgs | { input: DeleteDMArgs }): string {
     const args = this.extractInput(rawInput);
     if (!args) {
-      return this.wrapResult("Invalid delete input");
+      return this.wrapResult('Invalid delete input');
     }
 
     const executorId = this.getExecutorId();
@@ -172,36 +182,36 @@ export class CurbChatLogic extends CurbChat {
   joinChat(
     rawInput:
       | { username: Username; userId?: UserId }
-      | { input: { username: Username; userId?: UserId } },
+      | { input: { username: Username; userId?: UserId } }
   ): string {
     const input = this.extractInput(rawInput);
-    if (!input || typeof input.username !== "string") {
-      return this.wrapResult("Username is required");
+    if (!input || typeof input.username !== 'string') {
+      return this.wrapResult('Username is required');
     }
 
     const userId = input.userId ?? this.getExecutorId();
     if (this.members.has(userId)) {
-      return this.wrapResult("User is already a member of the chat");
+      return this.wrapResult('User is already a member of the chat');
     }
 
     const username = input.username.trim();
     if (!username) {
-      return this.wrapResult("Username is required");
+      return this.wrapResult('Username is required');
     }
 
     if (isUsernameTaken(this.members, username)) {
-      return this.wrapResult("Username is already taken");
+      return this.wrapResult('Username is already taken');
     }
 
     this.members.set(userId, username);
     this.getChannelManager().addUserToDefaultChannels(userId, username);
-    return this.wrapResult("User joined chat");
+    return this.wrapResult('User joined chat');
   }
 
   createChannel(rawInput: CreateChannelInput | { input: CreateChannelInput }): string {
     const input = this.extractInput(rawInput);
     if (!input) {
-      return this.wrapResult("Invalid channel input");
+      return this.wrapResult('Invalid channel input');
     }
 
     const executorId = this.getExecutorId();
@@ -210,7 +220,7 @@ export class CurbChatLogic extends CurbChat {
     const result = this.getChannelManager().createChannel(
       input,
       executorId,
-      executorUsername ?? undefined,
+      executorUsername ?? undefined
     );
     return this.wrapResult(result);
   }
@@ -218,7 +228,7 @@ export class CurbChatLogic extends CurbChat {
   addUserToChannel(rawInput: ChannelMembershipInput | { input: ChannelMembershipInput }): string {
     const input = this.extractInput(rawInput);
     if (!input) {
-      return this.wrapResult("Invalid channel membership input");
+      return this.wrapResult('Invalid channel membership input');
     }
 
     const result = this.getChannelManager().addUserToChannel(input, this.getExecutorId());
@@ -226,11 +236,11 @@ export class CurbChatLogic extends CurbChat {
   }
 
   removeUserFromChannel(
-    rawInput: ChannelMembershipInput | { input: ChannelMembershipInput },
+    rawInput: ChannelMembershipInput | { input: ChannelMembershipInput }
   ): string {
     const input = this.extractInput(rawInput);
     if (!input) {
-      return this.wrapResult("Invalid channel membership input");
+      return this.wrapResult('Invalid channel membership input');
     }
 
     const result = this.getChannelManager().removeUserFromChannel(input, this.getExecutorId());
@@ -240,7 +250,7 @@ export class CurbChatLogic extends CurbChat {
   promoteModerator(rawInput: ModeratorInput | { input: ModeratorInput }): string {
     const input = this.extractInput(rawInput);
     if (!input) {
-      return this.wrapResult("Invalid moderator input");
+      return this.wrapResult('Invalid moderator input');
     }
 
     const result = this.getChannelManager().promoteModerator(input, this.getExecutorId());
@@ -250,7 +260,7 @@ export class CurbChatLogic extends CurbChat {
   demoteModerator(rawInput: ModeratorInput | { input: ModeratorInput }): string {
     const input = this.extractInput(rawInput);
     if (!input) {
-      return this.wrapResult("Invalid moderator input");
+      return this.wrapResult('Invalid moderator input');
     }
 
     const result = this.getChannelManager().demoteModerator(input, this.getExecutorId());
@@ -259,9 +269,9 @@ export class CurbChatLogic extends CurbChat {
 
   deleteChannel(rawInput: ChannelId | { input: { channelId: ChannelId } }): string {
     const channelId =
-      typeof rawInput === "string" ? rawInput : this.extractInput(rawInput)?.channelId;
+      typeof rawInput === 'string' ? rawInput : this.extractInput(rawInput)?.channelId;
     if (!channelId) {
-      return this.wrapResult("Invalid channel id");
+      return this.wrapResult('Invalid channel id');
     }
 
     const result = this.getChannelManager().deleteChannel(channelId, this.getExecutorId());
@@ -270,9 +280,9 @@ export class CurbChatLogic extends CurbChat {
 
   joinPublicChannel(rawInput: ChannelId | { input: { channelId: ChannelId } }): string {
     const channelId =
-      typeof rawInput === "string" ? rawInput : this.extractInput(rawInput)?.channelId;
+      typeof rawInput === 'string' ? rawInput : this.extractInput(rawInput)?.channelId;
     if (!channelId) {
-      return this.wrapResult("Invalid channel id");
+      return this.wrapResult('Invalid channel id');
     }
 
     const result = this.getChannelManager().joinPublicChannel(channelId, this.getExecutorId());
@@ -281,9 +291,9 @@ export class CurbChatLogic extends CurbChat {
 
   leaveChannel(rawInput: ChannelId | { input: { channelId: ChannelId } }): string {
     const channelId =
-      typeof rawInput === "string" ? rawInput : this.extractInput(rawInput)?.channelId;
+      typeof rawInput === 'string' ? rawInput : this.extractInput(rawInput)?.channelId;
     if (!channelId) {
-      return this.wrapResult("Invalid channel id");
+      return this.wrapResult('Invalid channel id');
     }
 
     const result = this.getChannelManager().leaveChannel(channelId, this.getExecutorId());
@@ -293,25 +303,25 @@ export class CurbChatLogic extends CurbChat {
   @View()
   getInvitees(rawInput: ChannelId | { input: { channelId: ChannelId } }): string {
     const channelId =
-      typeof rawInput === "string" ? rawInput : this.extractInput(rawInput)?.channelId;
+      typeof rawInput === 'string' ? rawInput : this.extractInput(rawInput)?.channelId;
     if (!channelId) {
-      return this.wrapResult("Invalid channel id");
+      return this.wrapResult('Invalid channel id');
     }
 
     const normalizedId = channelId.trim().toLowerCase();
     if (!normalizedId) {
-      return this.wrapResult("Invalid channel id");
+      return this.wrapResult('Invalid channel id');
     }
 
     const channel = this.channels.get(normalizedId);
     if (!channel) {
-      return this.wrapResult("Channel not found");
+      return this.wrapResult('Channel not found');
     }
 
     const executorId = this.getExecutorId();
     const members = channel.channelMembers.get();
     if (!members || !members.has(executorId)) {
-      return this.wrapResult("Only channel members can view invitees");
+      return this.wrapResult('Only channel members can view invitees');
     }
 
     // Get all channel member IDs
@@ -327,13 +337,13 @@ export class CurbChatLogic extends CurbChat {
 
   sendMessage(rawInput: SendMessageArgs | { input: SendMessageArgs }): string {
     const args = this.extractInput(rawInput);
-    if (!args || typeof args.channelId !== "string" || typeof args.text !== "string") {
-      return this.wrapResult("Invalid message input");
+    if (!args || typeof args.channelId !== 'string' || typeof args.text !== 'string') {
+      return this.wrapResult('Invalid message input');
     }
 
     const executorId = this.getExecutorId();
     const channel = this.ensureChannelAccess(args.channelId, executorId);
-    if (typeof channel === "string") {
+    if (typeof channel === 'string') {
       return this.wrapResult(channel);
     }
 
@@ -345,13 +355,13 @@ export class CurbChatLogic extends CurbChat {
   @View()
   getMessages(rawInput: GetMessagesArgs | { input: GetMessagesArgs }): string {
     const args = this.extractInput(rawInput);
-    if (!args || typeof args.channelId !== "string") {
-      return this.wrapResult("Invalid message input");
+    if (!args || typeof args.channelId !== 'string') {
+      return this.wrapResult('Invalid message input');
     }
 
     const executorId = this.getExecutorId();
     const channel = this.ensureChannelAccess(args.channelId, executorId);
-    if (typeof channel === "string") {
+    if (typeof channel === 'string') {
       return this.wrapResult(channel);
     }
 
@@ -361,13 +371,13 @@ export class CurbChatLogic extends CurbChat {
 
   editMessage(rawInput: EditMessageArgs | { input: EditMessageArgs }): string {
     const args = this.extractInput(rawInput);
-    if (!args || typeof args.channelId !== "string" || typeof args.messageId !== "string") {
-      return this.wrapResult("Invalid edit input");
+    if (!args || typeof args.channelId !== 'string' || typeof args.messageId !== 'string') {
+      return this.wrapResult('Invalid edit input');
     }
 
     const executorId = this.getExecutorId();
     const channel = this.ensureChannelAccess(args.channelId, executorId);
-    if (typeof channel === "string") {
+    if (typeof channel === 'string') {
       return this.wrapResult(channel);
     }
 
@@ -377,13 +387,13 @@ export class CurbChatLogic extends CurbChat {
 
   deleteMessage(rawInput: DeleteMessageArgs | { input: DeleteMessageArgs }): string {
     const args = this.extractInput(rawInput);
-    if (!args || typeof args.channelId !== "string" || typeof args.messageId !== "string") {
-      return this.wrapResult("Invalid delete input");
+    if (!args || typeof args.channelId !== 'string' || typeof args.messageId !== 'string') {
+      return this.wrapResult('Invalid delete input');
     }
 
     const executorId = this.getExecutorId();
     const channel = this.ensureChannelAccess(args.channelId, executorId);
-    if (typeof channel === "string") {
+    if (typeof channel === 'string') {
       return this.wrapResult(channel);
     }
 
@@ -399,21 +409,21 @@ export class CurbChatLogic extends CurbChat {
 
   updateReaction(rawInput: UpdateReactionArgs | { input: UpdateReactionArgs }): string {
     const args = this.extractInput(rawInput);
-    if (!args || typeof args.messageId !== "string" || typeof args.emoji !== "string") {
-      return this.wrapResult("Invalid reaction input");
+    if (!args || typeof args.messageId !== 'string' || typeof args.emoji !== 'string') {
+      return this.wrapResult('Invalid reaction input');
     }
 
     const executorId = this.getExecutorId();
-    
+
     // Find the message to get its channelId and verify access
     const channelId = this.getMessageManager().findMessageChannelId(args.messageId);
     if (!channelId) {
-      return this.wrapResult("Message not found");
+      return this.wrapResult('Message not found');
     }
 
     // Verify the user has access to the channel containing this message
     const channel = this.ensureChannelAccess(channelId, executorId);
-    if (typeof channel === "string") {
+    if (typeof channel === 'string') {
       return this.wrapResult(channel);
     }
 
@@ -427,13 +437,13 @@ export class CurbChatLogic extends CurbChat {
 
   readMessage(rawInput: ReadMessageProps | { input: ReadMessageProps }): string {
     const args = this.extractInput(rawInput);
-    if (!args || typeof args.channelId !== "string" || typeof args.messageId !== "string") {
-      return this.wrapResult("Invalid read message input");
+    if (!args || typeof args.channelId !== 'string' || typeof args.messageId !== 'string') {
+      return this.wrapResult('Invalid read message input');
     }
 
     const executorId = this.getExecutorId();
     const channel = this.ensureChannelAccess(args.channelId, executorId);
-    if (typeof channel === "string") {
+    if (typeof channel === 'string') {
       return this.wrapResult(channel);
     }
 
@@ -443,8 +453,8 @@ export class CurbChatLogic extends CurbChat {
 
   updateDmHash(rawInput: UpdateDmHashProps | { input: UpdateDmHashProps }): string {
     const args = this.extractInput(rawInput);
-    if (!args || typeof args.contextId !== "string" || typeof args.newHash !== "string") {
-      return this.wrapResult("Invalid update DM hash input");
+    if (!args || typeof args.contextId !== 'string' || typeof args.newHash !== 'string') {
+      return this.wrapResult('Invalid update DM hash input');
     }
 
     const executorId = this.getExecutorId();
@@ -454,8 +464,8 @@ export class CurbChatLogic extends CurbChat {
 
   readDm(rawInput: ReadDmProps | { input: ReadDmProps }): string {
     const args = this.extractInput(rawInput);
-    if (!args || typeof args.contextId !== "string") {
-      return this.wrapResult("Invalid read DM input");
+    if (!args || typeof args.contextId !== 'string') {
+      return this.wrapResult('Invalid read DM input');
     }
 
     const executorId = this.getExecutorId();
@@ -485,9 +495,8 @@ export class CurbChatLogic extends CurbChat {
   }
 
   private wrapResult(value: unknown): string {
-    return JSON.stringify(
-      { result: value },
-      (_key, val) => (typeof val === "bigint" ? val.toString() : val),
+    return JSON.stringify({ result: value }, (_key, val) =>
+      typeof val === 'bigint' ? val.toString() : val
     );
   }
 
@@ -496,7 +505,7 @@ export class CurbChatLogic extends CurbChat {
       return null;
     }
 
-    if (typeof raw === "object" && raw !== null && "input" in raw) {
+    if (typeof raw === 'object' && raw !== null && 'input' in raw) {
       const candidate = (raw as { input?: T }).input;
       return candidate ?? null;
     }
@@ -508,17 +517,17 @@ export class CurbChatLogic extends CurbChat {
     // Normalize channelId to match how channels are stored (trim + lowercase)
     const normalizedId = channelId.trim().toLowerCase();
     if (!normalizedId) {
-      return "Invalid channel id";
+      return 'Invalid channel id';
     }
-    
+
     const channel = this.channels.get(normalizedId);
     if (!channel) {
-      return "Channel not found";
+      return 'Channel not found';
     }
-    
+
     const members = channel.channelMembers.get();
     if (!members || !members.has(executorId)) {
-      return "You are not a member of this channel";
+      return 'You are not a member of this channel';
     }
     return channel;
   }
@@ -530,7 +539,7 @@ export class CurbChatLogic extends CurbChat {
     timestamp: bigint,
     rawName: ChannelId,
     invitee?: UserId,
-    _inviteeUsername?: Username,
+    _inviteeUsername?: Username
   ): void {
     const channelId = rawName.trim().toLowerCase();
     if (!channelId || state.channels.has(channelId)) {
@@ -544,16 +553,23 @@ export class CurbChatLogic extends CurbChat {
       membersSet.add(invitee);
     }
     const membersRegister = createLwwRegister<UnorderedSet<UserId>>({ initialValue: membersSet });
-    
+
     const moderatorsSet = createUnorderedSet<UserId>();
     moderatorsSet.add(ownerId);
-    const moderatorsRegister = createLwwRegister<UnorderedSet<UserId>>({ initialValue: moderatorsSet });
-    
+    const moderatorsRegister = createLwwRegister<UnorderedSet<UserId>>({
+      initialValue: moderatorsSet,
+    });
+
     // Initialize channel messages, thread messages, and reactions
     const channelMessagesVector = createVector<StoredMessage>();
-    const channelMessagesRegister = createLwwRegister<Vector<StoredMessage>>({ initialValue: channelMessagesVector });
+    const channelMessagesRegister = createLwwRegister<Vector<StoredMessage>>({
+      initialValue: channelMessagesVector,
+    });
     const threadMessages = createUnorderedMap<string, LwwRegister<Vector<StoredMessage>>>();
-    const messageReactions = createUnorderedMap<string, UnorderedMap<string, UnorderedSet<UserId>>>();
+    const messageReactions = createUnorderedMap<
+      string,
+      UnorderedMap<string, UnorderedSet<UserId>>
+    >();
 
     const metadata: ChannelMetadata = {
       type: ChannelType.Default,

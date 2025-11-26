@@ -188,8 +188,8 @@ createPrivateEntry()     │  payload            │  (no delta)      │  node-
 
 ### How this differs from the Rust SDK
 
-Rust services are compiled into Wasm but they *execute the storage collections
-inside the host runtime*. Every mutation goes through
+Rust services are compiled into Wasm but they _execute the storage collections
+inside the host runtime_. Every mutation goes through
 `calimero_storage::Interface`, which updates Merkle hashes, records CRDT
 actions, and eventually emits a causal delta. In other words, Rust never has to
 “hand data back” to the host – it already lives there.
@@ -217,18 +217,21 @@ artifacts, and deltas that the core runtime expects from the Rust SDK.
 ## Why QuickJS?
 
 ### Pros
+
 - Full JavaScript/TypeScript support
 - npm ecosystem compatibility
 - Proven by NEAR Protocol
 - Smaller than V8/SpiderMonkey
 
 ### Cons
+
 - ~450KB overhead (vs ~50KB for AssemblyScript)
 - Slower than native WASM
 
 ### Alternative Considered: AssemblyScript
 
 We chose QuickJS over AssemblyScript because:
+
 1. Better developer experience (full TypeScript)
 2. npm ecosystem access
 3. Proven production use (NEAR)
@@ -246,6 +249,7 @@ We chose QuickJS over AssemblyScript because:
 ### Host Function Validation
 
 All host functions validate inputs:
+
 - Buffer bounds checking
 - Register validation
 - Type validation
@@ -271,6 +275,7 @@ All host functions validate inputs:
 ### With Rust SDK
 
 JavaScript and Rust services can:
+
 - ✅ Run on same network
 - ✅ Sync state via CRDTs
 - ✅ Emit/receive events
@@ -279,7 +284,7 @@ JavaScript and Rust services can:
 ### Data Format
 
 Uses same serialization format (Borsh) for:
+
 - Storage keys/values
 - Event payloads
 - Delta artifacts
-

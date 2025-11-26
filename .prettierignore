@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+build/
+dist/
+lib/
+coverage/
+*.tsbuildinfo
+
+# Generated files
+packages/cli/src/deps/
+packages/cli/builder/*.h
+examples/*/build/
+examples/*/dist/
+
+# Binary files
+*.wasm
+*.wat
+
+# Lock files
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+

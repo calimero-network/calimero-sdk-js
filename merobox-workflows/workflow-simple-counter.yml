@@ -1,9 +1,6 @@
 description: Simple Counter Application Test Workflow
 name: Counter App Test
   
-no_docker: true
-binary_path: "/Users/chefsale/workspace/calimero/core/target/release/merod"
-
 nodes:
   chain_id: testnet-1
   count: 2
@@ -15,7 +12,7 @@ steps:
   - name: Install Counter Application
     type: install_application
     node: counter-node-1
-    path: "/Users/chefsale/workspace/calimero/core/calimero-sdk-js/examples/counter/build/contract.wasm"
+    path: "examples/counter/build/service.wasm"
     dev: true
     outputs:
       app_id: applicationId

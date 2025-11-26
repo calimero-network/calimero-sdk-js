@@ -72,7 +72,10 @@ export function loadRootState<T>(stateClass: { new (...args: any[]): T }): T | n
 
   const base = (() => {
     if (typeof version === 'number') {
-      const { version: _ignored, ...rest } = candidate as { version: number } & Record<string, unknown>;
+      const { version: _ignored, ...rest } = candidate as { version: number } & Record<
+        string,
+        unknown
+      >;
       return rest;
     }
     return candidate;
@@ -94,12 +97,12 @@ export function loadRootState<T>(stateClass: { new (...args: any[]): T }): T | n
     throw new Error('Persisted state document missing required fields');
   }
 
-  const instance: any =
-    typeof stateClass === 'function' ? Object.create(stateClass.prototype) : {};
+  const instance: any = typeof stateClass === 'function' ? Object.create(stateClass.prototype) : {};
   const target = instance as Record<string, unknown>;
-  const metadata = doc.metadata && typeof doc.metadata === 'object'
-    ? doc.metadata
-    : { createdAt: Number(env.timeNow()), updatedAt: Number(env.timeNow()) };
+  const metadata =
+    doc.metadata && typeof doc.metadata === 'object'
+      ? doc.metadata
+      : { createdAt: Number(env.timeNow()), updatedAt: Number(env.timeNow()) };
 
   Object.defineProperty(instance, ROOT_METADATA, {
     value: { ...metadata },
@@ -157,4 +160,3 @@ function ensureMetadata(state: any): { createdAt: number; updatedAt: number } {
 function shouldMergeIntoExisting(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
-

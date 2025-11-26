@@ -45,16 +45,18 @@ fs.mkdirSync(depsDir, { recursive: true });
 async function download(url: string, dest: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(dest);
-    https.get(url, response => {
-      response.pipe(file);
-      file.on('finish', () => {
-        file.close();
-        resolve();
+    https
+      .get(url, response => {
+        response.pipe(file);
+        file.on('finish', () => {
+          file.close();
+          resolve();
+        });
+      })
+      .on('error', error => {
+        fs.unlinkSync(dest);
+        reject(error);
       });
-    }).on('error', error => {
-      fs.unlinkSync(dest);
-      reject(error);
-    });
   });
 }
 
@@ -88,7 +90,7 @@ async function installQuickJS(): Promise<void> {
   // Extract source
   execSync(`tar xzf ${sourceTar} --strip-components=1 -C ${quickjsDir}`, {
     cwd: depsDir,
-    stdio: 'pipe'
+    stdio: 'pipe',
   });
 
   fs.unlinkSync(sourceDest);
@@ -114,7 +116,7 @@ async function installWasiSDK(): Promise<void> {
   // Extract
   execSync(`tar xzf ${tarName} --strip-components=1 -C ${wasiDir}`, {
     cwd: depsDir,
-    stdio: 'pipe'
+    stdio: 'pipe',
   });
 
   fs.unlinkSync(dest);
@@ -142,7 +144,7 @@ async function installBinaryen(): Promise<void> {
   // Extract
   execSync(`tar xzf ${tarName} -C ${binaryenDir}`, {
     cwd: depsDir,
-    stdio: 'pipe'
+    stdio: 'pipe',
   });
 
   fs.unlinkSync(dest);
@@ -162,4 +164,3 @@ async function installBinaryen(): Promise<void> {
     process.exit(1);
   }
 })();
-

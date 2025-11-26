@@ -3,7 +3,11 @@
  */
 
 import { serialize, deserialize } from '../utils/serialize';
-import { registerCollectionType, CollectionSnapshot, hasRegisteredCollection } from '../runtime/collections';
+import {
+  registerCollectionType,
+  CollectionSnapshot,
+  hasRegisteredCollection,
+} from '../runtime/collections';
 import {
   setNew,
   setInsert,
@@ -11,7 +15,7 @@ import {
   setRemove,
   setLen,
   setValues,
-  setClear
+  setClear,
 } from '../runtime/storage-wasm';
 import { nestedTracker } from '../runtime/nested-tracking';
 
@@ -55,10 +59,10 @@ export class UnorderedSet<T> {
     }
 
     const result = setInsert(this.setId, serialize(value));
-    
+
     // Notify tracker of modification
     nestedTracker.notifyCollectionModified(this);
-    
+
     return result;
   }
 
@@ -68,16 +72,16 @@ export class UnorderedSet<T> {
 
   delete(value: T): boolean {
     const result = setRemove(this.setId, serialize(value));
-    
+
     // Notify tracker of modification
     nestedTracker.notifyCollectionModified(this);
-    
+
     return result;
   }
 
   clear(): void {
     setClear(this.setId);
-    
+
     // Notify tracker of modification
     nestedTracker.notifyCollectionModified(this);
   }
@@ -94,13 +98,14 @@ export class UnorderedSet<T> {
   toJSON(): Record<string, unknown> {
     return {
       __calimeroCollection: 'UnorderedSet',
-      id: this.id()
+      id: this.id(),
     };
   }
 }
 
-registerCollectionType('UnorderedSet', (snapshot: CollectionSnapshot) =>
-  new UnorderedSet({ id: snapshot.id })
+registerCollectionType(
+  'UnorderedSet',
+  (snapshot: CollectionSnapshot) => new UnorderedSet({ id: snapshot.id })
 );
 
 function bytesToHex(bytes: Uint8Array): string {
@@ -132,4 +137,3 @@ function normalizeId(id: Uint8Array | string): Uint8Array {
 
   return hexToBytes(id);
 }
-

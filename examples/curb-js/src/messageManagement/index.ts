@@ -1,4 +1,3 @@
-export * from "./MessageManagement";
-export * from "./types";
-export * from "./events";
-
+export * from './MessageManagement';
+export * from './types';
+export * from './events';

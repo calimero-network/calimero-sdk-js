@@ -35,7 +35,7 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
     signale.await('Bundling JavaScript with Rollup...');
     const jsBundle = await bundleWithRollup(source, {
       verbose: options.verbose,
-      outputDir
+      outputDir,
     });
     signale.success('JavaScript bundled');
 
@@ -48,7 +48,7 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
     signale.await('Compiling to C with QuickJS...');
     const cCodePath = await compileToC(jsBundle, {
       verbose: options.verbose,
-      outputDir
+      outputDir,
     });
     signale.success('Compiled to C');
 
@@ -56,7 +56,7 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
     signale.await('Compiling to WebAssembly...');
     const wasmPath = await compileToWasm(cCodePath, {
       verbose: options.verbose,
-      outputDir
+      outputDir,
     });
     signale.success('Compiled to WASM');
 
@@ -64,7 +64,7 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
     if (options.optimize) {
       signale.await('Optimizing WASM...');
       await optimizeWasm(wasmPath, options.output, {
-        verbose: options.verbose
+        verbose: options.verbose,
       });
       signale.success('WASM optimized');
     } else {
@@ -82,4 +82,3 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
     process.exit(1);
   }
 }
-

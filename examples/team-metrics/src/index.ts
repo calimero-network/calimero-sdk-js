@@ -17,7 +17,7 @@ class ContributionNoteRecord {
     resolved.recentNotes = mergeVectorOfNotes(local.recentNotes, remote.recentNotes);
 
     return resolved;
-  }
+  },
 })
 class MemberProfileRecord {
   displayName: string = '';
@@ -93,7 +93,11 @@ export class TeamMetricsLogic extends TeamMetrics {
     maybePoints?: number,
     maybeNote?: string
   ): void {
-    const { member, points, note } = normalizeContributionArgs(payloadOrMember, maybePoints, maybeNote);
+    const { member, points, note } = normalizeContributionArgs(
+      payloadOrMember,
+      maybePoints,
+      maybeNote
+    );
     env.log(`Adding ${points} points for ${member}`);
     env.log(`addContribution payload member=${member}, points=${points} (type=${typeof points})`);
 
@@ -111,7 +115,8 @@ export class TeamMetricsLogic extends TeamMetrics {
     env.log(`Member ${member} counter now ${memberCounter.value().toString()}`);
 
     const profile =
-      this.memberProfiles.get(member) ?? createProfileRecord(member, undefined, undefined, memberCounter);
+      this.memberProfiles.get(member) ??
+      createProfileRecord(member, undefined, undefined, memberCounter);
     if (profile.contributions !== memberCounter) {
       profile.contributions = memberCounter;
     }
@@ -157,7 +162,7 @@ export class TeamMetricsLogic extends TeamMetrics {
       displayName: profile.displayName,
       roles: profile.roles.toArray(),
       contributions: profile.contributions.value(),
-      recentNotes: profile.recentNotes.toArray()
+      recentNotes: profile.recentNotes.toArray(),
     };
   }
 }
@@ -189,7 +194,7 @@ function mergeVectorOfStrings(local: Vector<string>, remote: Vector<string>): Ve
 
 function mergeVectorOfNotes(
   local: Vector<ContributionNoteRecord>,
-  remote: Vector<ContributionNoteRecord>,
+  remote: Vector<ContributionNoteRecord>
 ): Vector<ContributionNoteRecord> {
   const combined = [...local.toArray(), ...remote.toArray()];
   combined.sort((a, b) => {
@@ -225,14 +230,14 @@ function normalizeContributionArgs(
     return {
       member: payloadOrMember.member,
       points: payloadOrMember.points,
-      note: payloadOrMember.note
+      note: payloadOrMember.note,
     };
   }
 
   return {
     member: payloadOrMember,
     points: maybePoints ?? 0,
-    note: maybeNote
+    note: maybeNote,
   };
 }
 
@@ -245,14 +250,14 @@ function normalizeMemberProfileArgs(
     return {
       member: memberOrPayload.member,
       displayName: memberOrPayload.displayName,
-      roles: memberOrPayload.roles
+      roles: memberOrPayload.roles,
     };
   }
 
   return {
     member: memberOrPayload,
     displayName: maybeDisplayName ?? memberOrPayload,
-    roles: maybeRoles
+    roles: maybeRoles,
   };
 }
 

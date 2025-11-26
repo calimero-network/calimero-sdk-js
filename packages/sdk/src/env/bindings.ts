@@ -21,7 +21,12 @@ export interface HostEnv {
   xcall(context_id: Uint8Array, function_name: Uint8Array, params: Uint8Array): void;
   js_crdt_map_new(register_id: bigint): number;
   js_crdt_map_get(mapId: Uint8Array, key: Uint8Array, register_id: bigint): number;
-  js_crdt_map_insert(mapId: Uint8Array, key: Uint8Array, value: Uint8Array, register_id: bigint): number;
+  js_crdt_map_insert(
+    mapId: Uint8Array,
+    key: Uint8Array,
+    value: Uint8Array,
+    register_id: bigint
+  ): number;
   js_crdt_map_remove(mapId: Uint8Array, key: Uint8Array, register_id: bigint): number;
   js_crdt_map_contains(mapId: Uint8Array, key: Uint8Array): number;
   js_crdt_map_iter(mapId: Uint8Array, register_id: bigint): number;
@@ -44,7 +49,11 @@ export interface HostEnv {
   js_crdt_counter_new(register_id: bigint): number;
   js_crdt_counter_increment(counterId: Uint8Array): number;
   js_crdt_counter_value(counterId: Uint8Array, register_id: bigint): number;
-  js_crdt_counter_get_executor_count(counterId: Uint8Array, register_id: bigint, executorId?: Uint8Array): number;
+  js_crdt_counter_get_executor_count(
+    counterId: Uint8Array,
+    register_id: bigint,
+    executorId?: Uint8Array
+  ): number;
 
   // Context
   context_id(register_id: bigint): void;
@@ -78,4 +87,3 @@ export interface HostEnv {
   blob_announce_to_context(blob_id: Uint8Array, context_id: Uint8Array): number;
   random_bytes(buffer: Uint8Array): void;
 }
-
