@@ -1,8 +1,9 @@
-import { emit, env, createVector, createLwwRegister } from '@calimero/sdk';
-import { UnorderedMap, Vector, LwwRegister } from '@calimero/sdk/collections';
+import { emit, env, createVector, createLwwRegister, createUnorderedMap, createUnorderedSet } from "@calimero/sdk";
+import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from "@calimero/sdk/collections";
 
-import { isUsernameTaken } from '../utils/members';
-import type { ChannelId, UserId, Username } from '../types';
+import { isUsernameTaken } from "../utils/members";
+import type { ChannelId, UserId, Username } from "../types";
+import type { StoredMessage } from "../messageManagement/types";
 import {
   ChannelType,
   type ChannelDirectoryResponse,
@@ -28,105 +29,100 @@ export interface ChannelState {
   owner: UserId;
   members: UnorderedMap<UserId, Username>;
   channels: UnorderedMap<ChannelId, ChannelMetadata>;
-  channelMembers: UnorderedMap<ChannelId, LwwRegister<Vector<UserId>>>;
-  channelModerators: UnorderedMap<ChannelId, LwwRegister<Vector<UserId>>>;
+  channelReadPositions: UnorderedMap<ChannelId, UnorderedMap<UserId, LwwRegister<bigint>>>;
 }
 
 export class ChannelManager {
   constructor(private readonly state: ChannelState) {}
 
-  private getOrCreateMembersRegister(channelId: ChannelId): LwwRegister<Vector<UserId>> {
-    let register = this.state.channelMembers.get(channelId);
-    if (!register) {
-      const vector = createVector<UserId>();
-      register = createLwwRegister<Vector<UserId>>({ initialValue: vector });
-      this.state.channelMembers.set(channelId, register);
+  private getOrCreateMembersRegister(channelId: ChannelId): LwwRegister<UnorderedSet<UserId>> {
+    const channel = this.state.channels.get(channelId);
+    if (!channel) {
+      throw new Error(`Channel ${channelId} not found`);
     }
-    return register;
+    return channel.channelMembers;
   }
 
-  private getOrCreateModeratorsRegister(channelId: ChannelId): LwwRegister<Vector<UserId>> {
-    let register = this.state.channelModerators.get(channelId);
-    if (!register) {
-      const vector = createVector<UserId>();
-      register = createLwwRegister<Vector<UserId>>({ initialValue: vector });
-      this.state.channelModerators.set(channelId, register);
+  private getOrCreateModeratorsRegister(channelId: ChannelId): LwwRegister<UnorderedSet<UserId>> {
+    const channel = this.state.channels.get(channelId);
+    if (!channel) {
+      throw new Error(`Channel ${channelId} not found`);
     }
-    return register;
+    return channel.channelModerators;
   }
 
-  private getMembersVector(channelId: ChannelId): Vector<UserId> | null {
-    const register = this.state.channelMembers.get(channelId);
-    if (!register) {
+  private getMembersSet(channelId: ChannelId): UnorderedSet<UserId> | null {
+    const channel = this.state.channels.get(channelId);
+    if (!channel) {
       return null;
     }
     try {
-      return register.get();
+      return channel.channelMembers.get();
     } catch {
       return null;
     }
   }
 
-  private getModeratorsVector(channelId: ChannelId): Vector<UserId> | null {
-    const register = this.state.channelModerators.get(channelId);
-    if (!register) {
+  private getModeratorsSet(channelId: ChannelId): UnorderedSet<UserId> | null {
+    const channel = this.state.channels.get(channelId);
+    if (!channel) {
       return null;
     }
     try {
-      return register.get();
+      return channel.channelModerators.get();
     } catch {
       return null;
     }
   }
 
   private getChannelMembers(channelId: ChannelId): UserId[] {
-    const vector = this.getMembersVector(channelId);
-    if (!vector) {
+    const set = this.getMembersSet(channelId);
+    if (!set) {
       return [];
     }
     try {
-      return vector.toArray();
+      return set.toArray();
     } catch {
-      // Vector might not be hydrated yet, return empty array
+      // Set might not be hydrated yet, return empty array
       return [];
     }
   }
 
   private getChannelModerators(channelId: ChannelId): UserId[] {
-    const vector = this.getModeratorsVector(channelId);
-    if (!vector) {
+    const set = this.getModeratorsSet(channelId);
+    if (!set) {
       return [];
     }
     try {
-      return vector.toArray();
+      return set.toArray();
     } catch {
-      // Vector might not be hydrated yet, return empty array
+      // Set might not be hydrated yet, return empty array
       return [];
     }
   }
 
   private isChannelMember(channelId: ChannelId, userId: UserId): boolean {
-    const vector = this.getMembersVector(channelId);
-    if (!vector) {
+    const set = this.getMembersSet(channelId);
+    if (!set) {
       return false;
     }
     try {
-      return vector.toArray().includes(userId);
+      return set.has(userId);
     } catch {
-      // Vector might not be hydrated yet, return false
+      // Set might not be hydrated yet, return false
       return false;
     }
   }
 
   private isChannelModerator(channelId: ChannelId, userId: UserId): boolean {
-    const vector = this.getModeratorsVector(channelId);
-    if (!vector) {
+    const set = this.getModeratorsSet(channelId);
+    if (!set) {
       return false;
     }
     try {
-      return vector.toArray().includes(userId);
+      return set.has(userId);
     } catch {
-      // Vector might not be hydrated yet, return false
+      // Set might not be hydrated yet, return false
       return false;
     }
   }
@@ -136,7 +132,7 @@ export class ChannelManager {
 
     this.state.channels.entries().forEach(([channelId, metadata]) => {
       if (this.isChannelMember(channelId, userId)) {
-        channels.push(this.formatChannelResponse(channelId, metadata));
+        channels.push(this.formatChannelResponse(channelId, metadata, userId));
       }
     });
 
@@ -148,8 +144,8 @@ export class ChannelManager {
     const availablePublic: ChannelMetadataResponse[] = [];
 
     this.state.channels.entries().forEach(([channelId, metadata]) => {
-      const formatted = this.formatChannelResponse(channelId, metadata);
-
+      const formatted = this.formatChannelResponse(channelId, metadata, userId);
+      
       if (this.isChannelMember(channelId, userId)) {
         joined.push(formatted);
       } else if (metadata.type === ChannelType.Public) {
@@ -192,29 +188,36 @@ export class ChannelManager {
       return 'Channel type must be public or private';
     }
 
+    // Add creator as member and moderator
+    const membersSet = createUnorderedSet<UserId>();
+    membersSet.add(executorId);
+    const membersRegister = createLwwRegister<UnorderedSet<UserId>>({ initialValue: membersSet });
+    
+    const moderatorsSet = createUnorderedSet<UserId>();
+    moderatorsSet.add(executorId);
+    const moderatorsRegister = createLwwRegister<UnorderedSet<UserId>>({ initialValue: moderatorsSet });
+    
+    // Initialize channel messages, thread messages, and reactions
+    const channelMessagesVector = createVector<StoredMessage>();
+    const channelMessagesRegister = createLwwRegister<Vector<StoredMessage>>({ initialValue: channelMessagesVector });
+    const threadMessages = createUnorderedMap<string, LwwRegister<Vector<StoredMessage>>>();
+    const messageReactions = createUnorderedMap<string, UnorderedMap<string, UnorderedSet<UserId>>>();
+
     const metadata: ChannelMetadata = {
       type,
       createdAt: env.timeNow(),
       createdBy: executorId,
       createdByUsername: executorUsername,
       readOnly: input.readOnly ?? false,
+      channelMembers: membersRegister,
+      channelModerators: moderatorsRegister,
+      channelMessages: channelMessagesRegister,
+      threadMessages: threadMessages,
+      messageReactions: messageReactions,
     };
 
     this.state.channels.set(normalizedId, metadata);
-
-    // Add creator as member and moderator
-    const membersVector = createVector<UserId>();
-    membersVector.push(executorId);
-    const membersRegister = createLwwRegister<Vector<UserId>>({ initialValue: membersVector });
-    this.state.channelMembers.set(normalizedId, membersRegister);
-
-    const moderatorsVector = createVector<UserId>();
-    moderatorsVector.push(executorId);
-    const moderatorsRegister = createLwwRegister<Vector<UserId>>({
-      initialValue: moderatorsVector,
-    });
-    this.state.channelModerators.set(normalizedId, moderatorsRegister);
-
+    
     emit(new ChannelCreated(normalizedId, executorId, type));
     return 'Channel created';
   }
@@ -247,18 +250,35 @@ export class ChannelManager {
       username = provided;
     }
 
-    const register = this.getOrCreateMembersRegister(normalizedId);
-    const currentVector = register.get() ?? createVector<UserId>();
-    const newVector = createVector<UserId>();
-    // Copy existing members
-    for (const userId of currentVector.toArray()) {
-      newVector.push(userId);
+    const membersRegister = this.getOrCreateMembersRegister(normalizedId);
+    const currentSet = membersRegister.get() ?? createUnorderedSet<UserId>();
+    const newSet = createUnorderedSet<UserId>();
+    try {
+      for (const userId of currentSet.toArray()) {
+        newSet.add(userId);
+      }
+    } catch {
+      // Set might not be hydrated yet
     }
-    // Add new member if not already present
-    if (!currentVector.toArray().includes(input.userId)) {
-      newVector.push(input.userId);
+    newSet.add(input.userId);
+    membersRegister.set(newSet);
+    
+    // If the user being added is the channel owner, add them to moderators
+    if (input.userId === channel.createdBy) {
+      const moderatorsRegister = this.getOrCreateModeratorsRegister(normalizedId);
+      const currentModeratorsSet = moderatorsRegister.get() ?? createUnorderedSet<UserId>();
+      const newModeratorsSet = createUnorderedSet<UserId>();
+      try {
+        for (const userId of currentModeratorsSet.toArray()) {
+          newModeratorsSet.add(userId);
+        }
+      } catch {
+        // Set might not be hydrated yet
+      }
+      newModeratorsSet.add(input.userId);
+      moderatorsRegister.set(newModeratorsSet);
     }
-    register.set(newVector);
+    
     emit(new ChannelInvited(normalizedId, executorId, input.userId));
     return 'Member added to channel';
   }
@@ -280,23 +300,31 @@ export class ChannelManager {
 
     const membersRegister = this.getOrCreateMembersRegister(normalizedId);
     const moderatorsRegister = this.getOrCreateModeratorsRegister(normalizedId);
-
-    // Create new vectors without the removed user
-    const currentMembers = membersRegister.get() ?? createVector<UserId>();
-    const newMembers = createVector<UserId>();
-    for (const userId of currentMembers.toArray()) {
-      if (userId !== input.userId) {
-        newMembers.push(userId);
+    
+    // Create new sets without the removed user
+    const currentMembers = membersRegister.get() ?? createUnorderedSet<UserId>();
+    const newMembers = createUnorderedSet<UserId>();
+    try {
+      for (const userId of currentMembers.toArray()) {
+        if (userId !== input.userId) {
+          newMembers.add(userId);
+        }
       }
+    } catch {
+      // Set might not be hydrated yet
     }
     membersRegister.set(newMembers);
-
-    const currentModerators = moderatorsRegister.get() ?? createVector<UserId>();
-    const newModerators = createVector<UserId>();
-    for (const userId of currentModerators.toArray()) {
-      if (userId !== input.userId) {
-        newModerators.push(userId);
+    
+    const currentModerators = moderatorsRegister.get() ?? createUnorderedSet<UserId>();
+    const newModerators = createUnorderedSet<UserId>();
+    try {
+      for (const userId of currentModerators.toArray()) {
+        if (userId !== input.userId) {
+          newModerators.add(userId);
+        }
       }
+    } catch {
+      // Set might not be hydrated yet
     }
     moderatorsRegister.set(newModerators);
 
@@ -324,18 +352,18 @@ export class ChannelManager {
       return 'User must join the chat first';
     }
 
-    const register = this.getOrCreateModeratorsRegister(normalizedId);
-    const currentVector = register.get() ?? createVector<UserId>();
-    const newVector = createVector<UserId>();
-    // Copy existing moderators
-    for (const userId of currentVector.toArray()) {
-      newVector.push(userId);
+    const moderatorsRegister = this.getOrCreateModeratorsRegister(normalizedId);
+    const currentSet = moderatorsRegister.get() ?? createUnorderedSet<UserId>();
+    const newSet = createUnorderedSet<UserId>();
+    try {
+      for (const userId of currentSet.toArray()) {
+        newSet.add(userId);
+      }
+    } catch {
+      // Set might not be hydrated yet
     }
-    // Add new moderator if not already present
-    if (!currentVector.toArray().includes(input.userId)) {
-      newVector.push(input.userId);
-    }
-    register.set(newVector);
+    newSet.add(input.userId);
+    moderatorsRegister.set(newSet);
     emit(new ChannelModeratorPromoted(normalizedId, executorId, input.userId));
     return 'Moderator added';
   }
@@ -355,16 +383,19 @@ export class ChannelManager {
       return 'User is not a moderator';
     }
 
-    const register = this.getOrCreateModeratorsRegister(normalizedId);
-    const currentVector = register.get() ?? createVector<UserId>();
-    const newVector = createVector<UserId>();
-    // Copy moderators except the removed one
-    for (const userId of currentVector.toArray()) {
-      if (userId !== input.userId) {
-        newVector.push(userId);
+    const moderatorsRegister = this.getOrCreateModeratorsRegister(normalizedId);
+    const currentSet = moderatorsRegister.get() ?? createUnorderedSet<UserId>();
+    const newSet = createUnorderedSet<UserId>();
+    try {
+      for (const userId of currentSet.toArray()) {
+        if (userId !== input.userId) {
+          newSet.add(userId);
+        }
       }
+    } catch {
+      // Set might not be hydrated yet
     }
-    register.set(newVector);
+    moderatorsRegister.set(newSet);
     emit(new ChannelModeratorDemoted(normalizedId, executorId, input.userId));
     return 'Moderator removed';
   }
@@ -385,8 +416,6 @@ export class ChannelManager {
     }
 
     this.state.channels.remove(normalizedId);
-    this.state.channelMembers.remove(normalizedId);
-    this.state.channelModerators.remove(normalizedId);
     emit(new ChannelDeleted(normalizedId, executorId));
     return 'Channel deleted';
   }
@@ -411,18 +440,35 @@ export class ChannelManager {
       return 'Join the chat before joining channels';
     }
 
-    const register = this.getOrCreateMembersRegister(normalizedId);
-    const currentVector = register.get() ?? createVector<UserId>();
-    const newVector = createVector<UserId>();
-    // Copy existing members
-    for (const userId of currentVector.toArray()) {
-      newVector.push(userId);
+    const membersRegister = this.getOrCreateMembersRegister(normalizedId);
+    const currentSet = membersRegister.get() ?? createUnorderedSet<UserId>();
+    const newSet = createUnorderedSet<UserId>();
+    try {
+      for (const userId of currentSet.toArray()) {
+        newSet.add(userId);
+      }
+    } catch {
+      // Set might not be hydrated yet
     }
-    // Add new member if not already present
-    if (!currentVector.toArray().includes(executorId)) {
-      newVector.push(executorId);
+    newSet.add(executorId);
+    membersRegister.set(newSet);
+    
+    // If the user joining is the channel owner, add them to moderators
+    if (executorId === channel.createdBy) {
+      const moderatorsRegister = this.getOrCreateModeratorsRegister(normalizedId);
+      const currentModeratorsSet = moderatorsRegister.get() ?? createUnorderedSet<UserId>();
+      const newModeratorsSet = createUnorderedSet<UserId>();
+      try {
+        for (const userId of currentModeratorsSet.toArray()) {
+          newModeratorsSet.add(userId);
+        }
+      } catch {
+        // Set might not be hydrated yet
+      }
+      newModeratorsSet.add(executorId);
+      moderatorsRegister.set(newModeratorsSet);
     }
-    register.set(newVector);
+    
     emit(new ChannelJoined(normalizedId, executorId));
     return 'Joined channel';
   }
@@ -444,24 +490,31 @@ export class ChannelManager {
 
     const membersRegister = this.getOrCreateMembersRegister(normalizedId);
     const moderatorsRegister = this.getOrCreateModeratorsRegister(normalizedId);
-
-    // Create new members vector without the leaving user
-    const currentMembers = membersRegister.get() ?? createVector<UserId>();
-    const newMembers = createVector<UserId>();
-    for (const userId of currentMembers.toArray()) {
-      if (userId !== executorId) {
-        newMembers.push(userId);
+    
+    // Create new sets without the leaving user
+    const currentMembers = membersRegister.get() ?? createUnorderedSet<UserId>();
+    const newMembers = createUnorderedSet<UserId>();
+    try {
+      for (const userId of currentMembers.toArray()) {
+        if (userId !== executorId) {
+          newMembers.add(userId);
+        }
       }
+    } catch {
+      // Set might not be hydrated yet
     }
     membersRegister.set(newMembers);
-
-    // Create new moderators vector without the leaving user
-    const currentModerators = moderatorsRegister.get() ?? createVector<UserId>();
-    const newModerators = createVector<UserId>();
-    for (const userId of currentModerators.toArray()) {
-      if (userId !== executorId) {
-        newModerators.push(userId);
+    
+    const currentModerators = moderatorsRegister.get() ?? createUnorderedSet<UserId>();
+    const newModerators = createUnorderedSet<UserId>();
+    try {
+      for (const userId of currentModerators.toArray()) {
+        if (userId !== executorId) {
+          newModerators.add(userId);
+        }
       }
+    } catch {
+      // Set might not be hydrated yet
     }
     moderatorsRegister.set(newModerators);
 
@@ -475,7 +528,7 @@ export class ChannelManager {
         return;
       }
 
-      // Check if already a member, but handle case where Vector might not be hydrated
+      // Check if already a member, but handle case where Set might not be hydrated
       try {
         if (this.isChannelMember(channelId, userId)) {
           return;
@@ -484,19 +537,19 @@ export class ChannelManager {
         // If check fails, continue to add user
       }
 
-      // Ensure Register exists and add user
-      const register = this.getOrCreateMembersRegister(channelId);
-      const currentVector = register.get() ?? createVector<UserId>();
-      const newVector = createVector<UserId>();
-      // Copy existing members
-      for (const userId of currentVector.toArray()) {
-        newVector.push(userId);
+      // Add user to members set
+      const membersRegister = this.getOrCreateMembersRegister(channelId);
+      const currentSet = membersRegister.get() ?? createUnorderedSet<UserId>();
+      const newSet = createUnorderedSet<UserId>();
+      try {
+        for (const userId of currentSet.toArray()) {
+          newSet.add(userId);
+        }
+      } catch {
+        // Set might not be hydrated yet
       }
-      // Add new member if not already present
-      if (!currentVector.toArray().includes(userId)) {
-        newVector.push(userId);
-      }
-      register.set(newVector);
+      newSet.add(userId);
+      membersRegister.set(newSet);
     });
   }
 
@@ -504,10 +557,7 @@ export class ChannelManager {
     return channelId.trim().toLowerCase();
   }
 
-  private formatChannelResponse(
-    channelId: ChannelId,
-    metadata: ChannelMetadata
-  ): ChannelMetadataResponse {
+  private formatChannelResponse(channelId: ChannelId, metadata: ChannelMetadata, userId: UserId): ChannelMetadataResponse {
     // Get member and moderator user IDs from Vectors
     const memberIds = this.getChannelMembers(channelId);
     const moderatorIds = this.getChannelModerators(channelId);
@@ -526,7 +576,10 @@ export class ChannelManager {
         return username ? { publicKey: userId, username } : null;
       })
       .filter((entry): entry is ChannelMembershipEntry => entry !== null);
-
+    
+    // Calculate unread messages
+    const unreadMessages = this.calculateUnreadMessages(channelId, userId, metadata);
+    
     return {
       channelId,
       type: metadata.type,
@@ -536,6 +589,88 @@ export class ChannelManager {
       readOnly: metadata.readOnly,
       moderators,
       members,
+      unreadMessages,
+    };
+  }
+
+  private calculateUnreadMessages(channelId: ChannelId, userId: UserId, metadata: ChannelMetadata): { count: number; mentions: number } {
+    // Get last read timestamp for this user in this channel
+    let lastReadTimestamp = 0n;
+    const userReadMap = this.state.channelReadPositions.get(channelId);
+    if (userReadMap) {
+      const readRegister = userReadMap.get(userId);
+      if (readRegister) {
+        try {
+          lastReadTimestamp = readRegister.get() ?? 0n;
+        } catch {
+          // Register might not be hydrated yet
+        }
+      }
+    }
+
+    // Get all messages from the channel
+    const messagesRegister = metadata.channelMessages;
+    if (!messagesRegister) {
+      return { count: 0, mentions: 0 };
+    }
+
+    let allMessages: StoredMessage[] = [];
+    try {
+      const vector = messagesRegister.get();
+      if (vector) {
+        allMessages = vector.toArray();
+      }
+    } catch {
+      // Vector might not be hydrated yet
+      return { count: 0, mentions: 0 };
+    }
+
+    // Count unread messages (messages after lastReadTimestamp that are not deleted)
+    let unreadCount = 0;
+    let mentionCount = 0;
+
+    for (const message of allMessages) {
+      // Only count non-deleted messages
+      if (message.deleted) {
+        continue;
+      }
+
+      // Check if message is unread
+      if (message.timestamp > lastReadTimestamp) {
+        unreadCount++;
+
+        // Check if user is mentioned in this message
+        let isMentioned = false;
+        
+        // Check direct user ID mentions
+        if (message.mentions && message.mentions.includes(userId)) {
+          isMentioned = true;
+        }
+        
+        // Check for @here and @everyone mentions (these notify all channel members)
+        if (message.mentionUsernames && message.mentionUsernames.length > 0) {
+          const hasHere = message.mentionUsernames.some(u => 
+            u.toLowerCase() === "here" || u.toLowerCase() === "@here"
+          );
+          const hasEveryone = message.mentionUsernames.some(u => 
+            u.toLowerCase() === "everyone" || u.toLowerCase() === "@everyone"
+          );
+          
+          if (hasHere || hasEveryone) {
+            // User is a member of the channel (we're already in listForMember), so they're mentioned
+            isMentioned = true;
+          }
+        }
+        
+        if (isMentioned) {
+          mentionCount++;
+        }
+      }
+    }
+
+    return {
+      count: unreadCount,
+      mentions: mentionCount,
     };
   }
 }

@@ -1,4 +1,6 @@
-import type { ChannelId, UserId, Username } from '../types';
+import type { ChannelId, UserId, Username } from "../types";
+import type { StoredMessage } from "../messageManagement/types";
+import { LwwRegister, UnorderedMap, UnorderedSet, Vector } from "@calimero/sdk/collections";
 
 export enum ChannelType {
   Default = 'default',
@@ -12,6 +14,11 @@ export type ChannelMetadata = {
   createdBy: UserId;
   createdByUsername: Username;
   readOnly: boolean;
+  channelMembers: LwwRegister<UnorderedSet<UserId>>;
+  channelModerators: LwwRegister<UnorderedSet<UserId>>;
+  channelMessages: LwwRegister<Vector<StoredMessage>>;
+  threadMessages: UnorderedMap<string, LwwRegister<Vector<StoredMessage>>>;
+  messageReactions: UnorderedMap<string, UnorderedMap<string, UnorderedSet<UserId>>>;
 };
 
 export type ChannelMembershipEntry = {
@@ -28,6 +35,10 @@ export type ChannelMetadataResponse = {
   readOnly: boolean;
   moderators: ChannelMembershipEntry[];
   members: ChannelMembershipEntry[];
+  unreadMessages: {
+    count: number;
+    mentions: number;
+  };
 };
 
 export type ChannelDirectoryResponse = {

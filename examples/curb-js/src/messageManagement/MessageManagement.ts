@@ -1,28 +1,12 @@
-import {
-  emit,
-  env,
-  createUnorderedMap,
-  createVector,
-  createUnorderedSet,
-  createLwwRegister,
-} from '@calimero/sdk';
-import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from '@calimero/sdk/collections';
-import { blobAnnounceToContext, contextId } from '@calimero/sdk/env';
-import bs58 from 'bs58';
+import { emit, env, createUnorderedMap, createVector, createUnorderedSet, createLwwRegister } from "@calimero/sdk";
+import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from "@calimero/sdk/collections";
+import { blobAnnounceToContext, contextId } from "@calimero/sdk/env";
+import bs58 from "bs58";
 
-import type {
-  StoredMessage,
-  SendMessageArgs,
-  EditMessageArgs,
-  DeleteMessageArgs,
-  UpdateReactionArgs,
-  GetMessagesArgs,
-  FullMessageResponse,
-  MessageWithReactions,
-  Reaction,
-} from './types';
-import type { UserId } from '../types';
-import { MessageSent, MessageSentThread, ReactionUpdated } from './events';
+import type { StoredMessage, SendMessageArgs, EditMessageArgs, DeleteMessageArgs, UpdateReactionArgs, GetMessagesArgs, FullMessageResponse, MessageWithReactions, Reaction, ReadMessageProps } from "./types";
+import type { UserId, ChannelId } from "../types";
+import type { ChannelMetadata } from "../channelManagement/types";
+import { MessageSent, MessageSentThread, ReactionUpdated } from "./events";
 
 const BLOB_ID_BYTES = 32;
 
@@ -36,12 +20,8 @@ function blobIdFromString(value: string): Uint8Array {
 
 export class MessageManagement {
   constructor(
-    private readonly messages: UnorderedMap<string, LwwRegister<Vector<StoredMessage>>>,
-    private readonly threads: UnorderedMap<string, LwwRegister<Vector<StoredMessage>>>,
-    private readonly reactions: UnorderedMap<
-      string,
-      LwwRegister<UnorderedMap<string, UnorderedSet<UserId>>>
-    >
+    private readonly channels: UnorderedMap<ChannelId, ChannelMetadata>,
+    private readonly channelReadPositions: UnorderedMap<ChannelId, UnorderedMap<UserId, LwwRegister<bigint>>>,
   ) {}
 
   sendMessage(executorId: UserId, username: string | null, args: SendMessageArgs): StoredMessage {
@@ -102,11 +82,24 @@ export class MessageManagement {
       mentionUsernames: args.mentionUsernames ?? [],
     };
 
+    const normalizedChannelId = args.channelId.trim().toLowerCase();
+    const channel = this.channels.get(normalizedChannelId);
+    if (!channel) {
+      throw new Error(`Channel ${normalizedChannelId} not found`);
+    }
+
     if (args.parentId) {
-      this.appendToVector(this.threads, args.parentId, payload);
+      // Get or create thread messages map entry
+      let threadRegister = channel.threadMessages.get(args.parentId);
+      if (!threadRegister) {
+        const threadVector = createVector<StoredMessage>();
+        threadRegister = createLwwRegister<Vector<StoredMessage>>({ initialValue: threadVector });
+        channel.threadMessages.set(args.parentId, threadRegister);
+      }
+      this.appendToVectorToRegister(threadRegister, payload);
       emit(new MessageSentThread(args.channelId, args.parentId, messageId));
     } else {
-      this.appendToVector(this.messages, args.channelId, payload);
+      this.appendToVectorToRegister(channel.channelMessages, payload);
       emit(new MessageSent(args.channelId, messageId));
     }
 
@@ -114,9 +107,19 @@ export class MessageManagement {
   }
 
   getMessages(args: GetMessagesArgs): FullMessageResponse {
-    const register = args.parentId
-      ? this.threads.get(args.parentId)
-      : this.messages.get(args.channelId);
+    const normalizedChannelId = args.channelId.trim().toLowerCase();
+    const channel = this.channels.get(normalizedChannelId);
+    if (!channel) {
+      return {
+        messages: [],
+        total_count: 0,
+        start_position: args.offset ?? 0,
+      };
+    }
+
+    const register = args.parentId 
+      ? channel.threadMessages.get(args.parentId) 
+      : channel.channelMessages;
     if (!register) {
       return {
         messages: [],
@@ -162,32 +165,29 @@ export class MessageManagement {
 
     // Add reactions and thread info to each message
     const messagesWithReactions: MessageWithReactions[] = slicedMessages.map(message => {
-      const reactionRegister = this.reactions.get(message.id);
+      const reactionMap = channel.messageReactions.get(message.id);
       const reactions: Reaction[] = [];
 
-      if (reactionRegister) {
-        const reactionMap = reactionRegister.get();
-        if (reactionMap) {
-          try {
-            const emojiEntries = reactionMap.entries();
-            for (const [emoji, users] of emojiEntries) {
-              try {
-                const userArray = users.toArray();
-                // Only include reactions that have at least one user
-                if (userArray.length > 0) {
-                  reactions.push({
-                    emoji,
-                    users: userArray,
-                  });
-                }
-              } catch {
-                // User set might not be synced yet, skip this reaction
-                continue;
+      if (reactionMap) {
+        try {
+          const emojiEntries = reactionMap.entries();
+          for (const [emoji, users] of emojiEntries) {
+            try {
+              const userArray = users.toArray();
+              // Only include reactions that have at least one user
+              if (userArray.length > 0) {
+                reactions.push({
+                  emoji,
+                  users: userArray,
+                });
               }
+            } catch {
+              // User set might not be synced yet, skip this reaction
+              continue;
             }
-          } catch {
-            // Reaction map might not be synced yet, skip reactions
           }
+        } catch {
+          // Reaction map might not be synced yet, skip reactions
         }
       }
 
@@ -197,7 +197,7 @@ export class MessageManagement {
 
       // Only calculate thread info if this is NOT a thread message itself (no parentId)
       if (!message.parentId) {
-        const threadRegister = this.threads.get(message.id);
+        const threadRegister = channel.threadMessages.get(message.id);
         if (threadRegister) {
           const threadVector = threadRegister.get();
           if (threadVector) {
@@ -233,10 +233,15 @@ export class MessageManagement {
   }
 
   editMessage(executorId: UserId, args: EditMessageArgs): string {
-    const map = args.parentId ? this.threads : this.messages;
-    const key = args.parentId ? args.parentId : args.channelId;
+    const normalizedChannelId = args.channelId.trim().toLowerCase();
+    const channel = this.channels.get(normalizedChannelId);
+    if (!channel) {
+      return "Channel not found";
+    }
 
-    const register = map.get(key);
+    const register = args.parentId 
+      ? channel.threadMessages.get(args.parentId)
+      : channel.channelMessages;
     if (!register) {
       return 'Message not found';
     }
@@ -277,10 +282,15 @@ export class MessageManagement {
   }
 
   deleteMessage(executorId: UserId, args: DeleteMessageArgs, isModerator: boolean): string {
-    const map = args.parentId ? this.threads : this.messages;
-    const key = args.parentId ? args.parentId : args.channelId;
+    const normalizedChannelId = args.channelId.trim().toLowerCase();
+    const channel = this.channels.get(normalizedChannelId);
+    if (!channel) {
+      return "Channel not found";
+    }
 
-    const register = map.get(key);
+    const register = args.parentId 
+      ? channel.threadMessages.get(args.parentId)
+      : channel.channelMessages;
     if (!register) {
       return 'Message not found';
     }
@@ -318,13 +328,8 @@ export class MessageManagement {
     }
 
     // Remove reactions for deleted message
-    const reactionRegister = this.reactions.get(args.messageId);
-    if (reactionRegister) {
-      // Create an empty map and set it in the register to clear reactions
-      const emptyMap = createUnorderedMap<string, UnorderedSet<UserId>>();
-      reactionRegister.set(emptyMap);
-    }
-    return 'Message deleted';
+    channel.messageReactions.remove(args.messageId);
+    return "Message deleted";
   }
 
   /**
@@ -334,8 +339,9 @@ export class MessageManagement {
    */
   findMessageChannelId(messageId: string): string | null {
     // First, check in all channels (regular messages)
-    const channelEntries = this.messages.entries();
-    for (const [_channel, register] of channelEntries) {
+    const channelEntries = this.channels.entries();
+    for (const [, channel] of channelEntries) {
+      const register = channel.channelMessages;
       if (!register) {
         continue;
       }
@@ -356,24 +362,27 @@ export class MessageManagement {
     }
 
     // If not found, check in all threads
-    const threadEntries = this.threads.entries();
-    for (const [, register] of threadEntries) {
-      if (!register) {
-        continue;
-      }
-      const vector = register.get();
-      if (!vector) {
-        continue;
-      }
-      try {
-        const messages = vector.toArray();
-        const message = messages.find(msg => msg.id === messageId);
-        if (message) {
-          return message.channelId;
+    const channelEntriesForThreads = this.channels.entries();
+    for (const [, channel] of channelEntriesForThreads) {
+      const threadEntries = channel.threadMessages.entries();
+      for (const [, register] of threadEntries) {
+        if (!register) {
+          continue;
         }
-      } catch {
-        // Vector might not be synced yet, skip
-        continue;
+        const vector = register.get();
+        if (!vector) {
+          continue;
+        }
+        try {
+          const messages = vector.toArray();
+          const message = messages.find(msg => msg.id === messageId);
+          if (message) {
+            return message.channelId;
+          }
+        } catch {
+          // Vector might not be synced yet, skip
+          continue;
+        }
       }
     }
 
@@ -381,102 +390,49 @@ export class MessageManagement {
   }
 
   updateReaction(args: UpdateReactionArgs, username: string): string {
-    let reactionRegister = this.reactions.get(args.messageId);
-    if (!reactionRegister) {
-      const reactionMap = createUnorderedMap<string, UnorderedSet<UserId>>();
-      reactionRegister = createLwwRegister<UnorderedMap<string, UnorderedSet<UserId>>>({
-        initialValue: reactionMap,
-      });
-      this.reactions.set(args.messageId, reactionRegister);
+    // Find the channel that contains this message
+    const channelId = this.findMessageChannelId(args.messageId);
+    if (!channelId) {
+      return "Message not found";
     }
 
-    const currentMap = reactionRegister.get() ?? createUnorderedMap<string, UnorderedSet<UserId>>();
-
-    // Create a new map to ensure proper CRDT synchronization
-    const newMap = createUnorderedMap<string, UnorderedSet<UserId>>();
-
-    // Copy all existing reactions except the one we're modifying
-    const entries = currentMap.entries();
-    for (const [emoji, users] of entries) {
-      if (emoji !== args.emoji) {
-        // Copy non-empty user sets to the new map
-        try {
-          const userArray = users.toArray();
-          if (userArray.length > 0) {
-            newMap.set(emoji, users);
-          }
-        } catch {
-          // If toArray fails, skip this entry
-          continue;
-        }
-      }
+    const normalizedChannelId = channelId.trim().toLowerCase();
+    const channel = this.channels.get(normalizedChannelId);
+    if (!channel) {
+      return "Channel not found";
     }
 
-    // Handle the emoji we're updating
+    // Get or create the reaction map for this message
+    let reactionMap = channel.messageReactions.get(args.messageId);
+    if (!reactionMap) {
+      reactionMap = createUnorderedMap<string, UnorderedSet<UserId>>();
+      channel.messageReactions.set(args.messageId, reactionMap);
+    }
+
+    // Get or create the user set for this emoji
+    let users = reactionMap.get(args.emoji);
+    if (!users) {
+      users = createUnorderedSet<UserId>();
+      reactionMap.set(args.emoji, users);
+    }
+
+    // Direct mutations - automatically propagate thanks to nested tracking!
     if (args.add) {
-      // Adding a reaction
-      const existingUsers = currentMap.get(args.emoji);
-      const users = createUnorderedSet<UserId>();
-
-      if (existingUsers) {
-        // Copy existing users to the new set
-        try {
-          const existingUserArray = existingUsers.toArray();
-          for (const user of existingUserArray) {
-            users.add(user);
-          }
-        } catch {
-          // If toArray fails, start with empty set
-        }
-      }
-      // Add the new user
       users.add(username);
-      newMap.set(args.emoji, users);
     } else {
-      // Removing a reaction
-      const existingUsers = currentMap.get(args.emoji);
-      if (existingUsers) {
-        // Create a new set and copy existing users
-        const updatedUsers = createUnorderedSet<UserId>();
-        try {
-          const existingUserArray = existingUsers.toArray();
-          for (const user of existingUserArray) {
-            if (user !== username) {
-              updatedUsers.add(user);
-            }
-          }
-
-          // Only add to new map if there are still users
-          const userArray = updatedUsers.toArray();
-          if (userArray.length > 0) {
-            newMap.set(args.emoji, updatedUsers);
-          }
-          // If empty, don't add it to the new map (effectively removing it)
-        } catch {
-          // If toArray fails, assume empty and don't add it
-        }
+      users.delete(username);
+      
+      // If the set is now empty, remove the emoji entry from the map
+      if (users.size() === 0) {
+        reactionMap.remove(args.emoji);
       }
-      // If emoji doesn't exist, nothing to remove
     }
-
-    // Set the new map back in the register
-    reactionRegister.set(newMap);
 
     emit(new ReactionUpdated(args.messageId));
     return 'Reaction updated';
   }
 
-  private appendToVector(
-    map: UnorderedMap<string, LwwRegister<Vector<StoredMessage>>>,
-    key: string,
-    value: StoredMessage
-  ): void {
-    let register = map.get(key);
-    if (!register) {
-      const vector = createVector<StoredMessage>();
-      register = createLwwRegister<Vector<StoredMessage>>({ initialValue: vector });
-      map.set(key, register);
-    }
+  private appendToVectorToRegister(register: LwwRegister<Vector<StoredMessage>>, value: StoredMessage): void {
     const currentVector = register.get() ?? createVector<StoredMessage>();
 
     // Create a new vector to ensure proper CRDT synchronization
@@ -540,6 +496,37 @@ export class MessageManagement {
       }
     }
     return { ok: false, error: 'Message not found' };
+  }
+
+  readMessage(executorId: UserId, args: ReadMessageProps, channel: ChannelMetadata): string {
+    const normalizedChannelId = args.channelId.trim().toLowerCase();
+    
+    // Get messages to find the specific message
+    const messages = this.getMessages({ channelId: normalizedChannelId });
+    
+    // Find the message
+    const message = messages.messages.find(m => m.id === args.messageId);
+    if (!message) {
+      return "Message not found";
+    }
+
+    // Update last read position for this user in this channel
+    let userReadMap = this.channelReadPositions.get(normalizedChannelId);
+    if (!userReadMap) {
+      userReadMap = createUnorderedMap<UserId, LwwRegister<bigint>>();
+      this.channelReadPositions.set(normalizedChannelId, userReadMap);
+    }
+
+    let readRegister = userReadMap.get(executorId);
+    if (!readRegister) {
+      readRegister = createLwwRegister<bigint>({ initialValue: 0n });
+      userReadMap.set(executorId, readRegister);
+    }
+
+    // Set the message timestamp as the last read position
+    readRegister.set(message.timestamp);
+
+    return "Message marked as read";
   }
 
   private generateMessageId(channelId: string, executorId: UserId, timestamp: bigint): string {
