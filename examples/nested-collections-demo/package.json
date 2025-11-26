@@ -4,13 +4,15 @@
   "description": "Demo showing automatic nested collection tracking",
   "main": "src/index.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "npx calimero-sdk build src/index.ts -o build/service.wasm",
+    "build:ts": "tsc",
     "dev": "tsc --watch"
   },
   "dependencies": {
     "@calimero/sdk": "workspace:*"
   },
   "devDependencies": {
+    "@calimero/cli": "workspace:*",
     "typescript": "^5.0.0"
   }
 }
