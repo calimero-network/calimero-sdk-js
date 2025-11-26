@@ -109,14 +109,14 @@ jobs:
       - name: Build examples
         run: |
           set -e
-          cd examples/counter && pnpm build
-          cd ../kv-store && pnpm build
-          cd ../team-metrics && pnpm build
-          cd ../blobs && pnpm build
+          cd examples/counter && pnpm build:manual
+          cd ../kv-store && pnpm build:manual
+          cd ../team-metrics && pnpm build:manual
+          cd ../blobs && pnpm build:manual
           cd ../curb-js && pnpm build:manual
-          cd ../nested-collections-demo && pnpm build
-          cd ../private-data && pnpm build
-          cd ../xcall && pnpm build
+          cd ../nested-collections-demo && pnpm build:manual
+          cd ../private-data && pnpm build:manual
+          cd ../xcall && pnpm build:manual
 
       - name: Verify WASM outputs
         run: |
