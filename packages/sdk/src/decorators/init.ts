@@ -20,7 +20,7 @@ import { registerInit } from '../runtime/method-registry';
 export function Init(
   target: any,
   propertyKey: string,
-  descriptor: PropertyDescriptor
+  _descriptor: PropertyDescriptor
 ): void {
   if (typeof target !== 'function') {
     throw new Error('@Init decorator can only be used on static methods');

@@ -55,7 +55,6 @@ function mergeDefaultFields(
 }
 
 export function mergeMergeableValues<T>(localValue: T, remoteValue: T): T {
-  const effective = remoteValue ?? localValue;
   const mergeableType =
     getMergeableType(remoteValue) ??
     getMergeableType(localValue);

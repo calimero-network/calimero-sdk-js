@@ -52,7 +52,10 @@ describe('Mergeable decorator', () => {
     const revived = deserialize<any>(bytes);
     expect(getMergeableType(revived)).toBe('CustomStats');
 
-    const handler = descriptor?.merge!;
+    const handler = descriptor?.merge;
+    if (!handler) {
+      throw new Error('Merge handler not found');
+    }
     const merged = handler({ wins: 1, losses: 5 }, { wins: 3, losses: 2 });
     expect(merged).toEqual({ wins: 3, losses: 2 });
   });

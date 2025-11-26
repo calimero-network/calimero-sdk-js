@@ -37,8 +37,7 @@ import {
   jsCrdtCounterNew,
   jsCrdtCounterIncrement,
   jsCrdtCounterValue,
-  jsCrdtCounterGetExecutorCount,
-  log
+  jsCrdtCounterGetExecutorCount
 } from '../env/api';
 
 const REGISTER_ID = 0n;
@@ -77,13 +76,7 @@ function ensureUint8Array(value: unknown, name: string): asserts value is Uint8A
   }
 }
 
-function bytesToHex(bytes: Uint8Array): string {
-  let out = '';
-  for (let i = 0; i < bytes.length; i += 1) {
-    out += bytes[i].toString(16).padStart(2, '0');
-  }
-  return out;
-}
+// Removed unused function bytesToHex
 
 export function mapNew(): Uint8Array {
   const status = Number(jsCrdtMapNew(REGISTER_ID));

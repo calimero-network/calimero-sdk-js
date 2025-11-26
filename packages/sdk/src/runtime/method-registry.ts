@@ -9,7 +9,7 @@ interface MethodRegistryGlobal {
 }
 
 export interface RuntimeLogicEntry {
-  target: Function;
+  target: new (...args: any[]) => any;
   stateClass: any;
   init?: string;
   methods: Map<string, string[]>;
@@ -21,7 +21,7 @@ const registry: MethodRegistrySnapshot = {
   functions: [],
 };
 
-const runtimeLogic = new Map<Function, RuntimeLogicEntry>();
+const runtimeLogic = new Map<new (...args: any[]) => any, RuntimeLogicEntry>();
 
 const globalTarget: MethodRegistryGlobal | undefined =
   typeof globalThis !== 'undefined' ? (globalThis as MethodRegistryGlobal) : undefined;
@@ -40,7 +40,7 @@ function ensureGlobalRegistry(): void {
   }
 }
 
-function normalizeLogicName(target: Function): string {
+function normalizeLogicName(target: new (...args: any[]) => any): string {
   const name = target?.name;
   if (typeof name === 'string' && name.trim().length > 0) {
     return name;
@@ -66,7 +66,7 @@ function ensureLogicEntry(logicName: string) {
   return registry.logic[logicName];
 }
 
-function ensureRuntimeLogicEntry(target: Function, stateClass: any): RuntimeLogicEntry {
+function ensureRuntimeLogicEntry(target: new (...args: any[]) => any, stateClass: any): RuntimeLogicEntry {
   const existing = runtimeLogic.get(target);
   if (existing) {
     if (!existing.stateClass && stateClass) {
@@ -89,7 +89,7 @@ function ensureRuntimeLogicEntry(target: Function, stateClass: any): RuntimeLogi
 }
 
 function recordRuntimeMethodMetadata(
-  target: Function,
+  target: new (...args: any[]) => any,
   stateClass: any,
   method: string
 ): void {
@@ -108,7 +108,7 @@ function recordRuntimeMethodMetadata(
   }
 }
 
-function updateRuntimeInit(target: Function, stateClass: any, methodName: string): void {
+function updateRuntimeInit(target: new (...args: any[]) => any, stateClass: any, methodName: string): void {
   const runtimeEntry = ensureRuntimeLogicEntry(target, stateClass);
   runtimeEntry.init = methodName;
   runtimeEntry.mutating.set(methodName, true);
@@ -117,7 +117,7 @@ function updateRuntimeInit(target: Function, stateClass: any, methodName: string
   }
 }
 
-function updateRuntimeMutating(target: Function, stateClass: any, methodName: string): void {
+function updateRuntimeMutating(target: new (...args: any[]) => any, stateClass: any, methodName: string): void {
   const runtimeEntry = ensureRuntimeLogicEntry(target, stateClass);
   runtimeEntry.mutating.set(methodName, true);
   if (globalTarget) {
@@ -125,7 +125,7 @@ function updateRuntimeMutating(target: Function, stateClass: any, methodName: st
   }
 }
 
-function extractParameterNames(fn: Function): string[] {
+function extractParameterNames(fn: (...args: any[]) => any): string[] {
   const fnString = Function.prototype.toString.call(fn)
     .replace(/\/\*.*?\*\//gs, '')
     .replace(/\/\/.*$/gm, '');
@@ -141,7 +141,7 @@ function extractParameterNames(fn: Function): string[] {
     .map(param => param.replace(/:[^,]+$/, '').trim());
 }
 
-export function registerLogic(target: Function, methods: string[], stateClass: any): void {
+export function registerLogic(target: new (...args: any[]) => any, methods: string[], stateClass: any): void {
   ensureGlobalRegistry();
 
   const logicName = normalizeLogicName(target);
@@ -178,7 +178,7 @@ export function registerLogic(target: Function, methods: string[], stateClass: a
   registry.logic[logicName] = entry;
 }
 
-export function markMethodMutating(target: Function, methodName: string): void {
+export function markMethodMutating(target: new (...args: any[]) => any, methodName: string): void {
   const mutating: Set<string> = (target as any).__calimeroMutatingMethods ?? new Set<string>();
   mutating.add(methodName);
   (target as any).__calimeroMutatingMethods = mutating;
@@ -186,7 +186,7 @@ export function markMethodMutating(target: Function, methodName: string): void {
   updateRuntimeMutating(target, stateClass, methodName);
 }
 
-export function markMethodNonMutating(target: Function, methodName: string): void {
+export function markMethodNonMutating(target: new (...args: any[]) => any, methodName: string): void {
   const runtimeEntry = ensureRuntimeLogicEntry(target, (target as any)._calimeroStateClass);
   runtimeEntry.mutating.set(methodName, false);
   if (globalTarget) {
@@ -194,7 +194,7 @@ export function markMethodNonMutating(target: Function, methodName: string): voi
   }
 }
 
-export function registerInit(target: Function, methodName: string): void {
+export function registerInit(target: new (...args: any[]) => any, methodName: string): void {
   ensureGlobalRegistry();
 
   const logicName = normalizeLogicName(target);

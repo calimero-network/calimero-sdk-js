@@ -111,7 +111,7 @@ class NestedCollectionTracker {
   /**
    * Force a parent collection to update by re-setting the nested collection
    */
-  private forceParentUpdate(parentCollection: any, key: any, childId: string): void {
+  private forceParentUpdate(parentCollection: any, key: any, _childId: string): void {
     const parentSnapshot = snapshotCollection(parentCollection);
     if (!parentSnapshot) return;
 

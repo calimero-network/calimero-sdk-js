@@ -111,7 +111,7 @@ function getExecutorKey(executor?: Uint8Array): string {
 
 // Mock env
 (global as any).env = {
-  log_utf8: (msg: Uint8Array) => {
+  log_utf8: (_msg: Uint8Array) => {
     // Silent in tests, could console.log if needed
   },
 
@@ -123,7 +123,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     setRegister(value);
   },
 
-  storage_read: (key: Uint8Array, register_id: bigint): bigint => {
+  storage_read: (key: Uint8Array, _register_id: bigint): bigint => {
     const keyStr = Array.from(key).join(',');
     const value = storage.get(keyStr);
     if (value) {
@@ -134,13 +134,13 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 0n; // false
   },
 
-  storage_write: (key: Uint8Array, value: Uint8Array, register_id: bigint): bigint => {
+  storage_write: (key: Uint8Array, value: Uint8Array, _register_id: bigint): bigint => {
     const keyStr = Array.from(key).join(',');
     storage.set(keyStr, value);
     return 1n;
   },
 
-  storage_remove: (key: Uint8Array, register_id: bigint): bigint => {
+  storage_remove: (key: Uint8Array, _register_id: bigint): bigint => {
     const keyStr = Array.from(key).join(',');
     const previous = storage.get(keyStr);
     const existed = previous !== undefined;
@@ -149,11 +149,11 @@ function getExecutorKey(executor?: Uint8Array): string {
     return existed ? 1n : 0n;
   },
 
-  register_len: (register_id: bigint): bigint => {
+  register_len: (_register_id: bigint): bigint => {
     return currentRegister ? BigInt(currentRegister.length) : 0n;
   },
 
-  read_register: (register_id: bigint, buf: Uint8Array): boolean => {
+  read_register: (_register_id: bigint, buf: Uint8Array): boolean => {
     if (currentRegister) {
       buf.set(currentRegister);
       return true;
@@ -161,23 +161,23 @@ function getExecutorKey(executor?: Uint8Array): string {
     return false;
   },
 
-  context_id: (register_id: bigint): void => {
+  context_id: (_register_id: bigint): void => {
     currentRegister = mockContextId;
   },
 
-  executor_id: (register_id: bigint): void => {
+  executor_id: (_register_id: bigint): void => {
     currentRegister = mockExecutorId;
   },
 
-  emit: (kind: Uint8Array, data: Uint8Array): void => {
+  emit: (_kind: Uint8Array, _data: Uint8Array): void => {
     // Silent in tests
   },
 
-  emit_with_handler: (kind: Uint8Array, data: Uint8Array, handler: Uint8Array): void => {
+  emit_with_handler: (_kind: Uint8Array, _data: Uint8Array, _handler: Uint8Array): void => {
     // Silent in tests
   },
 
-  commit: (root: Uint8Array, artifact: Uint8Array): void => {
+  commit: (_root: Uint8Array, _artifact: Uint8Array): void => {
     // Silent in tests
   },
 
@@ -188,19 +188,19 @@ function getExecutorKey(executor?: Uint8Array): string {
   },
 
   blob_create: (): bigint => 1n,
-  blob_open: (blob_id: Uint8Array): bigint => 0n,
-  blob_read: (fd: bigint, buffer: Uint8Array): bigint => 0n,
-  blob_write: (fd: bigint, data: Uint8Array): bigint => BigInt(data.length),
-  blob_close: (fd: bigint, blob_id_buf: Uint8Array): boolean => true,
+  blob_open: (_blob_id: Uint8Array): bigint => 0n,
+  blob_read: (_fd: bigint, _buffer: Uint8Array): bigint => 0n,
+  blob_write: (_fd: bigint, data: Uint8Array): bigint => BigInt(data.length),
+  blob_close: (_fd: bigint, _blob_id_buf: Uint8Array): boolean => true,
 
-  js_crdt_map_new: (register_id: bigint): number => {
+  js_crdt_map_new: (_register_id: bigint): number => {
     const id = generateId();
     maps.set(idToKey(id), { entries: new Map() });
     setRegister(id);
     return 1;
   },
 
-  js_crdt_map_get: (mapId: Uint8Array, key: Uint8Array, register_id: bigint): number => {
+  js_crdt_map_get: (mapId: Uint8Array, key: Uint8Array, _register_id: bigint): number => {
     const store = maps.get(idToKey(mapId));
     if (!store) {
       return -1;
@@ -214,7 +214,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 1;
   },
 
-  js_crdt_map_insert: (mapId: Uint8Array, key: Uint8Array, value: Uint8Array, register_id: bigint): number => {
+  js_crdt_map_insert: (mapId: Uint8Array, key: Uint8Array, value: Uint8Array, _register_id: bigint): number => {
     const store = maps.get(idToKey(mapId));
     if (!store) {
       return -1;
@@ -230,7 +230,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 0;
   },
 
-  js_crdt_map_remove: (mapId: Uint8Array, key: Uint8Array, register_id: bigint): number => {
+  js_crdt_map_remove: (mapId: Uint8Array, key: Uint8Array, _register_id: bigint): number => {
     const store = maps.get(idToKey(mapId));
     if (!store) {
       return -1;
@@ -255,7 +255,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return store.entries.has(entryKey) ? 1 : 0;
   },
 
-  js_crdt_map_iter: (mapId: Uint8Array, register_id: bigint): number => {
+  js_crdt_map_iter: (mapId: Uint8Array, _register_id: bigint): number => {
     const store = maps.get(idToKey(mapId));
     if (!store) {
       return -1;
@@ -268,14 +268,14 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 1;
   },
 
-  js_crdt_vector_new: (register_id: bigint): number => {
+  js_crdt_vector_new: (_register_id: bigint): number => {
     const id = generateId();
     vectors.set(idToKey(id), { values: [] });
     setRegister(id);
     return 1;
   },
 
-  js_crdt_vector_len: (vectorId: Uint8Array, register_id: bigint): number => {
+  js_crdt_vector_len: (vectorId: Uint8Array, _register_id: bigint): number => {
     const store = vectors.get(idToKey(vectorId));
     if (!store) {
       return -1;
@@ -307,7 +307,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 1;
   },
 
-  js_crdt_vector_pop: (vectorId: Uint8Array, register_id: bigint): number => {
+  js_crdt_vector_pop: (vectorId: Uint8Array, _register_id: bigint): number => {
     const store = vectors.get(idToKey(vectorId));
     if (!store) {
       return -1;
@@ -321,7 +321,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 1;
   },
 
-  js_crdt_set_new: (register_id: bigint): number => {
+  js_crdt_set_new: (_register_id: bigint): number => {
     const id = generateId();
     sets.set(idToKey(id), { values: new Set() });
     setRegister(id);
@@ -357,7 +357,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return store.values.delete(key) ? 1 : 0;
   },
 
-  js_crdt_set_len: (setId: Uint8Array, register_id: bigint): number => {
+  js_crdt_set_len: (setId: Uint8Array, _register_id: bigint): number => {
     const store = sets.get(idToKey(setId));
     if (!store) {
       return -1;
@@ -366,7 +366,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 1;
   },
 
-  js_crdt_set_iter: (setId: Uint8Array, register_id: bigint): number => {
+  js_crdt_set_iter: (setId: Uint8Array, _register_id: bigint): number => {
     const store = sets.get(idToKey(setId));
     if (!store) {
       return -1;
@@ -387,7 +387,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 1;
   },
 
-  js_crdt_lww_new: (register_id: bigint): number => {
+  js_crdt_lww_new: (_register_id: bigint): number => {
     const id = generateId();
     lwwRegisters.set(idToKey(id), {
       value: null,
@@ -409,7 +409,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 1;
   },
 
-  js_crdt_lww_get: (registerId: Uint8Array, register_id: bigint): number => {
+  js_crdt_lww_get: (registerId: Uint8Array, _register_id: bigint): number => {
     const store = lwwRegisters.get(idToKey(registerId));
     if (!store) {
       return -1;
@@ -422,7 +422,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 1;
   },
 
-  js_crdt_lww_timestamp: (registerId: Uint8Array, register_id: bigint): number => {
+  js_crdt_lww_timestamp: (registerId: Uint8Array, _register_id: bigint): number => {
     const store = lwwRegisters.get(idToKey(registerId));
     if (!store) {
       return -1;
@@ -439,7 +439,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 1;
   },
 
-  js_crdt_counter_new: (register_id: bigint): number => {
+  js_crdt_counter_new: (_register_id: bigint): number => {
     const id = generateId();
     counters.set(idToKey(id), { totalsByExecutor: new Map() });
     setRegister(id);
@@ -457,7 +457,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 1;
   },
 
-  js_crdt_counter_value: (counterId: Uint8Array, register_id: bigint): number => {
+  js_crdt_counter_value: (counterId: Uint8Array, _register_id: bigint): number => {
     const store = counters.get(idToKey(counterId));
     if (!store) {
       return -1;
@@ -469,7 +469,7 @@ function getExecutorKey(executor?: Uint8Array): string {
 
   js_crdt_counter_get_executor_count: (
     counterId: Uint8Array,
-    register_id: bigint,
+    _register_id: bigint,
     executorId?: Uint8Array
   ): number => {
     const store = counters.get(idToKey(counterId));

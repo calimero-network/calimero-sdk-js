@@ -29,12 +29,7 @@ function blobIdFromString(value: string): Uint8Array {
   return decodeBase58(value, BLOB_ID_BYTES);
 }
 
-function blobIdToString(value: Uint8Array): string {
-  if (value.length !== BLOB_ID_BYTES) {
-    throw new Error('Blob ID must be exactly 32 bytes');
-  }
-  return encodeBase58(value);
-}
+
 
 function randomSuffix(bytes = 4): string {
   const buffer = new Uint8Array(bytes);
@@ -67,15 +62,7 @@ export class FileDeleted {
   constructor(public id: string, public name: string) {}
 }
 
-type StoredFileRecord = {
-  id: string;
-  name: string;
-  blobId: string;
-  size: number;
-  mimeType: string;
-  uploadedBy: string;
-  uploadedAt: string;
-};
+
 
 @State
 export class FileShareState {
