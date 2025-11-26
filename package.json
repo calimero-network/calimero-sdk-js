@@ -8,7 +8,7 @@
     "examples/*"
   ],
   "scripts": {
-    "build": "pnpm -r --if-present build",
+    "build": "pnpm --filter '@calimero/sdk' --filter '@calimero/cli' build",
     "test": "pnpm -r --if-present test",
     "test:unit": "cd tests/unit && pnpm test",
     "test:integration": "cd tests/integration && pnpm test",
