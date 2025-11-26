@@ -1,5 +1,3 @@
-import { UnorderedMap } from "@calimero/sdk/collections";
-
 import type { ChannelId, UserId, Username } from "../types";
 
 export enum ChannelType {
@@ -14,8 +12,6 @@ export type ChannelMetadata = {
   createdBy: UserId;
   createdByUsername: Username;
   readOnly: boolean;
-  moderators: UnorderedMap<UserId, Username>;
-  members: UnorderedMap<UserId, Username>;
 };
 
 export type ChannelMembershipEntry = {
