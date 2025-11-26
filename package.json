@@ -8,8 +8,8 @@
     "examples/*"
   ],
   "scripts": {
-    "build": "pnpm -r build",
-    "test": "pnpm -r test",
+    "build": "pnpm -r --if-present build",
+    "test": "pnpm -r --if-present test",
     "test:unit": "cd tests/unit && pnpm test",
     "test:integration": "cd tests/integration && pnpm test",
     "test:e2e": "cd tests/e2e && pnpm test",
