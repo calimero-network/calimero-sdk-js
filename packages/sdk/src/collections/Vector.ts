@@ -60,6 +60,9 @@ export class Vector<T> {
     }
 
     vectorPush(this.vectorId, serialize(value));
+    
+    // Notify tracker of modification
+    nestedTracker.notifyCollectionModified(this);
   }
 
   /**
@@ -82,6 +85,10 @@ export class Vector<T> {
    */
   pop(): T | null {
     const raw = vectorPop(this.vectorId);
+    
+    // Notify tracker of modification
+    nestedTracker.notifyCollectionModified(this);
+    
     return raw ? deserialize<T>(raw) : null;
   }
 

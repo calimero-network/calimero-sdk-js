@@ -109,6 +109,9 @@ export class UnorderedMap<K, V> {
   remove(key: K): void {
     const keyBytes = serialize(key);
     mapRemove(this.mapId, keyBytes);
+    
+    // Notify tracker of modification
+    nestedTracker.notifyCollectionModified(this);
   }
 
   entries(): Array<[K, V]> {

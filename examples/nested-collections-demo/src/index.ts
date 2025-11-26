@@ -1,125 +1,258 @@
 import { State, Logic, Init, View } from '@calimero/sdk';
-import { UnorderedMap, UnorderedSet } from '@calimero/sdk/collections';
+import { UnorderedMap, UnorderedSet, Vector } from '@calimero/sdk/collections';
 import * as env from '@calimero/sdk/env';
 
 @State
-export class NestedCollectionsDemo {
-  messageReactions: UnorderedMap<string, UnorderedMap<string, UnorderedSet<string>>>;
-  userGroups: UnorderedMap<string, UnorderedSet<string>>;
+export class NestedCollectionsTest {
+  // Test Map<Map<Set>> pattern (like message reactions)
+  mapMapSet: UnorderedMap<string, UnorderedMap<string, UnorderedSet<string>>>;
+  
+  // Test Map<Set> pattern (like user groups)
+  mapSet: UnorderedMap<string, UnorderedSet<string>>;
+  
+  // Test Map<Vector> pattern
+  mapVector: UnorderedMap<string, Vector<string>>;
+  
+  // Test Vector<Map> pattern (Vector as parent)
+  vectorMap: Vector<UnorderedMap<string, string>>;
+  
+  // Test Set<Map> pattern (Set as parent)
+  setMap: UnorderedSet<UnorderedMap<string, string>>;
 
   constructor() {
-    this.messageReactions = new UnorderedMap();
-    this.userGroups = new UnorderedMap();
+    this.mapMapSet = new UnorderedMap();
+    this.mapSet = new UnorderedMap();
+    this.mapVector = new UnorderedMap();
+    this.vectorMap = new Vector();
+    this.setMap = new UnorderedSet();
   }
 }
 
-@Logic(NestedCollectionsDemo)
-export class NestedCollectionsDemoLogic extends NestedCollectionsDemo {
+@Logic(NestedCollectionsTest)
+export class NestedCollectionsTestLogic extends NestedCollectionsTest {
   @Init
-  static init(): NestedCollectionsDemo {
-    env.log('Initializing nested collections demo');
-    return new NestedCollectionsDemo();
+  static init(): NestedCollectionsTest {
+    env.log('Initializing nested collections test');
+    return new NestedCollectionsTest();
   }
 
   // Now this works automatically without manual re-serialization!
-  addReaction(args: { messageId: string; emoji: string; userId: string }): void {
-    const messageId = args.messageId;
-    const emoji = args.emoji;
-    const userId = args.userId;
-    env.log(`Adding reaction ${emoji} from ${userId} to message ${messageId}`);
+  // Test Map<Map<Set>> operations (3-level nesting)
+  addToMapMapSet(args: { outerKey: string; innerKey: string; value: string }): void {
+    const { outerKey, innerKey, value } = args;
+    env.log(`Adding ${value} to mapMapSet[${outerKey}][${innerKey}]`);
     
-    // Get or create the reaction map for this message
-    let reactionMap = this.messageReactions.get(messageId);
-    if (!reactionMap) {
-      reactionMap = new UnorderedMap<string, UnorderedSet<string>>();
-      this.messageReactions.set(messageId, reactionMap);
+    // Get or create the inner map
+    let innerMap = this.mapMapSet.get(outerKey);
+    if (!innerMap) {
+      innerMap = new UnorderedMap<string, UnorderedSet<string>>();
+      this.mapMapSet.set(outerKey, innerMap);
     }
 
-    // Get or create the user set for this emoji
-    let userSet = reactionMap.get(emoji);
-    if (!userSet) {
-      userSet = new UnorderedSet<string>();
-      reactionMap.set(emoji, userSet);
+    // Get or create the set
+    let set = innerMap.get(innerKey);
+    if (!set) {
+      set = new UnorderedSet<string>();
+      innerMap.set(innerKey, set);
     }
 
-    // Add the user - changes automatically propagate thanks to nested tracking!
-    userSet.add(userId);
-    
-    env.log(`Reaction added successfully`);
+    // Add the value - changes automatically propagate thanks to nested tracking!
+    set.add(value);
+    env.log(`Added successfully`);
   }
 
-  removeReaction(args: { messageId: string; emoji: string; userId: string }): void {
-    const messageId = args.messageId;
-    const emoji = args.emoji;
-    const userId = args.userId;
-    const reactionMap = this.messageReactions.get(messageId);
-    if (!reactionMap) return;
+  // Test nested delete operations
+  removeFromMapMapSet(args: { outerKey: string; innerKey: string; value: string }): void {
+    const { outerKey, innerKey, value } = args;
+    env.log(`Removing ${value} from mapMapSet[${outerKey}][${innerKey}]`);
+    
+    const innerMap = this.mapMapSet.get(outerKey);
+    if (!innerMap) return;
 
-    const userSet = reactionMap.get(emoji);
-    if (!userSet) return;
+    const set = innerMap.get(innerKey);
+    if (!set) return;
 
-    // Remove the user - changes automatically propagate thanks to nested tracking!
-    userSet.delete(userId);
+    // Remove the value - changes automatically propagate thanks to nested tracking!
+    set.delete(value);
     
     // Clean up empty sets
-    if (userSet.size() === 0) {
-      reactionMap.remove(emoji);
+    if (set.size() === 0) {
+      innerMap.remove(innerKey);
     }
+    env.log(`Removed successfully`);
   }
 
-  addUserToGroup(args: { groupName: string; userId: string }): void {
-    const groupName = args.groupName;
-    const userId = args.userId;
-    env.log(`Adding user ${userId} to group ${groupName}`);
-    let group = this.userGroups.get(groupName);
-    env.log(`Retrieved group: ${group ? 'exists' : 'null'}, type: ${typeof group}`);
-    if (!group) {
-      group = new UnorderedSet<string>();
-      env.log(`Created new UnorderedSet for group ${groupName}`);
-      this.userGroups.set(groupName, group);
+  // Test Map<Set> operations
+  addToMapSet(args: { key: string; value: string }): void {
+    const { key, value } = args;
+    env.log(`Adding ${value} to mapSet[${key}]`);
+    
+    let set = this.mapSet.get(key);
+    if (!set) {
+      set = new UnorderedSet<string>();
+      this.mapSet.set(key, set);
     }
 
-    // Add user - changes automatically propagate thanks to nested tracking!
-    group.add(userId);
-    env.log(`Added ${userId} to group, group now has ${group.size()} members`);
+    // Add value - changes automatically propagate thanks to nested tracking!
+    set.add(value);
+    env.log(`Added ${value} to set, set now has ${set.size()} items`);
   }
 
   @View()
-  getReactions(arg1: { messageId: string } | string): string {
-    const messageId = typeof arg1 === 'string' ? arg1 : arg1.messageId;
-    const reactionMap = this.messageReactions.get(messageId);
-    if (!reactionMap) {
+  getMapMapSet(args: { outerKey: string } | string): string {
+    // Handle both object and string parameter formats for @View methods
+    const outerKey = typeof args === 'string' ? args : args.outerKey;
+    
+    const innerMap = this.mapMapSet.get(outerKey);
+    if (!innerMap) {
       return JSON.stringify({});
     }
 
     const result: Record<string, string[]> = {};
-    for (const [emoji, userSet] of reactionMap.entries()) {
-      result[emoji] = userSet.toArray();
+    for (const [innerKey, set] of innerMap.entries()) {
+      result[innerKey] = set.toArray();
     }
-
+    
     return JSON.stringify(result);
   }
 
   @View()
-  getGroupMembers(arg1: { groupName: string } | string): string {
-    const groupName = typeof arg1 === 'string' ? arg1 : arg1.groupName;
-    const group = this.userGroups.get(groupName);
-    return JSON.stringify(group ? group.toArray() : []);
+  getMapSet(args: { key: string } | string): string {
+    // Handle both object and string parameter formats for @View methods
+    const key = typeof args === 'string' ? args : args.key;
+    const set = this.mapSet.get(key);
+    return JSON.stringify(set ? set.toArray() : []);
   }
 
   @View()
-  getAllGroups(): string {
-    env.log(`getAllGroups called, userGroups has ${this.userGroups.keys().length} keys`);
+  getAllMapSet(): string {
     const result: Record<string, string[]> = {};
-    for (const [groupName, userSet] of this.userGroups.entries()) {
-      env.log(`Processing group: ${groupName}, userSet type: ${typeof userSet}, constructor: ${userSet?.constructor?.name}`);
-      if (userSet && typeof userSet.toArray === 'function') {
-        result[groupName] = userSet.toArray();
-      } else {
-        env.log(`userSet is not a proper UnorderedSet: ${JSON.stringify(userSet)}`);
-        result[groupName] = [];
+    for (const [key, set] of this.mapSet.entries()) {
+      result[key] = set.toArray();
+    }
+    return JSON.stringify(result);
+  }
+
+  // Test UnorderedSet operations: delete and clear (testing missing notifications)
+  testSetOperations(args: { key: string; value: string; operation: 'add' | 'delete' | 'clear' }): void {
+    const { key, value, operation } = args;
+    env.log(`Testing set operation: ${operation} on key=${key}, value=${value}`);
+    
+    let set = this.mapSet.get(key);
+    if (!set) {
+      set = new UnorderedSet<string>();
+      this.mapSet.set(key, set);
+    }
+
+    if (operation === 'add') {
+      set.add(value);
+      env.log(`Added ${value} to set ${key}`);
+    } else if (operation === 'delete') {
+      const deleted = set.delete(value);
+      env.log(`Deleted ${value} from set ${key}, result: ${deleted}`);
+    } else if (operation === 'clear') {
+      set.clear();
+      env.log(`Cleared set ${key}`);
+    }
+  }
+
+  // Test UnorderedMap remove operation (testing missing notification)
+  testMapRemove(args: { outerKey: string; innerKey: string }): void {
+    const { outerKey, innerKey } = args;
+    env.log(`Testing map remove: outerKey=${outerKey}, innerKey=${innerKey}`);
+    
+    const innerMap = this.mapMapSet.get(outerKey);
+    if (innerMap) {
+      innerMap.remove(innerKey);
+      env.log(`Removed innerKey ${innerKey} from outerKey ${outerKey}`);
+    }
+  }
+
+  // Test Vector operations: push and pop (testing missing notifications)
+  testVectorOperations(args: { key: string; value: string; operation: 'push' | 'pop' }): void {
+    const { key, value, operation } = args;
+    env.log(`Testing vector operation: ${operation} on key=${key}, value=${value}`);
+    
+    let vector = this.mapVector.get(key);
+    if (!vector) {
+      vector = new Vector<string>();
+      this.mapVector.set(key, vector);
+    }
+
+    if (operation === 'push') {
+      vector.push(value);
+      env.log(`Pushed ${value} to vector ${key}, length now: ${vector.len()}`);
+    } else if (operation === 'pop') {
+      const popped = vector.pop();
+      env.log(`Popped ${popped} from vector ${key}, length now: ${vector.len()}`);
+    }
+  }
+
+  // Test Vector as parent (Vector<UnorderedMap>) - testing parent type support
+  testVectorParent(args: { index: number; key: string; value: string }): void {
+    const { index, key, value } = args;
+    env.log(`Testing vector parent: index=${index}, key=${key}, value=${value}`);
+    
+    // Ensure we have enough maps in the vector
+    while (this.vectorMap.len() <= index) {
+      this.vectorMap.push(new UnorderedMap<string, string>());
+    }
+
+    const map = this.vectorMap.get(index);
+    if (map) {
+      map.set(key, value);
+      env.log(`Set ${key}=${value} in vector map at index ${index}`);
+    }
+  }
+
+  // Test UnorderedSet as parent (UnorderedSet<UnorderedMap>) - testing parent type support
+  testSetParent(args: { mapId: string; key: string; value: string }): void {
+    const { mapId, key, value } = args;
+    env.log(`Testing set parent: mapId=${mapId}, key=${key}, value=${value}`);
+    
+    // Create a map with a unique identifier
+    const map = new UnorderedMap<string, string>();
+    map.set('_id', mapId); // Use this as identifier
+    map.set(key, value);
+    
+    this.setMap.add(map);
+    env.log(`Added map ${mapId} with ${key}=${value} to set`);
+  }
+
+  @View()
+  getAllTestResults(): string {
+    const results = {
+      mapVector: {} as Record<string, string[]>,
+      vectorMap: [] as Record<string, string>[],
+      setMap: [] as Record<string, string>[]
+    };
+
+    // Collect mapVector
+    for (const [key, vector] of this.mapVector.entries()) {
+      results.mapVector[key] = vector.toArray();
+    }
+
+    // Collect vectorMap
+    for (let i = 0; i < this.vectorMap.len(); i++) {
+      const map = this.vectorMap.get(i);
+      if (map) {
+        const mapData: Record<string, string> = {};
+        for (const [key, value] of map.entries()) {
+          mapData[key] = value;
+        }
+        results.vectorMap.push(mapData);
       }
     }
-    return JSON.stringify(result);
+
+    // Collect setMap
+    for (const map of this.setMap.toArray()) {
+      const mapData: Record<string, string> = {};
+      for (const [key, value] of map.entries()) {
+        mapData[key] = value;
+      }
+      results.setMap.push(mapData);
+    }
+
+    return JSON.stringify(results);
   }
 }

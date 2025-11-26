@@ -125,6 +125,25 @@ class NestedCollectionTracker {
         // Mark parent for update too
         this.markForUpdate(parentSnapshot.id);
       }
+    } else if (parentSnapshot.type === 'Vector') {
+      // For Vector, we can't modify individual elements in-place since it's append-only.
+      // The nested collection change will still be tracked and propagated through
+      // the normal CRDT synchronization mechanism, but we mark the parent for update
+      // to ensure proper propagation timing.
+      this.markForUpdate(parentSnapshot.id);
+    } else if (parentSnapshot.type === 'UnorderedSet' && parentCollection.has && parentCollection.add && parentCollection.delete) {
+      // For UnorderedSet, we need to remove and re-add the nested collection
+      // The 'key' in this case is the nested collection itself
+      if (parentCollection.has(key)) {
+        const originalDelete = Object.getPrototypeOf(parentCollection).delete;
+        const originalAdd = Object.getPrototypeOf(parentCollection).add;
+        
+        originalDelete.call(parentCollection, key);
+        originalAdd.call(parentCollection, key);
+        
+        // Mark parent for update too
+        this.markForUpdate(parentSnapshot.id);
+      }
     }
   }
 

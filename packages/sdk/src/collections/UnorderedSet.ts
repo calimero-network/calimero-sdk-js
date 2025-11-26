@@ -67,11 +67,19 @@ export class UnorderedSet<T> {
   }
 
   delete(value: T): boolean {
-    return setRemove(this.setId, serialize(value));
+    const result = setRemove(this.setId, serialize(value));
+    
+    // Notify tracker of modification
+    nestedTracker.notifyCollectionModified(this);
+    
+    return result;
   }
 
   clear(): void {
     setClear(this.setId);
+    
+    // Notify tracker of modification
+    nestedTracker.notifyCollectionModified(this);
   }
 
   size(): number {

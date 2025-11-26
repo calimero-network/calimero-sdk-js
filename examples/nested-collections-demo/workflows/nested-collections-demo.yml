@@ -1,5 +1,5 @@
-description: Nested Collections Demo Workflow (JavaScript SDK)
-name: Nested Collections Demo Test
+description: Comprehensive Nested Collections Test (JavaScript SDK)
+name: Comprehensive Nested Collections Test
 
 force_pull_image: true
 
@@ -68,11 +68,11 @@ steps:
     node: nested-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
-    method: addReaction
+    method: addToMapMapSet
     args:
-      messageId: message1
-      emoji: "👍"
-      userId: alice
+      outerKey: message1
+      innerKey: "👍"
+      value: alice
 
   - name: Wait After First Reaction
     type: wait
@@ -83,22 +83,22 @@ steps:
     node: nested-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
-    method: addReaction
+    method: addToMapMapSet
     args:
-      messageId: message1
-      emoji: "👍"
-      userId: bob
+      outerKey: message1
+      innerKey: "👍"
+      value: bob
 
   - name: Add Third Reaction (❤️ from alice to message1)
     type: call
     node: nested-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
-    method: addReaction
+    method: addToMapMapSet
     args:
-      messageId: message1
-      emoji: "❤️"
-      userId: alice
+      outerKey: message1
+      innerKey: "❤️"
+      value: alice
 
   - name: Wait After Reactions
     type: wait
@@ -110,30 +110,30 @@ steps:
     node: nested-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
-    method: addUserToGroup
+    method: addToMapSet
     args:
-      groupName: admins
-      userId: alice
+      key: admins
+      value: alice
 
   - name: Add User to Moderator Group
     type: call
     node: nested-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
-    method: addUserToGroup
+    method: addToMapSet
     args:
-      groupName: moderators
-      userId: bob
+      key: moderators
+      value: bob
 
   - name: Add Another User to Admin Group
     type: call
     node: nested-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
-    method: addUserToGroup
+    method: addToMapSet
     args:
-      groupName: admins
-      userId: charlie
+      key: admins
+      value: charlie
 
   - name: Wait For Changes to Propagate
     type: wait
@@ -145,9 +145,9 @@ steps:
     node: nested-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
-    method: getReactions
+    method: getMapMapSet
     args:
-      messageId: message1
+      outerKey: message1
     outputs:
       reactions_node_1: result.output
 
@@ -157,9 +157,9 @@ steps:
     node: nested-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
-    method: getGroupMembers
+    method: getMapSet
     args:
-      groupName: admins
+      key: admins
     outputs:
       admin_group_node_1: result.output
 
@@ -168,7 +168,7 @@ steps:
     node: nested-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
-    method: getAllGroups
+    method: getAllMapSet
     args: {}
     outputs:
       all_groups_node_1: result.output
@@ -184,9 +184,9 @@ steps:
     node: nested-node-2
     context_id: '{{context_id}}'
     executor_public_key: '{{node_2_member_public_key}}'
-    method: getReactions
+    method: getMapMapSet
     args:
-      messageId: message1
+      outerKey: message1
     outputs:
       reactions_node_2: result.output
 
@@ -196,9 +196,9 @@ steps:
     node: nested-node-2
     context_id: '{{context_id}}'
     executor_public_key: '{{node_2_member_public_key}}'
-    method: getGroupMembers
+    method: getMapSet
     args:
-      groupName: admins
+      key: admins
     outputs:
       admin_group_node_2: result.output
 
@@ -207,7 +207,7 @@ steps:
     node: nested-node-2
     context_id: '{{context_id}}'
     executor_public_key: '{{node_2_member_public_key}}'
-    method: getAllGroups
+    method: getAllMapSet
     args: {}
     outputs:
       all_groups_node_2: result.output
@@ -218,22 +218,22 @@ steps:
     node: nested-node-2
     context_id: '{{context_id}}'
     executor_public_key: '{{node_2_member_public_key}}'
-    method: addReaction
+    method: addToMapMapSet
     args:
-      messageId: message1
-      emoji: "🚀"
-      userId: dave
+      outerKey: message1
+      innerKey: "🚀"
+      value: dave
 
   - name: Remove Reaction from Node 2 (👍 from alice)
     type: call
     node: nested-node-2
     context_id: '{{context_id}}'
     executor_public_key: '{{node_2_member_public_key}}'
-    method: removeReaction
+    method: removeFromMapMapSet
     args:
-      messageId: message1
-      emoji: "👍"
-      userId: alice
+      outerKey: message1
+      innerKey: "👍"
+      value: alice
 
   - name: Wait For Cross-Node Changes
     type: wait
@@ -245,9 +245,9 @@ steps:
     node: nested-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
-    method: getReactions
+    method: getMapMapSet
     args:
-      messageId: message1
+      outerKey: message1
     outputs:
       final_reactions_node_1: result.output
 
@@ -256,9 +256,9 @@ steps:
     node: nested-node-2
     context_id: '{{context_id}}'
     executor_public_key: '{{node_2_member_public_key}}'
-    method: getReactions
+    method: getMapMapSet
     args:
-      messageId: message1
+      outerKey: message1
     outputs:
       final_reactions_node_2: result.output
 
