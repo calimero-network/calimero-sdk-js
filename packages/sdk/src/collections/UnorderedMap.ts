@@ -13,9 +13,10 @@ import {
   mapContains,
   mapEntries
 } from '../runtime/storage-wasm';
-import { registerCollectionType, CollectionSnapshot } from '../runtime/collections';
+import { registerCollectionType, CollectionSnapshot, hasRegisteredCollection } from '../runtime/collections';
 import { mergeMergeableValues } from '../runtime/mergeable';
 import { getMergeableType } from '../runtime/mergeable-registry';
+import { nestedTracker } from '../runtime/nested-tracking';
 
 const SENTINEL_KEY = '__calimeroCollection';
 
@@ -32,22 +33,24 @@ export class UnorderedMap<K, V> {
   constructor(options: UnorderedMapOptions = {}) {
     if (options.id) {
       this.mapId = normalizeMapId(options.id);
-      return;
+    } else {
+      try {
+        this.mapId = mapNew();
+      } catch (error) {
+        const message = `[collections::UnorderedMap] mapNew failed: ${error instanceof Error ? error.message : String(error)}`;
+        try {
+          env.log(message);
+        } catch {
+          if (typeof console !== 'undefined' && typeof console.error === 'function') {
+            console.error(message);
+          }
+        }
+        env.panic(message);
+      }
     }
 
-    try {
-      this.mapId = mapNew();
-    } catch (error) {
-      const message = `[collections::UnorderedMap] mapNew failed: ${error instanceof Error ? error.message : String(error)}`;
-      try {
-        env.log(message);
-      } catch {
-        if (typeof console !== 'undefined' && typeof console.error === 'function') {
-          console.error(message);
-        }
-      }
-      env.panic(message);
-    }
+    // Register with nested tracker for automatic change propagation
+    nestedTracker.registerCollection(this);
   }
 
   static fromId<K, V>(id: Uint8Array | string): UnorderedMap<K, V> {
@@ -82,6 +85,14 @@ export class UnorderedMap<K, V> {
 
     const valueBytes = serialize(nextValue);
     mapInsert(this.mapId, keyBytes, valueBytes);
+    
+    // Register nested collections for automatic tracking after storage
+    if (hasRegisteredCollection(nextValue)) {
+      nestedTracker.registerCollection(nextValue, this, key);
+    }
+    
+    // Notify tracker of modification
+    nestedTracker.notifyCollectionModified(this);
   }
 
   get(key: K): V | null {
@@ -98,6 +109,9 @@ export class UnorderedMap<K, V> {
   remove(key: K): void {
     const keyBytes = serialize(key);
     mapRemove(this.mapId, keyBytes);
+    
+    // Notify tracker of modification
+    nestedTracker.notifyCollectionModified(this);
   }
 
   entries(): Array<[K, V]> {

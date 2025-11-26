@@ -1,6 +1,8 @@
 # CRDT Collections Guide
 
-Calimero provides conflict-free replicated data types (CRDTs) for automatic state synchronization. Values are serialized with Calimero's Borsh encoder, so data written from JavaScript matches the bytes produced by Rust services as long as both sides agree on the same Borsh schema. Complex/nested structures (maps of sets, vectors of maps, etc.) now hydrate automatically thanks to the Borsh migration.
+Calimero provides conflict-free replicated data types (CRDTs) for automatic state synchronization. Values are serialized with Calimero's Borsh encoder, so data written from JavaScript matches the bytes produced by Rust services as long as both sides agree on the same Borsh schema. 
+
+Complex nested structures (maps of sets, vectors of maps, etc.) work automatically with **zero manual intervention**. The SDK automatically tracks changes in nested collections and propagates them across nodes.
 
 ## UnorderedMap<K, V>
 
@@ -21,7 +23,7 @@ const entries = map.entries(); // [['key1', 'value1'], ['key2', 'value2']]
 const keys = map.keys(); // ['key1', 'key2']
 const values = map.values(); // ['value1', 'value2']
 
-// Nested collections work transparently
+// Nested collections work automatically - no manual re-serialization needed!
 const ownerTags = new UnorderedSet<string>();
 ownerTags.add('urgent');
 ownerTags.add('team-alpha');
@@ -29,11 +31,96 @@ ownerTags.add('team-alpha');
 const nested = new UnorderedMap<string, UnorderedSet<string>>();
 nested.set('task:123', ownerTags);
 
-const tags = nested.get('task:123')?.toArray(); // ['urgent', 'team-alpha']
+// Changes to nested collections automatically propagate across nodes
+const existingTags = nested.get('task:123');
+existingTags?.add('high-priority'); // Change automatically propagates!
+
+const tags = nested.get('task:123')?.toArray(); // ['urgent', 'team-alpha', 'high-priority']
 ```
 
 When a map contains another collection (or any non-primitive value), the SDK captures the nested CRDT snapshot and rewinds it on load. Make sure custom objects embed only serializable fields or provide a `toJSON()` method.
+
+## 🚀 Automatic Nested Collection Tracking
+
+The SDK automatically tracks changes in nested collections and propagates them across nodes without any manual intervention.
+
+### What Works Automatically
+
+```typescript
+// Complex nested structures work out of the box!
+const messageReactions = new UnorderedMap<string, UnorderedMap<string, UnorderedSet<string>>>();
+
+// Add a reaction - all changes propagate automatically
+function addReaction(messageId: string, emoji: string, userId: string) {
+  let reactionMap = messageReactions.get(messageId);
+  if (!reactionMap) {
+    reactionMap = new UnorderedMap<string, UnorderedSet<string>>();
+    messageReactions.set(messageId, reactionMap);
+  }
+
+  let userSet = reactionMap.get(emoji);
+  if (!userSet) {
+    userSet = new UnorderedSet<string>();
+    reactionMap.set(emoji, userSet);
+  }
+
+  userSet.add(userId); // This change automatically propagates to all nodes!
+}
 ```
+
+### Before vs After
+
+**❌ Before (manual re-serialization required):**
+```typescript
+// You had to manually force updates
+const reactionMap = messageReactions.get(messageId);
+if (reactionMap) {
+  const userSet = reactionMap.get(emoji) || new UnorderedSet<string>();
+  userSet.add(userId);
+  reactionMap.set(emoji, userSet); // Manual re-serialization
+  messageReactions.set(messageId, reactionMap); // Manual re-serialization
+}
+```
+
+**✅ With automatic propagation:**
+```typescript
+// Just write natural code - it works seamlessly!
+const userSet = messageReactions.get(messageId)?.get(emoji);
+userSet?.add(userId); // Automatically propagates across all nodes!
+
+// Or create and modify in one flow:
+let reactionMap = messageReactions.get(messageId);
+if (!reactionMap) {
+  reactionMap = new UnorderedMap<string, UnorderedSet<string>>();
+  messageReactions.set(messageId, reactionMap);
+}
+
+let userSet = reactionMap.get(emoji);
+if (!userSet) {
+  userSet = new UnorderedSet<string>();
+  reactionMap.set(emoji, userSet);
+}
+
+userSet.add(userId); // That's it! No manual re-serialization needed.
+```
+
+### How It Works
+
+1. **Automatic Detection**: The SDK detects when you store collections inside other collections
+2. **Relationship Tracking**: Parent-child relationships are tracked automatically
+3. **Change Propagation**: When inner collections change, parent collections are notified
+4. **Batched Updates**: Changes are batched for optimal performance
+
+### Supported Patterns
+
+All these patterns work automatically:
+
+- `UnorderedMap<K, UnorderedSet<V>>`
+- `UnorderedMap<K, UnorderedMap<K2, V2>>`
+- `UnorderedMap<K, Vector<V>>`
+- `Vector<UnorderedMap<K, V>>`
+- `UnorderedSet<UnorderedMap<K, V>>`
+- Any combination of nested collections!
 
 ### Conflict Resolution
 
@@ -130,6 +217,22 @@ const timestamp = register.timestamp(); // when it was set
 - **Counter**: Metrics, totals, counts
 - **LwwRegister**: Single values (status, config value)
 
+### Write Natural Code with Nested Collections
+
+✅ **Just modify nested collections directly** - the SDK handles propagation automatically:
+
+```typescript
+// This works seamlessly across all nodes!
+const userSet = this.messageReactions.get(messageId)?.get(emoji);
+userSet?.add(userId);
+
+// Or build complex structures naturally:
+const group = this.userGroups.get(groupName) || new UnorderedSet<string>();
+group.add(userId);
+this.userGroups.set(groupName, group);
+// No manual re-serialization needed!
+```
+
 ### Avoid Anti-Patterns
 
 ❌ Don't use regular objects:
@@ -221,13 +324,23 @@ Contract flow:
   Rehydrate the register with `map.get(key)` (or `createPrivateEntry`) and call `set`. Registers capture the last-writer timestamp; replacing the register object skips merge semantics.
 
 - **Nested Structures**  
-  Work from the inside out: hydrate the outer map, hydrate the inner CRDT, mutate it, set it back on the parent, and finally persist the parent map. Example:
+  Just write natural code and changes propagate automatically:
   ```ts
+  // ✅ This works automatically - no manual re-serialization needed!
+  const set = profiles.get('alice') ?? new UnorderedSet<string>();
+  set.add('blue'); // Automatically propagates to parent map!
+  
+  // Or even simpler:
+  profiles.get('alice')?.add('blue'); // Just works!
+  ```
+  
+  **Manual approach** (still works but not needed):
+  ```ts
+  // ❌ Manual re-serialization (not required)
   const set = profiles.get('alice') ?? new UnorderedSet<string>();
   set.add('blue');
-  profiles.set('alice', set);
+  profiles.set('alice', set); // Manual re-serialization
   ```
-  Each layer preserves its CRDT ID, so only the mutated structure emits a delta.
 ```
 
 ## Performance

@@ -3,7 +3,7 @@
  */
 
 import { serialize, deserialize } from '../utils/serialize';
-import { registerCollectionType, CollectionSnapshot } from '../runtime/collections';
+import { registerCollectionType, CollectionSnapshot, hasRegisteredCollection } from '../runtime/collections';
 import {
   setNew,
   setInsert,
@@ -13,6 +13,7 @@ import {
   setValues,
   setClear
 } from '../runtime/storage-wasm';
+import { nestedTracker } from '../runtime/nested-tracking';
 
 export interface UnorderedSetOptions<T> {
   id?: Uint8Array | string;
@@ -28,6 +29,9 @@ export class UnorderedSet<T> {
     } else {
       this.setId = setNew();
     }
+
+    // Register with nested tracker for automatic change propagation
+    nestedTracker.registerCollection(this);
 
     if (options.initialValues) {
       for (const value of options.initialValues) {
@@ -45,7 +49,17 @@ export class UnorderedSet<T> {
   }
 
   add(value: T): boolean {
-    return setInsert(this.setId, serialize(value));
+    // Register nested collections for automatic tracking
+    if (hasRegisteredCollection(value)) {
+      nestedTracker.registerCollection(value, this, value);
+    }
+
+    const result = setInsert(this.setId, serialize(value));
+    
+    // Notify tracker of modification
+    nestedTracker.notifyCollectionModified(this);
+    
+    return result;
   }
 
   has(value: T): boolean {
@@ -53,11 +67,19 @@ export class UnorderedSet<T> {
   }
 
   delete(value: T): boolean {
-    return setRemove(this.setId, serialize(value));
+    const result = setRemove(this.setId, serialize(value));
+    
+    // Notify tracker of modification
+    nestedTracker.notifyCollectionModified(this);
+    
+    return result;
   }
 
   clear(): void {
     setClear(this.setId);
+    
+    // Notify tracker of modification
+    nestedTracker.notifyCollectionModified(this);
   }
 
   size(): number {

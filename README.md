@@ -1,6 +1,8 @@
 # Calimero JavaScript SDK
 
-Build stateful peer-to-peer services for the Calimero Network using TypeScript. The SDK compiles your service bundle to WebAssembly, runs it inside QuickJS, and keeps state in sync with Calimero’s CRDT layer.
+Build stateful peer-to-peer services for the Calimero Network using TypeScript. The SDK compiles your service bundle to WebAssembly, runs it inside QuickJS, and keeps state in sync with Calimero's CRDT layer.
+
+Complex nested structures like `Map<K, Set<V>>` and `Map<K, Map<K2, V2>>` work seamlessly with automatic change propagation - no manual re-serialization required.
 
 > ⚠️ **Experimental:** the JavaScript SDK is still evolving (mergeable metadata, host-side conflict resolution, and private storage APIs are in active development). Expect breaking changes while we stabilise the toolchain.
 
@@ -98,7 +100,7 @@ Call it:
 | ----- | ------- | ------------------- |
 | State & Logic | `@State` defines persisted data, `@Logic` exposes methods, `@Init` seeds the first snapshot. | [docs/collections.md](docs/collections.md#best-practices-by-type) |
 | Views vs Mutations | Decorate read-only entry points with `@View()` to skip persistence. | [docs/collections.md](docs/collections.md#handles-not-deep-copies) |
-| CRDT collections | `UnorderedMap`, `UnorderedSet`, `Vector`, `Counter`, `LwwRegister`. Hydrate → mutate → persist to reuse IDs. | [docs/collections.md](docs/collections.md) |
+| CRDT collections | `UnorderedMap`, `UnorderedSet`, `Vector`, `Counter`, `LwwRegister`. Nested collections work seamlessly with automatic change propagation. | [docs/collections.md](docs/collections.md) |
 | Private storage | Use `createPrivateEntry()` for node-local secrets; stored via `storage_write`, never broadcast. | [docs/getting-started.md](docs/getting-started.md#private-storage-node-local-data) |
 | Mergeable state (experimental) | `@Mergeable()` records merge hints. Full conflict resolution still requires host support. | [docs/mergeable-js.md](docs/mergeable-js.md) |
 | Architecture | TypeScript → Rollup → QuickJS → WASI → Calimero runtime. | [docs/architecture.md](docs/architecture.md) |
