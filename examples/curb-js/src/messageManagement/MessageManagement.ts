@@ -390,27 +390,37 @@ export class MessageManagement {
     if (args.add) {
       // Adding a reaction
       const existingUsers = currentMap.get(args.emoji);
-      let users: UnorderedSet<UserId>;
+      const users = createUnorderedSet<UserId>();
       
       if (existingUsers) {
-        // Use existing set and add the user
-        users = existingUsers;
-        users.add(username);
-      } else {
-        // Create new set with the user
-        users = createUnorderedSet<UserId>();
-        users.add(username);
+        // Copy existing users to the new set
+        try {
+          const existingUserArray = existingUsers.toArray();
+          for (const user of existingUserArray) {
+            users.add(user);
+          }
+        } catch {
+          // If toArray fails, start with empty set
+        }
       }
+      // Add the new user
+      users.add(username);
       newMap.set(args.emoji, users);
     } else {
       // Removing a reaction
       const existingUsers = currentMap.get(args.emoji);
       if (existingUsers) {
-        const updatedUsers = existingUsers;
-        updatedUsers.delete(username);
-        
-        // Only add to new map if there are still users
+        // Create a new set and copy existing users
+        const updatedUsers = createUnorderedSet<UserId>();
         try {
+          const existingUserArray = existingUsers.toArray();
+          for (const user of existingUserArray) {
+            if (user !== username) {
+              updatedUsers.add(user);
+            }
+          }
+          
+          // Only add to new map if there are still users
           const userArray = updatedUsers.toArray();
           if (userArray.length > 0) {
             newMap.set(args.emoji, updatedUsers);
@@ -437,9 +447,26 @@ export class MessageManagement {
       register = createLwwRegister<Vector<StoredMessage>>({ initialValue: vector });
       map.set(key, register);
     }
-    const vector = register.get() ?? createVector<StoredMessage>();
-    vector.push(value);
-    register.set(vector);
+    const currentVector = register.get() ?? createVector<StoredMessage>();
+    
+    // Create a new vector to ensure proper CRDT synchronization
+    const newVector = createVector<StoredMessage>();
+    
+    // Copy existing items to the new vector
+    try {
+      const existingItems = currentVector.toArray();
+      for (const item of existingItems) {
+        newVector.push(item);
+      }
+    } catch {
+      // If toArray fails, start with empty vector
+    }
+    
+    // Add the new item
+    newVector.push(value);
+    
+    // Set the new vector back in the register
+    register.set(newVector);
   }
 
   private sliceVector(vector: Vector<StoredMessage> | null, limit?: number, offset?: number): StoredMessage[] {
