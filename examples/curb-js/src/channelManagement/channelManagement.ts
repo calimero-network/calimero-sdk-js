@@ -29,6 +29,7 @@ export interface ChannelState {
   owner: UserId;
   members: UnorderedMap<UserId, Username>;
   channels: UnorderedMap<ChannelId, ChannelMetadata>;
+  channelReadPositions: UnorderedMap<ChannelId, UnorderedMap<UserId, LwwRegister<bigint>>>;
 }
 
 export class ChannelManager {
@@ -132,7 +133,7 @@ export class ChannelManager {
 
     this.state.channels.entries().forEach(([channelId, metadata]) => {
       if (this.isChannelMember(channelId, userId)) {
-        channels.push(this.formatChannelResponse(channelId, metadata));
+        channels.push(this.formatChannelResponse(channelId, metadata, userId));
       }
     });
 
@@ -144,7 +145,7 @@ export class ChannelManager {
     const availablePublic: ChannelMetadataResponse[] = [];
 
     this.state.channels.entries().forEach(([channelId, metadata]) => {
-      const formatted = this.formatChannelResponse(channelId, metadata);
+      const formatted = this.formatChannelResponse(channelId, metadata, userId);
       
       if (this.isChannelMember(channelId, userId)) {
         joined.push(formatted);
@@ -553,7 +554,7 @@ export class ChannelManager {
     return channelId.trim().toLowerCase();
   }
 
-  private formatChannelResponse(channelId: ChannelId, metadata: ChannelMetadata): ChannelMetadataResponse {
+  private formatChannelResponse(channelId: ChannelId, metadata: ChannelMetadata, userId: UserId): ChannelMetadataResponse {
     // Get member and moderator user IDs from Vectors
     const memberIds = this.getChannelMembers(channelId);
     const moderatorIds = this.getChannelModerators(channelId);
@@ -573,6 +574,9 @@ export class ChannelManager {
       })
       .filter((entry): entry is ChannelMembershipEntry => entry !== null);
     
+    // Calculate unread messages
+    const unreadMessages = this.calculateUnreadMessages(channelId, userId, metadata);
+    
     return {
       channelId,
       type: metadata.type,
@@ -582,6 +586,66 @@ export class ChannelManager {
       readOnly: metadata.readOnly,
       moderators,
       members,
+      unreadMessages,
+    };
+  }
+
+  private calculateUnreadMessages(channelId: ChannelId, userId: UserId, metadata: ChannelMetadata): { count: number; mentions: number } {
+    // Get last read timestamp for this user in this channel
+    let lastReadTimestamp = 0n;
+    const userReadMap = this.state.channelReadPositions.get(channelId);
+    if (userReadMap) {
+      const readRegister = userReadMap.get(userId);
+      if (readRegister) {
+        try {
+          lastReadTimestamp = readRegister.get() ?? 0n;
+        } catch {
+          // Register might not be hydrated yet
+        }
+      }
+    }
+
+    // Get all messages from the channel
+    const messagesRegister = metadata.channelMessages;
+    if (!messagesRegister) {
+      return { count: 0, mentions: 0 };
+    }
+
+    let allMessages: StoredMessage[] = [];
+    try {
+      const vector = messagesRegister.get();
+      if (vector) {
+        allMessages = vector.toArray();
+      }
+    } catch {
+      // Vector might not be hydrated yet
+      return { count: 0, mentions: 0 };
+    }
+
+    // Count unread messages (messages after lastReadTimestamp that are not deleted)
+    let unreadCount = 0;
+    let mentionCount = 0;
+
+    for (const message of allMessages) {
+      // Only count non-deleted messages
+      if (message.deleted) {
+        continue;
+      }
+
+      // Check if message is unread
+      if (message.timestamp > lastReadTimestamp) {
+        unreadCount++;
+
+        // Check if user is mentioned in this message
+        if (message.mentions && message.mentions.includes(userId)) {
+          mentionCount++;
+        }
+      }
+    }
+
+    return {
+      count: unreadCount,
+      mentions: mentionCount,
     };
   }
 }

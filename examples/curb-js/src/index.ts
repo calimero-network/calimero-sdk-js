@@ -29,6 +29,9 @@ import {
   type EditMessageArgs,
   type DeleteMessageArgs,
   type UpdateReactionArgs,
+  type ReadMessageProps,
+  type ReadDmProps,
+  type UpdateDmHashProps,
   type StoredMessage,
 } from "./messageManagement";
 import { isUsernameTaken } from "./utils/members";
@@ -39,6 +42,10 @@ export class CurbChat {
   members: UnorderedMap<UserId, Username> = createUnorderedMap();
   channels: UnorderedMap<ChannelId, ChannelMetadata> = createUnorderedMap();
   dmChats: UnorderedMap<UserId, Vector<DMChatInfo>> = createUnorderedMap();
+  // Track last read message timestamp per user per channel
+  channelReadPositions: UnorderedMap<ChannelId, UnorderedMap<UserId, LwwRegister<bigint>>> = createUnorderedMap();
+  // Track last read hash per user per DM context
+  dmReadHashes: UnorderedMap<string, UnorderedMap<UserId, LwwRegister<string>>> = createUnorderedMap();
 }
 
 @Logic(CurbChat)
@@ -59,6 +66,8 @@ export class CurbChatLogic extends CurbChat {
     chat.members = createUnorderedMap<UserId, Username>();
     chat.channels = createUnorderedMap<ChannelId, ChannelMetadata>();
     chat.dmChats = createUnorderedMap<UserId, Vector<DMChatInfo>>();
+    chat.channelReadPositions = createUnorderedMap<ChannelId, UnorderedMap<UserId, LwwRegister<bigint>>>();
+    chat.dmReadHashes = createUnorderedMap<string, UnorderedMap<UserId, LwwRegister<string>>>();
 
     // Add owner to members and map username
     chat.members.set(executorId, ownerUsername);
@@ -416,16 +425,59 @@ export class CurbChatLogic extends CurbChat {
     return this.wrapResult(result);
   }
 
+  readMessage(rawInput: ReadMessageProps | { input: ReadMessageProps }): string {
+    const args = this.extractInput(rawInput);
+    if (!args || typeof args.channelId !== "string" || typeof args.messageId !== "string") {
+      return this.wrapResult("Invalid read message input");
+    }
+
+    const executorId = this.getExecutorId();
+    const channel = this.ensureChannelAccess(args.channelId, executorId);
+    if (typeof channel === "string") {
+      return this.wrapResult(channel);
+    }
+
+    const result = this.getMessageManager().readMessage(executorId, args, channel);
+    return this.wrapResult(result);
+  }
+
+  updateDmHash(rawInput: UpdateDmHashProps | { input: UpdateDmHashProps }): string {
+    const args = this.extractInput(rawInput);
+    if (!args || typeof args.contextId !== "string" || typeof args.newHash !== "string") {
+      return this.wrapResult("Invalid update DM hash input");
+    }
+
+    const executorId = this.getExecutorId();
+    const result = this.getDmManager().updateDmHash(executorId, args.contextId, args.newHash);
+    return this.wrapResult(result);
+  }
+
+  readDm(rawInput: ReadDmProps | { input: ReadDmProps }): string {
+    const args = this.extractInput(rawInput);
+    if (!args || typeof args.contextId !== "string") {
+      return this.wrapResult("Invalid read DM input");
+    }
+
+    const executorId = this.getExecutorId();
+    const result = this.getDmManager().readDm(executorId, args.contextId);
+    return this.wrapResult(result);
+  }
+
   private getChannelManager(): ChannelManager {
-    return new ChannelManager(this);
+    return new ChannelManager({
+      owner: this.owner,
+      members: this.members,
+      channels: this.channels,
+      channelReadPositions: this.channelReadPositions,
+    });
   }
 
   private getDmManager(): DmManagement {
-    return new DmManagement(this.dmChats);
+    return new DmManagement(this.dmChats, this.dmReadHashes);
   }
 
   private getMessageManager(): MessageManagement {
-    return new MessageManagement(this.channels);
+    return new MessageManagement(this.channels, this.channelReadPositions);
   }
 
   private getExecutorId(): UserId {

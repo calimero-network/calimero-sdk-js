@@ -35,6 +35,10 @@ export type ChannelMetadataResponse = {
   readOnly: boolean;
   moderators: ChannelMembershipEntry[];
   members: ChannelMembershipEntry[];
+  unreadMessages: {
+    count: number;
+    mentions: number;
+  };
 };
 
 export type ChannelDirectoryResponse = {

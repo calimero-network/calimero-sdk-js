@@ -3,7 +3,7 @@ import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from "@calimero/sdk/c
 import { blobAnnounceToContext, contextId } from "@calimero/sdk/env";
 import bs58 from "bs58";
 
-import type { StoredMessage, SendMessageArgs, EditMessageArgs, DeleteMessageArgs, UpdateReactionArgs, GetMessagesArgs, FullMessageResponse, MessageWithReactions, Reaction } from "./types";
+import type { StoredMessage, SendMessageArgs, EditMessageArgs, DeleteMessageArgs, UpdateReactionArgs, GetMessagesArgs, FullMessageResponse, MessageWithReactions, Reaction, ReadMessageProps } from "./types";
 import type { UserId, ChannelId } from "../types";
 import type { ChannelMetadata } from "../channelManagement/types";
 import { MessageSent, MessageSentThread, ReactionUpdated } from "./events";
@@ -21,6 +21,7 @@ function blobIdFromString(value: string): Uint8Array {
 export class MessageManagement {
   constructor(
     private readonly channels: UnorderedMap<ChannelId, ChannelMetadata>,
+    private readonly channelReadPositions: UnorderedMap<ChannelId, UnorderedMap<UserId, LwwRegister<bigint>>>,
   ) {}
 
   sendMessage(
@@ -487,6 +488,37 @@ export class MessageManagement {
       }
     }
     return { ok: false, error: "Message not found" };
+  }
+
+  readMessage(executorId: UserId, args: ReadMessageProps, channel: ChannelMetadata): string {
+    const normalizedChannelId = args.channelId.trim().toLowerCase();
+    
+    // Get messages to find the specific message
+    const messages = this.getMessages({ channelId: normalizedChannelId });
+    
+    // Find the message
+    const message = messages.messages.find(m => m.id === args.messageId);
+    if (!message) {
+      return "Message not found";
+    }
+
+    // Update last read position for this user in this channel
+    let userReadMap = this.channelReadPositions.get(normalizedChannelId);
+    if (!userReadMap) {
+      userReadMap = createUnorderedMap<UserId, LwwRegister<bigint>>();
+      this.channelReadPositions.set(normalizedChannelId, userReadMap);
+    }
+
+    let readRegister = userReadMap.get(executorId);
+    if (!readRegister) {
+      readRegister = createLwwRegister<bigint>({ initialValue: 0n });
+      userReadMap.set(executorId, readRegister);
+    }
+
+    // Set the message timestamp as the last read position
+    readRegister.set(message.timestamp);
+
+    return "Message marked as read";
   }
 
   private generateMessageId(channelId: string, executorId: UserId, timestamp: bigint): string {

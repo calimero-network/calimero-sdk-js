@@ -1,5 +1,5 @@
-import { emit, createVector } from "@calimero/sdk";
-import { UnorderedMap, Vector } from "@calimero/sdk/collections";
+import { emit, createVector, createUnorderedMap, createLwwRegister } from "@calimero/sdk";
+import { UnorderedMap, Vector, LwwRegister } from "@calimero/sdk/collections";
 
 import { ChannelType } from "../channelManagement/types";
 import type { UserId } from "../types";
@@ -14,6 +14,7 @@ import { DMCreated, NewIdentityUpdated, DMDeleted } from "./events";
 export class DmManagement {
   constructor(
     private readonly dmChats: UnorderedMap<UserId, Vector<DMChatInfo>>,
+    private readonly dmReadHashes: UnorderedMap<string, UnorderedMap<UserId, LwwRegister<string>>>,
   ) {}
 
   getDMs(executorId: UserId): DMChatInfo[] {
@@ -157,6 +158,54 @@ export class DmManagement {
       }
     }
     return updated;
+  }
+
+  updateDmHash(executorId: UserId, contextId: string, newHash: string): string {
+    // Update the last read hash for this user in this DM context
+    let userHashMap = this.dmReadHashes.get(contextId);
+    if (!userHashMap) {
+      userHashMap = createUnorderedMap<UserId, LwwRegister<string>>();
+      this.dmReadHashes.set(contextId, userHashMap);
+    }
+
+    let hashRegister = userHashMap.get(executorId);
+    if (!hashRegister) {
+      hashRegister = createLwwRegister<string>({ initialValue: newHash });
+      userHashMap.set(executorId, hashRegister);
+    }
+
+    // Update the hash
+    hashRegister.set(newHash);
+
+    return "DM hash updated";
+  }
+
+  readDm(executorId: UserId, contextId: string): string {
+    // Get the DM chat info to find the current hash
+    const dms = this.getDMs(executorId);
+    const dm = dms.find(d => d.contextId === contextId);
+    
+    if (!dm) {
+      return "DM not found";
+    }
+
+    // Update the last read hash to the current newHash
+    let userHashMap = this.dmReadHashes.get(contextId);
+    if (!userHashMap) {
+      userHashMap = createUnorderedMap<UserId, LwwRegister<string>>();
+      this.dmReadHashes.set(contextId, userHashMap);
+    }
+
+    let hashRegister = userHashMap.get(executorId);
+    if (!hashRegister) {
+      hashRegister = createLwwRegister<string>({ initialValue: dm.newHash });
+      userHashMap.set(executorId, hashRegister);
+    }
+
+    // Set the current hash as the last read hash
+    hashRegister.set(dm.newHash);
+
+    return "DM marked as read";
   }
 }
 
