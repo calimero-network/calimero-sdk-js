@@ -1,6 +1,6 @@
 # CRDT Collections Guide
 
-Calimero provides conflict-free replicated data types (CRDTs) for automatic state synchronization. Values are serialized with Calimero's Borsh encoder, so data written from JavaScript matches the bytes produced by Rust services as long as both sides agree on the same Borsh schema. 
+Calimero provides conflict-free replicated data types (CRDTs) for automatic state synchronization. Values are serialized with Calimero's Borsh encoder, so data written from JavaScript matches the bytes produced by Rust services as long as both sides agree on the same Borsh schema.
 
 Complex nested structures (maps of sets, vectors of maps, etc.) work automatically with **zero manual intervention**. The SDK automatically tracks changes in nested collections and propagates them across nodes.
 
@@ -71,6 +71,7 @@ function addReaction(messageId: string, emoji: string, userId: string) {
 ### Before vs After
 
 **❌ Before (manual re-serialization required):**
+
 ```typescript
 // You had to manually force updates
 const reactionMap = messageReactions.get(messageId);
@@ -83,6 +84,7 @@ if (reactionMap) {
 ```
 
 **✅ With automatic propagation:**
+
 ```typescript
 // Just write natural code - it works seamlessly!
 const userSet = messageReactions.get(messageId)?.get(emoji);
@@ -236,6 +238,7 @@ this.userGroups.set(groupName, group);
 ### Avoid Anti-Patterns
 
 ❌ Don't use regular objects:
+
 ```typescript
 // BAD - loses concurrent updates
 class BadApp {
@@ -244,6 +247,7 @@ class BadApp {
 ```
 
 ✅ Use CRDT collections:
+
 ```typescript
 // GOOD - handles concurrent updates
 class GoodApp {
@@ -282,7 +286,7 @@ Contract flow:
 
 #### Example: `UnorderedMap<string, UnorderedSet<LwwRegister<string>>>`
 
-```
+````
 Map entry "project-x" ─┬─> { "__calimeroCollection": "UnorderedSet", "id": "dead…" }
                        │        │
                        │        └─ host keeps Set CRDT with ID dead…
@@ -308,39 +312,41 @@ Contract flow:
 
 ### Best Practices by Type
 
-- **UnorderedMap**  
+- **UnorderedMap**
   Hydrate the existing entry before mutating (`const value = map.get(key) ?? new …`). Setting a brand-new CRDT instance replaces the stored ID and falls back to last-write-wins.
 
-- **Vector**  
+- **Vector**
   Use `Vector.fromArray` only for initialization. For updates use `push`, `pop`, `get`, `len` to keep the existing ID. For read-heavy paths prefer `len`/`get` instead of `toArray`.
 
-- **UnorderedSet**  
+- **UnorderedSet**
   Call `add`, `remove`, `has` on the rehydrated set. Adding a fresh `UnorderedSet` each time replaces the CRDT ID; instead reuse the handle returned by `get`.
 
-- **Counter**  
+- **Counter**
   Keep counters inline (`createCounter()`) and use `increment`, `incrementBy`. Avoid replacing the counter with a new instance; mutate the existing handle instead.
 
-- **LwwRegister**  
+- **LwwRegister**
   Rehydrate the register with `map.get(key)` (or `createPrivateEntry`) and call `set`. Registers capture the last-writer timestamp; replacing the register object skips merge semantics.
 
-- **Nested Structures**  
+- **Nested Structures**
   Just write natural code and changes propagate automatically:
   ```ts
   // ✅ This works automatically - no manual re-serialization needed!
   const set = profiles.get('alice') ?? new UnorderedSet<string>();
   set.add('blue'); // Automatically propagates to parent map!
-  
+
   // Or even simpler:
   profiles.get('alice')?.add('blue'); // Just works!
-  ```
-  
-  **Manual approach** (still works but not needed):
-  ```ts
-  // ❌ Manual re-serialization (not required)
-  const set = profiles.get('alice') ?? new UnorderedSet<string>();
-  set.add('blue');
-  profiles.set('alice', set); // Manual re-serialization
-  ```
+````
+
+**Manual approach** (still works but not needed):
+
+```ts
+// ❌ Manual re-serialization (not required)
+const set = profiles.get('alice') ?? new UnorderedSet<string>();
+set.add('blue');
+profiles.set('alice', set); // Manual re-serialization
+```
+
 ```
 
 ## Performance
@@ -353,3 +359,4 @@ Contract flow:
 | Counter | O(1) | O(1) | - | O(nodes) |
 | LwwRegister | O(1) | O(1) | O(1) | O(1) |
 
+```

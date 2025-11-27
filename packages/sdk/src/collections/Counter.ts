@@ -6,7 +6,7 @@ import {
   counterNew,
   counterIncrement,
   counterValue,
-  counterGetExecutorCount
+  counterGetExecutorCount,
 } from '../runtime/storage-wasm';
 import { registerCollectionType, CollectionSnapshot } from '../runtime/collections';
 
@@ -74,12 +74,15 @@ export class Counter {
   toJSON(): Record<string, unknown> {
     return {
       __calimeroCollection: 'Counter',
-      id: this.id()
+      id: this.id(),
     };
   }
 }
 
-registerCollectionType('Counter', (snapshot: CollectionSnapshot) => new Counter({ id: snapshot.id }));
+registerCollectionType(
+  'Counter',
+  (snapshot: CollectionSnapshot) => new Counter({ id: snapshot.id })
+);
 
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes)

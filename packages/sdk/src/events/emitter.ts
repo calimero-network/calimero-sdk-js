@@ -55,4 +55,3 @@ function eventConstructorName(event: unknown): string {
   }
   return 'AnonymousEvent';
 }
-

@@ -69,6 +69,7 @@ export class MyAppLogic {
 ### 1. Commutative (Order-independent)
 
 ✅ **SAFE**:
+
 ```typescript
 onUserRegistered(event: UserRegistered): void {
   this.userCount.increment(); // G-Counter is commutative
@@ -76,6 +77,7 @@ onUserRegistered(event: UserRegistered): void {
 ```
 
 ❌ **UNSAFE**:
+
 ```typescript
 onCreate(event: Created): void {
   this.items.set(event.id, 'created');
@@ -89,6 +91,7 @@ onUpdate(event: Updated): void {
 ### 2. Independent (No shared state)
 
 ✅ **SAFE**:
+
 ```typescript
 handlerA(event: EventA): void {
   this.counters.set('a', new Counter());
@@ -99,6 +102,7 @@ handlerB(event: EventB): void {
 ```
 
 ❌ **UNSAFE**:
+
 ```typescript
 handlerA(): void {
   this.shared.set('count', 1); // RACE!
@@ -111,6 +115,7 @@ handlerB(): void {
 ### 3. Idempotent (Safe to retry)
 
 ✅ **SAFE**:
+
 ```typescript
 handler(): void {
   this.counter.increment(); // Can call multiple times
@@ -118,6 +123,7 @@ handler(): void {
 ```
 
 ❌ **UNSAFE**:
+
 ```typescript
 handler(amount: number): void {
   externalAPI.charge(amount); // May charge twice!
@@ -127,6 +133,7 @@ handler(amount: number): void {
 ### 4. Pure (No side effects)
 
 ✅ **SAFE**:
+
 ```typescript
 handler(data: string): void {
   this.items.set(data, 'processed');
@@ -135,6 +142,7 @@ handler(data: string): void {
 ```
 
 ❌ **UNSAFE**:
+
 ```typescript
 handler(email: string): void {
   httpClient.post('/notify', email); // External call!
@@ -150,6 +158,7 @@ Node C: Receive event → Execute handler → Update state
 ```
 
 **Key Points**:
+
 - Author node does NOT execute its own handlers
 - Receiving nodes execute handlers
 - Handlers run after delta is applied
@@ -190,4 +199,3 @@ registerUser(user: User): void {
 ### Test Concurrent Execution
 
 Always test your handlers with concurrent events to ensure they work correctly regardless of order.
-

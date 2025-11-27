@@ -45,18 +45,18 @@ pnpm add -D @calimero/cli typescript
 
 ### Minimal Service
 
-   ```typescript
+```typescript
 import { State, Logic, Init, View, createCounter } from '@calimero/sdk';
 import { Counter } from '@calimero/sdk/collections';
 
-   @State
+@State
 export class CounterState {
   value: Counter = createCounter();
-   }
+}
 
 @Logic(CounterState)
 export class CounterLogic extends CounterState {
-     @Init
+  @Init
   static init(): CounterState {
     return new CounterState();
   }
@@ -68,52 +68,52 @@ export class CounterLogic extends CounterState {
   @View()
   getCount(): bigint {
     return this.value.value();
-     }
-   }
-   ```
+  }
+}
+```
 
 Build & deploy the service bundle:
 
-   ```bash
+```bash
 npx calimero-sdk build src/index.ts -o build/service.wasm
-   meroctl --node-name <NODE> app install \
-  --path build/service.wasm \
-     --context-id <CONTEXT_ID>
-   ```
+meroctl --node-name <NODE> app install \
+--path build/service.wasm \
+  --context-id <CONTEXT_ID>
+```
 
 Call it:
 
-   ```bash
-   meroctl --node-name <NODE> call \
-     --context-id <CONTEXT_ID> \
-  --method increment
-   meroctl --node-name <NODE> call \
-     --context-id <CONTEXT_ID> \
-  --method getCount
-   ```
+```bash
+meroctl --node-name <NODE> call \
+  --context-id <CONTEXT_ID> \
+--method increment
+meroctl --node-name <NODE> call \
+  --context-id <CONTEXT_ID> \
+--method getCount
+```
 
 ---
 
 ## Concepts in Practice
 
-| Topic | Summary | Where to learn more |
-| ----- | ------- | ------------------- |
-| State & Logic | `@State` defines persisted data, `@Logic` exposes methods, `@Init` seeds the first snapshot. | [docs/collections.md](docs/collections.md#best-practices-by-type) |
-| Views vs Mutations | Decorate read-only entry points with `@View()` to skip persistence. | [docs/collections.md](docs/collections.md#handles-not-deep-copies) |
-| CRDT collections | `UnorderedMap`, `UnorderedSet`, `Vector`, `Counter`, `LwwRegister`. Nested collections work seamlessly with automatic change propagation. | [docs/collections.md](docs/collections.md) |
-| Private storage | Use `createPrivateEntry()` for node-local secrets; stored via `storage_write`, never broadcast. | [docs/getting-started.md](docs/getting-started.md#private-storage-node-local-data) |
-| Mergeable state (experimental) | `@Mergeable()` records merge hints. Full conflict resolution still requires host support. | [docs/mergeable-js.md](docs/mergeable-js.md) |
-| Architecture | TypeScript → Rollup → QuickJS → WASI → Calimero runtime. | [docs/architecture.md](docs/architecture.md) |
+| Topic                          | Summary                                                                                                                                   | Where to learn more                                                                |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| State & Logic                  | `@State` defines persisted data, `@Logic` exposes methods, `@Init` seeds the first snapshot.                                              | [docs/collections.md](docs/collections.md#best-practices-by-type)                  |
+| Views vs Mutations             | Decorate read-only entry points with `@View()` to skip persistence.                                                                       | [docs/collections.md](docs/collections.md#handles-not-deep-copies)                 |
+| CRDT collections               | `UnorderedMap`, `UnorderedSet`, `Vector`, `Counter`, `LwwRegister`. Nested collections work seamlessly with automatic change propagation. | [docs/collections.md](docs/collections.md)                                         |
+| Private storage                | Use `createPrivateEntry()` for node-local secrets; stored via `storage_write`, never broadcast.                                           | [docs/getting-started.md](docs/getting-started.md#private-storage-node-local-data) |
+| Mergeable state (experimental) | `@Mergeable()` records merge hints. Full conflict resolution still requires host support.                                                 | [docs/mergeable-js.md](docs/mergeable-js.md)                                       |
+| Architecture                   | TypeScript → Rollup → QuickJS → WASI → Calimero runtime.                                                                                  | [docs/architecture.md](docs/architecture.md)                                       |
 
 ---
 
 ## Examples & Workflows
 
-| Example | Highlights | Workflow |
-| ------- | ---------- | -------- |
-| `examples/counter` | Basic `Counter` CRDT | `examples/counter/workflows/counter-js.yml` |
-| `examples/simple-store` | KV store with `UnorderedMap` | `examples/simple-store/workflows/simple-store-js.yml` |
-| `examples/team-metrics` | Nested CRDTs, events, mergeable structs | `examples/team-metrics/workflows/team-metrics-js.yml` |
+| Example                 | Highlights                                          | Workflow                                              |
+| ----------------------- | --------------------------------------------------- | ----------------------------------------------------- |
+| `examples/counter`      | Basic `Counter` CRDT                                | `examples/counter/workflows/counter-js.yml`           |
+| `examples/simple-store` | KV store with `UnorderedMap`                        | `examples/simple-store/workflows/simple-store-js.yml` |
+| `examples/team-metrics` | Nested CRDTs, events, mergeable structs             | `examples/team-metrics/workflows/team-metrics-js.yml` |
 | `examples/private-data` | Public vs node-local storage (`createPrivateEntry`) | `examples/private-data/workflows/private-data-js.yml` |
 
 Run a workflow:

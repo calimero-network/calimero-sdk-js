@@ -38,7 +38,6 @@ import {
   jsCrdtCounterIncrement,
   jsCrdtCounterValue,
   jsCrdtCounterGetExecutorCount,
-  log
 } from '../env/api';
 
 const REGISTER_ID = 0n;
@@ -77,13 +76,7 @@ function ensureUint8Array(value: unknown, name: string): asserts value is Uint8A
   }
 }
 
-function bytesToHex(bytes: Uint8Array): string {
-  let out = '';
-  for (let i = 0; i < bytes.length; i += 1) {
-    out += bytes[i].toString(16).padStart(2, '0');
-  }
-  return out;
-}
+// Removed unused function bytesToHex
 
 export function mapNew(): Uint8Array {
   const status = Number(jsCrdtMapNew(REGISTER_ID));
@@ -114,7 +107,11 @@ export function mapGet(mapId: Uint8Array, key: Uint8Array): Uint8Array | null {
   return value;
 }
 
-export function mapInsert(mapId: Uint8Array, key: Uint8Array, value: Uint8Array): Uint8Array | null {
+export function mapInsert(
+  mapId: Uint8Array,
+  key: Uint8Array,
+  value: Uint8Array
+): Uint8Array | null {
   ensureCollectionId(mapId, 'mapId');
   ensureUint8Array(key, 'key');
   ensureUint8Array(value, 'value');
@@ -271,7 +268,11 @@ export function vectorPush(vectorId: Uint8Array, value: Uint8Array): void {
   }
 }
 
-export function vectorGet(vectorId: Uint8Array, index: number, register: bigint): Uint8Array | null {
+export function vectorGet(
+  vectorId: Uint8Array,
+  index: number,
+  register: bigint
+): Uint8Array | null {
   ensureCollectionId(vectorId, 'vectorId');
   if (!Number.isInteger(index) || index < 0) {
     throw new TypeError('index must be a non-negative integer');
@@ -516,5 +517,3 @@ export function counterGetExecutorCount(counterId: Uint8Array, executorId?: Uint
   const value = readBigUint64();
   return value;
 }
-
-

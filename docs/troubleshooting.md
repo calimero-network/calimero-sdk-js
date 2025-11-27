@@ -9,6 +9,7 @@ Common issues and solutions when working with Calimero JavaScript SDK.
 **Error**: `QuickJS compiler not found`
 
 **Solution**:
+
 ```bash
 pnpm install  # Downloads QuickJS automatically
 ```
@@ -18,6 +19,7 @@ pnpm install  # Downloads QuickJS automatically
 **Error**: `WASI-SDK not found`
 
 **Solution**:
+
 ```bash
 cd packages/cli
 pnpm install  # Downloads WASI-SDK
@@ -28,6 +30,7 @@ pnpm install  # Downloads WASI-SDK
 **Error**: `Platform win32 is not supported`
 
 **Supported**:
+
 - macOS (darwin)
 - Linux
 
@@ -40,6 +43,7 @@ pnpm install  # Downloads WASI-SDK
 **Error**: Contract method not exported
 
 **Check**:
+
 1. Method is in `@Logic` decorated class
 2. Method is not `constructor`
 3. `methods.h` was generated correctly
@@ -49,6 +53,7 @@ pnpm install  # Downloads WASI-SDK
 **Error**: `Storage operation failed`
 
 **Solutions**:
+
 - Check key serialization
 - Verify storage access permissions
 - Check for null values
@@ -56,11 +61,13 @@ pnpm install  # Downloads WASI-SDK
 ### Event Handler Not Executing
 
 **Possible Causes**:
+
 1. Handler name doesn't match method
 2. Author node trying to execute own handler
 3. Delta not applied (parents missing)
 
 **Debug**:
+
 ```typescript
 env.log(`Emitting with handler: ${handlerName}`);
 ```
@@ -72,6 +79,7 @@ env.log(`Emitting with handler: ${handlerName}`);
 **Error**: Cannot find module '@calimero/sdk'
 
 **Solution**:
+
 ```bash
 pnpm install
 pnpm build  # Build SDK package first
@@ -82,6 +90,7 @@ pnpm build  # Build SDK package first
 Currently no hot reload support.
 
 **Workaround**:
+
 ```bash
 # Watch mode for development
 pnpm build --watch
@@ -92,6 +101,7 @@ pnpm build --watch
 ### Slow Build Times
 
 **Optimize**:
+
 1. Use `--no-optimize` for dev builds
 2. Enable caching in Rollup
 3. Exclude large dependencies
@@ -101,6 +111,7 @@ pnpm build --watch
 **Expected**: ~500KB (QuickJS + service)
 
 **Reduce**:
+
 1. Enable optimization: `--optimize`
 2. Remove unused imports
 3. Use tree-shaking
@@ -121,8 +132,8 @@ calimero-sdk build src/index.ts --verbose
 ```
 
 This shows:
+
 - Rollup bundling details
 - QuickJS compilation steps
 - Clang compilation flags
 - Optimization passes
-

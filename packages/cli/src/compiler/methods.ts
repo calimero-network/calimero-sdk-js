@@ -34,17 +34,31 @@ export async function generateMethodsHeader(jsFile: string, outputDir: string): 
 
   const ast = parse(jsCode, {
     sourceType: 'module',
-    plugins: []
+    plugins: ['classProperties', 'typescript'],
   });
 
   const exportedNames = new Set<string>();
   const functionDeclarations = new Set<string>();
+  const classMethods = new Set<string>();
 
   traverse(ast, {
     FunctionDeclaration(nodePath: any) {
       const name = nodePath.node.id?.name;
       if (name && !name.startsWith('_') && !/^[A-Z]/.test(name) && name !== 'constructor') {
         functionDeclarations.add(name);
+      }
+    },
+    ClassMethod(nodePath: any) {
+      const name = nodePath.node.key?.name;
+      const isStatic = nodePath.node.static === true;
+      if (
+        name &&
+        !name.startsWith('_') &&
+        !/^[A-Z]/.test(name) &&
+        name !== 'constructor' &&
+        !isStatic
+      ) {
+        classMethods.add(name);
       }
     },
     ExportNamedDeclaration(nodePath: any) {
@@ -62,13 +76,17 @@ export async function generateMethodsHeader(jsFile: string, outputDir: string): 
           }
         });
       }
-    }
+    },
   });
 
   exportedNames.forEach(name => {
     if (functionDeclarations.has(name)) {
       methodSet.add(name);
     }
+  });
+
+  classMethods.forEach(name => {
+    methodSet.add(name);
   });
 
   methodSet.add('__calimero_sync_next');
@@ -127,7 +145,7 @@ function emitHeaders(outputDir: string, methods: string[]): void {
     '// Note: This file is #included in builder.c',
     '',
     ...methodMacroLines,
-    ''
+    '',
   ];
 
   const outputFile = path.join(outputDir, 'methods.c');
@@ -141,7 +159,7 @@ function emitHeaders(outputDir: string, methods: string[]): void {
     ...uniqueMethods.map(m => `#define EXPORT_METHOD_${m.toUpperCase()} 1`),
     ...methodMacroLines,
     '#endif // METHODS_H',
-    ''
+    '',
   ];
   fs.writeFileSync(headerFile, headerContentLines.join('\n'));
 
@@ -179,4 +197,3 @@ function createEnvStub(): Record<string, (...args: any[]) => any> {
     blob_close: zero,
   };
 }
-

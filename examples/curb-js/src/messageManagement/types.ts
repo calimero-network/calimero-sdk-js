@@ -1,4 +1,4 @@
-import type { UserId } from "../types";
+import type { UserId } from '../types';
 
 export type Attachment = {
   name: string;

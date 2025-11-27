@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
 - Initial project setup
 - Monorepo structure with pnpm workspaces
 - Build system configuration
@@ -16,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - TBD
 
 ### Added
+
 - Initial alpha release
 - Core SDK package (@calimero/sdk)
 - CLI build tools (@calimero/cli)
@@ -26,4 +28,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [Unreleased]: https://github.com/calimero-network/calimero-sdk-js/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/calimero-network/calimero-sdk-js/releases/tag/v0.1.0
-

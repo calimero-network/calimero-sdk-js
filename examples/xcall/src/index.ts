@@ -40,20 +40,17 @@ export class XCallLogic extends XCallState {
     const targetBytes = decodeContextId(targetContext);
     const currentContext = contextId();
 
-    log(
-      `[xcall] sending ping from=${encodeBase58(currentContext)} to=${targetContext}`
-    );
+    log(`[xcall] sending ping from=${encodeBase58(currentContext)} to=${targetContext}`);
 
     const payload = {
-      fromContext: encodeBase58(currentContext)
+      fromContext: encodeBase58(currentContext),
     };
 
     xcall(targetBytes, 'pong', textEncoder.encode(JSON.stringify(payload)));
   }
 
   pong(payload: PongPayload | string): number {
-    const fromContext =
-      typeof payload === 'string' ? payload : payload?.fromContext;
+    const fromContext = typeof payload === 'string' ? payload : payload?.fromContext;
 
     if (!fromContext) {
       throw new Error('Invalid pong payload');
@@ -64,9 +61,7 @@ export class XCallLogic extends XCallState {
 
     this.counter += 1;
 
-    log(
-      `[xcall] received pong from=${fromContext} counter=${this.counter}`
-    );
+    log(`[xcall] received pong from=${fromContext} counter=${this.counter}`);
     return this.counter;
   }
 
@@ -82,4 +77,3 @@ export class XCallLogic extends XCallState {
     return this.counter;
   }
 }
-

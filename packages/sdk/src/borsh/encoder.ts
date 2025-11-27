@@ -1,6 +1,6 @@
 /**
  * Borsh Binary Encoder
- * 
+ *
  * Implements the Borsh serialization format to match Rust's borsh crate
  * https://borsh.io/
  */
@@ -114,4 +114,3 @@ export class BorshWriter {
     return this.buffer.length;
   }
 }
-

@@ -22,4 +22,3 @@ Run the automated Merobox scenario:
 ```bash
 merobox workflows run examples/xcall/workflows/xcall-js.yml
 ```
-

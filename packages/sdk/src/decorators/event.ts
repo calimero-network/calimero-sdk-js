@@ -1,6 +1,6 @@
 import type { AppEvent } from '../events/types';
 
-type Constructor<T = {}> = new (...args: any[]) => T;
+type Constructor<T = object> = new (...args: any[]) => T;
 
 type EventConstructor<TBase extends Constructor> = TBase & {
   new (...args: ConstructorParameters<TBase>): InstanceType<TBase> & AppEvent;
@@ -58,4 +58,3 @@ export function Event<TBase extends Constructor>(target: TBase): EventConstructo
 
   return enhanced as unknown as EventConstructor<TBase>;
 }
-

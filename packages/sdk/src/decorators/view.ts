@@ -12,4 +12,3 @@ export function View(): MethodDecorator {
     markMethodNonMutating(ctor, propertyKey);
   };
 }
-

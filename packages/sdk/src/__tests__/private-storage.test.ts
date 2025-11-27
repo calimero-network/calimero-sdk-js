@@ -22,9 +22,12 @@ describe('PrivateEntryHandle', () => {
     const initial = entry.getOrInit(() => ({ counter: 1 }));
     expect(initial.counter).toBe(1);
 
-    entry.modify(value => {
-      value.counter += 5;
-    }, () => ({ counter: 0 }));
+    entry.modify(
+      value => {
+        value.counter += 5;
+      },
+      () => ({ counter: 0 })
+    );
 
     expect(entry.get()).toEqual({ counter: 6 });
   });
@@ -44,4 +47,3 @@ describe('PrivateEntryHandle', () => {
     expect(entry.get()).toBe(7);
   });
 });
-

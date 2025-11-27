@@ -1,4 +1,3 @@
-export * from "./DmManagement";
-export * from "./events";
-export * from "./types";
-
+export * from './DmManagement';
+export * from './events';
+export * from './types';

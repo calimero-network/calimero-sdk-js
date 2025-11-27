@@ -1,5 +1,5 @@
-import type { ChannelType } from "../channelManagement/types";
-import type { UserId } from "../types";
+import type { ChannelType } from '../channelManagement/types';
+import type { UserId } from '../types';
 
 export type DMChatInfo = {
   createdAt: bigint;
@@ -37,4 +37,3 @@ export type UpdateIdentityArgs = {
 export type DeleteDMArgs = {
   otherUser: UserId;
 };
-

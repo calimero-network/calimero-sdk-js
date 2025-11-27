@@ -4,7 +4,6 @@
   "private": true,
   "description": "Blob storage example for the Calimero JavaScript SDK",
   "scripts": {
-    "build": "pnpm run build:manual",
     "build:manual": "calimero-sdk build src/index.ts -o build/service.wasm",
     "clean": "rm -rf build"
   },
@@ -17,4 +16,3 @@
     "typescript": "^5.3.3"
   }
 }
-

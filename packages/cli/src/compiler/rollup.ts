@@ -24,29 +24,26 @@ interface RollupOptions {
  * @param options - Bundler options
  * @returns Path to bundled JavaScript file
  */
-export async function bundleWithRollup(
-  source: string,
-  options: RollupOptions
-): Promise<string> {
+export async function bundleWithRollup(source: string, options: RollupOptions): Promise<string> {
   const outputFile = path.join(options.outputDir, 'bundle.js');
   const normalizedSource = path.resolve(source).replace(/\\/g, '/');
   const entryFile = path.join(options.outputDir, '__calimero_entry.ts');
 
   const entryContents = [
     `import '${normalizedSource}';`,
-    "import '@calimero/sdk/runtime/dispatcher';"
+    "import '@calimero/sdk/runtime/dispatcher';",
   ].join('\n');
 
   fs.writeFileSync(entryFile, `${entryContents}\n`);
-  
+
   // Find tsconfig relative to source file
   const sourceDir = path.dirname(path.resolve(source));
   const possibleTsconfigs = [
     path.join(sourceDir, 'tsconfig.json'),
     path.join(sourceDir, '..', 'tsconfig.json'),
-    path.join(sourceDir, '..', '..', 'tsconfig.json')
+    path.join(sourceDir, '..', '..', 'tsconfig.json'),
   ];
-  
+
   let tsconfigPath: string | undefined;
   for (const tsconfig of possibleTsconfigs) {
     if (fs.existsSync(tsconfig)) {
@@ -60,7 +57,7 @@ export async function bundleWithRollup(
     plugins: [
       nodeResolve({
         extensions: ['.js', '.ts'],
-        preferBuiltins: false
+        preferBuiltins: false,
       }),
       typescript({
         tsconfig: tsconfigPath,
@@ -70,15 +67,15 @@ export async function bundleWithRollup(
           module: 'ES2015',
           target: 'ES2015',
           importHelpers: false,
-          noEmitHelpers: true
-        }
+          noEmitHelpers: true,
+        },
       }),
       commonjs(),
       babel({
         babelHelpers: 'bundled',
         presets: ['@babel/preset-env'],
-        extensions: ['.js', '.ts']
-      })
+        extensions: ['.js', '.ts'],
+      }),
     ],
     external: [], // Bundle everything
     onwarn: (warning, warn) => {
@@ -87,13 +84,13 @@ export async function bundleWithRollup(
       if (options.verbose) {
         warn(warning);
       }
-    }
+    },
   });
 
   const { output } = await bundle.generate({
     format: 'esm',
     file: outputFile,
-    sourcemap: false
+    sourcemap: false,
   });
 
   // Write to file
@@ -113,4 +110,3 @@ export async function bundleWithRollup(
 
   return outputFile;
 }
-

@@ -46,4 +46,3 @@ e2e/
 ├── fixtures/         # Test data
 └── scenarios/        # Test scenarios
 ```
-

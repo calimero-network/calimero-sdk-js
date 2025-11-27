@@ -1,12 +1,30 @@
-import { emit, env, createUnorderedMap, createVector, createUnorderedSet, createLwwRegister } from "@calimero/sdk";
-import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from "@calimero/sdk/collections";
-import { blobAnnounceToContext, contextId } from "@calimero/sdk/env";
-import bs58 from "bs58";
+import {
+  emit,
+  env,
+  createUnorderedMap,
+  createVector,
+  createUnorderedSet,
+  createLwwRegister,
+} from '@calimero/sdk';
+import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from '@calimero/sdk/collections';
+import { blobAnnounceToContext, contextId } from '@calimero/sdk/env';
+import bs58 from 'bs58';
 
-import type { StoredMessage, SendMessageArgs, EditMessageArgs, DeleteMessageArgs, UpdateReactionArgs, GetMessagesArgs, FullMessageResponse, MessageWithReactions, Reaction, ReadMessageProps } from "./types";
-import type { UserId, ChannelId } from "../types";
-import type { ChannelMetadata } from "../channelManagement/types";
-import { MessageSent, MessageSentThread, ReactionUpdated } from "./events";
+import type {
+  StoredMessage,
+  SendMessageArgs,
+  EditMessageArgs,
+  DeleteMessageArgs,
+  UpdateReactionArgs,
+  GetMessagesArgs,
+  FullMessageResponse,
+  MessageWithReactions,
+  Reaction,
+  ReadMessageProps,
+} from './types';
+import type { UserId, ChannelId } from '../types';
+import type { ChannelMetadata } from '../channelManagement/types';
+import { MessageSent, MessageSentThread, ReactionUpdated } from './events';
 
 const BLOB_ID_BYTES = 32;
 
@@ -21,14 +39,13 @@ function blobIdFromString(value: string): Uint8Array {
 export class MessageManagement {
   constructor(
     private readonly channels: UnorderedMap<ChannelId, ChannelMetadata>,
-    private readonly channelReadPositions: UnorderedMap<ChannelId, UnorderedMap<UserId, LwwRegister<bigint>>>,
+    private readonly channelReadPositions: UnorderedMap<
+      ChannelId,
+      UnorderedMap<UserId, LwwRegister<bigint>>
+    >
   ) {}
 
-  sendMessage(
-    executorId: UserId,
-    username: string | null,
-    args: SendMessageArgs,
-  ): StoredMessage {
+  sendMessage(executorId: UserId, username: string | null, args: SendMessageArgs): StoredMessage {
     const timestamp = env.timeNow();
     const messageId =
       args.messageId ?? this.generateMessageId(args.channelId, executorId, timestamp);
@@ -46,7 +63,9 @@ export class MessageManagement {
             env.log(`Warning: failed to announce image blob ${image.blob_id_str} to context`);
           }
         } catch (error) {
-          env.log(`Warning: failed to decode image blob ID ${image.blob_id_str}: ${error instanceof Error ? error.message : String(error)}`);
+          env.log(
+            `Warning: failed to decode image blob ID ${image.blob_id_str}: ${error instanceof Error ? error.message : String(error)}`
+          );
         }
       }
     }
@@ -61,7 +80,9 @@ export class MessageManagement {
             env.log(`Warning: failed to announce file blob ${file.blob_id_str} to context`);
           }
         } catch (error) {
-          env.log(`Warning: failed to decode file blob ID ${file.blob_id_str}: ${error instanceof Error ? error.message : String(error)}`);
+          env.log(
+            `Warning: failed to decode file blob ID ${file.blob_id_str}: ${error instanceof Error ? error.message : String(error)}`
+          );
         }
       }
     }
@@ -117,8 +138,8 @@ export class MessageManagement {
       };
     }
 
-    const register = args.parentId 
-      ? channel.threadMessages.get(args.parentId) 
+    const register = args.parentId
+      ? channel.threadMessages.get(args.parentId)
       : channel.channelMessages;
     if (!register) {
       return {
@@ -145,7 +166,9 @@ export class MessageManagement {
       totalCount = allItems.length;
     } catch (error) {
       // Vector might not be fully synced yet, return empty result
-      env.log(`Warning: Vector not fully synced for ${args.parentId ? `thread ${args.parentId}` : `channel ${args.channelId}`}`);
+      env.log(
+        `Warning: Vector not fully synced for ${args.parentId ? `thread ${args.parentId}` : `channel ${args.channelId}`}`
+      );
       return {
         messages: [],
         total_count: 0,
@@ -234,24 +257,24 @@ export class MessageManagement {
     const normalizedChannelId = args.channelId.trim().toLowerCase();
     const channel = this.channels.get(normalizedChannelId);
     if (!channel) {
-      return "Channel not found";
+      return 'Channel not found';
     }
 
-    const register = args.parentId 
+    const register = args.parentId
       ? channel.threadMessages.get(args.parentId)
       : channel.channelMessages;
     if (!register) {
-      return "Message not found";
+      return 'Message not found';
     }
 
     const vector = register.get() ?? createVector<StoredMessage>();
     if (!vector) {
-      return "Message not found";
+      return 'Message not found';
     }
 
     const result = this.updateMessage(vector, args.messageId, message => {
       if (message.senderId !== executorId) {
-        return { ok: false, error: "You can only edit your messages" };
+        return { ok: false, error: 'You can only edit your messages' };
       }
       return {
         ok: true,
@@ -276,26 +299,26 @@ export class MessageManagement {
       emit(new MessageSent(args.channelId, args.messageId));
     }
 
-    return "Message updated";
+    return 'Message updated';
   }
 
   deleteMessage(executorId: UserId, args: DeleteMessageArgs, isModerator: boolean): string {
     const normalizedChannelId = args.channelId.trim().toLowerCase();
     const channel = this.channels.get(normalizedChannelId);
     if (!channel) {
-      return "Channel not found";
+      return 'Channel not found';
     }
 
-    const register = args.parentId 
+    const register = args.parentId
       ? channel.threadMessages.get(args.parentId)
       : channel.channelMessages;
     if (!register) {
-      return "Message not found";
+      return 'Message not found';
     }
 
     const vector = register.get() ?? createVector<StoredMessage>();
     if (!vector) {
-      return "Message not found";
+      return 'Message not found';
     }
 
     const result = this.updateMessage(vector, args.messageId, message => {
@@ -306,7 +329,7 @@ export class MessageManagement {
         ok: true,
         value: {
           ...message,
-          text: "",
+          text: '',
           deleted: true,
         },
       };
@@ -327,7 +350,7 @@ export class MessageManagement {
 
     // Remove reactions for deleted message
     channel.messageReactions.remove(args.messageId);
-    return "Message deleted";
+    return 'Message deleted';
   }
 
   /**
@@ -391,13 +414,13 @@ export class MessageManagement {
     // Find the channel that contains this message
     const channelId = this.findMessageChannelId(args.messageId);
     if (!channelId) {
-      return "Message not found";
+      return 'Message not found';
     }
 
     const normalizedChannelId = channelId.trim().toLowerCase();
     const channel = this.channels.get(normalizedChannelId);
     if (!channel) {
-      return "Channel not found";
+      return 'Channel not found';
     }
 
     // Get or create the reaction map for this message
@@ -419,7 +442,7 @@ export class MessageManagement {
       users.add(username);
     } else {
       users.delete(username);
-      
+
       // If the set is now empty, remove the emoji entry from the map
       if (users.size() === 0) {
         reactionMap.remove(args.emoji);
@@ -427,15 +450,18 @@ export class MessageManagement {
     }
 
     emit(new ReactionUpdated(args.messageId));
-    return "Reaction updated";
+    return 'Reaction updated';
   }
 
-  private appendToVectorToRegister(register: LwwRegister<Vector<StoredMessage>>, value: StoredMessage): void {
+  private appendToVectorToRegister(
+    register: LwwRegister<Vector<StoredMessage>>,
+    value: StoredMessage
+  ): void {
     const currentVector = register.get() ?? createVector<StoredMessage>();
-    
+
     // Create a new vector to ensure proper CRDT synchronization
     const newVector = createVector<StoredMessage>();
-    
+
     // Copy existing items to the new vector
     try {
       const existingItems = currentVector.toArray();
@@ -445,15 +471,19 @@ export class MessageManagement {
     } catch {
       // If toArray fails, start with empty vector
     }
-    
+
     // Add the new item
     newVector.push(value);
-    
+
     // Set the new vector back in the register
     register.set(newVector);
   }
 
-  private sliceVector(vector: Vector<StoredMessage> | null, limit?: number, offset?: number): StoredMessage[] {
+  private sliceVector(
+    vector: Vector<StoredMessage> | null,
+    limit?: number,
+    offset?: number
+  ): StoredMessage[] {
     if (!vector) {
       return [];
     }
@@ -469,7 +499,9 @@ export class MessageManagement {
   private updateMessage(
     vector: Vector<StoredMessage>,
     messageId: string,
-    transform: (message: StoredMessage) => { ok: true; value: StoredMessage } | { ok: false; error: string },
+    transform: (
+      message: StoredMessage
+    ) => { ok: true; value: StoredMessage } | { ok: false; error: string }
   ): { ok: true; vector: Vector<StoredMessage> } | { ok: false; error: string } {
     const items = vector.toArray();
     for (let index = 0; index < items.length; index += 1) {
@@ -487,19 +519,19 @@ export class MessageManagement {
         return { ok: true, vector: newVector };
       }
     }
-    return { ok: false, error: "Message not found" };
+    return { ok: false, error: 'Message not found' };
   }
 
-  readMessage(executorId: UserId, args: ReadMessageProps, channel: ChannelMetadata): string {
+  readMessage(executorId: UserId, args: ReadMessageProps, _channel: ChannelMetadata): string {
     const normalizedChannelId = args.channelId.trim().toLowerCase();
-    
+
     // Get messages to find the specific message
     const messages = this.getMessages({ channelId: normalizedChannelId });
-    
+
     // Find the message
     const message = messages.messages.find(m => m.id === args.messageId);
     if (!message) {
-      return "Message not found";
+      return 'Message not found';
     }
 
     // Update last read position for this user in this channel
@@ -518,7 +550,7 @@ export class MessageManagement {
     // Set the message timestamp as the last read position
     readRegister.set(message.timestamp);
 
-    return "Message marked as read";
+    return 'Message marked as read';
   }
 
   private generateMessageId(channelId: string, executorId: UserId, timestamp: bigint): string {
@@ -526,4 +558,3 @@ export class MessageManagement {
     return `${channelId}-${executorId}-${timestamp}-${random}`;
   }
 }
-

@@ -72,7 +72,7 @@ describe('UnorderedMap', () => {
       const map = new UnorderedMap<string, User>();
       const userPrefs = new Map<string, number>([
         ['tea', 5],
-        ['coffee', 3]
+        ['coffee', 3],
       ]);
 
       map.set('user1', { name: 'Alice', age: 30, preferences: userPrefs });
@@ -83,8 +83,8 @@ describe('UnorderedMap', () => {
         age: 30,
         preferences: new Map([
           ['tea', 5],
-          ['coffee', 3]
-        ])
+          ['coffee', 3],
+        ]),
       });
     });
 
@@ -112,11 +112,11 @@ describe('UnorderedMap', () => {
       const owners = new UnorderedSet<string>({ initialValues: ['alice', 'bob'] });
       const config = new Map<string, string>([
         ['region', 'eu'],
-        ['tier', 'gold']
+        ['tier', 'gold'],
       ]);
       const metadata = {
         tags: new Set(['urgent', 'alpha']),
-        config
+        config,
       };
 
       const map1 = new UnorderedMap<string, typeof metadata>();
@@ -129,7 +129,7 @@ describe('UnorderedMap', () => {
       expect(restored?.config).toEqual(
         new Map<string, string>([
           ['region', 'eu'],
-          ['tier', 'gold']
+          ['tier', 'gold'],
         ])
       );
 
@@ -142,4 +142,3 @@ describe('UnorderedMap', () => {
     });
   });
 });
-

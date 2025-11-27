@@ -40,4 +40,3 @@ export async function validateCommand(source: string, options: ValidateOptions):
     process.exit(1);
   }
 }
-

@@ -24,10 +24,7 @@ interface WasmOptions {
  * @param options - Compiler options
  * @returns Path to generated WASM file
  */
-export async function compileToWasm(
-  cCodePath: string,
-  options: WasmOptions
-): Promise<string> {
+export async function compileToWasm(cCodePath: string, options: WasmOptions): Promise<string> {
   const wasiSdk = path.join(__dirname, '../../src/deps/wasi-sdk');
   const quickjsDir = path.join(__dirname, '../../src/deps/quickjs');
   const builderC = path.join(__dirname, '../../builder/builder.c');
@@ -56,13 +53,13 @@ export async function compileToWasm(
     path.join(quickjsDir, 'libunicode.c'),
     path.join(quickjsDir, 'cutils.c'),
     path.join(quickjsDir, 'quickjs-libc-min.c'), // RE-ADDED (matching NEAR SDK!)
-    path.join(quickjsDir, 'libbf.c')
+    path.join(quickjsDir, 'libbf.c'),
   ];
 
   // Include directories
   const includeFlags = [
     `-I${quickjsDir}`,
-    `-I${options.outputDir}` // For code.h and methods.h
+    `-I${options.outputDir}`, // For code.h and methods.h
   ];
 
   // Compiler flags
@@ -98,7 +95,7 @@ export async function compileToWasm(
     '-Wl,--export-table',
     '-Wl,--export=__wasm_call_ctors',
     '-Wl,--export=__data_end',
-    '-Wl,--export=__heap_base'
+    '-Wl,--export=__heap_base',
   ];
   // Extract method names from methods.h to explicitly export them
   const methodsH = path.join(options.outputDir, 'methods.h');
@@ -115,20 +112,13 @@ export async function compileToWasm(
   const linkerFlags = [
     '-Wl,--no-entry', // No main function
     '-Wl,--allow-undefined', // Allow undefined host functions
-    ...methodExports // Explicitly export each method
+    ...methodExports, // Explicitly export each method
   ];
 
   // Save unoptimized WASM for debugging
   const unoptimizedFile = outputFile.replace('.wasm', '.unoptimized.wasm');
-  
-  const args = [
-    ...flagsArray,
-    ...includeFlags,
-    ...linkerFlags,
-    '-o',
-    unoptimizedFile,
-    ...sources
-  ];
+
+  const args = [...flagsArray, ...includeFlags, ...linkerFlags, '-o', unoptimizedFile, ...sources];
 
   if (options.verbose) {
     console.log(`Compiling to WASM...`);
@@ -138,7 +128,7 @@ export async function compileToWasm(
   try {
     execFileSync(`${wasiSdk}/bin/clang`, args, {
       stdio: options.verbose ? 'inherit' : 'pipe',
-      cwd: process.cwd()
+      cwd: process.cwd(),
     });
   } catch (error) {
     throw new Error(`WASM compilation failed: ${error}`);
@@ -153,4 +143,3 @@ export async function compileToWasm(
 
   return outputFile;
 }
-

@@ -1,6 +1,10 @@
 import { BorshWriter } from '../borsh/encoder';
 import { BorshReader } from '../borsh/decoder';
-import { instantiateCollection, snapshotCollection, hasRegisteredCollection } from '../runtime/collections';
+import {
+  instantiateCollection,
+  snapshotCollection,
+  hasRegisteredCollection,
+} from '../runtime/collections';
 import { getMergeableType, markMergeableInstance } from '../runtime/mergeable-registry';
 const MERGEABLE_SENTINEL = '__calimeroMergeType';
 
@@ -12,7 +16,7 @@ enum ValueKind {
   String = 4,
   Bytes = 5,
   Array = 6,
-  Object = 7
+  Object = 7,
 }
 
 type NormalizedPrimitive = null | boolean | number | string | bigint | Uint8Array;
@@ -31,7 +35,9 @@ function toUint8Array(value: ArrayBufferView | ArrayBuffer): Uint8Array {
     return new Uint8Array(value);
   }
   if (isTypedArray(value)) {
-    return new Uint8Array(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
+    return new Uint8Array(
+      value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength)
+    );
   }
   if (value instanceof ArrayBuffer) {
     return new Uint8Array(value.slice(0));
@@ -50,7 +56,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 function normalizeObjectLike(
   input: Record<string, unknown>,
   seen: Map<any, any>,
-  mergeType?: string,
+  mergeType?: string
 ): NormalizedObject {
   if (seen.has(input)) {
     throw new TypeError('Cannot serialize circular references');
@@ -79,7 +85,12 @@ function normalizeValue(input: any, seen: Map<any, any>): NormalizedValue {
     return null;
   }
 
-  if (typeof input === 'boolean' || typeof input === 'number' || typeof input === 'string' || typeof input === 'bigint') {
+  if (
+    typeof input === 'boolean' ||
+    typeof input === 'number' ||
+    typeof input === 'string' ||
+    typeof input === 'bigint'
+  ) {
     return input as NormalizedValue;
   }
 
@@ -103,7 +114,7 @@ function normalizeValue(input: any, seen: Map<any, any>): NormalizedValue {
   if (collectionSnapshot) {
     return {
       __calimeroCollection: collectionSnapshot.type,
-      id: collectionSnapshot.id
+      id: collectionSnapshot.id,
     } as unknown as NormalizedValue;
   }
 
@@ -126,19 +137,19 @@ function normalizeValue(input: any, seen: Map<any, any>): NormalizedValue {
     const array = Array.from(input.values()).map(item => normalizeValue(item, seen));
     return {
       __calimeroSet: true,
-      values: array
+      values: array,
     } as unknown as NormalizedValue;
   }
 
   if (input instanceof Map) {
     const entries = Array.from(input.entries()).map(([key, value]) => ({
       key: normalizeValue(key, seen),
-      value: normalizeValue(value, seen)
+      value: normalizeValue(value, seen),
     }));
 
     return {
       __calimeroMap: true,
-      entries
+      entries,
     } as unknown as NormalizedValue;
   }
 
@@ -185,35 +196,44 @@ function reviveValue(input: NormalizedValue): any {
   }
 
   const maybeCollection = input as Record<string, any>;
-  if (typeof maybeCollection.__calimeroCollection === 'string' && typeof maybeCollection.id === 'string') {
+  if (
+    typeof maybeCollection.__calimeroCollection === 'string' &&
+    typeof maybeCollection.id === 'string'
+  ) {
     return instantiateCollection({
       type: maybeCollection.__calimeroCollection,
-      id: maybeCollection.id
+      id: maybeCollection.id,
     });
   }
 
-  if (maybeCollection.__calimeroMapEntry && 'key' in maybeCollection && 'value' in maybeCollection) {
+  if (
+    maybeCollection.__calimeroMapEntry &&
+    'key' in maybeCollection &&
+    'value' in maybeCollection
+  ) {
     return {
       __calimeroMapEntry: true,
       key: reviveValue(maybeCollection.key),
-      value: reviveValue(maybeCollection.value)
+      value: reviveValue(maybeCollection.value),
     };
   }
 
   if (maybeCollection.__calimeroSet && Array.isArray(maybeCollection.values)) {
     return {
       __calimeroSet: true,
-      values: (maybeCollection.values as NormalizedValue[]).map(item => reviveValue(item))
+      values: (maybeCollection.values as NormalizedValue[]).map(item => reviveValue(item)),
     };
   }
 
   if (maybeCollection.__calimeroMap && Array.isArray(maybeCollection.entries)) {
     return {
       __calimeroMap: true,
-      entries: (maybeCollection.entries as Array<{ key: NormalizedValue; value: NormalizedValue }>).map(entry => ({
+      entries: (
+        maybeCollection.entries as Array<{ key: NormalizedValue; value: NormalizedValue }>
+      ).map(entry => ({
         key: reviveValue(entry.key),
-        value: reviveValue(entry.value)
-      }))
+        value: reviveValue(entry.value),
+      })),
     };
   }
 
@@ -355,7 +375,7 @@ function finalizeCollections(value: any): any {
       return {
         __calimeroMapEntry: true,
         key: finalizeCollections(value.key),
-        value: finalizeCollections(value.value)
+        value: finalizeCollections(value.value),
       };
     }
 
@@ -403,5 +423,3 @@ export function deepCloneNormalized(value: any): any {
   }
   return result;
 }
-
-

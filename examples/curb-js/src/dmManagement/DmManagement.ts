@@ -1,20 +1,15 @@
-import { emit, createVector, createUnorderedMap, createLwwRegister } from "@calimero/sdk";
-import { UnorderedMap, Vector, LwwRegister } from "@calimero/sdk/collections";
+import { emit, createVector, createUnorderedMap, createLwwRegister } from '@calimero/sdk';
+import { UnorderedMap, Vector, LwwRegister } from '@calimero/sdk/collections';
 
-import { ChannelType } from "../channelManagement/types";
-import type { UserId } from "../types";
-import type {
-  CreateDMChatArgs,
-  DeleteDMArgs,
-  DMChatInfo,
-  UpdateIdentityArgs,
-} from "./types";
-import { DMCreated, NewIdentityUpdated, DMDeleted } from "./events";
+import { ChannelType } from '../channelManagement/types';
+import type { UserId } from '../types';
+import type { CreateDMChatArgs, DeleteDMArgs, DMChatInfo, UpdateIdentityArgs } from './types';
+import { DMCreated, NewIdentityUpdated, DMDeleted } from './events';
 
 export class DmManagement {
   constructor(
     private readonly dmChats: UnorderedMap<UserId, Vector<DMChatInfo>>,
-    private readonly dmReadHashes: UnorderedMap<string, UnorderedMap<UserId, LwwRegister<string>>>,
+    private readonly dmReadHashes: UnorderedMap<string, UnorderedMap<UserId, LwwRegister<string>>>
   ) {}
 
   getDMs(executorId: UserId): DMChatInfo[] {
@@ -22,17 +17,29 @@ export class DmManagement {
     return vector ? vector.toArray() : [];
   }
 
-  createDMChat(executorId: UserId, args: CreateDMChatArgs, usernames: Record<UserId, string>): string {
-    const { contextId, creator, creatorNewIdentity, invitee, timestamp, contextHash, invitationPayload } = args;
+  createDMChat(
+    executorId: UserId,
+    args: CreateDMChatArgs,
+    usernames: Record<UserId, string>
+  ): string {
+    const {
+      contextId,
+      creator,
+      creatorNewIdentity,
+      invitee,
+      timestamp,
+      contextHash,
+      invitationPayload,
+    } = args;
 
     if (executorId !== creator) {
-      return "You are not the inviter";
+      return 'You are not the inviter';
     }
 
     const ownUsername = usernames[creator];
     const otherUsername = usernames[invitee];
     if (!ownUsername || !otherUsername) {
-      return "Usernames not found";
+      return 'Usernames not found';
     }
 
     if (ownUsername === otherUsername) {
@@ -120,7 +127,7 @@ export class DmManagement {
     }
 
     emit(new NewIdentityUpdated(otherUser));
-    return "Identity updated successfully";
+    return 'Identity updated successfully';
   }
 
   deleteDM(executorId: UserId, args: DeleteDMArgs): string {
@@ -129,7 +136,7 @@ export class DmManagement {
     this.removeDmFromUser(otherUser, executorId);
 
     emit(new DMDeleted(executorId));
-    return "DM deleted successfully";
+    return 'DM deleted successfully';
   }
 
   private addDmToUser(userId: UserId, chat: DMChatInfo): void {
@@ -155,7 +162,11 @@ export class DmManagement {
     this.dmChats.set(userId, remaining);
   }
 
-  private updateOwnIdentity(vector: Vector<DMChatInfo>, otherUser: UserId, newIdentity: UserId): Vector<DMChatInfo> {
+  private updateOwnIdentity(
+    vector: Vector<DMChatInfo>,
+    otherUser: UserId,
+    newIdentity: UserId
+  ): Vector<DMChatInfo> {
     const updated = createVector<DMChatInfo>();
     for (const chat of vector.toArray()) {
       if (chat.otherIdentityOld === otherUser) {
@@ -171,7 +182,11 @@ export class DmManagement {
     return updated;
   }
 
-  private updateOtherIdentity(vector: Vector<DMChatInfo>, executorId: UserId, newIdentity: UserId): Vector<DMChatInfo> {
+  private updateOtherIdentity(
+    vector: Vector<DMChatInfo>,
+    executorId: UserId,
+    newIdentity: UserId
+  ): Vector<DMChatInfo> {
     const updated = createVector<DMChatInfo>();
     for (const chat of vector.toArray()) {
       if (chat.otherIdentityOld === executorId) {
@@ -203,16 +218,16 @@ export class DmManagement {
     // Update the hash
     hashRegister.set(newHash);
 
-    return "DM hash updated";
+    return 'DM hash updated';
   }
 
   readDm(executorId: UserId, contextId: string): string {
     // Get the DM chat info to find the current hash
     const dms = this.getDMs(executorId);
     const dm = dms.find(d => d.contextId === contextId);
-    
+
     if (!dm) {
-      return "DM not found";
+      return 'DM not found';
     }
 
     // Update the last read hash to the current newHash
@@ -231,7 +246,6 @@ export class DmManagement {
     // Set the current hash as the last read hash
     hashRegister.set(dm.newHash);
 
-    return "DM marked as read";
+    return 'DM marked as read';
   }
 }
-
