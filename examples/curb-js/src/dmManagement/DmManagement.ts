@@ -39,6 +39,28 @@ export class DmManagement {
       return "You cannot invite yourself";
     }
 
+    // Check if DM already exists between these users
+    const creatorDms = this.getDMs(creator);
+    const inviteeDms = this.getDMs(invitee);
+    
+    // Check if creator already has a DM with invitee
+    const creatorHasDM = creatorDms.some(
+      (dm) => dm.otherIdentityOld === invitee || dm.otherIdentityNew === invitee
+    );
+    
+    // Check if invitee already has a DM with creator
+    const inviteeHasDM = inviteeDms.some(
+      (dm) => dm.otherIdentityOld === creator || dm.otherIdentityNew === creator
+    );
+    
+    // Check if contextId already exists
+    const contextIdExists = creatorDms.some((dm) => dm.contextId === contextId) ||
+                           inviteeDms.some((dm) => dm.contextId === contextId);
+    
+    if (creatorHasDM || inviteeHasDM || contextIdExists) {
+      return "DM already exists between these users";
+    }
+
     const creatorChat: DMChatInfo = {
       contextId,
       channelType: ChannelType.Private,
