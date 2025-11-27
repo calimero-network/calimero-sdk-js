@@ -1,4 +1,4 @@
-import { Event } from '@calimero/sdk';
+import { Event } from '@calimero-network/calimero-sdk-js';
 
 import type { ChannelId, UserId } from '../types';
 import { ChannelType } from './types';

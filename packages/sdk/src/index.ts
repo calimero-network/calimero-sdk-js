@@ -1,5 +1,5 @@
 /**
- * @calimero/sdk - Core SDK for building Calimero P2P applications
+ * @calimero-network/calimero-sdk-js - Core SDK for building Calimero P2P applications
  *
  * @packageDocumentation
  */
@@ -23,7 +23,7 @@ export type { AppEvent } from './events/types';
 export { StateManager } from './runtime/state-manager';
 
 // Re-export collections from dedicated entry point
-// Users can import as: import { UnorderedMap } from '@calimero/sdk/collections';
+// Users can import as: import { UnorderedMap } from '@calimero-network/calimero-sdk-js/collections';
 
 // State helpers
 export * from './state/helpers';

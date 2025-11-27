@@ -10,6 +10,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
 const { Signale } = signaleDefault;
 const signale = new Signale({ scope: 'postinstall', interactive: true });
@@ -33,6 +35,9 @@ if (!SUPPORTED_ARCH.includes(ARCH)) {
 }
 
 // Create deps directory
+// In ES modules, use import.meta.url instead of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 const depsDir = path.join(__dirname, '../../deps');
 if (fs.existsSync(depsDir)) {
   fs.rmSync(depsDir, { recursive: true, force: true });

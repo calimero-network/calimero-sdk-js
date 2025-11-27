@@ -1,6 +1,18 @@
-import { State, Logic, Init, Event, View, emitWithHandler } from '@calimero/sdk';
-import { UnorderedMap, UnorderedSet, LwwRegister, Counter } from '@calimero/sdk/collections';
-import * as env from '@calimero/sdk/env';
+import {
+  State,
+  Logic,
+  Init,
+  Event,
+  View,
+  emitWithHandler,
+} from '@calimero-network/calimero-sdk-js';
+import {
+  UnorderedMap,
+  UnorderedSet,
+  LwwRegister,
+  Counter,
+} from '@calimero-network/calimero-sdk-js/collections';
+import * as env from '@calimero-network/calimero-sdk-js/env';
 
 @Event
 export class ItemInserted {

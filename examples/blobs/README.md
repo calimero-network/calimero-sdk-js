@@ -16,7 +16,7 @@ State classes in Calimero JS services are reinstantiated for every method call. 
 - Declare persisted fields with inline defaults instead of using constructors.
 - Initialize CRDT collections directly on the field (`files = createUnorderedMap()`), so the decorator runtime can persist and hydrate them automatically.
 - Keep constructors free of side effects or logging; prefer helper accessors if you need derived data.
-- Use the helper factories exported by `@calimero/sdk` (`createUnorderedMap`, `createVector`, etc.) to keep initialization consistent.
+- Use the helper factories exported by `@calimero-network/calimero-sdk-js` (`createUnorderedMap`, `createVector`, etc.) to keep initialization consistent.
 
 See `src/index.ts` for the canonical pattern.
 

@@ -11,9 +11,9 @@ This guide will help you build your first Calimero P2P application using JavaScr
 ## Installation
 
 ```bash
-npm install @calimero/sdk @calimero/cli
+npm install @calimero-network/calimero-sdk-js @calimero-network/calimero-cli-js
 # or
-pnpm add @calimero/sdk @calimero/cli
+pnpm add @calimero-network/calimero-sdk-js @calimero-network/calimero-cli-js
 ```
 
 ## Create Your First App
@@ -24,8 +24,8 @@ pnpm add @calimero/sdk @calimero/cli
 mkdir my-calimero-app
 cd my-calimero-app
 pnpm init
-pnpm add @calimero/sdk
-pnpm add -D @calimero/cli typescript
+pnpm add @calimero-network/calimero-sdk-js
+pnpm add -D @calimero-network/calimero-cli-js typescript
 ```
 
 ### 2. Write Your Contract
@@ -33,9 +33,9 @@ pnpm add -D @calimero/cli typescript
 Create `src/index.ts`:
 
 ```typescript
-import { State, Logic, Init, View, createCounter } from '@calimero/sdk';
-import type { Counter } from '@calimero/sdk/collections';
-import * as env from '@calimero/sdk/env';
+import { State, Logic, Init, View, createCounter } from '@calimero-network/calimero-sdk-js';
+import type { Counter } from '@calimero-network/calimero-sdk-js/collections';
+import * as env from '@calimero-network/calimero-sdk-js/env';
 
 @State
 export class CounterApp {
@@ -107,7 +107,7 @@ meroctl --node-name node1 call \
 Use the private storage helpers for data that should remain on the executing node (e.g. cached secrets, per-node counters):
 
 ```typescript
-import { createPrivateEntry } from '@calimero/sdk';
+import { createPrivateEntry } from '@calimero-network/calimero-sdk-js';
 
 const secrets = createPrivateEntry<{ token: string }>('private:secrets');
 
