@@ -1,4 +1,4 @@
-import type { UnorderedMap } from '@calimero/sdk/collections';
+import type { UnorderedMap } from '@calimero-network/calimero-sdk-js/collections';
 
 import type { UserId, Username } from '../types';
 

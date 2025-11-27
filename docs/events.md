@@ -7,7 +7,7 @@ Learn how to use events for communication in Calimero applications.
 Use the `@Event` decorator to mark event classes:
 
 ```typescript
-import { Event } from '@calimero/sdk';
+import { Event } from '@calimero-network/calimero-sdk-js';
 
 @Event
 export class ItemAdded {
@@ -29,7 +29,7 @@ export class ItemRemoved {
 ### Without Handler
 
 ```typescript
-import { emit } from '@calimero/sdk';
+import { emit } from '@calimero-network/calimero-sdk-js';
 
 emit(new ItemAdded('key1', 'value1', Date.now()));
 ```
@@ -37,7 +37,7 @@ emit(new ItemAdded('key1', 'value1', Date.now()));
 ### With Handler
 
 ```typescript
-import { emitWithHandler } from '@calimero/sdk';
+import { emitWithHandler } from '@calimero-network/calimero-sdk-js';
 
 emitWithHandler(new ItemAdded('key1', 'value1', Date.now()), 'onItemAdded');
 ```

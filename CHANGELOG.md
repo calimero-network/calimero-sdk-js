@@ -19,8 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Initial alpha release
-- Core SDK package (@calimero/sdk)
-- CLI build tools (@calimero/cli)
+- Core SDK package (@calimero-network/calimero-sdk-js)
+- CLI build tools (@calimero-network/calimero-cli-js)
 - CRDT collections (UnorderedMap, Vector, Counter)
 - Event system
 - QuickJS-based WASM compilation

@@ -31,7 +31,7 @@ export async function bundleWithRollup(source: string, options: RollupOptions): 
 
   const entryContents = [
     `import '${normalizedSource}';`,
-    "import '@calimero/sdk/runtime/dispatcher';",
+    "import '@calimero-network/calimero-sdk-js/runtime/dispatcher';",
   ].join('\n');
 
   fs.writeFileSync(entryFile, `${entryContents}\n`);

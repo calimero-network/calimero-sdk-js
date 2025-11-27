@@ -11,7 +11,7 @@ Deep dive into Calimero JavaScript SDK architecture.
 └──────────────┬──────────────────────────┘
                │
 ┌──────────────┴──────────────────────────┐
-│ @calimero/sdk                           │
+│ @calimero-network/calimero-sdk-js                           │
 │ - Decorators (@State, @Logic, etc.)     │
 │ - CRDT Collections                      │
 │ - Event System                          │

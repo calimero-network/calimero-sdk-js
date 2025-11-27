@@ -76,7 +76,7 @@ env.log(`Emitting with handler: ${handlerName}`);
 
 ### TypeScript Errors
 
-**Error**: Cannot find module '@calimero/sdk'
+**Error**: Cannot find module '@calimero-network/calimero-sdk-js'
 
 **Solution**:
 

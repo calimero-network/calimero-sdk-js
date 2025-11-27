@@ -38,8 +38,8 @@ impl KvStore {
 ### JavaScript Version
 
 ```typescript
-import { State, Logic, Init } from '@calimero/sdk';
-import { UnorderedMap } from '@calimero/sdk/collections';
+import { State, Logic, Init } from '@calimero-network/calimero-sdk-js';
+import { UnorderedMap } from '@calimero-network/calimero-sdk-js/collections';
 
 @State
 export class KvStore {
