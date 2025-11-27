@@ -1,13 +1,13 @@
-# @calimero/cli
+# @calimero-network/calimero-cli-js
 
 CLI build tools for compiling Calimero applications to WebAssembly.
 
 ## Installation
 
 ```bash
-npm install -g @calimero/cli
+npm install -g @calimero-network/calimero-cli-js
 # or
-pnpm add -g @calimero/cli
+pnpm add -g @calimero-network/calimero-cli-js
 ```
 
 ## First Time Setup

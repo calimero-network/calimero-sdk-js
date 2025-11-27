@@ -1,20 +1,20 @@
-# @calimero/sdk
+# @calimero-network/calimero-sdk-js
 
 Core SDK for building Calimero P2P applications with automatic CRDT-based state synchronization.
 
 ## Installation
 
 ```bash
-npm install @calimero/sdk
+npm install @calimero-network/calimero-sdk-js
 # or
-pnpm add @calimero/sdk
+pnpm add @calimero-network/calimero-sdk-js
 ```
 
 ## Usage
 
 ```typescript
-import { State, Logic, Init, View, createUnorderedMap } from '@calimero/sdk';
-import type { UnorderedMap } from '@calimero/sdk/collections';
+import { State, Logic, Init, View, createUnorderedMap } from '@calimero-network/calimero-sdk-js';
+import type { UnorderedMap } from '@calimero-network/calimero-sdk-js/collections';
 
 @State
 export class MyApp {
@@ -50,7 +50,7 @@ All values, return payloads, and collection snapshots are serialized with Calime
 Use `createPrivateEntry` for node-local data that should not replicate across the network:
 
 ```typescript
-import { createPrivateEntry } from '@calimero/sdk';
+import { createPrivateEntry } from '@calimero-network/calimero-sdk-js';
 
 const secrets = createPrivateEntry<{ token: string }>('private:secrets');
 
@@ -69,7 +69,7 @@ Values are serialized with the same helper as service state, but they are writte
 
 ### Updating the storage shim
 
-`@calimero/sdk` ships a prebuilt `storage_wasm.wasm` that mirrors the Rust `storage-wasm` crate.
+`@calimero-network/calimero-sdk-js` ships a prebuilt `storage_wasm.wasm` that mirrors the Rust `storage-wasm` crate.
 Whenever the Rust runtime or storage crate changes, regenerate the artifact and the C header that
 embeds it. From the repository root:
 
