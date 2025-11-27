@@ -35,6 +35,10 @@ export class DmManagement {
       return "Usernames not found";
     }
 
+    if (ownUsername === otherUsername) {
+      return "You cannot invite yourself";
+    }
+
     const creatorChat: DMChatInfo = {
       contextId,
       channelType: ChannelType.Private,
