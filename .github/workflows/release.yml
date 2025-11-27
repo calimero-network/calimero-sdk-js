@@ -230,13 +230,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish @calimero/sdk to npm
+      - name: Publish @calimero-network/calimero-sdk-js to npm
         if: steps.check-npm.outputs.skip_publish != 'true' && steps.check-npm.outputs.sdk_exists != 'true'
         run: cd packages/sdk && pnpm publish --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish @calimero/cli to npm
+      - name: Publish @calimero-network/calimero-cli-js to npm
         if: steps.check-npm.outputs.skip_publish != 'true' && steps.check-npm.outputs.cli_exists != 'true'
         run: cd packages/cli && pnpm publish --access public --no-git-checks
         env:
