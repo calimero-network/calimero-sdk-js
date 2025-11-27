@@ -9,7 +9,7 @@ on:
             - "package.json"
             - "packages/sdk/package.json"
             - "packages/cli/package.json"
-    workflow_dispatch: 
+    workflow_dispatch:
 
 jobs:
     detect-version-change:
@@ -23,7 +23,7 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v4
               with:
-                  fetch-depth: 2 
+                  fetch-depth: 2
 
             - name: Setup Node.js
               uses: actions/setup-node@v4
@@ -33,30 +33,32 @@ jobs:
             - name: Check if version changed
               id: check
               run: |
-                  # Get current versions
                   CURRENT_SDK=$(node -p "require('./packages/sdk/package.json').version")
                   CURRENT_CLI=$(node -p "require('./packages/cli/package.json').version")
 
-                  # Get previous versions (if they exist)
-                  git checkout HEAD~1 packages/sdk/package.json packages/cli/package.json 2>/dev/null || true
-                  PREV_SDK=$(node -p "require('./packages/sdk/package.json').version" 2>/dev/null || echo "")
-                  PREV_CLI=$(node -p "require('./packages/cli/package.json').version" 2>/dev/null || echo "")
 
-                  # Restore current versions
-                  git checkout HEAD packages/sdk/package.json packages/cli/package.json
+                  if git checkout HEAD~1 packages/sdk/package.json packages/cli/package.json 2>/dev/null; then
+                    PREV_SDK=$(node -p "require('./packages/sdk/package.json').version" 2>/dev/null || echo "")
+                    PREV_CLI=$(node -p "require('./packages/cli/package.json').version" 2>/dev/null || echo "")
+                    
+
+                    git checkout HEAD packages/sdk/package.json packages/cli/package.json
+                  else
+                    PREV_SDK=""
+                    PREV_CLI=""
+                    echo "No previous commit or files not found in previous commit - treating as first release"
+                  fi
 
                   echo "Previous SDK version: ${PREV_SDK:-none}"
                   echo "Current SDK version: $CURRENT_SDK"
                   echo "Previous CLI version: ${PREV_CLI:-none}"
                   echo "Current CLI version: $CURRENT_CLI"
 
-                  # Check if versions match between packages
                   if [ "$CURRENT_SDK" != "$CURRENT_CLI" ]; then
                     echo "Error: Package versions must match. SDK: $CURRENT_SDK, CLI: $CURRENT_CLI"
                     exit 1
                   fi
 
-                  # Check if version changed
                   if [ -z "$PREV_SDK" ] || [ "$CURRENT_SDK" != "$PREV_SDK" ]; then
                     echo "changed=true" >> $GITHUB_OUTPUT
                     echo "version=$CURRENT_SDK" >> $GITHUB_OUTPUT
