@@ -31,7 +31,12 @@ last-write-wins on the entire snapshot.
 ### 1. `@Mergeable` Decorator for Data Structs
 
 ```ts
-import { Mergeable, State, createUnorderedMap, createLwwRegister } from '@calimero-network/calimero-sdk-js';
+import {
+  Mergeable,
+  State,
+  createUnorderedMap,
+  createLwwRegister,
+} from '@calimero-network/calimero-sdk-js';
 
 @Mergeable()
 export class MemberProfile {

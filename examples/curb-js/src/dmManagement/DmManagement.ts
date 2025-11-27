@@ -1,4 +1,9 @@
-import { emit, createVector, createUnorderedMap, createLwwRegister } from '@calimero-network/calimero-sdk-js';
+import {
+  emit,
+  createVector,
+  createUnorderedMap,
+  createLwwRegister,
+} from '@calimero-network/calimero-sdk-js';
 import { UnorderedMap, Vector, LwwRegister } from '@calimero-network/calimero-sdk-js/collections';
 
 import { ChannelType } from '../channelManagement/types';

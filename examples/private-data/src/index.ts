@@ -1,6 +1,13 @@
 'use strict';
 
-import { State, Logic, Init, View, createPrivateEntry, createUnorderedMap } from '@calimero-network/calimero-sdk-js';
+import {
+  State,
+  Logic,
+  Init,
+  View,
+  createPrivateEntry,
+  createUnorderedMap,
+} from '@calimero-network/calimero-sdk-js';
 import { UnorderedMap } from '@calimero-network/calimero-sdk-js/collections';
 import * as env from '@calimero-network/calimero-sdk-js/env';
 

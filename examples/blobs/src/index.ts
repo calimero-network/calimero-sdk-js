@@ -1,4 +1,12 @@
-import { State, Logic, Init, Event, View, emit, createUnorderedMap } from '@calimero-network/calimero-sdk-js';
+import {
+  State,
+  Logic,
+  Init,
+  Event,
+  View,
+  emit,
+  createUnorderedMap,
+} from '@calimero-network/calimero-sdk-js';
 import type { UnorderedMap } from '@calimero-network/calimero-sdk-js/collections';
 import {
   blobAnnounceToContext,

@@ -13,15 +13,15 @@ import { fileURLToPath } from 'url';
  */
 export function findPackageRoot(): string {
   const packageName = '@calimero-network/calimero-cli-js';
-  
+
   // Start from the current file's directory
   const __filename = fileURLToPath(import.meta.url);
   let currentDir = path.dirname(__filename);
-  
+
   // Walk up the directory tree
   while (currentDir !== path.dirname(currentDir)) {
     const packageJsonPath = path.join(currentDir, 'package.json');
-    
+
     if (fs.existsSync(packageJsonPath)) {
       try {
         const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
@@ -32,21 +32,20 @@ export function findPackageRoot(): string {
         // Continue searching
       }
     }
-    
+
     currentDir = path.dirname(currentDir);
   }
-  
+
   // Fallback: if we can't find it, assume we're in lib/compiler or lib/utils
   // and go up to package root
   const __filename2 = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename2);
-  
+
   // If we're in lib/, go up one level
   if (__dirname.includes('/lib/')) {
     return path.join(__dirname, '../..');
   }
-  
+
   // Otherwise, go up from lib to package root
   return path.join(__dirname, '../../..');
 }
-

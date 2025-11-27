@@ -6,7 +6,12 @@ import {
   createUnorderedSet,
   createLwwRegister,
 } from '@calimero-network/calimero-sdk-js';
-import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from '@calimero-network/calimero-sdk-js/collections';
+import {
+  UnorderedMap,
+  UnorderedSet,
+  Vector,
+  LwwRegister,
+} from '@calimero-network/calimero-sdk-js/collections';
 import { blobAnnounceToContext, contextId } from '@calimero-network/calimero-sdk-js/env';
 import bs58 from 'bs58';
 
