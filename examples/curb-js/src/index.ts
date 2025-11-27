@@ -1,4 +1,5 @@
 import {
+  emit,
   env,
   Init,
   Logic,
@@ -40,6 +41,7 @@ import {
   type StoredMessage,
 } from './messageManagement';
 import { isUsernameTaken } from './utils/members';
+import { UserJoined } from './events';
 
 @State
 export class CurbChat {
@@ -205,6 +207,7 @@ export class CurbChatLogic extends CurbChat {
 
     this.members.set(userId, username);
     this.getChannelManager().addUserToDefaultChannels(userId, username);
+    emit(new UserJoined(userId, username));
     return this.wrapResult('User joined chat');
   }
 
