@@ -20,7 +20,7 @@
     "clean": "rm -rf lib",
     "test": "jest --passWithNoTests",
     "install-deps": "bash scripts/install-deps.sh",
-    "postinstall": "node lib/scripts/post-install.js",
+    "postinstall": "bash scripts/postinstall.sh",
     "prepublishOnly": "pnpm build"
   },
   "keywords": [
