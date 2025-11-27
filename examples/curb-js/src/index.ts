@@ -1,7 +1,18 @@
-import { emit, env, Init, Logic, State, View, createUnorderedMap, createVector, createLwwRegister, createUnorderedSet } from "@calimero/sdk";
-import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from "@calimero/sdk/collections";
+import {
+  emit,
+  env,
+  Init,
+  Logic,
+  State,
+  View,
+  createUnorderedMap,
+  createVector,
+  createLwwRegister,
+  createUnorderedSet,
+} from '@calimero/sdk';
+import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from '@calimero/sdk/collections';
 
-import { ChannelManager } from "./channelManagement/channelManagement";
+import { ChannelManager } from './channelManagement/channelManagement';
 import {
   ChannelType,
   type ChannelMembershipInput,
@@ -28,9 +39,9 @@ import {
   type ReadDmProps,
   type UpdateDmHashProps,
   type StoredMessage,
-} from "./messageManagement";
-import { isUsernameTaken } from "./utils/members";
-import { UserJoined } from "./events";
+} from './messageManagement';
+import { isUsernameTaken } from './utils/members';
+import { UserJoined } from './events';
 
 @State
 export class CurbChat {
@@ -197,7 +208,7 @@ export class CurbChatLogic extends CurbChat {
     this.members.set(userId, username);
     this.getChannelManager().addUserToDefaultChannels(userId, username);
     emit(new UserJoined(userId, username));
-    return this.wrapResult("User joined chat");
+    return this.wrapResult('User joined chat');
   }
 
   createChannel(rawInput: CreateChannelInput | { input: CreateChannelInput }): string {

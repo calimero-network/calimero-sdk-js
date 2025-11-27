@@ -1,9 +1,11 @@
-import { Event } from "@calimero/sdk";
+import { Event } from '@calimero/sdk';
 
-import type { UserId, Username } from "./types";
+import type { UserId, Username } from './types';
 
 @Event
 export class UserJoined {
-  constructor(public userId: UserId, public username: Username) {}
+  constructor(
+    public userId: UserId,
+    public username: Username
+  ) {}
 }
-

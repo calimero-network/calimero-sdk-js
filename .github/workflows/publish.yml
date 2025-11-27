@@ -29,12 +29,12 @@ jobs:
       - name: Build packages
         run: pnpm build
 
-      - name: Publish @calimero/sdk
+      - name: Publish @calimero-network/calimero-sdk-js
         run: cd packages/sdk && pnpm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish @calimero/cli
+      - name: Publish @calimero-network/calimero-cli-js
         run: cd packages/cli && pnpm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

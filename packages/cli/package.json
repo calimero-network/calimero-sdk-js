@@ -1,5 +1,5 @@
 {
-  "name": "@calimero/cli",
+  "name": "@calimero-network/calimero-cli-js",
   "version": "0.1.0",
   "description": "CLI build tools for Calimero applications",
   "type": "module",
@@ -19,7 +19,8 @@
     "build": "tsc",
     "clean": "rm -rf lib",
     "test": "jest --passWithNoTests",
-    "install-deps": "bash scripts/install-deps.sh"
+    "install-deps": "bash scripts/install-deps.sh",
+    "prepublishOnly": "pnpm build"
   },
   "keywords": [
     "calimero",

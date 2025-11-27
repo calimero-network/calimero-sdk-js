@@ -1,5 +1,5 @@
 {
-  "name": "@calimero/sdk",
+  "name": "@calimero-network/calimero-sdk-js",
   "version": "0.1.0",
   "description": "Core SDK for building Calimero P2P applications",
   "main": "./lib/index.js",
@@ -41,7 +41,8 @@
     "build": "tsc",
     "clean": "rm -rf lib",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "prepublishOnly": "pnpm build"
   },
   "keywords": [
     "calimero",
