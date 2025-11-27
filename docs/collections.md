@@ -9,7 +9,7 @@ Complex nested structures (maps of sets, vectors of maps, etc.) work automatical
 Last-Write-Wins map for key-value storage. Keys and values are encoded via Borsh; make sure you share the same schema with any cross-language consumers.
 
 ```typescript
-import { UnorderedMap } from '@calimero/sdk/collections';
+import { UnorderedMap } from '@calimero-network/calimero-sdk-js/collections';
 
 const map = new UnorderedMap<string, string>();
 
@@ -140,7 +140,7 @@ Result: key = 'B' (higher timestamp)
 Ordered list that maintains insertion order.
 
 ```typescript
-import { Vector } from '@calimero/sdk/collections';
+import { Vector } from '@calimero-network/calimero-sdk-js/collections';
 
 const vec = new Vector<string>();
 
@@ -156,7 +156,7 @@ const last = vec.pop(); // 'second'
 Last-Write-Wins set for unique membership.
 
 ```typescript
-import { UnorderedSet } from '@calimero/sdk/collections';
+import { UnorderedSet } from '@calimero-network/calimero-sdk-js/collections';
 
 const set = new UnorderedSet<string>();
 
@@ -177,7 +177,7 @@ map.set('owners', set);
 Grow-only counter (G-Counter) for distributed counting.
 
 ```typescript
-import { Counter } from '@calimero/sdk/collections';
+import { Counter } from '@calimero-network/calimero-sdk-js/collections';
 
 const counter = new Counter();
 
@@ -201,7 +201,7 @@ Total = local_count_A + local_count_B = 2
 Last-Write-Wins register for single values.
 
 ```typescript
-import { LwwRegister } from '@calimero/sdk/collections';
+import { LwwRegister } from '@calimero-network/calimero-sdk-js/collections';
 
 const register = new LwwRegister<string>();
 
@@ -257,7 +257,7 @@ class GoodApp {
 
 ### Combine with View Decorators
 
-- Initialize CRDT fields inline using the helper factories exposed from `@calimero/sdk` (`createUnorderedMap`, `createVector`, etc.). Constructors run on every invocation, so inline defaults guarantee the runtime reuses the persisted collection IDs.
+- Initialize CRDT fields inline using the helper factories exposed from `@calimero-network/calimero-sdk-js` (`createUnorderedMap`, `createVector`, etc.). Constructors run on every invocation, so inline defaults guarantee the runtime reuses the persisted collection IDs.
 - Mark selectors (`get`, `list`, `len`, etc.) with `@View()` so the dispatcher skips persistence when you only read data. This keeps the storage DAG compact and reduces gossip traffic.
 
 ### Handles, Not Deep Copies

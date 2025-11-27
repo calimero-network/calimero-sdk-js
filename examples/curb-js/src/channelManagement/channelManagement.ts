@@ -5,8 +5,8 @@ import {
   createLwwRegister,
   createUnorderedMap,
   createUnorderedSet,
-} from '@calimero/sdk';
-import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from '@calimero/sdk/collections';
+} from '@calimero-network/calimero-sdk-js';
+import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from '@calimero-network/calimero-sdk-js/collections';
 
 import { isUsernameTaken } from '../utils/members';
 import type { ChannelId, UserId, Username } from '../types';

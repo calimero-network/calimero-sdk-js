@@ -1,4 +1,4 @@
-import { Event } from '@calimero/sdk';
+import { Event } from '@calimero-network/calimero-sdk-js';
 
 @Event
 export class DMCreated {

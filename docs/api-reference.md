@@ -1,6 +1,6 @@
 # API Reference
 
-Complete API documentation for @calimero/sdk
+Complete API documentation for @calimero-network/calimero-sdk-js
 
 ## Decorators
 

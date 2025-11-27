@@ -1,5 +1,5 @@
-import { emit, createVector, createUnorderedMap, createLwwRegister } from '@calimero/sdk';
-import { UnorderedMap, Vector, LwwRegister } from '@calimero/sdk/collections';
+import { emit, createVector, createUnorderedMap, createLwwRegister } from '@calimero-network/calimero-sdk-js';
+import { UnorderedMap, Vector, LwwRegister } from '@calimero-network/calimero-sdk-js/collections';
 
 import { ChannelType } from '../channelManagement/types';
 import type { UserId } from '../types';

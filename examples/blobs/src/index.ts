@@ -1,5 +1,5 @@
-import { State, Logic, Init, Event, View, emit, createUnorderedMap } from '@calimero/sdk';
-import type { UnorderedMap } from '@calimero/sdk/collections';
+import { State, Logic, Init, Event, View, emit, createUnorderedMap } from '@calimero-network/calimero-sdk-js';
+import type { UnorderedMap } from '@calimero-network/calimero-sdk-js/collections';
 import {
   blobAnnounceToContext,
   contextId,
@@ -7,7 +7,7 @@ import {
   log,
   randomBytes,
   timeNow,
-} from '@calimero/sdk/env';
+} from '@calimero-network/calimero-sdk-js/env';
 import bs58 from 'bs58';
 
 const BLOB_ID_BYTES = 32;

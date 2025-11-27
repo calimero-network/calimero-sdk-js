@@ -1,5 +1,5 @@
-import { State, Logic, Init, View } from '@calimero/sdk';
-import { contextId, log, xcall } from '@calimero/sdk/env';
+import { State, Logic, Init, View } from '@calimero-network/calimero-sdk-js';
+import { contextId, log, xcall } from '@calimero-network/calimero-sdk-js/env';
 import bs58 from 'bs58';
 
 const textEncoder = new TextEncoder();

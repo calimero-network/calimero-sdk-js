@@ -1,8 +1,8 @@
 'use strict';
 
-import { State, Logic, Init, View, createPrivateEntry, createUnorderedMap } from '@calimero/sdk';
-import { UnorderedMap } from '@calimero/sdk/collections';
-import * as env from '@calimero/sdk/env';
+import { State, Logic, Init, View, createPrivateEntry, createUnorderedMap } from '@calimero-network/calimero-sdk-js';
+import { UnorderedMap } from '@calimero-network/calimero-sdk-js/collections';
+import * as env from '@calimero-network/calimero-sdk-js/env';
 
 type PrivateNote = {
   note: string;

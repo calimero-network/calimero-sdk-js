@@ -9,8 +9,8 @@ import {
   createVector,
   createLwwRegister,
   createUnorderedSet,
-} from '@calimero/sdk';
-import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from '@calimero/sdk/collections';
+} from '@calimero-network/calimero-sdk-js';
+import { UnorderedMap, UnorderedSet, Vector, LwwRegister } from '@calimero-network/calimero-sdk-js/collections';
 
 import { ChannelManager } from './channelManagement/channelManagement';
 import {

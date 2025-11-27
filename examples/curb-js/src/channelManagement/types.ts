@@ -1,6 +1,6 @@
 import type { ChannelId, UserId, Username } from '../types';
 import type { StoredMessage } from '../messageManagement/types';
-import { LwwRegister, UnorderedMap, UnorderedSet, Vector } from '@calimero/sdk/collections';
+import { LwwRegister, UnorderedMap, UnorderedSet, Vector } from '@calimero-network/calimero-sdk-js/collections';
 
 export enum ChannelType {
   Default = 'default',
