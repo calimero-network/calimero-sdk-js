@@ -9,10 +9,10 @@
     "dev": "tsc --watch"
   },
   "dependencies": {
-    "@calimero/sdk": "workspace:*"
+    "@calimero-network/calimero-sdk-js": "workspace:*"
   },
   "devDependencies": {
-    "@calimero/cli": "workspace:*",
+    "@calimero-network/calimero-cli-js": "workspace:*",
     "typescript": "^5.0.0"
   }
 }

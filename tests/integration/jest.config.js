@@ -6,8 +6,8 @@ module.exports = {
   testMatch: ['**/*.test.ts'],
   testTimeout: 30000, // Integration tests may take longer
   moduleNameMapper: {
-    '^@calimero/sdk$': '<rootDir>/../../packages/sdk/src/index.ts',
-    '^@calimero/sdk/(.*)$': '<rootDir>/../../packages/sdk/src/$1',
-    '^@calimero/cli$': '<rootDir>/../../packages/cli/src/cli.ts',
+    '^@calimero-network/calimero-sdk-js$': '<rootDir>/../../packages/sdk/src/index.ts',
+    '^@calimero-network/calimero-sdk-js/(.*)$': '<rootDir>/../../packages/sdk/src/$1',
+    '^@calimero-network/calimero-cli-js$': '<rootDir>/../../packages/cli/src/cli.ts',
   },
 };

@@ -36,14 +36,14 @@ importers:
 
   examples/blobs:
     dependencies:
-      '@calimero/sdk':
+      '@calimero-network/calimero-sdk-js':
         specifier: workspace:*
         version: link:../../packages/sdk
       bs58:
         specifier: ^5.0.0
         version: 5.0.0
     devDependencies:
-      '@calimero/cli':
+      '@calimero-network/calimero-cli-js':
         specifier: workspace:*
         version: link:../../packages/cli
       typescript:
@@ -52,11 +52,11 @@ importers:
 
   examples/counter:
     dependencies:
-      '@calimero/sdk':
+      '@calimero-network/calimero-sdk-js':
         specifier: workspace:*
         version: link:../../packages/sdk
     devDependencies:
-      '@calimero/cli':
+      '@calimero-network/calimero-cli-js':
         specifier: workspace:*
         version: link:../../packages/cli
       typescript:
@@ -65,14 +65,14 @@ importers:
 
   examples/curb-js:
     dependencies:
-      '@calimero/sdk':
+      '@calimero-network/calimero-sdk-js':
         specifier: workspace:*
         version: link:../../packages/sdk
       bs58:
         specifier: ^5.0.0
         version: 5.0.0
     devDependencies:
-      '@calimero/cli':
+      '@calimero-network/calimero-cli-js':
         specifier: workspace:*
         version: link:../../packages/cli
       typescript:
@@ -81,11 +81,11 @@ importers:
 
   examples/kv-store:
     dependencies:
-      '@calimero/sdk':
+      '@calimero-network/calimero-sdk-js':
         specifier: workspace:*
         version: link:../../packages/sdk
     devDependencies:
-      '@calimero/cli':
+      '@calimero-network/calimero-cli-js':
         specifier: workspace:*
         version: link:../../packages/cli
       typescript:
@@ -94,11 +94,11 @@ importers:
 
   examples/nested-collections-demo:
     dependencies:
-      '@calimero/sdk':
+      '@calimero-network/calimero-sdk-js':
         specifier: workspace:*
         version: link:../../packages/sdk
     devDependencies:
-      '@calimero/cli':
+      '@calimero-network/calimero-cli-js':
         specifier: workspace:*
         version: link:../../packages/cli
       typescript:
@@ -107,11 +107,11 @@ importers:
 
   examples/private-data:
     dependencies:
-      '@calimero/sdk':
+      '@calimero-network/calimero-sdk-js':
         specifier: workspace:*
         version: link:../../packages/sdk
     devDependencies:
-      '@calimero/cli':
+      '@calimero-network/calimero-cli-js':
         specifier: workspace:*
         version: link:../../packages/cli
       typescript:
@@ -120,11 +120,11 @@ importers:
 
   examples/team-metrics:
     dependencies:
-      '@calimero/sdk':
+      '@calimero-network/calimero-sdk-js':
         specifier: workspace:*
         version: link:../../packages/sdk
     devDependencies:
-      '@calimero/cli':
+      '@calimero-network/calimero-cli-js':
         specifier: workspace:*
         version: link:../../packages/cli
       typescript:
@@ -133,14 +133,14 @@ importers:
 
   examples/xcall:
     dependencies:
-      '@calimero/sdk':
+      '@calimero-network/calimero-sdk-js':
         specifier: workspace:*
         version: link:../../packages/sdk
       bs58:
         specifier: ^5.0.0
         version: 5.0.0
     devDependencies:
-      '@calimero/cli':
+      '@calimero-network/calimero-cli-js':
         specifier: workspace:*
         version: link:../../packages/cli
       typescript:

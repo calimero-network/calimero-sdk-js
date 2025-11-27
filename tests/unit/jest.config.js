@@ -10,7 +10,7 @@ module.exports = {
     '!../../packages/sdk/src/**/*.test.ts',
   ],
   moduleNameMapper: {
-    '^@calimero/sdk$': '<rootDir>/../../packages/sdk/src/index.ts',
-    '^@calimero/sdk/(.*)$': '<rootDir>/../../packages/sdk/src/$1',
+    '^@calimero-network/calimero-sdk-js$': '<rootDir>/../../packages/sdk/src/index.ts',
+    '^@calimero-network/calimero-sdk-js/(.*)$': '<rootDir>/../../packages/sdk/src/$1',
   },
 };

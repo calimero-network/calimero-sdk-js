@@ -10,20 +10,26 @@ npm install -g @calimero-network/calimero-cli-js
 pnpm add -g @calimero-network/calimero-cli-js
 ```
 
-## First Time Setup
+## Automatic Installation
 
-Install build dependencies (QuickJS, WASI-SDK, Binaryen):
-
-```bash
-cd packages/cli
-pnpm install-deps
-```
-
-This will download:
+Build dependencies (QuickJS, WASI-SDK, Binaryen) are **automatically installed** when you install the package via npm/pnpm. The `postinstall` script will download:
 
 - QuickJS v0.1.3 (~10MB)
 - WASI-SDK v11 (~150MB)
 - Binaryen tools (~5MB)
+
+**No manual setup required!** The dependencies will be installed in the package's `deps` directory.
+
+### Manual Installation (if needed)
+
+If automatic installation fails, you can manually run:
+
+```bash
+cd node_modules/@calimero-network/calimero-cli-js
+pnpm install-deps
+# or
+npm run install-deps
+```
 
 ## Usage
 

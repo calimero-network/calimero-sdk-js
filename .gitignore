@@ -67,10 +67,9 @@ tmp/
 temp/
 *.tmp
 
-# QuickJS deps (downloaded on install)
-packages/cli/src/deps/quickjs/
-packages/cli/src/deps/wasi-sdk/
-packages/cli/src/deps/binaryen/
+# QuickJS deps (downloaded on install via postinstall script)
+packages/cli/deps/
+**/deps/
 
 
 

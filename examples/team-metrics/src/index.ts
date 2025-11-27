@@ -1,6 +1,6 @@
-import { State, Logic, Init, View, Mergeable } from '@calimero/sdk';
-import { UnorderedMap, Counter, Vector } from '@calimero/sdk/collections';
-import * as env from '@calimero/sdk/env';
+import { State, Logic, Init, View, Mergeable } from '@calimero-network/calimero-sdk-js';
+import { UnorderedMap, Counter, Vector } from '@calimero-network/calimero-sdk-js/collections';
+import * as env from '@calimero-network/calimero-sdk-js/env';
 
 class ContributionNoteRecord {
   message: string = '';

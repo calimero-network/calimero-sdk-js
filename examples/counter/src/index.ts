@@ -1,6 +1,6 @@
-import { State, Logic, Init, View } from '@calimero/sdk';
-import { Counter } from '@calimero/sdk/collections';
-import * as env from '@calimero/sdk/env';
+import { State, Logic, Init, View } from '@calimero-network/calimero-sdk-js';
+import { Counter } from '@calimero-network/calimero-sdk-js/collections';
+import * as env from '@calimero-network/calimero-sdk-js/env';
 
 @State
 export class CounterApp {

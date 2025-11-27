@@ -23,8 +23,8 @@ Complex nested structures like `Map<K, Set<V>>` and `Map<K, Map<K2, V2>>` work s
   - `examples/private-data`
 - ⚙️ **Workflows** – each example has a `workflows/*.yml` Merobox scenario you can run with `merobox bootstrap run …`.
 - 🛠️ **Packages**
-  - `packages/sdk` (`@calimero/sdk`) – decorators, collections, env bindings
-  - `packages/cli` (`@calimero/cli`) – Rollup ➜ QuickJS ➜ WASM toolchain
+  - `packages/sdk` (`@calimero-network/calimero-sdk-js`) – decorators, collections, env bindings
+  - `packages/cli` (`@calimero-network/calimero-cli-js`) – Rollup ➜ QuickJS ➜ WASM toolchain
 
 ---
 
@@ -39,15 +39,15 @@ Complex nested structures like `Map<K, Set<V>>` and `Map<K, Map<K2, V2>>` work s
 ### Install
 
 ```bash
-pnpm add @calimero/sdk
-pnpm add -D @calimero/cli typescript
+pnpm add @calimero-network/calimero-sdk-js
+pnpm add -D @calimero-network/calimero-cli-js typescript
 ```
 
 ### Minimal Service
 
 ```typescript
-import { State, Logic, Init, View, createCounter } from '@calimero/sdk';
-import { Counter } from '@calimero/sdk/collections';
+import { State, Logic, Init, View, createCounter } from '@calimero-network/calimero-sdk-js';
+import { Counter } from '@calimero-network/calimero-sdk-js/collections';
 
 @State
 export class CounterState {
@@ -131,11 +131,11 @@ merobox bootstrap run examples/team-metrics/workflows/team-metrics-js.yml --log-
 pnpm install
 
 # Build SDK & CLI packages
-pnpm --filter @calimero/sdk build
-pnpm --filter @calimero/cli build
+pnpm --filter @calimero-network/calimero-sdk-js build
+pnpm --filter @calimero-network/calimero-cli-js build
 
 # Run unit tests
-pnpm --filter @calimero/sdk exec jest --runInBand
+pnpm --filter @calimero-network/calimero-sdk-js exec jest --runInBand
 ```
 
 Useful docs:
