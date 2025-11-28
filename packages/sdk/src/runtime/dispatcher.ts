@@ -404,7 +404,8 @@ function createLogicDispatcher(
       const result = logicInstance[methodName](...args);
 
       if (isMutating) {
-        StateManager.save(logicInstance);
+        // Flush CRDT delta changes to host storage before saving state
+        // This ensures collection changes are persisted before we snapshot the state
         flushDelta();
         StateManager.save(logicInstance);
       }
