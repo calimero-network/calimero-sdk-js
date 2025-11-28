@@ -131,33 +131,46 @@ export function createAbiInjectionCode(manifest: AbiManifest): string {
   return `
 // Calimero ABI Runtime Injection
 // This code MUST execute immediately when the bundle loads
+// DO NOT MODIFY - This is auto-generated ABI injection code
 (function() {
   'use strict';
-  const ABI_MANIFEST = ${JSON.stringify(manifest)};
-  
-  // Store manifest globally for runtime access
-  if (typeof globalThis !== 'undefined') {
-    globalThis.__CALIMERO_ABI_MANIFEST__ = ABI_MANIFEST;
+  try {
+    const ABI_MANIFEST = ${JSON.stringify(manifest)};
     
-    // Export ABI access functions
-    globalThis.get_abi_ptr = function() {
-      return JSON.stringify(ABI_MANIFEST);
-    };
+    // Store manifest globally for runtime access
+    if (typeof globalThis !== 'undefined') {
+      globalThis.__CALIMERO_ABI_MANIFEST__ = ABI_MANIFEST;
+      
+      // Export ABI access functions
+      globalThis.get_abi_ptr = function() {
+        return JSON.stringify(ABI_MANIFEST);
+      };
+      
+      globalThis.get_abi_len = function() {
+        return JSON.stringify(ABI_MANIFEST).length;
+      };
+      
+      globalThis.get_abi = function() {
+        return JSON.stringify(ABI_MANIFEST);
+      };
+      
+      // Verify ABI was set correctly
+      if (!globalThis.__CALIMERO_ABI_MANIFEST__) {
+        throw new Error('Failed to set __CALIMERO_ABI_MANIFEST__');
+      }
+    }
     
-    globalThis.get_abi_len = function() {
-      return JSON.stringify(ABI_MANIFEST).length;
-    };
-    
-    globalThis.get_abi = function() {
-      return JSON.stringify(ABI_MANIFEST);
-    };
-  }
-  
-  // Also try to export for WASM context
-  if (typeof exports !== 'undefined') {
-    exports.get_abi_ptr = globalThis.get_abi_ptr;
-    exports.get_abi_len = globalThis.get_abi_len;
-    exports.get_abi = globalThis.get_abi;
+    // Also try to export for WASM context
+    if (typeof exports !== 'undefined') {
+      exports.get_abi_ptr = globalThis.get_abi_ptr;
+      exports.get_abi_len = globalThis.get_abi_len;
+      exports.get_abi = globalThis.get_abi;
+    }
+  } catch (error) {
+    // Log error but don't throw - allow code to continue
+    if (typeof console !== 'undefined' && console.error) {
+      console.error('[ABI] Failed to inject ABI manifest:', error);
+    }
   }
 })();
 // End of ABI Runtime Injection
