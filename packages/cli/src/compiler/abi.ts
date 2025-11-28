@@ -122,7 +122,7 @@ export async function generateCodegenAbi(
     schema_version: abi.schema_version,
     types: abi.types,
     methods: abi.methods.map((method: any) => {
-      const { is_init, is_view, ...rest } = method;
+      const { is_init: _is_init, is_view: _is_view, ...rest } = method;
       return rest;
     }),
     events: abi.events,
