@@ -555,6 +555,7 @@ function deserializeScalar(reader: BorshReader, scalar: ScalarType): unknown {
     }
 
     case 'f32':
+      return reader.readF32();
     case 'f64':
       return reader.readF64();
 
