@@ -65,25 +65,36 @@ export function saveRootState(state: any): Uint8Array {
   // Only include fields defined in the ABI state_root type
   const stateValues: Record<string, unknown> = {};
   for (const field of stateRootType.fields) {
-    const fieldValue = doc.values[field.name];
-
     // Skip collection fields (they're handled separately)
     if (field.name in doc.collections) {
       continue;
     }
 
+    const fieldValue = doc.values[field.name];
+
     // Handle nullable fields - if field is nullable and value is null/undefined, include null
-    // If field is not nullable and value is null/undefined, skip it (it will be initialized to default)
+    // If field is not nullable and value is null/undefined, provide default value based on type
     if (fieldValue === null || fieldValue === undefined) {
       if (field.nullable) {
         stateValues[field.name] = null;
+      } else {
+        // For non-nullable fields, provide default values
+        // Maps get empty Map, other types get appropriate defaults
+        if (field.type.kind === 'map') {
+          stateValues[field.name] = new Map();
+        } else if (field.type.kind === 'vector' || field.type.kind === 'list') {
+          stateValues[field.name] = [];
+        } else if (field.type.kind === 'set') {
+          stateValues[field.name] = [];
+        } else {
+          // For other types, skip and let serialization handle it
+          // But we should include it to ensure all fields are present
+          continue;
+        }
       }
-      // For non-nullable fields, skip null/undefined values
-      // They will be initialized to default values when deserialized
-      continue;
+    } else {
+      stateValues[field.name] = fieldValue;
     }
-
-    stateValues[field.name] = fieldValue;
   }
 
   // Serialize state directly using ABI-aware serialization (like Rust does)

@@ -284,7 +284,25 @@ function serializeTypeDef(
       const obj = value as Record<string, unknown>;
       for (const field of typeDef.fields) {
         const fieldValue = obj[field.name];
-        if (field.nullable && (fieldValue === null || fieldValue === undefined)) {
+        // Handle missing fields (undefined) - treat as null for nullable fields, skip for non-nullable
+        if (fieldValue === undefined) {
+          if (field.nullable) {
+            writer.writeU8(0); // None
+          } else {
+            // For non-nullable fields, skip undefined (will use default value when deserialized)
+            // But we still need to write something - use default based on type
+            // For maps, write empty map (size 0)
+            if (field.type.kind === 'map') {
+              writer.writeU32(0); // Empty map
+            } else {
+              // For other types, we can't skip - this shouldn't happen in practice
+              // but if it does, throw an error
+              throw new Error(`Missing required field ${field.name} of type ${field.type.kind}`);
+            }
+          }
+          continue;
+        }
+        if (field.nullable && fieldValue === null) {
           writer.writeU8(0); // None
         } else {
           if (field.nullable) {
