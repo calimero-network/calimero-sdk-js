@@ -6,6 +6,8 @@ module.exports = {
   testMatch: ['**/__tests__/**/*.test.ts', '**/*.test.ts'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    // Map .js imports to .ts files for Jest (TypeScript ESM compatibility)
+    '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   collectCoverageFrom: [
     'src/**/*.ts',
