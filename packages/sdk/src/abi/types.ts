@@ -53,7 +53,9 @@ export interface Event {
 }
 
 export interface TypeRef {
-  kind: 'scalar' | 'option' | 'vector' | 'map' | 'set' | 'reference';
+  // Rust ABI format uses scalar type names directly as kind (e.g., { "kind": "string" })
+  // TypeScript format uses { "kind": "scalar", "scalar": "string" }
+  kind: 'scalar' | 'option' | 'vector' | 'map' | 'set' | 'reference' | ScalarType;
   scalar?: ScalarType;
   inner?: TypeRef;
   key?: TypeRef;

@@ -75,19 +75,45 @@ function serializeValue(
   }
 
   // Handle scalar types
+  // Rust ABI format uses { "kind": "string" } directly, not { "kind": "scalar", "scalar": "string" }
   if (typeRef.kind === 'scalar') {
     serializeScalar(writer, value, typeRef.scalar!);
     return;
   }
 
-  // Handle vector types
-  if (typeRef.kind === 'vector') {
-    const innerType = typeRef.inner;
+  // Check if kind is a scalar type name directly (Rust format)
+  const scalarTypes: ScalarType[] = [
+    'bool',
+    'u8',
+    'u16',
+    'u32',
+    'u64',
+    'u128',
+    'i8',
+    'i16',
+    'i32',
+    'i64',
+    'i128',
+    'f32',
+    'f64',
+    'string',
+    'bytes',
+    'unit',
+  ];
+  if (scalarTypes.includes(typeRef.kind as ScalarType)) {
+    serializeScalar(writer, value, typeRef.kind as ScalarType);
+    return;
+  }
+
+  // Handle vector/list types
+  // Rust ABI format uses "list" instead of "vector"
+  if (typeRef.kind === 'vector' || typeRef.kind === 'list') {
+    const innerType = typeRef.inner || (typeRef as any).items; // Rust uses "items" instead of "inner"
     if (!innerType) {
-      throw new Error('Vector type missing inner type');
+      throw new Error('Vector/list type missing inner type');
     }
     if (!Array.isArray(value)) {
-      throw new Error(`Expected array for vector type, got ${typeof value}`);
+      throw new Error(`Expected array for vector/list type, got ${typeof value}`);
     }
     writer.writeU32(value.length);
     for (const item of value) {
@@ -115,8 +141,9 @@ function serializeValue(
   }
 
   // Handle reference types (records, variants, aliases)
-  if (typeRef.kind === 'reference') {
-    const typeName = typeRef.name;
+  // Rust ABI format uses "$ref" instead of { "kind": "reference", "name": "..." }
+  if (typeRef.kind === 'reference' || (typeRef as any).$ref) {
+    const typeName = typeRef.name || (typeRef as any).$ref;
     if (!typeName) {
       throw new Error('Reference type missing name');
     }
@@ -336,15 +363,40 @@ function deserializeValue(reader: BorshReader, typeRef: TypeRef, abi: AbiManifes
   }
 
   // Handle scalar types
+  // Rust ABI format uses { "kind": "string" } directly, not { "kind": "scalar", "scalar": "string" }
   if (typeRef.kind === 'scalar') {
     return deserializeScalar(reader, typeRef.scalar!);
   }
 
-  // Handle vector types
-  if (typeRef.kind === 'vector') {
-    const innerType = typeRef.inner;
+  // Check if kind is a scalar type name directly (Rust format)
+  const scalarTypes: ScalarType[] = [
+    'bool',
+    'u8',
+    'u16',
+    'u32',
+    'u64',
+    'u128',
+    'i8',
+    'i16',
+    'i32',
+    'i64',
+    'i128',
+    'f32',
+    'f64',
+    'string',
+    'bytes',
+    'unit',
+  ];
+  if (scalarTypes.includes(typeRef.kind as ScalarType)) {
+    return deserializeScalar(reader, typeRef.kind as ScalarType);
+  }
+
+  // Handle vector/list types
+  // Rust ABI format uses "list" instead of "vector"
+  if (typeRef.kind === 'vector' || typeRef.kind === 'list') {
+    const innerType = typeRef.inner || (typeRef as any).items; // Rust uses "items" instead of "inner"
     if (!innerType) {
-      throw new Error('Vector type missing inner type');
+      throw new Error('Vector/list type missing inner type');
     }
     const length = reader.readU32();
     const array: unknown[] = [];

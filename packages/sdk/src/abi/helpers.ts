@@ -37,8 +37,10 @@ export function getAbiManifest(): AbiManifest | null {
  * Resolves a TypeRef to its full TypeDef
  */
 export function resolveTypeRef(abi: AbiManifest, typeRef: TypeRef): TypeDef | null {
-  if (typeRef.kind === 'reference' && typeRef.name) {
-    return abi.types[typeRef.name] || null;
+  // Handle both TypeScript format and Rust format
+  const typeName = typeRef.name || (typeRef as any).$ref;
+  if ((typeRef.kind === 'reference' || (typeRef as any).$ref) && typeName) {
+    return abi.types[typeName] || null;
   }
   return null;
 }
