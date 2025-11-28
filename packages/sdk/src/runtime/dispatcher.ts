@@ -3,6 +3,7 @@ import { StateManager } from './state-manager';
 import { runtimeLogicEntries } from './method-registry';
 import { getAbiManifest, getMethod } from '../abi/helpers';
 import { deserializeWithAbi } from '../utils/abi-serialize';
+import type { TypeRef, AbiManifest, ScalarType } from '../abi/types';
 import './sync';
 
 type JsonObject = Record<string, unknown>;
@@ -11,6 +12,160 @@ const REGISTER_ID = 0n;
 
 if (typeof (globalThis as any).__calimero_register_merge !== 'function') {
   (globalThis as any).__calimero_register_merge = function __calimero_register_merge(): void {};
+}
+
+/**
+ * Converts a JSON value to ABI-compatible format
+ * Handles string-to-bigint conversion and other type-specific conversions
+ */
+function convertFromJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiManifest): unknown {
+  // Handle null/undefined
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  // Handle scalar types (both formats: {kind: "scalar", scalar: "u64"} and {kind: "u64"})
+  const scalarType =
+    typeRef.kind === 'scalar'
+      ? typeRef.scalar
+      : [
+            'bool',
+            'u8',
+            'u16',
+            'u32',
+            'u64',
+            'u128',
+            'i8',
+            'i16',
+            'i32',
+            'i64',
+            'i128',
+            'f32',
+            'f64',
+            'string',
+            'bytes',
+            'unit',
+          ].includes(typeRef.kind)
+        ? (typeRef.kind as ScalarType)
+        : null;
+
+  if (scalarType) {
+    // Convert string bigint types back to bigint
+    if (
+      scalarType === 'u64' ||
+      scalarType === 'i64' ||
+      scalarType === 'u128' ||
+      scalarType === 'i128'
+    ) {
+      if (typeof value === 'string') {
+        return BigInt(value);
+      }
+      if (typeof value === 'number') {
+        return BigInt(value);
+      }
+    }
+
+    // Handle bytes - convert array of numbers back to Uint8Array
+    if (scalarType === 'bytes') {
+      if (Array.isArray(value)) {
+        return new Uint8Array(value as number[]);
+      }
+    }
+
+    // For other scalars, return as-is
+    return value;
+  }
+
+  // Handle option types
+  if (typeRef.kind === 'option') {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    return convertFromJsonCompatible(value, typeRef.inner!, abi);
+  }
+
+  // Handle vector/list types
+  if (typeRef.kind === 'vector' || typeRef.kind === 'list') {
+    if (!Array.isArray(value)) {
+      throw new Error(`Expected array for ${typeRef.kind} type, got ${typeof value}`);
+    }
+    const innerType = typeRef.inner || typeRef.items;
+    if (!innerType) {
+      throw new Error(`Missing inner type for ${typeRef.kind}`);
+    }
+    return value.map(item => convertFromJsonCompatible(item, innerType, abi));
+  }
+
+  // Handle map types
+  if (typeRef.kind === 'map') {
+    if (typeof value !== 'object' || value === null) {
+      throw new Error(`Expected object for map type, got ${typeof value}`);
+    }
+    const entries = Object.entries(value);
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of entries) {
+      result[key] = convertFromJsonCompatible(val, typeRef.value!, abi);
+    }
+    return result;
+  }
+
+  // Handle set types
+  if (typeRef.kind === 'set') {
+    if (!Array.isArray(value)) {
+      throw new Error(`Expected array for set type, got ${typeof value}`);
+    }
+    const innerType = typeRef.inner || typeRef.items;
+    if (!innerType) {
+      throw new Error('Missing inner type for set');
+    }
+    return value.map(item => convertFromJsonCompatible(item, innerType, abi));
+  }
+
+  // Handle reference types (records, variants, etc.)
+  if (typeRef.kind === 'reference' || typeRef.$ref) {
+    const typeName = typeRef.name || typeRef.$ref;
+    if (!typeName) {
+      throw new Error('Missing type name for reference');
+    }
+    const typeDef = abi.types[typeName];
+    if (!typeDef) {
+      throw new Error(`Type ${typeName} not found in ABI`);
+    }
+
+    // Handle record types
+    if (typeDef.kind === 'record' && typeDef.fields) {
+      if (typeof value !== 'object' || value === null) {
+        throw new Error(`Expected object for record type ${typeName}, got ${typeof value}`);
+      }
+      const result: Record<string, unknown> = {};
+      for (const field of typeDef.fields) {
+        const fieldValue = (value as Record<string, unknown>)[field.name];
+        if (fieldValue === undefined && !field.nullable) {
+          continue; // Skip undefined fields
+        }
+        result[field.name] = convertFromJsonCompatible(fieldValue, field.type, abi);
+      }
+      return result;
+    }
+
+    // Handle variant types
+    if (typeDef.kind === 'variant' && typeDef.variants) {
+      // Variants are typically represented as objects with a discriminator
+      if (typeof value !== 'object' || value === null) {
+        throw new Error(`Expected object for variant type ${typeName}, got ${typeof value}`);
+      }
+      // Return as-is for variants (they should already be JSON-compatible)
+      return value;
+    }
+
+    // Handle alias types
+    if (typeDef.kind === 'alias' && typeDef.target) {
+      return convertFromJsonCompatible(value, typeDef.target, abi);
+    }
+  }
+
+  // Fallback: return value as-is
+  return value;
 }
 
 interface DispatcherGlobal {
@@ -31,9 +186,21 @@ function readPayload(methodName?: string): unknown {
   const buffer = new Uint8Array(len);
   readRegister(REGISTER_ID, buffer);
 
-  // ABI-aware deserialization is required
+  // Method parameters are sent as JSON (not Borsh)
+  // Decode buffer as UTF-8 string and parse JSON
+  const jsonString = new TextDecoder().decode(buffer);
+  let jsonValue: unknown;
+  try {
+    jsonValue = JSON.parse(jsonString);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    log(`[dispatcher] readPayload: failed to parse JSON for ${methodName}: ${errorMsg}`);
+    throw new Error(`Failed to parse JSON parameters: ${errorMsg}`);
+  }
+
+  // ABI-aware conversion is required
   if (!methodName) {
-    throw new Error('Method name is required for deserialization');
+    throw new Error('Method name is required for parameter conversion');
   }
 
   const abi = getAbiManifest();
@@ -52,31 +219,30 @@ function readPayload(methodName?: string): unknown {
   }
 
   try {
-    // Deserialize parameters according to ABI
-    // If single parameter, deserialize directly; if multiple, deserialize as record
+    // Convert JSON value to ABI-compatible format
+    // If single parameter, convert directly; if multiple, convert as record
     if (method.params.length === 1) {
-      const result = deserializeWithAbi(buffer, method.params[0].type, abi);
+      const result = convertFromJsonCompatible(jsonValue, method.params[0].type, abi);
       log(
-        `[dispatcher] readPayload: deserialized ${methodName} param (type: ${JSON.stringify(method.params[0].type)}, result type: ${typeof result})`
+        `[dispatcher] readPayload: converted ${methodName} param (type: ${JSON.stringify(method.params[0].type)}, result type: ${typeof result})`
       );
       return result;
     } else {
-      // Multiple parameters - deserialize as record
-      // This is a simplified approach; full implementation would need tuple support
-      const result = deserializeWithAbi(
-        buffer,
+      // Multiple parameters - convert as record
+      const result = convertFromJsonCompatible(
+        jsonValue,
         {
           kind: 'reference',
           name: `Method_${methodName}_Params`,
         },
         abi
       );
-      log(`[dispatcher] readPayload: deserialized ${methodName} params as record`);
+      log(`[dispatcher] readPayload: converted ${methodName} params as record`);
       return result;
     }
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    log(`[dispatcher] readPayload: failed to deserialize ${methodName}: ${errorMsg}`);
+    log(`[dispatcher] readPayload: failed to convert ${methodName}: ${errorMsg}`);
     throw error;
   }
 }
