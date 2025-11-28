@@ -10,6 +10,7 @@
 #include "libbf.h"
 #include "code.h"
 #include "storage_wasm.h"
+#include "abi.h"  // ABI manifest embedded as byte array
 
 static void log_c_string(const char *msg);
 
@@ -1529,8 +1530,26 @@ void calimero_method_##name() { \
   } \
   JSValue global_obj = JS_GetGlobalObject(ctx); \
   JS_SetPropertyStr(ctx, global_obj, "__CALIMERO_STORAGE_WASM__", storage_bytes); \
+  \
+  /* Inject ABI manifest as global variable (optional) */ \
+  /* Inject as string - let JavaScript parse it to avoid memory issues with large JSON */ \
+  if (calimero_abi_json_len > 0) { \
+    JSValue abi_string = JS_NewStringLen(ctx, (const char *)calimero_abi_json, calimero_abi_json_len); \
+    if (JS_IsException(abi_string)) { \
+      snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: JS_NewStringLen (ABI) exception", #name); \
+      log_c_string(log_buf); \
+      JSValue abi_exception = JS_GetException(ctx); \
+      calimero_log_exception(ctx, abi_exception, "ABI string creation"); \
+      JS_FreeValue(ctx, abi_exception); \
+      /* Continue without ABI - it's optional */ \
+    } else { \
+      /* Set as string - JavaScript code will parse it if needed */ \
+      /* Note: JS_SetPropertyStr consumes the value reference, so we don't free abi_string */ \
+      JS_SetPropertyStr(ctx, global_obj, "__CALIMERO_ABI_MANIFEST__", abi_string); \
+    } \
+  } \
   JS_FreeValue(ctx, global_obj); \
-  snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: storage wasm injected", #name); \
+  snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: storage wasm and ABI injected", #name); \
   log_c_string(log_buf); \
 \
   JSValue mod_obj = js_load_module_binary(ctx, code, code_size); \
@@ -1615,6 +1634,38 @@ void calimero_method_##name() { \
   JS_FreeRuntime(rt); \
   snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: done", #name); \
   log_c_string(log_buf); \
+}
+
+// ===========================
+// ABI Access Functions
+// ===========================
+
+// Export functions to access ABI manifest from WASM
+__attribute__((used))
+__attribute__((visibility("default")))
+__attribute__((export_name("get_abi_ptr")))
+const char* get_abi_ptr(void) {
+  return (const char*)calimero_abi_json;
+}
+
+__attribute__((used))
+__attribute__((visibility("default")))
+__attribute__((export_name("get_abi_len")))
+uint32_t get_abi_len(void) {
+  return calimero_abi_json_len;
+}
+
+__attribute__((used))
+__attribute__((visibility("default")))
+__attribute__((export_name("get_abi")))
+void get_abi(uint64_t buffer_ptr) {
+  // Copy ABI JSON to the provided buffer
+  // buffer_ptr points to a Buffer struct: [ptr: u64][len: u64]
+  CalimeroBuffer *buf = (CalimeroBuffer*)buffer_ptr;
+  if (buf && buf->len >= calimero_abi_json_len) {
+    memcpy((void*)buf->ptr, calimero_abi_json, calimero_abi_json_len);
+    buf->len = calimero_abi_json_len;
+  }
 }
 
 // Include generated method exports directly (expanded through DEFINE_CALIMERO_METHOD)

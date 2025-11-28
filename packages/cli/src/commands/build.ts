@@ -8,6 +8,7 @@ import { compileToC } from '../compiler/quickjs.js';
 import { compileToWasm } from '../compiler/wasm.js';
 import { optimizeWasm } from '../compiler/optimize.js';
 import { generateMethodsHeader } from '../compiler/methods.js';
+import { generateAbiJson, generateAbiHeader, generateCodegenAbi } from '../compiler/abi.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -31,20 +32,38 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    // Step 1: Bundle with Rollup
+    // Step 1: Generate ABI manifest
+    signale.await('Generating ABI manifest...');
+    const abiJsonPath = await generateAbiJson(source, {
+      verbose: options.verbose,
+      outputDir,
+    });
+    const abiManifest = JSON.parse(fs.readFileSync(abiJsonPath, 'utf-8'));
+    signale.success('ABI manifest generated');
+
+    // Step 2: Generate ABI header for WASM embedding
+    signale.await('Generating ABI header...');
+    await generateAbiHeader(abiJsonPath, {
+      verbose: options.verbose,
+      outputDir,
+    });
+    signale.success('ABI header generated');
+
+    // Step 3: Bundle with Rollup (with ABI injection)
     signale.await('Bundling JavaScript with Rollup...');
     const jsBundle = await bundleWithRollup(source, {
       verbose: options.verbose,
       outputDir,
+      abiManifest,
     });
     signale.success('JavaScript bundled');
 
-    // Step 2: Generate methods header
+    // Step 4: Generate methods header
     signale.await('Extracting service methods...');
     await generateMethodsHeader(jsBundle, outputDir);
     signale.success('Methods extracted');
 
-    // Step 3: Compile to C with QuickJS
+    // Step 5: Compile to C with QuickJS
     signale.await('Compiling to C with QuickJS...');
     const cCodePath = await compileToC(jsBundle, {
       verbose: options.verbose,
@@ -52,7 +71,7 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
     });
     signale.success('Compiled to C');
 
-    // Step 4: Compile to WASM
+    // Step 6: Compile to WASM
     signale.await('Compiling to WebAssembly...');
     const wasmPath = await compileToWasm(cCodePath, {
       verbose: options.verbose,
@@ -60,7 +79,25 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
     });
     signale.success('Compiled to WASM');
 
-    // Step 5: Optimize (if enabled)
+    // Step 7: Generate codegen-compatible ABI for client generation
+    // Note: ABI JSON is already written to outputDir by generateAbiJson, no copy needed
+    try {
+      await generateCodegenAbi(abiJsonPath, {
+        verbose: options.verbose,
+        outputDir: outputDir,
+      });
+      const codegenAbiPath = path.join(path.dirname(options.output), 'abi.codegen.json');
+      if (options.verbose) {
+        signale.info(`Codegen-compatible ABI saved to: ${codegenAbiPath}`);
+      }
+    } catch (error) {
+      // Non-fatal: codegen ABI generation is optional
+      if (options.verbose) {
+        signale.warn(`Failed to generate codegen ABI: ${error}`);
+      }
+    }
+
+    // Step 8: Optimize (if enabled)
     if (options.optimize) {
       signale.await('Optimizing WASM...');
       await optimizeWasm(wasmPath, options.output, {
