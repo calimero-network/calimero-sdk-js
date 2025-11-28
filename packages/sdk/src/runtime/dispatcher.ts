@@ -234,7 +234,7 @@ function readPayload(methodName?: string): unknown {
 
   try {
     // Convert JSON value to ABI-compatible format
-    // If single parameter, convert directly; if multiple, convert as record
+    // If single parameter, convert directly; if multiple, convert each parameter individually
     if (method.params.length === 1) {
       const result = convertFromJsonCompatible(jsonValue, method.params[0].type, abi);
       log(
@@ -242,16 +242,24 @@ function readPayload(methodName?: string): unknown {
       );
       return result;
     } else {
-      // Multiple parameters - convert as record
-      const result = convertFromJsonCompatible(
-        jsonValue,
-        {
-          kind: 'reference',
-          name: `Method_${methodName}_Params`,
-        },
-        abi
-      );
-      log(`[dispatcher] readPayload: converted ${methodName} params as record`);
+      // Multiple parameters - deserialize each parameter individually
+      // JSON payload should be an object with keys matching parameter names
+      if (typeof jsonValue !== 'object' || jsonValue === null || Array.isArray(jsonValue)) {
+        throw new Error(`Expected object for multiple parameters, got ${typeof jsonValue}`);
+      }
+      const jsonObj = jsonValue as Record<string, unknown>;
+      const result: Record<string, unknown> = {};
+      for (const param of method.params) {
+        const paramValue = jsonObj[param.name];
+        if (paramValue === undefined) {
+          // Parameter missing - could be optional or have default value
+          // For now, we'll include undefined and let the method handle it
+          result[param.name] = undefined;
+        } else {
+          result[param.name] = convertFromJsonCompatible(paramValue, param.type, abi);
+        }
+      }
+      log(`[dispatcher] readPayload: converted ${methodName} params individually`);
       return result;
     }
   } catch (error) {
