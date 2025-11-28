@@ -22,10 +22,15 @@ describe('ABI Conformance Tests', () => {
   let testFileCounter = 0;
 
   // Helper to generate ABI from source code using Rust format
+  // Only processes the single test file, not the entire project
   function generateAbiFromSourceRust(source: string): any {
     const testFile = path.join(testFilesDir, `test-${testFileCounter++}.ts`);
     fs.writeFileSync(testFile, source);
-    return generateAbiManifestRustFormat(testFile);
+    
+    // Use AbiEmitter directly to only process the single file
+    const emitter = new AbiEmitter();
+    emitter.analyzeFile(testFile);
+    return emitter.generateManifestRustFormat();
   }
 
   beforeAll(() => {
