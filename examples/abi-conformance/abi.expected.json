@@ -1,0 +1,1322 @@
+{
+  "schema_version": "wasm-abi/1",
+  "types": {
+    "UserId32": {
+      "kind": "alias",
+      "target": {
+        "kind": "bytes"
+      }
+    },
+    "Hash64": {
+      "kind": "alias",
+      "target": {
+        "kind": "bytes"
+      }
+    },
+    "Person": {
+      "kind": "record",
+      "fields": [
+        {
+          "name": "id",
+          "type": {
+            "$ref": "UserId32"
+          }
+        },
+        {
+          "name": "name",
+          "type": {
+            "kind": "string"
+          }
+        },
+        {
+          "name": "age",
+          "type": {
+            "kind": "u32"
+          }
+        }
+      ]
+    },
+    "CustomRecord": {
+      "kind": "record",
+      "fields": [
+        {
+          "name": "name",
+          "type": {
+            "kind": "string"
+          }
+        },
+        {
+          "name": "value",
+          "type": {
+            "kind": "u64"
+          }
+        },
+        {
+          "name": "active",
+          "type": {
+            "kind": "bool"
+          }
+        }
+      ]
+    },
+    "Profile": {
+      "kind": "record",
+      "fields": [
+        {
+          "name": "bio",
+          "type": {
+            "kind": "string"
+          }
+        },
+        {
+          "name": "avatar",
+          "type": {
+            "kind": "string"
+          }
+        },
+        {
+          "name": "nicknames",
+          "type": {
+            "kind": "list",
+            "items": {
+              "kind": "string"
+            }
+          }
+        }
+      ]
+    },
+    "NestedRecord": {
+      "kind": "record",
+      "fields": [
+        {
+          "name": "record",
+          "type": {
+            "$ref": "CustomRecord"
+          }
+        },
+        {
+          "name": "tags",
+          "type": {
+            "kind": "list",
+            "items": {
+              "kind": "string"
+            }
+          }
+        }
+      ]
+    },
+    "UpdatePayload": {
+      "kind": "record",
+      "fields": [
+        {
+          "name": "age",
+          "type": {
+            "kind": "u32"
+          }
+        }
+      ]
+    },
+    "InternalResult": {
+      "kind": "record",
+      "fields": [
+        {
+          "name": "original",
+          "type": {
+            "kind": "u32"
+          }
+        },
+        {
+          "name": "calculated",
+          "type": {
+            "kind": "u32"
+          }
+        }
+      ]
+    },
+    "Action_MultiTuple": {
+      "kind": "record",
+      "fields": [
+        {
+          "name": "field_0",
+          "type": {
+            "kind": "u32"
+          }
+        },
+        {
+          "name": "field_1",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ]
+    },
+    "Action_MultiStruct": {
+      "kind": "record",
+      "fields": [
+        {
+          "name": "x",
+          "type": {
+            "kind": "u32"
+          }
+        },
+        {
+          "name": "y",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ]
+    },
+    "Event_TupleEvent": {
+      "kind": "record",
+      "fields": [
+        {
+          "name": "field_0",
+          "type": {
+            "kind": "u32"
+          }
+        },
+        {
+          "name": "field_1",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ]
+    },
+    "Event_StructEvent": {
+      "kind": "record",
+      "fields": [
+        {
+          "name": "id",
+          "type": {
+            "kind": "u32"
+          }
+        },
+        {
+          "name": "name",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ]
+    },
+    "Status_Active": {
+      "kind": "record",
+      "fields": [
+        {
+          "name": "timestamp",
+          "type": {
+            "kind": "u64"
+          }
+        }
+      ]
+    },
+    "Status_Completed": {
+      "kind": "record",
+      "fields": [
+        {
+          "name": "result",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ]
+    },
+    "AbiState": {
+      "kind": "record",
+      "fields": [
+        {
+          "name": "counters",
+          "type": {
+            "kind": "map",
+            "key": {
+              "kind": "string"
+            },
+            "value": {
+              "kind": "u32"
+            }
+          }
+        },
+        {
+          "name": "users",
+          "type": {
+            "kind": "list",
+            "items": {
+              "kind": "reference",
+              "name": "UserId32"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "methods": [
+    {
+      "name": "init",
+      "params": [],
+      "returns": {
+        "$ref": "AbiState"
+      },
+      "is_init": true
+    },
+    {
+      "name": "noop",
+      "params": [],
+      "returns": {
+        "kind": "unit"
+      }
+    },
+    {
+      "name": "echo_bool",
+      "params": [
+        {
+          "name": "b",
+          "type": {
+            "kind": "bool"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "bool"
+      }
+    },
+    {
+      "name": "echo_i32",
+      "params": [
+        {
+          "name": "x",
+          "type": {
+            "kind": "u32"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "u32"
+      }
+    },
+    {
+      "name": "echo_i64",
+      "params": [
+        {
+          "name": "x",
+          "type": {
+            "kind": "u64"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "u64"
+      }
+    },
+    {
+      "name": "echo_u32",
+      "params": [
+        {
+          "name": "x",
+          "type": {
+            "kind": "u32"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "u32"
+      }
+    },
+    {
+      "name": "echo_u64",
+      "params": [
+        {
+          "name": "x",
+          "type": {
+            "kind": "u64"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "u64"
+      }
+    },
+    {
+      "name": "echo_f32",
+      "params": [
+        {
+          "name": "x",
+          "type": {
+            "kind": "u32"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "u32"
+      }
+    },
+    {
+      "name": "echo_f64",
+      "params": [
+        {
+          "name": "x",
+          "type": {
+            "kind": "u32"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "u32"
+      }
+    },
+    {
+      "name": "echo_string",
+      "params": [
+        {
+          "name": "s",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "string"
+      }
+    },
+    {
+      "name": "echo_bytes",
+      "params": [
+        {
+          "name": "b",
+          "type": {
+            "kind": "bytes"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "bytes"
+      }
+    },
+    {
+      "name": "opt_u32",
+      "params": [
+        {
+          "name": "x",
+          "type": {
+            "kind": "u32"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "string"
+      }
+    },
+    {
+      "name": "opt_string",
+      "params": [
+        {
+          "name": "s",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "string"
+      }
+    },
+    {
+      "name": "opt_record",
+      "params": [
+        {
+          "name": "p",
+          "type": {
+            "$ref": "Person"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "string"
+      }
+    },
+    {
+      "name": "opt_id",
+      "params": [
+        {
+          "name": "x",
+          "type": {
+            "$ref": "UserId32"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "string"
+      }
+    },
+    {
+      "name": "list_u32",
+      "params": [
+        {
+          "name": "xs",
+          "type": {
+            "kind": "list",
+            "items": {
+              "kind": "u32"
+            }
+          }
+        }
+      ],
+      "returns": {
+        "kind": "list",
+        "items": {
+          "kind": "u32"
+        }
+      }
+    },
+    {
+      "name": "list_strings",
+      "params": [
+        {
+          "name": "xs",
+          "type": {
+            "kind": "list",
+            "items": {
+              "kind": "string"
+            }
+          }
+        }
+      ],
+      "returns": {
+        "kind": "list",
+        "items": {
+          "kind": "string"
+        }
+      }
+    },
+    {
+      "name": "list_records",
+      "params": [
+        {
+          "name": "ps",
+          "type": {
+            "kind": "list",
+            "items": {
+              "$ref": "Person"
+            }
+          }
+        }
+      ],
+      "returns": {
+        "kind": "list",
+        "items": {
+          "$ref": "Person"
+        }
+      }
+    },
+    {
+      "name": "list_ids",
+      "params": [
+        {
+          "name": "xs",
+          "type": {
+            "kind": "list",
+            "items": {
+              "$ref": "UserId32"
+            }
+          }
+        }
+      ],
+      "returns": {
+        "kind": "list",
+        "items": {
+          "$ref": "UserId32"
+        }
+      }
+    },
+    {
+      "name": "map_u32",
+      "params": [
+        {
+          "name": "m",
+          "type": {
+            "$ref": "Map"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "Map"
+      }
+    },
+    {
+      "name": "map_list_u32",
+      "params": [
+        {
+          "name": "m",
+          "type": {
+            "$ref": "Map"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "Map"
+      }
+    },
+    {
+      "name": "map_record",
+      "params": [
+        {
+          "name": "m",
+          "type": {
+            "$ref": "Map"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "Map"
+      }
+    },
+    {
+      "name": "make_person",
+      "params": [
+        {
+          "name": "p",
+          "type": {
+            "$ref": "Person"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "Person"
+      }
+    },
+    {
+      "name": "profile_roundtrip",
+      "params": [
+        {
+          "name": "p",
+          "type": {
+            "$ref": "Profile"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "Profile"
+      }
+    },
+    {
+      "name": "act",
+      "params": [
+        {
+          "name": "a",
+          "type": {
+            "$ref": "Action"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "u32"
+      }
+    },
+    {
+      "name": "handle_multi_tuple",
+      "params": [
+        {
+          "name": "a",
+          "type": {
+            "$ref": "Action"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "string"
+      }
+    },
+    {
+      "name": "handle_multi_struct",
+      "params": [
+        {
+          "name": "a",
+          "type": {
+            "$ref": "Action"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "u32"
+      }
+    },
+    {
+      "name": "roundtrip_id",
+      "params": [
+        {
+          "name": "x",
+          "type": {
+            "$ref": "UserId32"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "UserId32"
+      }
+    },
+    {
+      "name": "roundtrip_hash",
+      "params": [
+        {
+          "name": "h",
+          "type": {
+            "$ref": "Hash64"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "Hash64"
+      }
+    },
+    {
+      "name": "may_fail",
+      "params": [
+        {
+          "name": "flag",
+          "type": {
+            "kind": "bool"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "u32"
+      }
+    },
+    {
+      "name": "find_person",
+      "params": [
+        {
+          "name": "name",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "Person"
+      }
+    },
+    {
+      "name": "public_with_private_helper",
+      "params": [
+        {
+          "name": "value",
+          "type": {
+            "kind": "u32"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "u32"
+      }
+    },
+    {
+      "name": "get_internal_result",
+      "params": [
+        {
+          "name": "value",
+          "type": {
+            "kind": "u32"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "InternalResult"
+      }
+    },
+    {
+      "name": "create_custom_record",
+      "params": [
+        {
+          "name": "name",
+          "type": {
+            "kind": "string"
+          }
+        },
+        {
+          "name": "value",
+          "type": {
+            "kind": "u64"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "CustomRecord"
+      }
+    },
+    {
+      "name": "get_nested_record",
+      "params": [
+        {
+          "name": "name",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "NestedRecord"
+      }
+    },
+    {
+      "name": "get_status",
+      "params": [
+        {
+          "name": "timestamp",
+          "type": {
+            "kind": "u64"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "Status"
+      }
+    },
+    {
+      "name": "init",
+      "params": [],
+      "returns": {
+        "$ref": "AbiState"
+      },
+      "is_init": true
+    },
+    {
+      "name": "noop",
+      "params": [],
+      "returns": {
+        "kind": "unit"
+      }
+    },
+    {
+      "name": "echo_bool",
+      "params": [
+        {
+          "name": "b",
+          "type": {
+            "kind": "bool"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "bool"
+      }
+    },
+    {
+      "name": "echo_i32",
+      "params": [
+        {
+          "name": "x",
+          "type": {
+            "kind": "u32"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "u32"
+      }
+    },
+    {
+      "name": "echo_i64",
+      "params": [
+        {
+          "name": "x",
+          "type": {
+            "kind": "u64"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "u64"
+      }
+    },
+    {
+      "name": "echo_u32",
+      "params": [
+        {
+          "name": "x",
+          "type": {
+            "kind": "u32"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "u32"
+      }
+    },
+    {
+      "name": "echo_u64",
+      "params": [
+        {
+          "name": "x",
+          "type": {
+            "kind": "u64"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "u64"
+      }
+    },
+    {
+      "name": "echo_f32",
+      "params": [
+        {
+          "name": "x",
+          "type": {
+            "kind": "u32"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "u32"
+      }
+    },
+    {
+      "name": "echo_f64",
+      "params": [
+        {
+          "name": "x",
+          "type": {
+            "kind": "u32"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "u32"
+      }
+    },
+    {
+      "name": "echo_string",
+      "params": [
+        {
+          "name": "s",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "string"
+      }
+    },
+    {
+      "name": "echo_bytes",
+      "params": [
+        {
+          "name": "b",
+          "type": {
+            "kind": "bytes"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "bytes"
+      }
+    },
+    {
+      "name": "opt_u32",
+      "params": [
+        {
+          "name": "x",
+          "type": {
+            "kind": "u32"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "string"
+      }
+    },
+    {
+      "name": "opt_string",
+      "params": [
+        {
+          "name": "s",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "string"
+      }
+    },
+    {
+      "name": "opt_record",
+      "params": [
+        {
+          "name": "p",
+          "type": {
+            "$ref": "Person"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "string"
+      }
+    },
+    {
+      "name": "opt_id",
+      "params": [
+        {
+          "name": "x",
+          "type": {
+            "$ref": "UserId32"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "string"
+      }
+    },
+    {
+      "name": "list_u32",
+      "params": [
+        {
+          "name": "xs",
+          "type": {
+            "kind": "list",
+            "items": {
+              "kind": "u32"
+            }
+          }
+        }
+      ],
+      "returns": {
+        "kind": "list",
+        "items": {
+          "kind": "u32"
+        }
+      }
+    },
+    {
+      "name": "list_strings",
+      "params": [
+        {
+          "name": "xs",
+          "type": {
+            "kind": "list",
+            "items": {
+              "kind": "string"
+            }
+          }
+        }
+      ],
+      "returns": {
+        "kind": "list",
+        "items": {
+          "kind": "string"
+        }
+      }
+    },
+    {
+      "name": "list_records",
+      "params": [
+        {
+          "name": "ps",
+          "type": {
+            "kind": "list",
+            "items": {
+              "$ref": "Person"
+            }
+          }
+        }
+      ],
+      "returns": {
+        "kind": "list",
+        "items": {
+          "$ref": "Person"
+        }
+      }
+    },
+    {
+      "name": "list_ids",
+      "params": [
+        {
+          "name": "xs",
+          "type": {
+            "kind": "list",
+            "items": {
+              "$ref": "UserId32"
+            }
+          }
+        }
+      ],
+      "returns": {
+        "kind": "list",
+        "items": {
+          "$ref": "UserId32"
+        }
+      }
+    },
+    {
+      "name": "map_u32",
+      "params": [
+        {
+          "name": "m",
+          "type": {
+            "$ref": "Map"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "Map"
+      }
+    },
+    {
+      "name": "map_list_u32",
+      "params": [
+        {
+          "name": "m",
+          "type": {
+            "$ref": "Map"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "Map"
+      }
+    },
+    {
+      "name": "map_record",
+      "params": [
+        {
+          "name": "m",
+          "type": {
+            "$ref": "Map"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "Map"
+      }
+    },
+    {
+      "name": "make_person",
+      "params": [
+        {
+          "name": "p",
+          "type": {
+            "$ref": "Person"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "Person"
+      }
+    },
+    {
+      "name": "profile_roundtrip",
+      "params": [
+        {
+          "name": "p",
+          "type": {
+            "$ref": "Profile"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "Profile"
+      }
+    },
+    {
+      "name": "act",
+      "params": [
+        {
+          "name": "a",
+          "type": {
+            "$ref": "Action"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "u32"
+      }
+    },
+    {
+      "name": "handle_multi_tuple",
+      "params": [
+        {
+          "name": "a",
+          "type": {
+            "$ref": "Action"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "string"
+      }
+    },
+    {
+      "name": "handle_multi_struct",
+      "params": [
+        {
+          "name": "a",
+          "type": {
+            "$ref": "Action"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "u32"
+      }
+    },
+    {
+      "name": "roundtrip_id",
+      "params": [
+        {
+          "name": "x",
+          "type": {
+            "$ref": "UserId32"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "UserId32"
+      }
+    },
+    {
+      "name": "roundtrip_hash",
+      "params": [
+        {
+          "name": "h",
+          "type": {
+            "$ref": "Hash64"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "Hash64"
+      }
+    },
+    {
+      "name": "may_fail",
+      "params": [
+        {
+          "name": "flag",
+          "type": {
+            "kind": "bool"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "u32"
+      }
+    },
+    {
+      "name": "find_person",
+      "params": [
+        {
+          "name": "name",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "Person"
+      }
+    },
+    {
+      "name": "public_with_private_helper",
+      "params": [
+        {
+          "name": "value",
+          "type": {
+            "kind": "u32"
+          }
+        }
+      ],
+      "returns": {
+        "kind": "u32"
+      }
+    },
+    {
+      "name": "get_internal_result",
+      "params": [
+        {
+          "name": "value",
+          "type": {
+            "kind": "u32"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "InternalResult"
+      }
+    },
+    {
+      "name": "create_custom_record",
+      "params": [
+        {
+          "name": "name",
+          "type": {
+            "kind": "string"
+          }
+        },
+        {
+          "name": "value",
+          "type": {
+            "kind": "u64"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "CustomRecord"
+      }
+    },
+    {
+      "name": "get_nested_record",
+      "params": [
+        {
+          "name": "name",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "NestedRecord"
+      }
+    },
+    {
+      "name": "get_status",
+      "params": [
+        {
+          "name": "timestamp",
+          "type": {
+            "kind": "u64"
+          }
+        }
+      ],
+      "returns": {
+        "$ref": "Status"
+      }
+    }
+  ],
+  "events": [
+    {
+      "name": "Ping"
+    },
+    {
+      "name": "Named"
+    },
+    {
+      "name": "Data"
+    },
+    {
+      "name": "PersonUpdated"
+    },
+    {
+      "name": "ActionTaken"
+    },
+    {
+      "name": "TupleEvent"
+    },
+    {
+      "name": "StructEvent"
+    }
+  ],
+  "state_root": "AbiState"
+}
