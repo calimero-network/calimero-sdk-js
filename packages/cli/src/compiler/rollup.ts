@@ -15,7 +15,7 @@ import * as path from 'path';
 interface RollupOptions {
   verbose: boolean;
   outputDir: string;
-  abiManifest?: any; // Optional ABI manifest to inject
+  abiManifest: any; // Required ABI manifest to inject
 }
 
 /**
@@ -58,17 +58,15 @@ export async function bundleWithRollup(source: string, options: RollupOptions): 
     return {
       name: 'abi-inject',
       generateBundle(_options, bundle) {
-        if (options.abiManifest) {
-          // Inject ABI manifest as a global variable
-          const abiCode = `\n// Injected ABI manifest\nif (typeof globalThis !== 'undefined') {\n  globalThis.__CALIMERO_ABI_MANIFEST__ = ${JSON.stringify(options.abiManifest)};\n}\n`;
+        // Inject ABI manifest as a global variable (required)
+        const abiCode = `\n// Injected ABI manifest\nif (typeof globalThis !== 'undefined') {\n  globalThis.__CALIMERO_ABI_MANIFEST__ = ${JSON.stringify(options.abiManifest)};\n}\n`;
 
-          // Find the main bundle chunk and prepend ABI code
-          for (const fileName in bundle) {
-            const chunk = bundle[fileName];
-            if (chunk.type === 'chunk' && chunk.isEntry) {
-              chunk.code = abiCode + chunk.code;
-              break;
-            }
+        // Find the main bundle chunk and prepend ABI code
+        for (const fileName in bundle) {
+          const chunk = bundle[fileName];
+          if (chunk.type === 'chunk' && chunk.isEntry) {
+            chunk.code = abiCode + chunk.code;
+            break;
           }
         }
       },
@@ -99,10 +97,8 @@ export async function bundleWithRollup(source: string, options: RollupOptions): 
     }),
   ];
 
-  // Add ABI injection plugin if manifest is provided
-  if (options.abiManifest) {
-    plugins.push(abiInjectPlugin());
-  }
+  // Add ABI injection plugin (required)
+  plugins.push(abiInjectPlugin());
 
   const bundle = await rollup({
     input: entryFile,

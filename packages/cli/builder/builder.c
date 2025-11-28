@@ -1531,23 +1531,28 @@ void calimero_method_##name() { \
   JSValue global_obj = JS_GetGlobalObject(ctx); \
   JS_SetPropertyStr(ctx, global_obj, "__CALIMERO_STORAGE_WASM__", storage_bytes); \
   \
-  /* Inject ABI manifest as global variable (optional) */ \
+  /* Inject ABI manifest as global variable (required) */ \
   /* Inject as string - let JavaScript parse it to avoid memory issues with large JSON */ \
-  if (calimero_abi_json_len > 0) { \
-    JSValue abi_string = JS_NewStringLen(ctx, (const char *)calimero_abi_json, calimero_abi_json_len); \
-    if (JS_IsException(abi_string)) { \
-      snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: JS_NewStringLen (ABI) exception", #name); \
-      log_c_string(log_buf); \
-      JSValue abi_exception = JS_GetException(ctx); \
-      calimero_log_exception(ctx, abi_exception, "ABI string creation"); \
-      JS_FreeValue(ctx, abi_exception); \
-      /* Continue without ABI - it's optional */ \
-    } else { \
-      /* Set as string - JavaScript code will parse it if needed */ \
-      /* Note: JS_SetPropertyStr consumes the value reference, so we don't free abi_string */ \
-      JS_SetPropertyStr(ctx, global_obj, "__CALIMERO_ABI_MANIFEST__", abi_string); \
-    } \
+  if (calimero_abi_json_len == 0) { \
+    snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: ABI manifest is required but not found", #name); \
+    log_c_string(log_buf); \
+    calimero_panic_c_string("ABI manifest is required but not embedded in WASM"); \
   } \
+  JSValue abi_string = JS_NewStringLen(ctx, (const char *)calimero_abi_json, calimero_abi_json_len); \
+  if (JS_IsException(abi_string)) { \
+    snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: JS_NewStringLen (ABI) exception", #name); \
+    log_c_string(log_buf); \
+    JSValue abi_exception = JS_GetException(ctx); \
+    calimero_log_exception(ctx, abi_exception, "ABI string creation"); \
+    calimero_panic_with_exception(ctx, abi_exception); \
+    JS_FreeValue(ctx, abi_exception); \
+    JS_FreeContext(ctx); \
+    JS_FreeRuntime(rt); \
+    __builtin_unreachable(); \
+  } \
+  /* Set as string - JavaScript code will parse it if needed */ \
+  /* Note: JS_SetPropertyStr consumes the value reference, so we don't free abi_string */ \
+  JS_SetPropertyStr(ctx, global_obj, "__CALIMERO_ABI_MANIFEST__", abi_string); \
   JS_FreeValue(ctx, global_obj); \
   snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: storage wasm and ABI injected", #name); \
   log_c_string(log_buf); \
