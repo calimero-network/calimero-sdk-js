@@ -10,6 +10,8 @@ import '../polyfills/text-encoding';
 import type { HostEnv } from './bindings';
 import { exposeValue } from '../utils/expose';
 import { serialize } from '../utils/serialize';
+import { getAbiManifest, getMethod } from '../abi/helpers';
+import { serializeWithAbi } from '../utils/abi-serialize';
 
 // This will be provided by QuickJS runtime via builder.c
 declare const env: HostEnv;
@@ -33,7 +35,26 @@ export function panic(message: string): never {
   env.panic_utf8(textEncoder.encode(message));
 }
 
-export function valueReturn(value: unknown): void {
+export function valueReturn(value: unknown, methodName?: string): void {
+  // Try ABI-aware serialization if method name and ABI are available
+  if (methodName) {
+    const abi = getAbiManifest();
+    if (abi) {
+      const method = getMethod(abi, methodName);
+      if (method && method.returns) {
+        try {
+          const serialized = serializeWithAbi(value, method.returns, abi);
+          env.value_return(serialized);
+          return;
+        } catch (error) {
+          // Fall back to generic serialization if ABI serialization fails
+          // Log error in verbose mode only
+        }
+      }
+    }
+  }
+
+  // Fallback to generic serialization
   if (value instanceof Uint8Array) {
     env.value_return(value);
     return;

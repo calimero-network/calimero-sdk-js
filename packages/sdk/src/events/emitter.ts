@@ -4,6 +4,8 @@
 
 import type { AppEvent } from './types';
 import { serializeJsValue } from '../utils/borsh-value';
+import { getAbiManifest, getEventPayloadType } from '../abi/helpers';
+import { serializeWithAbi } from '../utils/abi-serialize';
 
 // This will be provided by QuickJS runtime
 declare const env: {
@@ -27,6 +29,47 @@ export function emitWithHandler(event: unknown, handlerName: string): void {
 }
 
 function extractPayload(event: unknown): Uint8Array {
+  const eventName = eventConstructorName(event);
+  
+  // Try ABI-aware serialization if event name and ABI are available
+  const abi = getAbiManifest();
+  if (abi) {
+    const payloadType = getEventPayloadType(abi, eventName);
+    if (payloadType) {
+      try {
+        // Extract the actual payload value from the event
+        let payloadValue: unknown = event;
+        
+        // If event has a serialize method, use it first
+        const maybeEvent = event as AppEvent | undefined;
+        if (maybeEvent && typeof maybeEvent.serialize === 'function') {
+          const serialized = maybeEvent.serialize();
+          if (serialized instanceof Uint8Array) {
+            return serialized;
+          }
+          if (typeof serialized === 'string') {
+            return encoder.encode(serialized);
+          }
+          payloadValue = serialized;
+        } else if (typeof event === 'object' && event !== null) {
+          // Extract payload from event object
+          const eventObj = event as Record<string, unknown>;
+          if ('payload' in eventObj) {
+            payloadValue = eventObj.payload;
+          } else {
+            // Use the event object itself as payload
+            payloadValue = eventObj;
+          }
+        }
+        
+        return serializeWithAbi(payloadValue, payloadType, abi);
+      } catch (error) {
+        // Fall back to generic serialization if ABI serialization fails
+      }
+    }
+  }
+
+  // Fallback to generic serialization
   const maybeEvent = event as AppEvent | undefined;
   if (maybeEvent && typeof maybeEvent.serialize === 'function') {
     const serialized = maybeEvent.serialize();

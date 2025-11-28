@@ -2,6 +2,8 @@ import { log, valueReturn, flushDelta, registerLen, readRegister, input, panic }
 import { StateManager } from './state-manager';
 import { runtimeLogicEntries } from './method-registry';
 import { deserialize } from '../utils/serialize';
+import { getAbiManifest, getMethod } from '../abi/helpers';
+import { deserializeWithAbi } from '../utils/abi-serialize';
 import './sync';
 
 type JsonObject = Record<string, unknown>;
@@ -20,7 +22,7 @@ interface DispatcherGlobal {
 const globalTarget: DispatcherGlobal | undefined =
   typeof globalThis !== 'undefined' ? (globalThis as DispatcherGlobal) : undefined;
 
-function readPayload(): unknown {
+function readPayload(methodName?: string): unknown {
   input(REGISTER_ID);
   const len = Number(registerLen(REGISTER_ID));
   if (!Number.isFinite(len) || len <= 0) {
@@ -29,6 +31,35 @@ function readPayload(): unknown {
 
   const buffer = new Uint8Array(len);
   readRegister(REGISTER_ID, buffer);
+
+  // Try ABI-aware deserialization if method name and ABI are available
+  if (methodName) {
+    const abi = getAbiManifest();
+    if (abi) {
+      const method = getMethod(abi, methodName);
+      if (method && method.params.length > 0) {
+        try {
+          // For now, deserialize as a tuple of parameters
+          // If single parameter, deserialize directly; if multiple, deserialize as record
+          if (method.params.length === 1) {
+            return deserializeWithAbi(buffer, method.params[0].type, abi);
+          } else {
+            // Multiple parameters - deserialize as record
+            // This is a simplified approach; full implementation would need tuple support
+            return deserializeWithAbi(buffer, {
+              kind: 'reference',
+              name: `Method_${methodName}_Params`,
+            }, abi);
+          }
+        } catch (error) {
+          // Fall back to generic deserialization if ABI deserialization fails
+          logError(`ABI deserialization failed for ${methodName}, falling back`, error);
+        }
+      }
+    }
+  }
+
+  // Fallback to generic deserialization
   const decoded = textDecoder.decode(buffer);
   if (decoded.length > 0) {
     try {
@@ -106,7 +137,7 @@ function createLogicDispatcher(
   isMutating: boolean = true
 ): () => void {
   return function dispatch(): void {
-    const payload = readPayload();
+    const payload = readPayload(methodName);
     const args = normalizeArgs(payload, paramNames);
 
     let logicInstance: any;
@@ -136,7 +167,7 @@ function createLogicDispatcher(
       }
 
       if (result !== undefined) {
-        valueReturn(result);
+        valueReturn(result, methodName);
       }
     } catch (error) {
       handleError(methodName, error);
@@ -153,7 +184,7 @@ function createInitDispatcher(
   paramNames: string[] = []
 ): () => void {
   return function initDispatch(): void {
-    const payload = readPayload();
+    const payload = readPayload(methodName);
     const args = normalizeArgs(payload, paramNames);
 
     let state: any;
@@ -164,6 +195,7 @@ function createInitDispatcher(
       }
 
       const result = logicCtor[methodName](...args);
+      // Init methods typically return void or state, so we don't serialize the return value
       state = result ?? (stateCtor ? new stateCtor() : undefined);
       if (!state) {
         panic('Init method must return state instance');
