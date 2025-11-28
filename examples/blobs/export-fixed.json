@@ -1,0 +1,559 @@
+{
+  "data": {
+    "Alias": {
+      "count": 0,
+      "entries": []
+    },
+    "Application": {
+      "count": 1,
+      "entries": [
+        {
+          "key": {
+            "id": "ab397ac94810474627327072bddafe6d9ec9d3a037a1706fc4c54cbecbdc2b36"
+          },
+          "value": {
+            "bytecode": "��X��\u0018?�/A�I�B\u0010v͟.�f���C�ߙ��-",
+            "compiled": "����#�t���(I��t�+h�{\u0006\u0007R\u001b�ǑʹL��",
+            "metadata": "",
+            "package": "unknown",
+            "size": 1474123,
+            "source": "file:///app/data/service.wasm",
+            "version": "0.0.0"
+          }
+        }
+      ]
+    },
+    "Blobs": {
+      "count": 12,
+      "entries": [
+        {
+          "key": {
+            "id": "0ac5f6940fde782c22e54ee45099c06aba784e35ac04ed2cb0001ffbc918eaef"
+          },
+          "value": {
+            "hash": "\n���\u000f�x,\"�N�P��j�xN5�\u0004�,�\u0000\u001f��\u0018��",
+            "links_count": 0,
+            "size": 475
+          }
+        },
+        {
+          "key": {
+            "id": "0ffae6519ed9e8b066839a62959f428455afc236da1b31dfc4700b94116e13d8"
+          },
+          "value": {
+            "hash": "\u000f��Q���f��b��B�U��6�\u001b1��p\u000b�\u0011n\u0013�",
+            "links_count": 0,
+            "size": 1048576
+          }
+        },
+        {
+          "key": {
+            "id": "2c0673a43fd3c80a7cd5aab1cf8be9eb7f29dcdbe82915e78df489dbbb2b0d77"
+          },
+          "value": {
+            "hash": ",\u0006s�?��\n|ժ�ϋ��)���)\u0015��ۻ+\rw",
+            "links_count": 0,
+            "size": 425547
+          }
+        },
+        {
+          "key": {
+            "id": "36ce5e0773c6c532a625897f77d088f4c4232b131c97d978601e72b1ed479169"
+          },
+          "value": {
+            "hash": "6�^\u0007s��2�%�wЈ��#+\u0013\u001c��x`\u001er��G�i",
+            "links_count": 0,
+            "size": 113
+          }
+        },
+        {
+          "key": {
+            "id": "79e7dc385be072e058d534277db9fd54d3e15fa31167fe4344ba5d9b0d3857a2"
+          },
+          "value": {
+            "hash": "\n���\u000f�x,\"�N�P��j�xN5�\u0004�,�\u0000\u001f��\u0018��",
+            "links_count": 1,
+            "size": 475
+          }
+        },
+        {
+          "key": {
+            "id": "90533f51233f43fec2c618eaabeebfd300d14087b44be84014e9f176ee6eae43"
+          },
+          "value": {
+            "hash": "�S?Q#?C���\u0018���\u0000�@��K�@\u0014��v�n�C",
+            "links_count": 0,
+            "size": 1048576
+          }
+        },
+        {
+          "key": {
+            "id": "95a7fc3ed18040b148616e980643879f8939012a4bd4363f8cf69a026a000759"
+          },
+          "value": {
+            "hash": "6�^\u0007s��2�%�wЈ��#+\u0013\u001c��x`\u001er��G�i",
+            "links_count": 1,
+            "size": 113
+          }
+        },
+        {
+          "key": {
+            "id": "aa82a5f623eb74909dc12849fca874e52b68b07b0607521b99c791cab94cf8c0"
+          },
+          "value": {
+            "hash": "�e�+̔d)�bq�tHZ\t�NK��\u0019=\u0013�\u0003=�7�!�",
+            "links_count": 4,
+            "size": 4108048
+          }
+        },
+        {
+          "key": {
+            "id": "d5a3e2f3067a3403170f5f87d723cd2ee6ba2c86ced4828785190537888c55f6"
+          },
+          "value": {
+            "hash": "գ��\u0006z4\u0003\u0017\u000f_��#�.�,��Ԃ��\u0019\u00057��U�",
+            "links_count": 0,
+            "size": 1048576
+          }
+        },
+        {
+          "key": {
+            "id": "d6a8684da082060cb258213e2c4ea17b425edad60e42956aad99a8eb9b3f3b1f"
+          },
+          "value": {
+            "hash": "֨hM��\u0006\f�X!>,N�{B^��\u000eB�j����?;\u001f",
+            "links_count": 0,
+            "size": 1048576
+          }
+        },
+        {
+          "key": {
+            "id": "eef38858c09c183fc52f418d49d3421076cd9f2e8966b48e81438cdf99fbcf2d"
+          },
+          "value": {
+            "hash": "�\bYWn�ʩw��X���\u001d\u0016l\u000002I�n�\u0015�_�K\u001b�",
+            "links_count": 2,
+            "size": 1474123
+          }
+        },
+        {
+          "key": {
+            "id": "f87b416716806afb453927a9e3b6c8725106bae7a363c83907749a548878a74a"
+          },
+          "value": {
+            "hash": "�{Ag\u0016�j�E9'���rQ\u0006��c�9\u0007t�T�x�J",
+            "links_count": 0,
+            "size": 962320
+          }
+        }
+      ]
+    },
+    "Config": {
+      "count": 1,
+      "entries": [
+        {
+          "key": {
+            "id": "5134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41"
+          },
+          "value": {
+            "application_revision": 0,
+            "contract": "v0-6.config.calimero-context.testnet",
+            "members_revision": 1,
+            "network": "testnet",
+            "protocol": "near",
+            "proxy_contract": "2595.v0-6.config.calimero-context.testnet"
+          }
+        }
+      ]
+    },
+    "Delta": {
+      "count": 4,
+      "entries": [
+        {
+          "key": {
+            "context_id": "5134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41",
+            "delta_id": "24864d2830cc6b252b4c409b0f801ab95eb6ae2008ac864c57c8020fbccbc05c"
+          },
+          "value": {
+            "actions_size": 932,
+            "applied": true,
+            "delta_id": "24864d2830cc6b252b4c409b0f801ab95eb6ae2008ac864c57c8020fbccbc05c",
+            "expected_root_hash": "3bcdad3ce4fadb95f9240668f8feab25b204cd39b93210a6d96c07dc9184c9ae",
+            "hlc": {
+              "id_hex": "53290c59e51cb25484d7729524093690",
+              "logical_counter": 0,
+              "physical_time_secs": 1764311680,
+              "raw": "7577660966165348352#53290c59e51cb25484d7729524093690",
+              "time_ntp64": 7577660966165348352
+            },
+            "parents": ["277734944351b1d3f16c01595ec12b8c3b145200482a31b77e339b52a8d5eee7"],
+            "timestamp": 7577660966165348352,
+            "type": "context_dag_delta"
+          }
+        },
+        {
+          "key": {
+            "context_id": "5134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41",
+            "delta_id": "277734944351b1d3f16c01595ec12b8c3b145200482a31b77e339b52a8d5eee7"
+          },
+          "value": {
+            "actions_size": 765,
+            "applied": true,
+            "delta_id": "277734944351b1d3f16c01595ec12b8c3b145200482a31b77e339b52a8d5eee7",
+            "expected_root_hash": "95ee0d54b8a3cd9a43c0b0807b02b20d4fcef0edce06db1a6078b26ba7717e4c",
+            "hlc": {
+              "id_hex": "53290c59e51cb25484d7729524093690",
+              "logical_counter": 0,
+              "physical_time_secs": 1764311668,
+              "raw": "7577660914818482176#53290c59e51cb25484d7729524093690",
+              "time_ntp64": 7577660914818482176
+            },
+            "parents": ["0000000000000000000000000000000000000000000000000000000000000000"],
+            "timestamp": 7577660914818482176,
+            "type": "context_dag_delta"
+          }
+        },
+        {
+          "key": {
+            "context_id": "5134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41",
+            "delta_id": "2954b6bb6c87f75991979c14def5b971b1070239f4df7453267b7ee9c2206c7f"
+          },
+          "value": {
+            "actions_size": 990,
+            "applied": true,
+            "delta_id": "2954b6bb6c87f75991979c14def5b971b1070239f4df7453267b7ee9c2206c7f",
+            "expected_root_hash": "301418923b17cbfe40898b512a8cede065cef8a012e00ca1affd7f4521ada78d",
+            "hlc": {
+              "id_hex": "53290c59e51cb25484d7729524093690",
+              "logical_counter": 0,
+              "physical_time_secs": 1764311686,
+              "raw": "7577660993852276736#53290c59e51cb25484d7729524093690",
+              "time_ntp64": 7577660993852276736
+            },
+            "parents": ["80550c627c7a44b934e4c6862d4effd40112d72beffc07cfac215677f1c6dd0d"],
+            "timestamp": 7577660993852276736,
+            "type": "context_dag_delta"
+          }
+        },
+        {
+          "key": {
+            "context_id": "5134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41",
+            "delta_id": "80550c627c7a44b934e4c6862d4effd40112d72beffc07cfac215677f1c6dd0d"
+          },
+          "value": {
+            "actions_size": 1316,
+            "applied": true,
+            "delta_id": "80550c627c7a44b934e4c6862d4effd40112d72beffc07cfac215677f1c6dd0d",
+            "expected_root_hash": "972cb1c53e12da96b6289819dedc3b66344a00805daf2852a61b2b4b40424c68",
+            "hlc": {
+              "id_hex": "53290c59e51cb25484d7729524093690",
+              "logical_counter": 0,
+              "physical_time_secs": 1764311680,
+              "raw": "7577660966616563712#53290c59e51cb25484d7729524093690",
+              "time_ntp64": 7577660966616563712
+            },
+            "parents": ["24864d2830cc6b252b4c409b0f801ab95eb6ae2008ac864c57c8020fbccbc05c"],
+            "timestamp": 7577660966616563712,
+            "type": "context_dag_delta"
+          }
+        }
+      ]
+    },
+    "Generic": {
+      "count": 0,
+      "entries": []
+    },
+    "Identity": {
+      "count": 2,
+      "entries": [
+        {
+          "key": {
+            "context_id": "5134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41",
+            "public_key": "\\�e\\��︿\b*�j��=\u0013\"�#�\u0004@w����\u0003�\u0006"
+          },
+          "value": {
+            "private_key": "���C�-��\r���Z[\u0000&�d;;����?ǢM��v�",
+            "sender_key": "�h�|��\u001a�i��s��\u0011I�,���W3��)�\u0007\bb]�"
+          }
+        },
+        {
+          "key": {
+            "context_id": "5134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41",
+            "public_key": "����\u0013�z)�擈T��5��w�e�K\r�YG�Kɍk"
+          },
+          "value": {
+            "sender_key": "��^�\r\r\u001aV�py%q[dFF�'��o��\u0000�a�\u001b�)A"
+          }
+        }
+      ]
+    },
+    "Meta": {
+      "count": 1,
+      "entries": [
+        {
+          "key": {
+            "id": "5134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41"
+          },
+          "value": {
+            "application_id": "�9z�H\u0010GF'2pr���m��Ӡ7�po��L���+6",
+            "dag_heads": ["2954b6bb6c87f75991979c14def5b971b1070239f4df7453267b7ee9c2206c7f"],
+            "root_hash": "301418923b17cbfe40898b512a8cede065cef8a012e00ca1affd7f4521ada78d"
+          }
+        }
+      ]
+    },
+    "State": {
+      "count": 10,
+      "entries": [
+        {
+          "key": {
+            "context_id": "5134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41",
+            "state_key": "07728c5dd04299eddfb263238ca2275c43d560e0c22398848ddeede22a199b78"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 1,
+              "scalar_fields": 2,
+              "tried_fields": 3
+            },
+            "errors": [
+              "map field 'files': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'owner': Failed to deserialize value (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'fileCounter': Entry bytes not fully consumed: consumed 40, total 282"
+            ],
+            "first_byte_decimal": 81,
+            "first_bytes_hex": "5134305bbddd3206f78e9efbb85147e9",
+            "hex_full": "5134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41000102000000f542acd6ac96c458970ca920b46773598bde45abdb8fe609d646c74ecb803cb8b75c4c4af067007eaa8f4b5dc3f4b93253c87dc2cd70f47765745c50353773d04504a04e1d187c184504a04e1d187c180080546f621ca017109901b898b8d3d8861727856deadf58608715ef76c2e4acb54421a042b3460e077be0cd519562bd4d6e09e5ec20dc626abfa03252773e3e4b7995a14e1d187c187995a14e1d187c180054c0328969e590ae75565635492e74cc55a224f63ecac4d27a475bb9171772f82b38250ebe504881fe3baf4dae2fe29922cfa4031e6e909fdf5d5845c3746b00000000000000000020c4e69721187c180000",
+            "hex_preview": "5134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41000102000000f542acd6ac96c458970ca920b46773598bde45abdb8fe609d646c74ecb803cb8b75c4c4af067007eaa8f4b5dc3f4b93253c87dc2cd70f47765745c50353773d04504a04e1d187c184504a04e1d187c180080546f621ca0171099",
+            "note": "Unable to decode with ABI (state root: FileShareState)",
+            "raw": "Q40[��2\u0006�����QG�r��\n�\u0005-K\bY��\u0010FnA\u0000\u0001\u0002\u0000\u0000\u0000�B�֬��X�\f� �gsY��E�ۏ�\t�F�Nˀ<��\\LJ�g\u0000~��K]���2S�}��p�wet\\P57s�E\u0004�N\u001d\u0018|\u0018E\u0004�N\u001d\u0018|\u0018\u0000�Tob\u001c�\u0017\u0010�\u0001����؆\u0017'�m��X`�\u0015�v�䬵D!�B�F\u000e\u0007{��Q�b�Mn\t�� �bj��2Rw>>Ky��N\u001d\u0018|\u0018y��N\u001d\u0018|\u0018\u0000T�2�i吮uVV5I.t�U�$�>���zG[�\u0017\u0017r�+8%\u000e�PH��;�M�/�\"Ϥ\u0003\u001en���]XE�tk\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000 ��!\u0018|\u0018\u0000\u0000",
+            "size": 282
+          }
+        },
+        {
+          "key": {
+            "context_id": "5134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41",
+            "state_key": "0b0f233c2a56b741b5f13105a2da3022bbcbba5abe599b52384baf7c8f560607"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 1,
+              "scalar_fields": 2,
+              "tried_fields": 3
+            },
+            "errors": [
+              "map field 'files': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'owner': Failed to deserialize value (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'fileCounter': Entry bytes not fully consumed: consumed 40, total 233"
+            ],
+            "first_byte_decimal": 245,
+            "first_bytes_hex": "f542acd6ac96c458970ca920b4677359",
+            "hex_full": "f542acd6ac96c458970ca920b46773598bde45abdb8fe609d646c74ecb803cb8015134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e4101010000004e788dc61b7221975ebf8887e5870a618372e5b3bf52a542ef06dc5164c1f92343e8a8a2087956d872da180e7bd8ee7ecd18d70ddba0c048eb3f90e68696c77b7cce311d20187c187cce311d20187c1800b75c4c4af067007eaa8f4b5dc3f4b93253c87dc2cd70f47765745c50353773d0d0edac2c83b0529b2225344da0d8962a86bbe312f34b367c3b4d6957f1c1ec794504a04e1d187c184504a04e1d187c180000",
+            "hex_preview": "f542acd6ac96c458970ca920b46773598bde45abdb8fe609d646c74ecb803cb8015134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e4101010000004e788dc61b7221975ebf8887e5870a618372e5b3bf52a542ef06dc5164c1f92343e8a8a2087956d872da180e7bd8ee7ecd18d70ddba0c048eb3f",
+            "note": "Unable to decode with ABI (state root: FileShareState)",
+            "raw": "�B�֬��X�\f� �gsY��E�ۏ�\t�F�Nˀ<�\u0001Q40[��2\u0006�����QG�r��\n�\u0005-K\bY��\u0010FnA\u0001\u0001\u0000\u0000\u0000Nx��\u001br!�^����\na�r峿R�B�\u0006�Qd��#C訢\byV�r�\u0018\u000e{��~�\u0018�\r۠�H�?�憖�{|�1\u001d \u0018|\u0018|�1\u001d \u0018|\u0018\u0000�\\LJ�g\u0000~��K]���2S�}��p�wet\\P57s����,��R�\"%4M�ؖ*���\u0012�K6|;MiW���yE\u0004�N\u001d\u0018|\u0018E\u0004�N\u001d\u0018|\u0018\u0000\u0000",
+            "size": 233
+          }
+        },
+        {
+          "key": {
+            "context_id": "5134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41",
+            "state_key": "0e7e184aa06e38e0c342e0b260e48bf7aebe3849c4aacfa44c4b2e097cddb2bb"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 1,
+              "scalar_fields": 2,
+              "tried_fields": 3
+            },
+            "errors": [
+              "map field 'files': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'owner': Failed to deserialize value (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'fileCounter': Entry bytes not fully consumed: consumed 40, total 329"
+            ],
+            "first_byte_decimal": 7,
+            "first_bytes_hex": "070400000009000000636c6173734e61",
+            "hex_full": "070400000009000000636c6173734e616d65040e00000046696c6553686172654c6f6769630600000076616c7565730702000000050000006f776e6572042c00000037457855544378363848416146714a5972484e5568394e38624d636b38355a6958564375765275445962616d0b00000066696c65436f756e7465720200000000000000400b000000636f6c6c656374696f6e7307010000000500000066696c657307020000000400000074797065040c000000556e6f7264657265644d6170020000006964044000000038303534366636323163613031373130393930316238393862386433643838363137323738353664656164663538363038373135656637366332653461636235080000006d6574616461746107020000000900000063726561746564417402d8e64e1d187cb843090000007570646174656441740269b59721187cb843",
+            "hex_preview": "070400000009000000636c6173734e616d65040e00000046696c6553686172654c6f6769630600000076616c7565730702000000050000006f776e6572042c00000037457855544378363848416146714a5972484e5568394e38624d636b38355a6958564375765275445962616d0b00000066696c65436f756e746572020000",
+            "note": "Unable to decode with ABI (state root: FileShareState)",
+            "raw": "\u0007\u0004\u0000\u0000\u0000\t\u0000\u0000\u0000className\u0004\u000e\u0000\u0000\u0000FileShareLogic\u0006\u0000\u0000\u0000values\u0007\u0002\u0000\u0000\u0000\u0005\u0000\u0000\u0000owner\u0004,\u0000\u0000\u00007ExUTCx68HAaFqJYrHNUh9N8bMck85ZiXVCuvRuDYbam\u000b\u0000\u0000\u0000fileCounter\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000@\u000b\u0000\u0000\u0000collections\u0007\u0001\u0000\u0000\u0000\u0005\u0000\u0000\u0000files\u0007\u0002\u0000\u0000\u0000\u0004\u0000\u0000\u0000type\u0004\f\u0000\u0000\u0000UnorderedMap\u0002\u0000\u0000\u0000id\u0004@\u0000\u0000\u000080546f621ca017109901b898b8d3d8861727856deadf58608715ef76c2e4acb5\b\u0000\u0000\u0000metadata\u0007\u0002\u0000\u0000\u0000\t\u0000\u0000\u0000createdAt\u0002��N\u001d\u0018|�C\t\u0000\u0000\u0000updatedAt\u0002i��!\u0018|�C",
+            "size": 329
+          }
+        },
+        {
+          "key": {
+            "context_id": "5134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41",
+            "state_key": "58e0e0e5c383b84b9b3c3206561c63b7f95a1916ab04e89e50775ba1ea4efa20"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 1,
+              "scalar_fields": 2,
+              "tried_fields": 3
+            },
+            "errors": [
+              "map field 'files': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'owner': Failed to deserialize value (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'fileCounter': Entry bytes not fully consumed: consumed 40, total 156"
+            ],
+            "first_byte_decimal": 12,
+            "first_bytes_hex": "0ce7342d908845203a8aac1357921946",
+            "hex_full": "0ce7342d908845203a8aac13579219462d681c71b8a4e528e1549ac291851f7301f542acd6ac96c458970ca920b46773598bde45abdb8fe609d646c74ecb803cb80023da31ee7637d0d64b09b6e708dceeb4fc39744bc8f0afda5ac8c8817e118fb1885de429496effc579293b3a3a589bd442986c11a64b01e0544abc34b115c8df6fa00c1720187c18b04d6d9721187c18000139526c9721187c18",
+            "hex_preview": "0ce7342d908845203a8aac13579219462d681c71b8a4e528e1549ac291851f7301f542acd6ac96c458970ca920b46773598bde45abdb8fe609d646c74ecb803cb80023da31ee7637d0d64b09b6e708dceeb4fc39744bc8f0afda5ac8c8817e118fb1885de429496effc579293b3a3a589bd442986c11a64b01e0544abc34b115",
+            "note": "Unable to decode with ABI (state root: FileShareState)",
+            "raw": "\f�4-��E :��\u0013W�\u0019F-h\u001cq���(�T��\u001fs\u0001�B�֬��X�\f� �gsY��E�ۏ�\t�F�Nˀ<�\u0000#�1�v7��K\t��\b���9tK���Z�ȁ~\u0011���]�)In��y);::X��B�l\u0011�K\u0001�TJ�4�\u0015��o�\f\u0017 \u0018|\u0018�Mm�!\u0018|\u0018\u0000\u00019Rl�!\u0018|\u0018",
+            "size": 156
+          }
+        },
+        {
+          "key": {
+            "context_id": "5134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41",
+            "state_key": "5e7ab12630de090620fd5f42d40c09f94a46d022f1244021e1c1c3728efdf65d"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 1,
+              "scalar_fields": 2,
+              "tried_fields": 3
+            },
+            "errors": [
+              "map field 'files': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'owner': Failed to deserialize value (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'fileCounter': Entry bytes not fully consumed: consumed 40, total 148"
+            ],
+            "first_byte_decimal": 78,
+            "first_bytes_hex": "4e788dc61b7221975ebf8887e5870a61",
+            "hex_full": "4e788dc61b7221975ebf8887e5870a618372e5b3bf52a542ef06dc5164c1f92301f542acd6ac96c458970ca920b46773598bde45abdb8fe609d646c74ecb803cb80043e8a8a2087956d872da180e7bd8ee7ecd18d70ddba0c048eb3f90e68696c77b7a9df1f1605a8ff69f39d7f67a9540303bf0a02140ea80d463ff2e5a596399837cce311d20187c187cce311d20187c180000",
+            "hex_preview": "4e788dc61b7221975ebf8887e5870a618372e5b3bf52a542ef06dc5164c1f92301f542acd6ac96c458970ca920b46773598bde45abdb8fe609d646c74ecb803cb80043e8a8a2087956d872da180e7bd8ee7ecd18d70ddba0c048eb3f90e68696c77b7a9df1f1605a8ff69f39d7f67a9540303bf0a02140ea80d463ff2e5a5963",
+            "note": "Unable to decode with ABI (state root: FileShareState)",
+            "raw": "Nx��\u001br!�^����\na�r峿R�B�\u0006�Qd��#\u0001�B�֬��X�\f� �gsY��E�ۏ�\t�F�Nˀ<�\u0000C訢\byV�r�\u0018\u000e{��~�\u0018�\r۠�H�?�憖�{z���`Z���9��z�@0;�!@��c�.ZYc��|�1\u001d \u0018|\u0018|�1\u001d \u0018|\u0018\u0000\u0000",
+            "size": 148
+          }
+        },
+        {
+          "key": {
+            "context_id": "5134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41",
+            "state_key": "725fb17e10198a22246eb691d878861fc4cd3805efcf3b5d64ff054067936cb2"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 1,
+              "scalar_fields": 2,
+              "tried_fields": 3
+            },
+            "errors": [
+              "map field 'files': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'owner': Failed to deserialize value (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'fileCounter': Entry bytes not fully consumed: consumed 40, total 64"
+            ],
+            "first_byte_decimal": 245,
+            "first_bytes_hex": "f542acd6ac96c458970ca920b4677359",
+            "hex_full": "f542acd6ac96c458970ca920b46773598bde45abdb8fe609d646c74ecb803cb880546f621ca017109901b898b8d3d8861727856deadf58608715ef76c2e4acb5",
+            "hex_preview": "f542acd6ac96c458970ca920b46773598bde45abdb8fe609d646c74ecb803cb880546f621ca017109901b898b8d3d8861727856deadf58608715ef76c2e4acb5",
+            "note": "Unable to decode with ABI (state root: FileShareState)",
+            "raw": "�B�֬��X�\f� �gsY��E�ۏ�\t�F�Nˀ<��Tob\u001c�\u0017\u0010�\u0001����؆\u0017'�m��X`�\u0015�v�䬵",
+            "size": 64
+          }
+        },
+        {
+          "key": {
+            "context_id": "5134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41",
+            "state_key": "7c52ff9ab8df1b623256e4ac0bf70a93e1420ffa7740c4ed6f61965dd0f180af"
+          },
+          "value": {
+            "id": "f542acd6ac96c458970ca920b46773598bde45abdb8fe609d646c74ecb803cb8",
+            "note": "Direct ID storage (possibly root collection reference or internal metadata)",
+            "type": "RawId"
+          }
+        },
+        {
+          "key": {
+            "context_id": "5134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41",
+            "state_key": "94f52bbb83ca34167f400910e5a5f21c3b868d0f0e7fd3b1da29a7650e17d7d8"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 1,
+              "scalar_fields": 2,
+              "tried_fields": 3
+            },
+            "errors": [
+              "map field 'files': Failed to deserialize value (type: FileRecord): Failed to deserialize Rust string",
+              "scalar field 'owner': Entry bytes not fully consumed: consumed 56, total 321",
+              "scalar field 'fileCounter': Entry bytes not fully consumed: consumed 56, total 321"
+            ],
+            "first_byte_decimal": 20,
+            "first_bytes_hex": "14000000040f00000066696c655f305f",
+            "hex_full": "14000000040f00000066696c655f305f6263616530373431050100000707000000020000006964040f00000066696c655f305f6263616530373431040000006e616d65040e00000073637265656e73686f742e706e6706000000626c6f624964042c0000004235434b44544c52784d386e416d52764c6661685831545246776b4a375069506d4e5155563872636a5939450400000073697a65020000000000405c40080000006d696d65547970650409000000696d6167652f706e670a00000075706c6f616465644279042c00000037457855544378363848416146714a5972484e5568394e38624d636b38355a6958564375765275445962616d0a00000075706c6f6164656441740413000000313736343331313638303132303137323931370ce7342d908845203a8aac13579219462d681c71b8a4e528e1549ac291851f73",
+            "hex_preview": "14000000040f00000066696c655f305f6263616530373431050100000707000000020000006964040f00000066696c655f305f6263616530373431040000006e616d65040e00000073637265656e73686f742e706e6706000000626c6f624964042c0000004235434b44544c52784d386e416d52764c6661685831545246776b",
+            "note": "Unable to decode with ABI (state root: FileShareState)",
+            "raw": "\u0014\u0000\u0000\u0000\u0004\u000f\u0000\u0000\u0000file_0_bcae0741\u0005\u0001\u0000\u0000\u0007\u0007\u0000\u0000\u0000\u0002\u0000\u0000\u0000id\u0004\u000f\u0000\u0000\u0000file_0_bcae0741\u0004\u0000\u0000\u0000name\u0004\u000e\u0000\u0000\u0000screenshot.png\u0006\u0000\u0000\u0000blobId\u0004,\u0000\u0000\u0000B5CKDTLRxM8nAmRvLfahX1TRFwkJ7PiPmNQUV8rcjY9E\u0004\u0000\u0000\u0000size\u0002\u0000\u0000\u0000\u0000\u0000@\\@\b\u0000\u0000\u0000mimeType\u0004\t\u0000\u0000\u0000image/png\n\u0000\u0000\u0000uploadedBy\u0004,\u0000\u0000\u00007ExUTCx68HAaFqJYrHNUh9N8bMck85ZiXVCuvRuDYbam\n\u0000\u0000\u0000uploadedAt\u0004\u0013\u0000\u0000\u00001764311680120172917\f�4-��E :��\u0013W�\u0019F-h\u001cq���(�T��\u001fs",
+            "size": 321
+          }
+        },
+        {
+          "key": {
+            "context_id": "5134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41",
+            "state_key": "c5b89ffe20e7c58b8b1c1176fd9be78bc03e2f8d6bcd987082edec1f063e45e1"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 1,
+              "scalar_fields": 2,
+              "tried_fields": 3
+            },
+            "errors": [
+              "map field 'files': Failed to deserialize value (type: FileRecord): Failed to deserialize Rust string",
+              "scalar field 'owner': Entry bytes not fully consumed: consumed 56, total 318",
+              "scalar field 'fileCounter': Entry bytes not fully consumed: consumed 56, total 318"
+            ],
+            "first_byte_decimal": 20,
+            "first_bytes_hex": "14000000040f00000066696c655f315f",
+            "hex_full": "14000000040f00000066696c655f315f3866353635383864020100000707000000020000006964040f00000066696c655f315f3866353635383864040000006e616d65040a000000726561646d652e74787406000000626c6f624964042c000000394373506347774b6d665851514161466444664a39743559453275685645645a5a6a435651617462436a46500400000073697a65020000000000b07d40080000006d696d6554797065040a000000746578742f706c61696e0a00000075706c6f616465644279042c00000037457855544378363848416146714a5972484e5568394e38624d636b38355a6958564375765275445962616d0a00000075706c6f6164656441740413000000313736343331313638303232333532333230384e788dc61b7221975ebf8887e5870a618372e5b3bf52a542ef06dc5164c1f923",
+            "hex_preview": "14000000040f00000066696c655f315f3866353635383864020100000707000000020000006964040f00000066696c655f315f3866353635383864040000006e616d65040a000000726561646d652e74787406000000626c6f624964042c000000394373506347774b6d665851514161466444664a3974355945327568564564",
+            "note": "Unable to decode with ABI (state root: FileShareState)",
+            "raw": "\u0014\u0000\u0000\u0000\u0004\u000f\u0000\u0000\u0000file_1_8f56588d\u0002\u0001\u0000\u0000\u0007\u0007\u0000\u0000\u0000\u0002\u0000\u0000\u0000id\u0004\u000f\u0000\u0000\u0000file_1_8f56588d\u0004\u0000\u0000\u0000name\u0004\n\u0000\u0000\u0000readme.txt\u0006\u0000\u0000\u0000blobId\u0004,\u0000\u0000\u00009CsPcGwKmfXQQAaFdDfJ9t5YE2uhVEdZZjCVQatbCjFP\u0004\u0000\u0000\u0000size\u0002\u0000\u0000\u0000\u0000\u0000�}@\b\u0000\u0000\u0000mimeType\u0004\n\u0000\u0000\u0000text/plain\n\u0000\u0000\u0000uploadedBy\u0004,\u0000\u0000\u00007ExUTCx68HAaFqJYrHNUh9N8bMck85ZiXVCuvRuDYbam\n\u0000\u0000\u0000uploadedAt\u0004\u0013\u0000\u0000\u00001764311680223523208Nx��\u001br!�^����\na�r峿R�B�\u0006�Qd��#",
+            "size": 318
+          }
+        },
+        {
+          "key": {
+            "context_id": "5134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41",
+            "state_key": "e5d9597c5610cdd536c8d0b95c9d4d34b3e57d3e87242c61c1dfc298ca76c045"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 1,
+              "scalar_fields": 2,
+              "tried_fields": 3
+            },
+            "errors": [
+              "map field 'files': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'owner': Failed to deserialize value (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'fileCounter': Entry bytes not fully consumed: consumed 40, total 148"
+            ],
+            "first_byte_decimal": 128,
+            "first_bytes_hex": "80546f621ca017109901b898b8d3d886",
+            "hex_full": "80546f621ca017109901b898b8d3d8861727856deadf58608715ef76c2e4acb5015134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41004421a042b3460e077be0cd519562bd4d6e09e5ec20dc626abfa03252773e3e4b89f9f989daa9add499eed56681923b641a4d6322ff90f26f7d4bd0f8858ea63a7995a14e1d187c187995a14e1d187c180000",
+            "hex_preview": "80546f621ca017109901b898b8d3d8861727856deadf58608715ef76c2e4acb5015134305bbddd3206f78e9efbb85147e97286f60a9e052d4b085980d010466e41004421a042b3460e077be0cd519562bd4d6e09e5ec20dc626abfa03252773e3e4b89f9f989daa9add499eed56681923b641a4d6322ff90f26f7d4bd0f8858e",
+            "note": "Unable to decode with ABI (state root: FileShareState)",
+            "raw": "�Tob\u001c�\u0017\u0010�\u0001����؆\u0017'�m��X`�\u0015�v�䬵\u0001Q40[��2\u0006�����QG�r��\n�\u0005-K\bY��\u0010FnA\u0000D!�B�F\u000e\u0007{��Q�b�Mn\t�� �bj��2Rw>>K����ک�ԙ��f��;d\u001aMc\"���o}K�����:y��N\u001d\u0018|\u0018y��N\u001d\u0018|\u0018\u0000\u0000",
+            "size": 148
+          }
+        }
+      ]
+    }
+  },
+  "database": "Calimero RocksDB Export",
+  "exported_columns": [
+    "Meta",
+    "Config",
+    "Identity",
+    "State",
+    "Delta",
+    "Blobs",
+    "Application",
+    "Alias",
+    "Generic"
+  ]
+}

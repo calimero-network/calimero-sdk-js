@@ -180,9 +180,7 @@ export class MessageManagement {
     }
 
     // Normalize search term (case-insensitive)
-    const normalizedSearch = args.searchTerm
-      ? args.searchTerm.trim().toLowerCase()
-      : null;
+    const normalizedSearch = args.searchTerm ? args.searchTerm.trim().toLowerCase() : null;
 
     // Filter messages by search term if provided
     let filteredMessages: StoredMessage[] = allItems;

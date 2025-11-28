@@ -1,0 +1,461 @@
+{
+  "data": {
+    "Alias": {
+      "count": 0,
+      "entries": []
+    },
+    "Application": {
+      "count": 1,
+      "entries": [
+        {
+          "key": {
+            "id": "09c177ed112b7b7a4c1a1daebbad6ac97d63e91cf94b8fd500395ef472aa9852"
+          },
+          "value": {
+            "bytecode": "�D�x����a�G\u001f�\u0007˃Q�q,�U��U��G�w��",
+            "compiled": "���z��\u0011ܒl+`\u0017�i�;�WZ��\u0005��\u0016sI\u001c�P�",
+            "metadata": "",
+            "package": "unknown",
+            "size": 1441143,
+            "source": "file:///app/data/service.wasm",
+            "version": "0.0.0"
+          }
+        }
+      ]
+    },
+    "Blobs": {
+      "count": 8,
+      "entries": [
+        {
+          "key": {
+            "id": "14ea83b8b24c2ebbd5d56b7c4d1e9c6186d8d8cb3e4a85ed8ddd9a4d8079c13e"
+          },
+          "value": {
+            "hash": "\u0014ꃸ�L.���k|M\u001e�a����>J��ݚM�y�>",
+            "links_count": 0,
+            "size": 882848
+          }
+        },
+        {
+          "key": {
+            "id": "1d327cae240c23aafecc4d33cd6579860be726a8ecc0f917d19386ebe2248ee2"
+          },
+          "value": {
+            "hash": "\u001d2|�$\f#���M3�ey�\u000b�&����\u0017ѓ���$��",
+            "links_count": 0,
+            "size": 1048576
+          }
+        },
+        {
+          "key": {
+            "id": "42a94b203e51fa6f1be1c10b3a34dd3aa3aa48c80e41b7bf8e0baef3a8ebcc92"
+          },
+          "value": {
+            "hash": "B�K >Q�o\u001b��\u000b:4�:��H�\u000eA���\u000b���̒",
+            "links_count": 0,
+            "size": 1048576
+          }
+        },
+        {
+          "key": {
+            "id": "8e44bd78b6cbf1f261ec471ff407cb8351e1712cf955f3e755bfe747d477cde3"
+          },
+          "value": {
+            "hash": "ڪ�7���\u0011��1\u00132f����a\u0007�� �x��x",
+            "links_count": 2,
+            "size": 1441143
+          }
+        },
+        {
+          "key": {
+            "id": "a9a3f37a909b11dc926c2b6017f5698c3bf4575a859305b3b81673491ca050f2"
+          },
+          "value": {
+            "hash": "���W;E�h�PԺ^�3E�\u001cc�<�\u0004���\u0010���=",
+            "links_count": 4,
+            "size": 4028576
+          }
+        },
+        {
+          "key": {
+            "id": "b706e385f7e2ea5cbd4decadbe338a3a1441430960647e445b345d92432aa7d9"
+          },
+          "value": {
+            "hash": "�\u0006����\\�M쭾3�:\u0014AC\t`d~D[4]�C*��",
+            "links_count": 0,
+            "size": 392567
+          }
+        },
+        {
+          "key": {
+            "id": "da3ca202bed3539bfeaa08bc4b7d8121eb1554f9ce8487de2a571d90e0694fd0"
+          },
+          "value": {
+            "hash": "�<�\u0002��S���\b�K}�!�\u0015T�΄��*W\u001d��iO�",
+            "links_count": 0,
+            "size": 1048576
+          }
+        },
+        {
+          "key": {
+            "id": "daf934c110e419f1e82b2dbb992829b4414b698004ed995901b65cd17db64e14"
+          },
+          "value": {
+            "hash": "��4�\u0010�\u0019��+-��()�AKi�\u0004�Y\u0001�\\�}�N\u0014",
+            "links_count": 0,
+            "size": 1048576
+          }
+        }
+      ]
+    },
+    "Config": {
+      "count": 1,
+      "entries": [
+        {
+          "key": {
+            "id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15"
+          },
+          "value": {
+            "application_revision": 0,
+            "contract": "v0-6.config.calimero-context.testnet",
+            "members_revision": 0,
+            "network": "testnet",
+            "protocol": "near",
+            "proxy_contract": "2594.v0-6.config.calimero-context.testnet"
+          }
+        }
+      ]
+    },
+    "Delta": {
+      "count": 2,
+      "entries": [
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "delta_id": "9f7d9ac39dab98cbfa4995519c4ccb4fcf7a49967f67ee78f1d64e23a6e3193b"
+          },
+          "value": {
+            "actions_size": 801,
+            "applied": true,
+            "delta_id": "9f7d9ac39dab98cbfa4995519c4ccb4fcf7a49967f67ee78f1d64e23a6e3193b",
+            "expected_root_hash": "bcc800adb95fde907ab88ad8262c66e92bbd791bbb27f0e9a493bf85fdff0a02",
+            "hlc": {
+              "id_hex": "014e1843391ee4bdee100535c0e8c039",
+              "logical_counter": 0,
+              "physical_time_secs": 1764311547,
+              "raw": "7577660397359005696#14e1843391ee4bdee100535c0e8c039",
+              "time_ntp64": 7577660397359005696
+            },
+            "parents": ["c37eec5d1b1611d7b10ebe2307679ba959a9a741fe41a6ba32272bbdafab1adc"],
+            "timestamp": 7577660397359005696,
+            "type": "context_dag_delta"
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "delta_id": "c37eec5d1b1611d7b10ebe2307679ba959a9a741fe41a6ba32272bbdafab1adc"
+          },
+          "value": {
+            "actions_size": 847,
+            "applied": true,
+            "delta_id": "c37eec5d1b1611d7b10ebe2307679ba959a9a741fe41a6ba32272bbdafab1adc",
+            "expected_root_hash": "78903697acb2eaf50628763858f0f43dff9f1dcd41700ec3655f5c5a6d75ef09",
+            "hlc": {
+              "id_hex": "014e1843391ee4bdee100535c0e8c039",
+              "logical_counter": 0,
+              "physical_time_secs": 1764311542,
+              "raw": "7577660376808947712#14e1843391ee4bdee100535c0e8c039",
+              "time_ntp64": 7577660376808947712
+            },
+            "parents": ["0000000000000000000000000000000000000000000000000000000000000000"],
+            "timestamp": 7577660376808947712,
+            "type": "context_dag_delta"
+          }
+        }
+      ]
+    },
+    "Generic": {
+      "count": 0,
+      "entries": []
+    },
+    "Identity": {
+      "count": 1,
+      "entries": [
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "public_key": "B\u000b+N '\u000e��w\u0015��B��Ǟ�f:5�!es�=��\b\u001d"
+          },
+          "value": {
+            "private_key": "i�聻��b$V��\u001an�Z��\u0019�Y��$�X���]�\u001f",
+            "sender_key": "�m��B�\u0017�¹\f�p�1 (\u0012�Jv2�r�i'Z��"
+          }
+        }
+      ]
+    },
+    "Meta": {
+      "count": 1,
+      "entries": [
+        {
+          "key": {
+            "id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15"
+          },
+          "value": {
+            "application_id": "\t�w�\u0011+{zL\u001a\u001d���j�}c�\u001c�K��\u00009^�r��R",
+            "dag_heads": ["9f7d9ac39dab98cbfa4995519c4ccb4fcf7a49967f67ee78f1d64e23a6e3193b"],
+            "root_hash": "bcc800adb95fde907ab88ad8262c66e92bbd791bbb27f0e9a493bf85fdff0a02"
+          }
+        }
+      ]
+    },
+    "State": {
+      "count": 12,
+      "entries": [
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "0065ccd8451c86b7c46d37c40617d7242c8031edc6bdb2cf6c2978d637eabae0"
+          },
+          "value": {
+            "id": "5f379c6490e2e61e449e89ea0380af512be62484b47f51ef3b6417997b2474fa",
+            "note": "Direct ID storage (possibly root collection reference or internal metadata)",
+            "type": "RawId"
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "2da3649e6706e717ab346af6179d85a3fff15ca78c77cb3f1dff4797b678ac57"
+          },
+          "value": {
+            "element": {
+              "id": "80946558749d615bec680a724680c308e25d516188be1334126ac56e60462d2b"
+            },
+            "field": "count",
+            "type": "ScalarEntry",
+            "value": {
+              "parsed": {
+                "format": "direct",
+                "hex": "5f379c6490e2e61e449e89ea0380af512be62484b47f51ef3b6417997b2474fa",
+                "size": 32
+              },
+              "raw": "_7�d���\u001eD���\u0003��Q+�$��Q�;d\u0017�{$t�",
+              "type": "scalar::Bytes { size: Some(32), encoding: None }"
+            }
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "30fb848193caacf91e23c6407e8fa7bcce55b42044e68e554b464e80be23a5ad"
+          },
+          "value": {
+            "element": {
+              "id": "0107d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb"
+            },
+            "field": "count",
+            "type": "ScalarEntry",
+            "value": {
+              "parsed": {
+                "format": "direct",
+                "hex": "8887fe96bed60d6aac13e8282f93203f9fd18e511ed7353d467203e751bc3748",
+                "size": 32
+              },
+              "raw": "������\rj�\u0013�(/� ?�юQ\u001e�5=Fr\u0003�Q�7H",
+              "type": "scalar::Bytes { size: Some(32), encoding: None }"
+            }
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "4e97308ff36ce7e48a90aea96fb660e7b103b191189d9b2c0c5acf1c7aa29171"
+          },
+          "value": {
+            "element": {
+              "id": "015f379c6490e2e61e449e89ea0380af512be62484b47f51ef3b6417997b2474"
+            },
+            "field": "count",
+            "type": "ScalarEntry",
+            "value": {
+              "parsed": {
+                "format": "direct",
+                "hex": "1acbf4ed40f8f7e52dfe72e899042746925b6cf7cbf36754c2a11d2883d18c25",
+                "size": 32
+              },
+              "raw": "\u001a���@���-�r�\u0004'F�[l���gT¡\u001d(�ь%",
+              "type": "scalar::Bytes { size: Some(32), encoding: None }"
+            }
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "601b77ce8a132f958eee68dfabc1224fb4e21788734355125a0bce33c6d0730a"
+          },
+          "value": {
+            "element": {
+              "id": "0107d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb"
+            },
+            "field": "count",
+            "type": "ScalarEntry",
+            "value": {
+              "parsed": {
+                "format": "direct",
+                "hex": "ef5ceac141f51cea29a20cbcf62c59e0faa371c7001db5d0be605f2379ea1cde",
+                "size": 32
+              },
+              "raw": "�\\��A�\u001c�)�\f��,Y���q�\u0000\u001d�о`_#y�\u001c�",
+              "type": "scalar::Bytes { size: Some(32), encoding: None }"
+            }
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "795479599cdfd947b8c4f8fe2d5f51d2000b7c964a180df40de15d403e8cb2a4"
+          },
+          "value": {
+            "element": {
+              "id": "6769630600000076616c75657307000000000b000000636f6c6c656374696f6e"
+            },
+            "field": "count",
+            "type": "ScalarEntry",
+            "value": {
+              "parsed": {
+                "format": "direct",
+                "hex": "070400000009000000636c6173734e616d65040c000000436f756e7465724c6f",
+                "size": 32
+              },
+              "raw": "\u0007\u0004\u0000\u0000\u0000\t\u0000\u0000\u0000className\u0004\f\u0000\u0000\u0000CounterLo",
+              "type": "scalar::Bytes { size: Some(32), encoding: None }"
+            }
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "7f9cb0ce7456f2fbf37c9e85a63323129187f82164f69bf400dc16c36013b78e"
+          },
+          "value": {
+            "element": {
+              "id": "0107d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb"
+            },
+            "field": "count",
+            "type": "ScalarEntry",
+            "value": {
+              "parsed": {
+                "format": "direct",
+                "hex": "80946558749d615bec680a724680c308e25d516188be1334126ac56e60462d2b",
+                "size": 32
+              },
+              "raw": "��eXt�a[�h\nrF��\b�]Qa��\u00134\u0012j�n`F-+",
+              "type": "scalar::Bytes { size: Some(32), encoding: None }"
+            }
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "94bcea7f14e565482a9fff1897d0d3637702238b24fe8077c95a89f720db7e1e"
+          },
+          "value": {
+            "id": "ef5ceac141f51cea29a20cbcf62c59e0faa371c7001db5d0be605f2379ea1cde",
+            "note": "Direct ID storage (possibly root collection reference or internal metadata)",
+            "type": "RawId"
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "a9e16d59a951008c4d14668fb85cf172e004b88750ae1c93b71340dd7f34efc7"
+          },
+          "value": {
+            "element": {
+              "id": "01000000000000001acbf4ed40f8f7e52dfe72e899042746925b6cf7cbf36754"
+            },
+            "field": "count",
+            "type": "ScalarEntry",
+            "value": {
+              "parsed": {
+                "format": "direct",
+                "hex": "3432306232623465323032373065666438623737313566386461343262663833",
+                "size": 32
+              },
+              "raw": "@\u0000\u0000\u0000420b2b4e20270efd8b7715f8da42bf83c79ebe663a35af216573f93d898b081d",
+              "type": "scalar::Bytes { size: Some(32), encoding: None }"
+            }
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "b30744a385cbcfabd117da2c293045cdade3cc661db87e2528648ef31a777d07"
+          },
+          "value": {
+            "id": "8887fe96bed60d6aac13e8282f93203f9fd18e511ed7353d467203e751bc3748",
+            "note": "Direct ID storage (possibly root collection reference or internal metadata)",
+            "type": "RawId"
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "bbb0e33652c4a19147780b6dfa96789e33afcfc954b6603e59a31c93c8ec0c3e"
+          },
+          "value": {
+            "element": {
+              "id": "0107d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb"
+            },
+            "field": "count",
+            "type": "ScalarEntry",
+            "value": {
+              "parsed": {
+                "format": "direct",
+                "hex": "5f379c6490e2e61e449e89ea0380af512be62484b47f51ef3b6417997b2474fa",
+                "size": 32
+              },
+              "raw": "_7�d���\u001eD���\u0003��Q+�$��Q�;d\u0017�{$t�",
+              "type": "scalar::Bytes { size: Some(32), encoding: None }"
+            }
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "ca9b74d745ccb1a790a30ba4960c9b58d65b275541885445918b46fc7b47de31"
+          },
+          "value": {
+            "element": {
+              "id": "0001040000005f379c6490e2e61e449e89ea0380af512be62484b47f51ef3b64"
+            },
+            "field": "count",
+            "type": "ScalarEntry",
+            "value": {
+              "parsed": {
+                "format": "direct",
+                "hex": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+                "size": 32
+              },
+              "raw": "\u0007�����\u0011�95�����\u0005\u000f<<\u001c��`��]��d�\u0015",
+              "type": "scalar::Bytes { size: Some(32), encoding: None }"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "database": "Calimero RocksDB Export",
+  "exported_columns": [
+    "Meta",
+    "Config",
+    "Identity",
+    "State",
+    "Delta",
+    "Blobs",
+    "Application",
+    "Alias",
+    "Generic"
+  ]
+}
