@@ -365,7 +365,12 @@ export class CurbChatLogic extends CurbChat {
     rawInput:
       | GetMessagesArgs
       | { input: GetMessagesArgs }
-      | { argsJson: { rawInput: GetMessagesArgs | { input: GetMessagesArgs }; searchTerm?: string | null } }
+      | {
+          argsJson: {
+            rawInput: GetMessagesArgs | { input: GetMessagesArgs };
+            searchTerm?: string | null;
+          };
+        }
   ): string {
     const args = this.extractGetMessagesArgs(rawInput);
     if (!args || typeof args.channelId !== 'string') {
@@ -533,7 +538,12 @@ export class CurbChatLogic extends CurbChat {
     rawInput:
       | GetMessagesArgs
       | { input: GetMessagesArgs }
-      | { argsJson: { rawInput: GetMessagesArgs | { input: GetMessagesArgs }; searchTerm?: string | null } }
+      | {
+          argsJson: {
+            rawInput: GetMessagesArgs | { input: GetMessagesArgs };
+            searchTerm?: string | null;
+          };
+        }
   ): GetMessagesArgs | null {
     if (!rawInput) {
       return null;
@@ -541,12 +551,14 @@ export class CurbChatLogic extends CurbChat {
 
     // Handle argsJson format
     if (typeof rawInput === 'object' && 'argsJson' in rawInput) {
-      const argsJson = (rawInput as {
-        argsJson: {
-          rawInput: GetMessagesArgs | { input: GetMessagesArgs };
-          searchTerm?: string | null;
-        };
-      }).argsJson;
+      const argsJson = (
+        rawInput as {
+          argsJson: {
+            rawInput: GetMessagesArgs | { input: GetMessagesArgs };
+            searchTerm?: string | null;
+          };
+        }
+      ).argsJson;
       const args = this.extractInput(argsJson.rawInput);
       if (!args) {
         return null;
