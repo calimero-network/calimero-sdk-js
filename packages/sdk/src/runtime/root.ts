@@ -66,11 +66,33 @@ export function saveRootState(state: any): Uint8Array {
   const stateValues: Record<string, unknown> = {};
   for (const field of stateRootType.fields) {
     // Collection fields are handled separately in doc.collections
-    // But if ABI requires them, we need to provide a placeholder or skip them
-    // Collections shouldn't be in Borsh-serialized state (they're JS-specific)
+    // But if ABI requires them as scalar types (e.g., Counter -> u64), provide default value
     if (field.name in doc.collections) {
-      // Skip collection fields - they're not part of Rust state serialization
-      // The ABI shouldn't include collections in state_root, but if it does, skip them
+      // Collection fields shouldn't be in Borsh-serialized state (they're JS-specific)
+      // But if ABI expects them as scalar types, provide default value
+      const scalarType = field.type.kind === 'scalar' ? field.type.scalar : field.type.kind;
+      if (
+        scalarType === 'u64' ||
+        scalarType === 'i64' ||
+        scalarType === 'u128' ||
+        scalarType === 'i128'
+      ) {
+        // Collections like Counter are represented as u64 in Rust state
+        // Provide default value of 0
+        stateValues[field.name] = 0n;
+      } else if (
+        scalarType === 'u8' ||
+        scalarType === 'u16' ||
+        scalarType === 'u32' ||
+        scalarType === 'i8' ||
+        scalarType === 'i16' ||
+        scalarType === 'i32'
+      ) {
+        stateValues[field.name] = 0;
+      } else {
+        // For non-scalar collection types, skip (shouldn't happen)
+        continue;
+      }
       continue;
     }
 
