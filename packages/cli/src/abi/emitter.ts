@@ -162,7 +162,7 @@ export class AbiEmitter {
   /**
    * Analyze source code and generate ABI manifest
    */
-  public analyzeSource(sourceCode: string, filePath?: string): AbiManifest {
+  public analyzeSource(sourceCode: string, _filePath?: string): AbiManifest {
     const ast = parse(sourceCode, {
       sourceType: 'module',
       plugins: ['typescript', 'decorators-legacy', 'classProperties'],
