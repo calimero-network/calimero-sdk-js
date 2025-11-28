@@ -6,10 +6,10 @@
  * format (compatible with Rust) instead of ValueKind-prefixed format.
  */
 
-import { BorshWriter } from '../borsh/encoder';
-import { BorshReader } from '../borsh/decoder';
-import type { TypeRef, ScalarType, TypeDef } from '../abi/types';
-import { hasRegisteredCollection, snapshotCollection } from '../runtime/collections';
+import { BorshWriter } from '../borsh/encoder.js';
+import { BorshReader } from '../borsh/decoder.js';
+import type { TypeRef, ScalarType, TypeDef } from '../abi/types.js';
+import { hasRegisteredCollection, snapshotCollection } from '../runtime/collections.js';
 
 /**
  * Serialize a value according to its ABI type using standard Borsh format
