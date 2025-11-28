@@ -433,15 +433,20 @@ function createInitDispatcher(
     log(
       `[dispatcher] initDispatch: method=${methodName}, paramNames=${JSON.stringify(paramNames)}, payload type=${typeof payload}, args length=${args.length}`
     );
-    if (args.length > 0 && args[0] !== undefined && args[0] !== null) {
+    // Only add payload as fallback if args is truly empty (not just containing null/undefined)
+    // Check if args has any non-null/undefined values
+    const hasValidArgs = args.length > 0 && args.some(arg => arg !== undefined && arg !== null);
+    if (!hasValidArgs && payload !== undefined && payload !== null) {
+      // If payload exists but normalizeArgs didn't handle it, use payload directly
+      log(`[dispatcher] initDispatch: payload exists but args empty, using payload as first arg`);
+      // Replace args instead of pushing to avoid duplicating null values
+      args.length = 0;
+      args.push(payload);
+    } else if (args.length > 0 && args[0] !== undefined && args[0] !== null) {
       log(
         `[dispatcher] initDispatch: first arg type=${typeof args[0]}, keys=${typeof args[0] === 'object' ? Object.keys(args[0]).join(',') : 'N/A'}`
       );
-    } else if (payload && typeof payload === 'object') {
-      // If payload exists but normalizeArgs didn't handle it, use payload directly
-      log(`[dispatcher] initDispatch: payload exists but args empty, using payload as first arg`);
-      args.push(payload);
-    } else {
+    } else if (args.length === 0) {
       log(
         `[dispatcher] initDispatch: no payload or args, init method may fail if it expects parameters`
       );
