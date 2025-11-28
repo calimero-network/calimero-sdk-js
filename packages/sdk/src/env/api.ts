@@ -36,57 +36,29 @@ export function panic(message: string): never {
 }
 
 export function valueReturn(value: unknown, methodName?: string): void {
-  // Try ABI-aware serialization if method name and ABI are available
-  if (methodName) {
-    const abi = getAbiManifest();
-    if (abi) {
-      const method = getMethod(abi, methodName);
-      if (method && method.returns) {
-        try {
-          const serialized = serializeWithAbi(value, method.returns, abi);
-          env.value_return(serialized);
-          return;
-        } catch (error) {
-          // Fall back to generic serialization if ABI serialization fails
-          // Log error in verbose mode only
-        }
-      }
-    }
+  // ABI-aware serialization is required
+  if (!methodName) {
+    throw new Error('Method name is required for return value serialization');
   }
 
-  // Fallback to generic serialization
-  if (value instanceof Uint8Array) {
-    env.value_return(value);
+  const abi = getAbiManifest();
+  if (!abi) {
+    throw new Error('ABI manifest is required but not available');
+  }
+
+  const method = getMethod(abi, methodName);
+  if (!method) {
+    throw new Error(`Method ${methodName} not found in ABI`);
+  }
+
+  if (!method.returns) {
+    // Method returns void/unit
+    env.value_return(new Uint8Array(0));
     return;
   }
 
-  if (typeof value === 'bigint') {
-    env.value_return(textEncoder.encode(value.toString()));
-    return;
-  }
-
-  if (typeof value === 'string') {
-    env.value_return(textEncoder.encode(value));
-    return;
-  }
-
-  const exposed = exposeValue(value);
-  const ctor =
-    value !== null && typeof value === 'object'
-      ? (value as Record<string, unknown>).constructor
-      : undefined;
-  const isStateInstance = Boolean(ctor && (ctor as any)._calimeroState);
-
-  if (isStateInstance) {
-    env.value_return(serialize(exposed));
-    return;
-  }
-
-  const json =
-    exposed === undefined
-      ? 'null'
-      : JSON.stringify(exposed, (_key, val) => (typeof val === 'bigint' ? val.toString() : val));
-  env.value_return(textEncoder.encode(json ?? 'null'));
+  const serialized = serializeWithAbi(value, method.returns, abi);
+  env.value_return(serialized);
 }
 
 /**

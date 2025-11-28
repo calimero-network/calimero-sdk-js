@@ -32,53 +32,40 @@ function readPayload(methodName?: string): unknown {
   const buffer = new Uint8Array(len);
   readRegister(REGISTER_ID, buffer);
 
-  // Try ABI-aware deserialization if method name and ABI are available
-  if (methodName) {
-    const abi = getAbiManifest();
-    if (abi) {
-      const method = getMethod(abi, methodName);
-      if (method && method.params.length > 0) {
-        try {
-          // For now, deserialize as a tuple of parameters
-          // If single parameter, deserialize directly; if multiple, deserialize as record
-          if (method.params.length === 1) {
-            return deserializeWithAbi(buffer, method.params[0].type, abi);
-          } else {
-            // Multiple parameters - deserialize as record
-            // This is a simplified approach; full implementation would need tuple support
-            return deserializeWithAbi(
-              buffer,
-              {
-                kind: 'reference',
-                name: `Method_${methodName}_Params`,
-              },
-              abi
-            );
-          }
-        } catch (error) {
-          // Fall back to generic deserialization if ABI deserialization fails
-          logError(`ABI deserialization failed for ${methodName}, falling back`, error);
-        }
-      }
-    }
+  // ABI-aware deserialization is required
+  if (!methodName) {
+    throw new Error('Method name is required for deserialization');
   }
 
-  // Fallback to generic deserialization
-  const decoded = textDecoder.decode(buffer);
-  if (decoded.length > 0) {
-    try {
-      return JSON.parse(decoded);
-    } catch (_error) {
-      // Fallback to structured decoding below.
-    }
+  const abi = getAbiManifest();
+  if (!abi) {
+    throw new Error('ABI manifest is required but not available');
   }
 
-  try {
-    return deserialize<unknown>(buffer);
-  } catch (error) {
-    // Keep previous behaviour for backwards compatibility – log and return undefined.
-    logError('Failed to decode payload', error);
+  const method = getMethod(abi, methodName);
+  if (!method) {
+    throw new Error(`Method ${methodName} not found in ABI`);
+  }
+
+  if (method.params.length === 0) {
     return undefined;
+  }
+
+  // Deserialize parameters according to ABI
+  // If single parameter, deserialize directly; if multiple, deserialize as record
+  if (method.params.length === 1) {
+    return deserializeWithAbi(buffer, method.params[0].type, abi);
+  } else {
+    // Multiple parameters - deserialize as record
+    // This is a simplified approach; full implementation would need tuple support
+    return deserializeWithAbi(
+      buffer,
+      {
+        kind: 'reference',
+        name: `Method_${methodName}_Params`,
+      },
+      abi
+    );
   }
 }
 
