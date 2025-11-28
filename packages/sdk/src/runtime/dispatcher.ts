@@ -236,11 +236,33 @@ function readPayload(methodName?: string): unknown {
     // Convert JSON value to ABI-compatible format
     // If single parameter, convert directly; if multiple, convert each parameter individually
     if (method.params.length === 1) {
-      const result = convertFromJsonCompatible(jsonValue, method.params[0].type, abi);
-      log(
-        `[dispatcher] readPayload: converted ${methodName} param (type: ${JSON.stringify(method.params[0].type)}, result type: ${typeof result})`
-      );
-      return result;
+      // Single parameter - check if it's an object type
+      const paramType = method.params[0].type;
+      const isObjectType =
+        paramType.kind === 'reference' ||
+        paramType.$ref ||
+        (typeof jsonValue === 'object' && jsonValue !== null && !Array.isArray(jsonValue));
+
+      if (
+        isObjectType &&
+        typeof jsonValue === 'object' &&
+        jsonValue !== null &&
+        !Array.isArray(jsonValue)
+      ) {
+        // Single object parameter - convert the entire object
+        const result = convertFromJsonCompatible(jsonValue, paramType, abi);
+        log(
+          `[dispatcher] readPayload: converted ${methodName} single object param (type: ${JSON.stringify(paramType)}, result type: ${typeof result})`
+        );
+        return result;
+      } else {
+        // Single scalar parameter
+        const result = convertFromJsonCompatible(jsonValue, paramType, abi);
+        log(
+          `[dispatcher] readPayload: converted ${methodName} single scalar param (type: ${JSON.stringify(paramType)}, result type: ${typeof result})`
+        );
+        return result;
+      }
     } else {
       // Multiple parameters - deserialize each parameter individually
       // JSON payload should be an object with keys matching parameter names
@@ -304,15 +326,26 @@ function normalizeArgs(payload: unknown, paramNames: string[]): unknown[] {
 
     // Multiple parameters - map by name
     const obj = payload as JsonObject;
-    return paramNames.map((name, index) => {
+    const args = paramNames.map((name, index) => {
       if (name in obj) {
         return obj[name];
       }
       if (index === 0) {
+        // If first param not found but payload exists, might be a single object param
+        // Check if payload has any of the param names - if not, it's likely a single object
+        const hasAnyParamName = paramNames.some(pn => pn in obj);
+        if (!hasAnyParamName && Object.keys(obj).length > 0) {
+          // Payload doesn't match any param names - might be a single object parameter
+          return obj;
+        }
         return obj;
       }
       return undefined;
     });
+    log(
+      `[dispatcher] normalizeArgs: multiple params, payload keys: ${Object.keys(obj).join(', ')}, paramNames: ${paramNames.join(', ')}, args: ${JSON.stringify(args.map(a => (typeof a === 'object' && a !== null ? Object.keys(a as object).join(',') : String(a))))}`
+    );
+    return args;
   }
 
   if (payload === undefined || payload === null) {
