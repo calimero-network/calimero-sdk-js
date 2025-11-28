@@ -202,7 +202,14 @@ function serializeScalar(writer: BorshWriter, value: unknown, scalar: ScalarType
       }
       break;
 
-    case 'u64':
+    case 'u64': {
+      if (typeof value !== 'bigint' && typeof value !== 'number') {
+        throw new Error(`Expected bigint or number for ${scalar}, got ${typeof value}`);
+      }
+      const bigValue = typeof value === 'bigint' ? value : BigInt(value);
+      writer.writeU64(bigValue);
+      break;
+    }
     case 'u128': {
       if (typeof value !== 'bigint' && typeof value !== 'number') {
         throw new Error(`Expected bigint or number for ${scalar}, got ${typeof value}`);
@@ -546,12 +553,20 @@ function deserializeScalar(reader: BorshReader, scalar: ScalarType): unknown {
       return u32 > 2147483647 ? u32 - 4294967296 : u32;
     }
 
-    case 'i64':
-      return reader.readU64();
+    case 'i64': {
+      const u64 = reader.readU64();
+      // Convert to signed: if high bit is set, it's negative
+      const mask = BigInt('0x8000000000000000');
+      return u64 >= mask ? u64 - BigInt('0x10000000000000000') : u64;
+    }
     case 'i128': {
       const iLow = reader.readU64();
       const iHigh = reader.readU64();
-      return (iHigh << 64n) | iLow;
+      // Combine as unsigned bigint first
+      const unsigned = (iHigh << 64n) | iLow;
+      // Convert to signed: if high bit is set, it's negative
+      const mask = BigInt('0x80000000000000000000000000000000');
+      return unsigned >= mask ? unsigned - BigInt('0x100000000000000000000000000000000') : unsigned;
     }
 
     case 'f32':

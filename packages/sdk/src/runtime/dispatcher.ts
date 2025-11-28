@@ -100,12 +100,15 @@ function convertFromJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiMan
     if (typeof value !== 'object' || value === null) {
       throw new Error(`Expected object for map type, got ${typeof value}`);
     }
+    // Convert to Map instance for compatibility with serializeWithAbi
+    const map = new Map();
     const entries = Object.entries(value);
-    const result: Record<string, unknown> = {};
     for (const [key, val] of entries) {
-      result[key] = convertFromJsonCompatible(val, typeRef.value!, abi);
+      const convertedKey = convertFromJsonCompatible(key, typeRef.key!, abi);
+      const convertedVal = convertFromJsonCompatible(val, typeRef.value!, abi);
+      map.set(convertedKey, convertedVal);
     }
-    return result;
+    return map;
   }
 
   // Handle set types
