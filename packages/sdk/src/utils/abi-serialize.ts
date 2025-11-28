@@ -196,7 +196,7 @@ function serializeScalar(writer: BorshWriter, value: unknown, scalar: ScalarType
       if (scalar === 'u8') {
         writer.writeU8(value);
       } else if (scalar === 'u16') {
-        writer.writeU32(value); // u16 is written as u32 in Borsh
+        writer.writeU16(value);
       } else {
         writer.writeU32(value);
       }
@@ -327,14 +327,16 @@ function serializeTypeDef(
                 scalarType === 'u128' ||
                 scalarType === 'i128'
               ) {
-                writer.writeU64(0n);
-                if (scalarType === 'i128' || scalarType === 'u128') {
-                  writer.writeU64(0n); // u128/i128 need two u64s
+                if (scalarType === 'u128' || scalarType === 'i128') {
+                  writer.writeU64(0n); // low 64 bits
+                  writer.writeU64(0n); // high 64 bits
+                } else {
+                  writer.writeU64(0n);
                 }
               } else if (scalarType === 'u8' || scalarType === 'i8') {
                 writer.writeU8(0);
               } else if (scalarType === 'u16' || scalarType === 'i16') {
-                writer.writeU32(0);
+                writer.writeU16(0);
               } else if (scalarType === 'u32' || scalarType === 'i32') {
                 writer.writeU32(0);
               } else if (scalarType === 'bool') {
@@ -490,9 +492,10 @@ function deserializeValue(reader: BorshReader, typeRef: TypeRef, abi: AbiManifes
     return map;
   }
 
-  // Handle reference types
-  if (typeRef.kind === 'reference') {
-    const typeName = typeRef.name;
+  // Handle reference types (records, variants, aliases)
+  // Rust ABI format uses "$ref" instead of { "kind": "reference", "name": "..." }
+  if (typeRef.kind === 'reference' || (typeRef as any).$ref) {
+    const typeName = typeRef.name || (typeRef as any).$ref;
     if (!typeName) {
       throw new Error('Reference type missing name');
     }
