@@ -218,7 +218,7 @@ if jq -e '.types.ConformanceState.fields[] | select(.name=="stringMap")' "$OUTPU
         echo -e "${RED}❌ ERROR: stringMap type must be 'map', got: $MAP_KIND${NC}"
         exit 1
     fi
-    MAP_KEY=$(jq -r '.types.ConformanceState.fields[] | select(.name=="stringMap") | .type.key.scalar' "$OUTPUT_FILE")
+    MAP_KEY=$(jq -r '.types.ConformanceState.fields[] | select(.name=="stringMap") | .type.key.kind' "$OUTPUT_FILE")
     if [ "$MAP_KEY" != "string" ]; then
         echo -e "${RED}❌ ERROR: Map key must be 'string', got: $MAP_KEY${NC}"
         exit 1
@@ -226,14 +226,14 @@ if jq -e '.types.ConformanceState.fields[] | select(.name=="stringMap")' "$OUTPU
     echo -e "${GREEN}✓ UnorderedMap has correct structure${NC}"
 fi
 
-# Check that Vector has correct structure
+# Check that Vector has correct structure (Rust format uses "list" not "vector")
 if jq -e '.types.ConformanceState.fields[] | select(.name=="items")' "$OUTPUT_FILE" >/dev/null 2>&1; then
     VECTOR_KIND=$(jq -r '.types.ConformanceState.fields[] | select(.name=="items") | .type.kind' "$OUTPUT_FILE")
-    if [ "$VECTOR_KIND" != "vector" ]; then
-        echo -e "${RED}❌ ERROR: items type must be 'vector', got: $VECTOR_KIND${NC}"
+    if [ "$VECTOR_KIND" != "list" ]; then
+        echo -e "${RED}❌ ERROR: items type must be 'list' (Rust format), got: $VECTOR_KIND${NC}"
         exit 1
     fi
-    echo -e "${GREEN}✓ Vector has correct structure${NC}"
+    echo -e "${GREEN}✓ Vector has correct structure (list)${NC}"
 fi
 
 echo ""
