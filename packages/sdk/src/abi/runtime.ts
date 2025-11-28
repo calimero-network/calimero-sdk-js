@@ -5,7 +5,7 @@
  * runtime reflection capabilities. It complements the build-time ABI generation.
  */
 
-import type { AbiManifest, TypeDef, Method, Event, TypeRef } from './types.js';
+import type { AbiManifest, TypeRef } from './types.js';
 
 /**
  * Runtime ABI generator that uses JavaScript reflection

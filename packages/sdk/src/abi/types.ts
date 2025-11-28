@@ -80,8 +80,12 @@ export type ScalarType =
 
 // Extend global types for ABI access
 declare global {
+  // eslint-disable-next-line no-var
   var __CALIMERO_ABI_MANIFEST__: AbiManifest | undefined;
+  // eslint-disable-next-line no-var
   var get_abi_ptr: () => string;
+  // eslint-disable-next-line no-var
   var get_abi_len: () => number;
+  // eslint-disable-next-line no-var
   var get_abi: () => string;
 }
