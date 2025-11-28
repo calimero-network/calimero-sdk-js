@@ -55,8 +55,26 @@ export class RuntimeAbiGenerator {
   private static getBuildTimeAbi(): AbiManifest | null {
     try {
       // Check for embedded ABI manifest
-      if (typeof globalThis !== 'undefined' && globalThis.__CALIMERO_ABI_MANIFEST__) {
-        return globalThis.__CALIMERO_ABI_MANIFEST__;
+      if (typeof globalThis !== 'undefined') {
+        // Try direct access first
+        if (globalThis.__CALIMERO_ABI_MANIFEST__) {
+          return globalThis.__CALIMERO_ABI_MANIFEST__;
+        }
+        
+        // Try to get from ABI access functions (for WASM context)
+        if (typeof (globalThis as any).get_abi === 'function') {
+          try {
+            const abiJson = (globalThis as any).get_abi();
+            if (typeof abiJson === 'string') {
+              const manifest = JSON.parse(abiJson);
+              // Cache it for future use
+              globalThis.__CALIMERO_ABI_MANIFEST__ = manifest;
+              return manifest;
+            }
+          } catch (e) {
+            // Ignore parsing errors
+          }
+        }
       }
 
       return null;

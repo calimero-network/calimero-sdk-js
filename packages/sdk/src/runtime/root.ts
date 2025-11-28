@@ -119,9 +119,32 @@ export function loadRootState<T>(stateClass: { new (...args: any[]): T }): T | n
   env.log('[root] host returned persisted state payload');
 
   // Get ABI manifest
-  const abiManifest = RuntimeAbiGenerator.generateRuntimeManifest();
+  let abiManifest: AbiManifest;
+  try {
+    abiManifest = RuntimeAbiGenerator.generateRuntimeManifest();
+  } catch (error) {
+    env.log(`[root] failed to generate ABI manifest: ${error}`);
+    throw new Error(`Failed to generate ABI manifest: ${error}`);
+  }
+
+  if (!abiManifest || !abiManifest.types || Object.keys(abiManifest.types).length === 0) {
+    env.log('[root] ABI manifest is empty or invalid');
+    throw new Error('ABI manifest is empty or invalid - cannot deserialize state without ABI');
+  }
+
   if (!abiManifest.state_root) {
-    throw new Error('ABI manifest missing state_root - cannot deserialize state without ABI');
+    env.log('[root] ABI manifest missing state_root, attempting to infer from state class');
+    // Try to infer state_root from the state class name
+    const className = stateClass.name || 'Unknown';
+    if (abiManifest.types[className]) {
+      abiManifest.state_root = className;
+      env.log(`[root] inferred state_root as '${className}'`);
+    } else {
+      // List available types for debugging
+      const availableTypes = Object.keys(abiManifest.types).join(', ');
+      env.log(`[root] available types in ABI: ${availableTypes}`);
+      throw new Error(`ABI manifest missing state_root and cannot infer from class '${className}'. Available types: ${availableTypes}`);
+    }
   }
 
   // Get state root type definition
