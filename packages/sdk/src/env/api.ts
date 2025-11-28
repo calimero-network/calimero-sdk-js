@@ -8,7 +8,7 @@
 import '../polyfills/text-encoding';
 
 import type { HostEnv } from './bindings';
-import { getAbiManifest, getMethod, resolveTypeRef } from '../abi/helpers';
+import { getAbiManifest, getMethod } from '../abi/helpers';
 import type { TypeRef, AbiManifest, ScalarType } from '../abi/types';
 
 // This will be provided by QuickJS runtime via builder.c
