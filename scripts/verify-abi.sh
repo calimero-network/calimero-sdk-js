@@ -201,9 +201,9 @@ if [ "$EVENTS_COUNT" -gt 0 ]; then
     echo -e "${GREEN}✓ All events have valid structure (name + optional payload)${NC}"
 fi
 
-# Check that Counter type maps to u64
+# Check that Counter type maps to u64 (Rust format: { "kind": "u64" } not { "kind": "scalar", "scalar": "u64" })
 if jq -e '.types.ConformanceState.fields[] | select(.name=="counter")' "$OUTPUT_FILE" >/dev/null 2>&1; then
-    COUNTER_TYPE=$(jq -r '.types.ConformanceState.fields[] | select(.name=="counter") | .type.scalar' "$OUTPUT_FILE")
+    COUNTER_TYPE=$(jq -r '.types.ConformanceState.fields[] | select(.name=="counter") | .type.kind' "$OUTPUT_FILE")
     if [ "$COUNTER_TYPE" != "u64" ]; then
         echo -e "${YELLOW}⚠ Warning: Counter type is '$COUNTER_TYPE', expected 'u64'${NC}"
     else
