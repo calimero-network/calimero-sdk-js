@@ -48,9 +48,13 @@ TypeScript Source
       ↓
  JavaScript (ES6 modules)
       ↓
- [Rollup] Bundle with dependencies
+ [ABI Emitter] Extract types, methods, events
       ↓
- JavaScript Bundle
+ abi.json (ABI manifest)
+      ↓
+ [Rollup] Bundle with dependencies + inject ABI
+      ↓
+ JavaScript Bundle (with __CALIMERO_ABI_MANIFEST__)
       ↓
  [QuickJS qjsc] Compile to C bytecode
       ↓
@@ -60,31 +64,45 @@ TypeScript Source
       ↓
  methods.h (C header)
       ↓
+ [Inject ABI] Embed abi.json as C byte array
+      ↓
+ abi.h (C header with ABI bytes)
+      ↓
  [Clang/WASI-SDK] Compile to WASM
       ↓
- WASM Binary
+ WASM Binary (with embedded ABI)
       ↓
  [wasi-stub + wasm-opt] Optimize
       ↓
-Final Service (~500KB)
+Final Service (~500KB + ABI)
 ```
+
+**ABI Manifest**: The Application Binary Interface (ABI) is automatically generated during build and embedded in both the JavaScript bundle and WASM binary. It defines all types, methods, events, and state structure, enabling ABI-aware serialization for Rust compatibility.
 
 ## Runtime Execution
 
 ### Method Call Flow
 
 ```
-1. JSON-RPC call → Calimero node
+1. JSON-RPC call → Calimero node (with JSON parameters)
 2. Node loads the WASM service module
 3. WASM creates QuickJS runtime
-4. QuickJS loads JavaScript bytecode
-5. JavaScript calls env.* host functions
-6. Host functions interact with storage
-7. CRDT operations tracked in delta
-8. Delta committed to storage
-9. Delta broadcast to network
-10. Response returned to caller
+4. QuickJS loads JavaScript bytecode + ABI manifest
+5. Host injects ABI manifest into JavaScript global
+6. Method dispatcher reads JSON parameters
+7. Parameters converted to ABI-compatible types (bigint, Uint8Array, etc.)
+8. Method executes with converted parameters
+9. JavaScript calls env.* host functions
+10. CRDT operations tracked in delta
+11. State saved using ABI-aware Borsh serialization
+12. Delta flushed to host storage
+13. Return value serialized to JSON using ABI types
+14. Delta committed to storage
+15. Delta broadcast to network
+16. JSON response returned to caller
 ```
+
+**ABI-Aware Serialization**: All serialization operations (method parameters, return values, state persistence, events) use the embedded ABI manifest to ensure compatibility with Rust services. Parameters are received as JSON and converted to ABI-compatible types; return values are converted from ABI types back to JSON.
 
 ### QuickJS ↔ Host Data Flow
 
@@ -156,16 +174,41 @@ Broadcast to network
 
 ### Serialization Shapes (QuickJS → Host)
 
+#### Method Parameters (Host → QuickJS)
+
 ```
-JS Value                ─┬─ serializeJsValue ──┬─ storage-wasm ──┬─ Host Storage
-                         │                     │                 │
-number / string / bool   │  Borsh scalar       │  raw Vec<u8>     │  stored inline
-                         │  (e.g. F64, string) │                 │
-─────────────────────────┼─────────────────────┼─────────────────┼────────────────
-plain object             │  JSON-like map      │  Vec<u8> blob    │  deserialized
-{ x: 1, y: 'ok' }        │  with primitive     │                  │  only when read
-                         │  fields             │                  │
-─────────────────────────┼─────────────────────┼─────────────────┼────────────────
+Host sends JSON          ─┬─ readPayload ──┬─ convertFromJsonCompatible ──┬─ Method receives
+                         │                │                              │
+{ "key": "value" }       │  Parse JSON    │  Convert using ABI types     │  ABI-compatible
+                         │                │  - string → bigint (u64)     │  types
+                         │                │  - number[] → Uint8Array      │
+                         │                │  - object → Map (if map)    │
+```
+
+#### Return Values (QuickJS → Host)
+
+```
+Method returns           ─┬─ convertToJsonCompatible ──┬─ valueReturn ──┬─ Host receives
+                         │                            │                 │
+bigint (u64/i64/u128)    │  Convert to string          │  JSON.stringify │  JSON string
+Uint8Array (bytes)       │  Convert to number[]        │                 │
+Map                      │  Convert to object          │                 │
+```
+
+#### State Persistence (QuickJS → Host)
+
+```
+State Object             ─┬─ saveRootState ──┬─ serializeWithAbi ──┬─ Format
+                         │                  │                     │
+{ field1, field2, ... }  │  Extract values  │  Borsh serialize    │  [version: u8=1]
+                         │  Filter by ABI   │  using ABI types    │  [state: borsh]
+                         │  Provide defaults │                     │  [collections: legacy]
+                         │                  │                     │  [metadata: legacy]
+```
+
+#### CRDT Collections (QuickJS → Host)
+
+```
 UnorderedMap / Vector /  │  { "__calimeroCollection": "Vector",
 UnorderedSet / Counter   │    "id": "…hex…" }  │  Vec<u8>         │  CRDT keyed by
                          │  (no entries)       │                  │  the 32-byte ID
@@ -178,13 +221,26 @@ Private entry helper     │  Borsh-encoded user │  storage_write   │  key/v
 createPrivateEntry()     │  payload            │  (no delta)      │  node-local KV
 ```
 
-- Primitives and plain structs are round-tripped as ordinary Borsh scalars or maps. They are only
-  materialized when your service reads them back.
-- CRDT values are encoded as lightweight handles; the host stores the opaque metadata while retaining
-  the real CRDT state inside the Rust collection. All CRDT methods (`push`, `add`, `merge`) operate on
-  that ID.
-- Nested CRDTs simply nest handles—each layer reuses the existing ID when you hydrate → mutate →
-  persist.
+#### Event Payloads (QuickJS → Host)
+
+```
+Event object             ─┬─ emitWithHandler ──┬─ serializeWithAbi ──┬─ Host receives
+                         │                   │                    │
+{ field1, field2, ... }   │  Extract payload   │  Borsh serialize   │  Borsh bytes
+                         │  from event        │  using ABI types    │  (for Rust compat)
+```
+
+- **Method Parameters**: Host sends parameters as JSON. The dispatcher converts them to ABI-compatible types (e.g., string bigints → BigInt, number arrays → Uint8Array) based on the ABI method definition. If JSON keys don't match ABI parameter names, the entire JSON object is passed as the first parameter (handles union types and object parameters).
+
+- **Return Values**: Method return values are converted from ABI-compatible types to JSON-compatible formats (bigint → string, Uint8Array → number[]) before being serialized and returned to the host.
+
+- **State Persistence**: State values are serialized using ABI-aware Borsh format. Only fields defined in the ABI `state_root` type are included. Missing non-nullable fields receive default values (empty maps/vectors, 0 for numbers, false for bools, '' for strings). Format: `[version: u8=1][state: borsh][collections: legacy][metadata: legacy]`.
+
+- **Event Payloads**: Event payloads are serialized using ABI-aware Borsh format based on the event's payload type definition in the ABI.
+
+- **CRDT Collections**: Collections are encoded as lightweight handles with IDs; the host stores the opaque metadata while retaining the real CRDT state inside the Rust collection. All CRDT methods (`push`, `add`, `merge`) operate on that ID.
+
+- **Nested CRDTs**: Nested CRDTs nest handles—each layer reuses the existing ID when you hydrate → mutate → persist.
 
 ### How this differs from the Rust SDK
 
@@ -283,8 +339,13 @@ JavaScript and Rust services can:
 
 ### Data Format
 
-Uses same serialization format (Borsh) for:
+Uses ABI-aware Borsh serialization for Rust compatibility:
 
-- Storage keys/values
-- Event payloads
-- Delta artifacts
+- **State persistence**: ABI-aware Borsh format `[version: u8=1][state: borsh][collections: legacy][metadata: legacy]`
+- **Method parameters**: JSON from host → converted to ABI-compatible types (bigint, Uint8Array, Map, etc.)
+- **Return values**: ABI-compatible types → JSON (bigint → string, Uint8Array → number[])
+- **Event payloads**: ABI-aware Borsh serialization based on event payload type
+- **Storage keys/values**: Borsh format (for CRDT operations)
+- **Delta artifacts**: Same format as Rust SDK
+
+**ABI Requirement**: The ABI manifest is mandatory. Services without an embedded ABI will fail at runtime with clear error messages. The ABI is automatically generated during build and embedded in both JavaScript bundles and WASM binaries.
