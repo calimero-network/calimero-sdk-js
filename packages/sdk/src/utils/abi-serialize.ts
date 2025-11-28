@@ -284,20 +284,47 @@ function serializeTypeDef(
       const obj = value as Record<string, unknown>;
       for (const field of typeDef.fields) {
         const fieldValue = obj[field.name];
-        // Handle missing fields (undefined) - treat as null for nullable fields, skip for non-nullable
+        // Handle missing fields (undefined) - treat as null for nullable fields, provide defaults for non-nullable
         if (fieldValue === undefined) {
           if (field.nullable) {
             writer.writeU8(0); // None
           } else {
-            // For non-nullable fields, skip undefined (will use default value when deserialized)
-            // But we still need to write something - use default based on type
-            // For maps, write empty map (size 0)
+            // For non-nullable fields, provide default values based on type
             if (field.type.kind === 'map') {
               writer.writeU32(0); // Empty map
+            } else if (field.type.kind === 'vector' || field.type.kind === 'list') {
+              writer.writeU32(0); // Empty vector/list
+            } else if (field.type.kind === 'set') {
+              writer.writeU32(0); // Empty set
             } else {
-              // For other types, we can't skip - this shouldn't happen in practice
-              // but if it does, throw an error
-              throw new Error(`Missing required field ${field.name} of type ${field.type.kind}`);
+              // For scalar types, write default values
+              const scalarType = field.type.kind === 'scalar' ? field.type.scalar : field.type.kind;
+              if (
+                scalarType === 'u64' ||
+                scalarType === 'i64' ||
+                scalarType === 'u128' ||
+                scalarType === 'i128'
+              ) {
+                writer.writeU64(0n);
+                if (scalarType === 'i128' || scalarType === 'u128') {
+                  writer.writeU64(0n); // u128/i128 need two u64s
+                }
+              } else if (scalarType === 'u8' || scalarType === 'i8') {
+                writer.writeU8(0);
+              } else if (scalarType === 'u16' || scalarType === 'i16') {
+                writer.writeU32(0);
+              } else if (scalarType === 'u32' || scalarType === 'i32') {
+                writer.writeU32(0);
+              } else if (scalarType === 'bool') {
+                writer.writeU8(0); // false
+              } else if (scalarType === 'string') {
+                writer.writeString('');
+              } else if (scalarType === 'bytes') {
+                writer.writeBytes(new Uint8Array(0));
+              } else {
+                // For other types, throw error as we can't provide a default
+                throw new Error(`Missing required field ${field.name} of type ${field.type.kind}`);
+              }
             }
           }
           continue;

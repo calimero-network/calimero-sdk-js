@@ -65,8 +65,12 @@ export function saveRootState(state: any): Uint8Array {
   // Only include fields defined in the ABI state_root type
   const stateValues: Record<string, unknown> = {};
   for (const field of stateRootType.fields) {
-    // Skip collection fields (they're handled separately)
+    // Collection fields are handled separately in doc.collections
+    // But if ABI requires them, we need to provide a placeholder or skip them
+    // Collections shouldn't be in Borsh-serialized state (they're JS-specific)
     if (field.name in doc.collections) {
+      // Skip collection fields - they're not part of Rust state serialization
+      // The ABI shouldn't include collections in state_root, but if it does, skip them
       continue;
     }
 
@@ -87,9 +91,32 @@ export function saveRootState(state: any): Uint8Array {
         } else if (field.type.kind === 'set') {
           stateValues[field.name] = [];
         } else {
-          // For other types, skip and let serialization handle it
-          // But we should include it to ensure all fields are present
-          continue;
+          // For scalar types, provide appropriate defaults
+          const scalarType = field.type.kind === 'scalar' ? field.type.scalar : field.type.kind;
+          if (
+            scalarType === 'u64' ||
+            scalarType === 'i64' ||
+            scalarType === 'u128' ||
+            scalarType === 'i128'
+          ) {
+            stateValues[field.name] = 0n;
+          } else if (
+            scalarType === 'u8' ||
+            scalarType === 'u16' ||
+            scalarType === 'u32' ||
+            scalarType === 'i8' ||
+            scalarType === 'i16' ||
+            scalarType === 'i32'
+          ) {
+            stateValues[field.name] = 0;
+          } else if (scalarType === 'bool') {
+            stateValues[field.name] = false;
+          } else if (scalarType === 'string') {
+            stateValues[field.name] = '';
+          } else {
+            // For other types, skip and let serialization handle it
+            continue;
+          }
         }
       }
     } else {
