@@ -31,9 +31,7 @@ try {
 
   console.log(`Generating ABI from: ${resolvedSource}`);
   // Use Rust format for compatibility
-  const { generateAbiManifestRustFormat } = await import(
-    '../packages/cli/lib/abi/emitter.js'
-  );
+  const { generateAbiManifestRustFormat } = await import('../packages/cli/lib/abi/emitter.js');
   const abi = generateAbiManifestRustFormat(resolvedSource);
 
   // Ensure output directory exists
