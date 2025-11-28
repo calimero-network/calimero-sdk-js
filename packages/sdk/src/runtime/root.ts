@@ -1,10 +1,9 @@
 import * as env from '../env/api';
 import { CollectionSnapshot, instantiateCollection, snapshotCollection } from './collections';
-import { RuntimeAbiGenerator } from '../abi/runtime.js';
+import { RuntimeAbiGenerator, type AbiManifest, type TypeDef } from '../abi/index.js';
 import { serializeWithAbi, deserializeWithAbi } from '../utils/borsh-abi.js';
 import { BorshWriter } from '../borsh/encoder.js';
 import { BorshReader } from '../borsh/decoder.js';
-import type { AbiManifest, TypeDef } from '../abi/types.js';
 
 interface PersistedStateDocument {
   className: string;

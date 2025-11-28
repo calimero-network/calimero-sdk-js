@@ -8,7 +8,7 @@
 
 import { BorshWriter } from '../borsh/encoder.js';
 import { BorshReader } from '../borsh/decoder.js';
-import type { TypeRef, ScalarType, TypeDef } from '../abi/types.js';
+import type { TypeRef, ScalarType, TypeDef } from '../abi/index.js';
 import { hasRegisteredCollection, snapshotCollection } from '../runtime/collections.js';
 
 /**
@@ -329,7 +329,6 @@ function hexToBytes(hex: string): Uint8Array {
   }
   return bytes;
 }
-
 
 function deserializeTypeDef(reader: BorshReader, typeDef: TypeDef, abiManifest: any): any {
   switch (typeDef.kind) {
