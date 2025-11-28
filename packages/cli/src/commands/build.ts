@@ -8,7 +8,7 @@ import { compileToC } from '../compiler/quickjs.js';
 import { compileToWasm } from '../compiler/wasm.js';
 import { optimizeWasm } from '../compiler/optimize.js';
 import { generateMethodsHeader } from '../compiler/methods.js';
-import { generateAbiJson, generateAbiHeader, generateCodegenAbi, generateAbiSchema } from '../compiler/abi.js';
+import { generateAbiJson, generateAbiHeader, generateAbiSchema } from '../compiler/abi.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -94,25 +94,7 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
       }
     }
 
-    // Step 8: Generate codegen-compatible ABI for client generation
-    // Note: ABI JSON is already written to outputDir by generateAbiJson, no copy needed
-    try {
-      await generateCodegenAbi(abiJsonPath, {
-        verbose: options.verbose,
-        outputDir: outputDir,
-      });
-      const codegenAbiPath = path.join(path.dirname(options.output), 'abi.codegen.json');
-      if (options.verbose) {
-        signale.info(`Codegen-compatible ABI saved to: ${codegenAbiPath}`);
-      }
-    } catch (error) {
-      // Non-fatal: codegen ABI generation is optional
-      if (options.verbose) {
-        signale.warn(`Failed to generate codegen ABI: ${error}`);
-      }
-    }
-
-    // Step 9: Optimize (if enabled)
+    // Step 8: Optimize (if enabled)
     if (options.optimize) {
       signale.await('Optimizing WASM...');
       await optimizeWasm(wasmPath, options.output, {

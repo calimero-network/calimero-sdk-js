@@ -5,7 +5,7 @@
 
 set -e
 
-ABI_FILE="${1:-build/abi.codegen.json}"
+ABI_FILE="${1:-build/abi.json}"
 OUTPUT_DIR="${2:-build/generated}"
 CLIENT_NAME="${3:-}"
 
@@ -15,7 +15,7 @@ if [ ! -f "$ABI_FILE" ]; then
   echo "Usage: $0 <abi-json-path> <output-dir> [client-name]"
   echo ""
   echo "Example:"
-  echo "  $0 examples/counter/build/abi.codegen.json examples/counter/build/generated CounterClient"
+  echo "  $0 examples/counter/build/abi.json examples/counter/build/generated CounterClient"
   exit 1
 fi
 

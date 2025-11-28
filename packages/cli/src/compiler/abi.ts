@@ -97,47 +97,6 @@ export async function generateAbiHeader(abiJsonPath: string, options: AbiOptions
 }
 
 /**
- * Generates a codegen-compatible ABI JSON (removes Rust-specific fields)
- *
- * @param abiJsonPath - Path to ABI JSON file
- * @param options - Options for codegen ABI generation
- * @returns Path to generated codegen-compatible ABI JSON file
- */
-export async function generateCodegenAbi(
-  abiJsonPath: string,
-  options: AbiOptions
-): Promise<string> {
-  const codegenAbiPath = path.join(options.outputDir, 'abi.codegen.json');
-
-  if (!fs.existsSync(abiJsonPath)) {
-    throw new Error(`ABI JSON file not found: ${abiJsonPath}`);
-  }
-
-  const abi = JSON.parse(fs.readFileSync(abiJsonPath, 'utf-8'));
-
-  // Remove Rust-specific fields that aren't in the codegen schema
-  // - Remove state_root (not in schema)
-  // - Remove is_init and is_view from methods (not in schema)
-  const codegenAbi: any = {
-    schema_version: abi.schema_version,
-    types: abi.types,
-    methods: abi.methods.map((method: any) => {
-      const { is_init: _is_init, is_view: _is_view, ...rest } = method;
-      return rest;
-    }),
-    events: abi.events,
-  };
-
-  fs.writeFileSync(codegenAbiPath, JSON.stringify(codegenAbi, null, 2));
-
-  if (options.verbose) {
-    console.log(`Codegen-compatible ABI generated: ${codegenAbiPath}`);
-  }
-
-  return codegenAbiPath;
-}
-
-/**
  * Generates JSON Schema for ABI validation
  *
  * @param options - Options for schema generation
