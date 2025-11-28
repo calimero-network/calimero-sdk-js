@@ -214,7 +214,22 @@ function readPayload(methodName?: string): unknown {
   }
 
   if (method.params.length === 0) {
-    log(`[dispatcher] readPayload: method ${methodName} has no parameters`);
+    log(`[dispatcher] readPayload: method ${methodName} has no parameters in ABI`);
+    // Even if ABI says no params, check if there's actual data
+    // This handles cases where ABI is incomplete but host sends params
+    if (buffer.length > 0) {
+      try {
+        const jsonString = new TextDecoder().decode(buffer);
+        const jsonValue = JSON.parse(jsonString);
+        log(
+          `[dispatcher] readPayload: found payload data despite no params in ABI, returning as-is`
+        );
+        return jsonValue;
+      } catch {
+        // If parsing fails, return undefined
+        return undefined;
+      }
+    }
     return undefined;
   }
 
@@ -366,6 +381,23 @@ function createInitDispatcher(
   return function initDispatch(): void {
     const payload = readPayload(methodName);
     const args = normalizeArgs(payload, paramNames);
+
+    log(
+      `[dispatcher] initDispatch: method=${methodName}, paramNames=${JSON.stringify(paramNames)}, payload type=${typeof payload}, args length=${args.length}`
+    );
+    if (args.length > 0 && args[0] !== undefined && args[0] !== null) {
+      log(
+        `[dispatcher] initDispatch: first arg type=${typeof args[0]}, keys=${typeof args[0] === 'object' ? Object.keys(args[0]).join(',') : 'N/A'}`
+      );
+    } else if (payload && typeof payload === 'object') {
+      // If payload exists but normalizeArgs didn't handle it, use payload directly
+      log(`[dispatcher] initDispatch: payload exists but args empty, using payload as first arg`);
+      args.push(payload);
+    } else {
+      log(
+        `[dispatcher] initDispatch: no payload or args, init method may fail if it expects parameters`
+      );
+    }
 
     let state: any;
     try {
