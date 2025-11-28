@@ -24,6 +24,7 @@ function readPayload(methodName?: string): unknown {
   input(REGISTER_ID);
   const len = Number(registerLen(REGISTER_ID));
   if (!Number.isFinite(len) || len <= 0) {
+    log(`[dispatcher] readPayload: no data for method ${methodName} (len=${len})`);
     return undefined;
   }
 
@@ -46,24 +47,35 @@ function readPayload(methodName?: string): unknown {
   }
 
   if (method.params.length === 0) {
+    log(`[dispatcher] readPayload: method ${methodName} has no parameters`);
     return undefined;
   }
 
-  // Deserialize parameters according to ABI
-  // If single parameter, deserialize directly; if multiple, deserialize as record
-  if (method.params.length === 1) {
-    return deserializeWithAbi(buffer, method.params[0].type, abi);
-  } else {
-    // Multiple parameters - deserialize as record
-    // This is a simplified approach; full implementation would need tuple support
-    return deserializeWithAbi(
-      buffer,
-      {
-        kind: 'reference',
-        name: `Method_${methodName}_Params`,
-      },
-      abi
-    );
+  try {
+    // Deserialize parameters according to ABI
+    // If single parameter, deserialize directly; if multiple, deserialize as record
+    if (method.params.length === 1) {
+      const result = deserializeWithAbi(buffer, method.params[0].type, abi);
+      log(`[dispatcher] readPayload: deserialized ${methodName} param (type: ${JSON.stringify(method.params[0].type)}, result type: ${typeof result})`);
+      return result;
+    } else {
+      // Multiple parameters - deserialize as record
+      // This is a simplified approach; full implementation would need tuple support
+      const result = deserializeWithAbi(
+        buffer,
+        {
+          kind: 'reference',
+          name: `Method_${methodName}_Params`,
+        },
+        abi
+      );
+      log(`[dispatcher] readPayload: deserialized ${methodName} params as record`);
+      return result;
+    }
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    log(`[dispatcher] readPayload: failed to deserialize ${methodName}: ${errorMsg}`);
+    throw error;
   }
 }
 
