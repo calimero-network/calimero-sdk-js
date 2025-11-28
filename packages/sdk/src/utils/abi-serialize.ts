@@ -140,6 +140,23 @@ function serializeValue(
     return;
   }
 
+  // Handle set types
+  if (typeRef.kind === 'set') {
+    const innerType = typeRef.inner || typeRef.items;
+    if (!innerType) {
+      throw new Error('Set type missing inner type');
+    }
+    if (!(value instanceof Set) && !Array.isArray(value)) {
+      throw new Error(`Expected Set or array for set type, got ${typeof value}`);
+    }
+    const items = value instanceof Set ? Array.from(value) : value;
+    writer.writeU32(items.length);
+    for (const item of items) {
+      serializeValue(writer, item, innerType, abi);
+    }
+    return;
+  }
+
   // Handle reference types (records, variants, aliases)
   // Rust ABI format uses "$ref" instead of { "kind": "reference", "name": "..." }
   if (typeRef.kind === 'reference' || (typeRef as any).$ref) {
@@ -191,11 +208,11 @@ function serializeScalar(writer: BorshWriter, value: unknown, scalar: ScalarType
         throw new Error(`Expected bigint or number for ${scalar}, got ${typeof value}`);
       }
       const bigValue = typeof value === 'bigint' ? value : BigInt(value);
-      writer.writeU64(bigValue);
-      if (scalar === 'u128') {
-        // u128 is two u64s in Borsh
-        writer.writeU64(0n);
-      }
+      // u128 is two u64s in Borsh: low 64 bits, then high 64 bits
+      const lowBits = bigValue & BigInt('0xffffffffffffffff');
+      const highBits = bigValue >> 64n;
+      writer.writeU64(lowBits);
+      writer.writeU64(highBits);
       break;
     }
 
@@ -209,7 +226,8 @@ function serializeScalar(writer: BorshWriter, value: unknown, scalar: ScalarType
       if (scalar === 'i8') {
         writer.writeU8(value & 0xff);
       } else if (scalar === 'i16') {
-        writer.writeU32(value & 0xffff);
+        // i16 is written as u16 in Borsh
+        writer.writeU16(value & 0xffff);
       } else {
         writer.writeU32(value);
       }
@@ -221,9 +239,14 @@ function serializeScalar(writer: BorshWriter, value: unknown, scalar: ScalarType
         throw new Error(`Expected bigint or number for ${scalar}, got ${typeof value}`);
       }
       const signedBigValue = typeof value === 'bigint' ? value : BigInt(value);
-      writer.writeU64(signedBigValue);
-      if (scalar === 'i128') {
-        writer.writeU64(0n);
+      if (scalar === 'i64') {
+        writer.writeU64(signedBigValue);
+      } else {
+        // i128 is two u64s in Borsh: low 64 bits, then high 64 bits
+        const lowBits = signedBigValue & BigInt('0xffffffffffffffff');
+        const highBits = signedBigValue >> 64n;
+        writer.writeU64(lowBits);
+        writer.writeU64(highBits);
       }
       break;
     }
@@ -234,8 +257,7 @@ function serializeScalar(writer: BorshWriter, value: unknown, scalar: ScalarType
         throw new Error(`Expected number for ${scalar}, got ${typeof value}`);
       }
       if (scalar === 'f32') {
-        // f32 is written as f64 in Borsh (we'll use f64 for now)
-        writer.writeF64(value);
+        writer.writeF32(value);
       } else {
         writer.writeF64(value);
       }
@@ -495,14 +517,14 @@ function deserializeScalar(reader: BorshReader, scalar: ScalarType): unknown {
     case 'u8':
       return reader.readU8();
     case 'u16':
-      return reader.readU32(); // u16 is read as u32
+      return reader.readU16();
     case 'u32':
       return reader.readU32();
 
     case 'u64':
       return reader.readU64();
     case 'u128': {
-      // u128 is two u64s
+      // u128 is two u64s: low 64 bits, then high 64 bits
       const low = reader.readU64();
       const high = reader.readU64();
       return (high << 64n) | low;
@@ -513,7 +535,7 @@ function deserializeScalar(reader: BorshReader, scalar: ScalarType): unknown {
       return u8 > 127 ? u8 - 256 : u8;
     }
     case 'i16': {
-      const u16 = reader.readU32();
+      const u16 = reader.readU16();
       return u16 > 32767 ? u16 - 65536 : u16;
     }
     case 'i32': {
