@@ -3,7 +3,6 @@
  */
 
 import type { AppEvent } from './types';
-import { serializeJsValue } from '../utils/borsh-value';
 import { getAbiManifest, getEventPayloadType } from '../abi/helpers';
 import { serializeWithAbi } from '../utils/abi-serialize';
 

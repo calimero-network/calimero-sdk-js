@@ -8,8 +8,6 @@
 import '../polyfills/text-encoding';
 
 import type { HostEnv } from './bindings';
-import { exposeValue } from '../utils/expose';
-import { serialize } from '../utils/serialize';
 import { getAbiManifest, getMethod } from '../abi/helpers';
 import { serializeWithAbi } from '../utils/abi-serialize';
 

@@ -1,7 +1,6 @@
 import { log, valueReturn, flushDelta, registerLen, readRegister, input, panic } from '../env/api';
 import { StateManager } from './state-manager';
 import { runtimeLogicEntries } from './method-registry';
-import { deserialize } from '../utils/serialize';
 import { getAbiManifest, getMethod } from '../abi/helpers';
 import { deserializeWithAbi } from '../utils/abi-serialize';
 import './sync';
@@ -9,7 +8,6 @@ import './sync';
 type JsonObject = Record<string, unknown>;
 
 const REGISTER_ID = 0n;
-const textDecoder = new TextDecoder();
 
 if (typeof (globalThis as any).__calimero_register_merge !== 'function') {
   (globalThis as any).__calimero_register_merge = function __calimero_register_merge(): void {};
@@ -113,11 +111,6 @@ function handleError(method: string, error: unknown): never {
   const message = `[dispatcher] ${method} failed: ${text}`;
   log(message);
   panic(message);
-}
-
-function logError(prefix: string, error: unknown): void {
-  const details = error instanceof Error ? `${error.message}` : String(error);
-  log(`${prefix}: ${details}`);
 }
 
 function createLogicDispatcher(
