@@ -56,7 +56,9 @@ function readPayload(methodName?: string): unknown {
     // If single parameter, deserialize directly; if multiple, deserialize as record
     if (method.params.length === 1) {
       const result = deserializeWithAbi(buffer, method.params[0].type, abi);
-      log(`[dispatcher] readPayload: deserialized ${methodName} param (type: ${JSON.stringify(method.params[0].type)}, result type: ${typeof result})`);
+      log(
+        `[dispatcher] readPayload: deserialized ${methodName} param (type: ${JSON.stringify(method.params[0].type)}, result type: ${typeof result})`
+      );
       return result;
     } else {
       // Multiple parameters - deserialize as record
@@ -98,7 +100,7 @@ function normalizeArgs(payload: unknown, paramNames: string[]): unknown[] {
       // Otherwise, payload is the parameter value itself (common for single object params)
       return [payload];
     }
-    
+
     if (paramNames.length === 0) {
       const values = Object.values(payload as JsonObject);
       if (values.length === 0) {
@@ -109,7 +111,7 @@ function normalizeArgs(payload: unknown, paramNames: string[]): unknown[] {
       }
       return [payload];
     }
-    
+
     // Multiple parameters - map by name
     const obj = payload as JsonObject;
     return paramNames.map((name, index) => {
