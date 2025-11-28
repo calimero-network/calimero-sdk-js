@@ -376,13 +376,26 @@ export class AbiEmitter {
     // Babel uses 'params' directly, TypeScript uses 'value.params'
     const constructorParams = constructor?.params || constructor?.value?.params || [];
     constructorParams.forEach((param: any) => {
+      // Handle regular parameters: Identifier or Pattern
       if (param.type === 'Identifier' || param.type === 'Pattern') {
         const fieldName = param.name || param.left?.name;
         const typeAnnotation = param.typeAnnotation || param.left?.typeAnnotation;
         if (fieldName) {
           const typeRef = this.extractTypeFromAnnotation(typeAnnotation);
-          // For events, if there's only one field named 'payload', use it as payload
-          // Otherwise use fields array
+          fields.push({
+            name: fieldName,
+            type: typeRef,
+          });
+        }
+      }
+      // Handle TypeScript parameter properties with visibility modifiers: constructor(public payload: string)
+      // These produce TSParameterProperty nodes in Babel's AST
+      else if (param.type === 'TSParameterProperty') {
+        const actualParam = param.parameter;
+        const fieldName = actualParam?.name || actualParam?.left?.name;
+        const typeAnnotation = actualParam?.typeAnnotation || actualParam?.left?.typeAnnotation;
+        if (fieldName) {
+          const typeRef = this.extractTypeFromAnnotation(typeAnnotation);
           fields.push({
             name: fieldName,
             type: typeRef,

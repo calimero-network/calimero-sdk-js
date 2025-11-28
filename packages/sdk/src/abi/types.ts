@@ -76,7 +76,8 @@ export type ScalarType =
   | 'f32'
   | 'f64'
   | 'string'
-  | 'bytes';
+  | 'bytes'
+  | 'unit';
 
 // Extend global types for ABI access
 declare global {

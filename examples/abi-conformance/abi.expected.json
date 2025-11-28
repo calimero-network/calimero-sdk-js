@@ -849,22 +849,40 @@
       "name": "Ping"
     },
     {
-      "name": "Named"
+      "name": "Named",
+      "payload": {
+        "kind": "string"
+      }
     },
     {
-      "name": "Data"
+      "name": "Data",
+      "payload": {
+        "kind": "bytes"
+      }
     },
     {
-      "name": "PersonUpdated"
+      "name": "PersonUpdated",
+      "payload": {
+        "$ref": "Person"
+      }
     },
     {
-      "name": "ActionTaken"
+      "name": "ActionTaken",
+      "payload": {
+        "$ref": "Action"
+      }
     },
     {
-      "name": "TupleEvent"
+      "name": "TupleEvent",
+      "payload": {
+        "$ref": "Event_TupleEvent"
+      }
     },
     {
-      "name": "StructEvent"
+      "name": "StructEvent",
+      "payload": {
+        "$ref": "Event_StructEvent"
+      }
     }
   ],
   "state_root": "AbiState"
