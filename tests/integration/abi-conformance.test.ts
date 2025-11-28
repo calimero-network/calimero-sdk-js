@@ -26,7 +26,7 @@ describe('ABI Conformance Tests', () => {
   function generateAbiFromSourceRust(source: string): any {
     const testFile = path.join(testFilesDir, `test-${testFileCounter++}.ts`);
     fs.writeFileSync(testFile, source);
-    
+
     // Use AbiEmitter directly to only process the single file
     const emitter = new AbiEmitter();
     emitter.analyzeFile(testFile);

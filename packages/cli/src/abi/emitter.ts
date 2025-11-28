@@ -138,6 +138,8 @@ export class AbiEmitter {
     }
 
     // Second pass: Find decorated classes from all files
+    // Track analyzed classes to avoid duplicates (exported classes appear in both ClassDeclaration and ExportNamedDeclaration)
+    const analyzedClasses = new Set<string>();
     for (const filePath of filePaths) {
       const sourceCode = fs.readFileSync(filePath, 'utf-8');
       const ast = parse(sourceCode, {
@@ -147,11 +149,19 @@ export class AbiEmitter {
 
       traverse(ast, {
         ClassDeclaration: (nodePath: any) => {
-          this.analyzeClass(nodePath.node);
+          const className = nodePath.node.id?.name;
+          if (className && !analyzedClasses.has(className)) {
+            analyzedClasses.add(className);
+            this.analyzeClass(nodePath.node);
+          }
         },
         ExportNamedDeclaration: (nodePath: any) => {
           if (nodePath.node.declaration?.type === 'ClassDeclaration') {
-            this.analyzeClass(nodePath.node.declaration);
+            const className = nodePath.node.declaration.id?.name;
+            if (className && !analyzedClasses.has(className)) {
+              analyzedClasses.add(className);
+              this.analyzeClass(nodePath.node.declaration);
+            }
           }
         },
       });
@@ -193,13 +203,23 @@ export class AbiEmitter {
     });
 
     // Second pass: Find decorated classes
+    // Track analyzed classes to avoid duplicates (exported classes appear in both ClassDeclaration and ExportNamedDeclaration)
+    const analyzedClasses = new Set<string>();
     traverse(ast, {
       ClassDeclaration: (nodePath: any) => {
-        this.analyzeClass(nodePath.node);
+        const className = nodePath.node.id?.name;
+        if (className && !analyzedClasses.has(className)) {
+          analyzedClasses.add(className);
+          this.analyzeClass(nodePath.node);
+        }
       },
       ExportNamedDeclaration: (nodePath: any) => {
         if (nodePath.node.declaration?.type === 'ClassDeclaration') {
-          this.analyzeClass(nodePath.node.declaration);
+          const className = nodePath.node.declaration.id?.name;
+          if (className && !analyzedClasses.has(className)) {
+            analyzedClasses.add(className);
+            this.analyzeClass(nodePath.node.declaration);
+          }
         }
       },
     });
