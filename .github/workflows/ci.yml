@@ -252,9 +252,9 @@ jobs:
           merobox nuke -f || true
 
           # Check if any workflow files exist before proceeding
-          WORKFLOW_FILES=(merobox-workflows/workflow-*.yml)
+          WORKFLOW_FILES=(examples/*/workflows/*.yml)
           if [ ! -f "${WORKFLOW_FILES[0]}" ]; then
-            echo "Error: No workflow files found matching pattern: merobox-workflows/workflow-*.yml"
+            echo "Error: No workflow files found matching pattern: examples/*/workflows/*.yml"
             exit 1
           fi
 
