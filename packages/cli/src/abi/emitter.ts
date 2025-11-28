@@ -408,6 +408,16 @@ export class AbiEmitter {
       name: className,
       fields,
     });
+
+    // If event has multiple fields, create a record type for the payload
+    // This ensures the Event_${className} type exists when referenced in serializeEventsToRustFormat
+    if (fields.length > 1) {
+      const eventTypeName = `Event_${className}`;
+      this.types.set(eventTypeName, {
+        kind: 'record',
+        fields,
+      });
+    }
   }
 
   private extractTypeFromAnnotation(typeAnnotation: any): TypeRef {
@@ -582,9 +592,11 @@ export class AbiEmitter {
         if (member.type === 'TSPropertySignature' && member.key?.name) {
           const fieldName = member.key.name;
           const typeRef = this.extractTypeFromAnnotation(member.typeAnnotation);
+          const nullable = member.optional || undefined;
           fields.push({
             name: fieldName,
             type: typeRef,
+            nullable: nullable ? true : undefined,
           });
         }
       });
