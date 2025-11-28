@@ -3,7 +3,8 @@
  */
 
 import type { AppEvent } from './types';
-import { serializeJsValue } from '../utils/borsh-value';
+import { getAbiManifest, getEventPayloadType } from '../abi/helpers';
+import { serializeWithAbi } from '../utils/abi-serialize';
 
 // This will be provided by QuickJS runtime
 declare const env: {
@@ -27,6 +28,24 @@ export function emitWithHandler(event: unknown, handlerName: string): void {
 }
 
 function extractPayload(event: unknown): Uint8Array {
+  const eventName = eventConstructorName(event);
+
+  // ABI-aware serialization is required
+  const abi = getAbiManifest();
+  if (!abi) {
+    throw new Error('ABI manifest is required but not available for event serialization');
+  }
+
+  const payloadType = getEventPayloadType(abi, eventName);
+  if (!payloadType) {
+    // Event has no payload type, return empty payload
+    return new Uint8Array(0);
+  }
+
+  // Extract the actual payload value from the event
+  let payloadValue: unknown = event;
+
+  // If event has a serialize method, use it first
   const maybeEvent = event as AppEvent | undefined;
   if (maybeEvent && typeof maybeEvent.serialize === 'function') {
     const serialized = maybeEvent.serialize();
@@ -36,9 +55,20 @@ function extractPayload(event: unknown): Uint8Array {
     if (typeof serialized === 'string') {
       return encoder.encode(serialized);
     }
-    return serializeJsValue(serialized);
+    payloadValue = serialized;
+  } else if (typeof event === 'object' && event !== null) {
+    // Extract payload from event object
+    const eventObj = event as Record<string, unknown>;
+    if ('payload' in eventObj) {
+      payloadValue = eventObj.payload;
+    } else {
+      // Use the event object itself as payload
+      payloadValue = eventObj;
+    }
   }
-  return serializeJsValue(event);
+
+  // Serialize event payload according to ABI
+  return serializeWithAbi(payloadValue, payloadType, abi);
 }
 
 function eventConstructorName(event: unknown): string {

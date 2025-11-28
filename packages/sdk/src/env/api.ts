@@ -8,8 +8,8 @@
 import '../polyfills/text-encoding';
 
 import type { HostEnv } from './bindings';
-import { exposeValue } from '../utils/expose';
-import { serialize } from '../utils/serialize';
+import { getAbiManifest, getMethod } from '../abi/helpers';
+import type { TypeRef, AbiManifest, ScalarType } from '../abi/types';
 
 // This will be provided by QuickJS runtime via builder.c
 declare const env: HostEnv;
@@ -33,39 +33,190 @@ export function panic(message: string): never {
   env.panic_utf8(textEncoder.encode(message));
 }
 
-export function valueReturn(value: unknown): void {
-  if (value instanceof Uint8Array) {
-    env.value_return(value);
+/**
+ * Converts a value to JSON-compatible format based on ABI type
+ * Handles bigint conversion and other type-specific conversions
+ */
+function convertToJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiManifest): unknown {
+  // Handle null/undefined
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  // Handle scalar types (both formats: {kind: "scalar", scalar: "u64"} and {kind: "u64"})
+  const scalarType =
+    typeRef.kind === 'scalar'
+      ? typeRef.scalar
+      : [
+            'bool',
+            'u8',
+            'u16',
+            'u32',
+            'u64',
+            'u128',
+            'i8',
+            'i16',
+            'i32',
+            'i64',
+            'i128',
+            'f32',
+            'f64',
+            'string',
+            'bytes',
+            'unit',
+          ].includes(typeRef.kind)
+        ? (typeRef.kind as ScalarType)
+        : null;
+
+  if (scalarType) {
+    // Convert bigint types to string for JSON compatibility
+    if (
+      scalarType === 'u64' ||
+      scalarType === 'i64' ||
+      scalarType === 'u128' ||
+      scalarType === 'i128'
+    ) {
+      if (typeof value === 'bigint') {
+        return value.toString();
+      }
+      // If it's already a number, convert to string to preserve precision
+      if (typeof value === 'number') {
+        return value.toString();
+      }
+    }
+
+    // Handle bytes - convert to array of numbers for JSON
+    if (scalarType === 'bytes') {
+      if (value instanceof Uint8Array) {
+        // Convert to array of numbers for JSON compatibility
+        return Array.from(value);
+      }
+    }
+
+    // For other scalars, return as-is (JSON.stringify handles them)
+    return value;
+  }
+
+  // Handle option types
+  if (typeRef.kind === 'option') {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    return convertToJsonCompatible(value, typeRef.inner!, abi);
+  }
+
+  // Handle vector/list types
+  if (typeRef.kind === 'vector' || typeRef.kind === 'list') {
+    if (!Array.isArray(value)) {
+      throw new Error(`Expected array for ${typeRef.kind} type, got ${typeof value}`);
+    }
+    const innerType = typeRef.inner || typeRef.items;
+    if (!innerType) {
+      throw new Error(`Missing inner type for ${typeRef.kind}`);
+    }
+    return value.map(item => convertToJsonCompatible(item, innerType, abi));
+  }
+
+  // Handle map types
+  if (typeRef.kind === 'map') {
+    if (!(value instanceof Map) && typeof value !== 'object') {
+      throw new Error(`Expected Map or object for map type, got ${typeof value}`);
+    }
+    const entries = value instanceof Map ? Array.from(value.entries()) : Object.entries(value);
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of entries) {
+      const jsonKey = typeof key === 'string' ? key : String(key);
+      result[jsonKey] = convertToJsonCompatible(val, typeRef.value!, abi);
+    }
+    return result;
+  }
+
+  // Handle set types
+  if (typeRef.kind === 'set') {
+    if (!(value instanceof Set) && !Array.isArray(value)) {
+      throw new Error(`Expected Set or array for set type, got ${typeof value}`);
+    }
+    const items = value instanceof Set ? Array.from(value) : value;
+    const innerType = typeRef.inner || typeRef.items;
+    if (!innerType) {
+      throw new Error('Missing inner type for set');
+    }
+    return items.map(item => convertToJsonCompatible(item, innerType, abi));
+  }
+
+  // Handle reference types (records, variants, etc.)
+  if (typeRef.kind === 'reference' || typeRef.$ref) {
+    const typeName = typeRef.name || typeRef.$ref;
+    if (!typeName) {
+      throw new Error('Missing type name for reference');
+    }
+    const typeDef = abi.types[typeName];
+    if (!typeDef) {
+      throw new Error(`Type ${typeName} not found in ABI`);
+    }
+
+    // Handle record types
+    if (typeDef.kind === 'record' && typeDef.fields) {
+      if (typeof value !== 'object' || value === null) {
+        throw new Error(`Expected object for record type ${typeName}, got ${typeof value}`);
+      }
+      const result: Record<string, unknown> = {};
+      for (const field of typeDef.fields) {
+        const fieldValue = (value as Record<string, unknown>)[field.name];
+        if (fieldValue === undefined && !field.nullable) {
+          continue; // Skip undefined fields
+        }
+        result[field.name] = convertToJsonCompatible(fieldValue, field.type, abi);
+      }
+      return result;
+    }
+
+    // Handle variant types
+    if (typeDef.kind === 'variant' && typeDef.variants) {
+      // Variants are typically represented as objects with a discriminator
+      if (typeof value !== 'object' || value === null) {
+        throw new Error(`Expected object for variant type ${typeName}, got ${typeof value}`);
+      }
+      // Return as-is for variants (they should already be JSON-compatible)
+      return value;
+    }
+
+    // Handle alias types
+    if (typeDef.kind === 'alias' && typeDef.target) {
+      return convertToJsonCompatible(value, typeDef.target, abi);
+    }
+  }
+
+  // Fallback: return value as-is (JSON.stringify will handle it)
+  return value;
+}
+
+export function valueReturn(value: unknown, methodName?: string): void {
+  // Return values should be JSON, not Borsh
+  if (!methodName) {
+    throw new Error('Method name is required for return value serialization');
+  }
+
+  const abi = getAbiManifest();
+  if (!abi) {
+    throw new Error('ABI manifest is required but not available');
+  }
+
+  const method = getMethod(abi, methodName);
+  if (!method) {
+    throw new Error(`Method ${methodName} not found in ABI`);
+  }
+
+  if (!method.returns) {
+    // Method returns void/unit - return null JSON
+    env.value_return(textEncoder.encode('null'));
     return;
   }
 
-  if (typeof value === 'bigint') {
-    env.value_return(textEncoder.encode(value.toString()));
-    return;
-  }
-
-  if (typeof value === 'string') {
-    env.value_return(textEncoder.encode(value));
-    return;
-  }
-
-  const exposed = exposeValue(value);
-  const ctor =
-    value !== null && typeof value === 'object'
-      ? (value as Record<string, unknown>).constructor
-      : undefined;
-  const isStateInstance = Boolean(ctor && (ctor as any)._calimeroState);
-
-  if (isStateInstance) {
-    env.value_return(serialize(exposed));
-    return;
-  }
-
-  const json =
-    exposed === undefined
-      ? 'null'
-      : JSON.stringify(exposed, (_key, val) => (typeof val === 'bigint' ? val.toString() : val));
-  env.value_return(textEncoder.encode(json ?? 'null'));
+  // Convert value to JSON-compatible format based on ABI type
+  const jsonValue = convertToJsonCompatible(value, method.returns, abi);
+  const jsonString = JSON.stringify(jsonValue);
+  env.value_return(textEncoder.encode(jsonString));
 }
 
 /**

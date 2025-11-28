@@ -6,6 +6,14 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { bundleWithRollup } from '../../packages/cli/src/compiler/rollup';
 
+// Minimal ABI manifest for testing
+const minimalAbiManifest = {
+  schema_version: 'wasm-abi/1',
+  types: {},
+  methods: [],
+  events: [],
+};
+
 describe('Rollup Bundler', () => {
   const outputDir = path.join(__dirname, 'output');
 
@@ -50,6 +58,7 @@ describe('Rollup Bundler', () => {
     const bundlePath = await bundleWithRollup(testFile, {
       verbose: false,
       outputDir,
+      abiManifest: minimalAbiManifest,
     });
 
     expect(fs.existsSync(bundlePath)).toBe(true);
@@ -72,6 +81,7 @@ describe('Rollup Bundler', () => {
     const bundlePath = await bundleWithRollup(counterSource, {
       verbose: false,
       outputDir,
+      abiManifest: minimalAbiManifest,
     });
 
     expect(fs.existsSync(bundlePath)).toBe(true);
@@ -85,6 +95,7 @@ describe('Rollup Bundler', () => {
     const bundlePath = await bundleWithRollup(kvSource, {
       verbose: false,
       outputDir,
+      abiManifest: minimalAbiManifest,
     });
 
     expect(fs.existsSync(bundlePath)).toBe(true);

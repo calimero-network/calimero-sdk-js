@@ -16,6 +16,14 @@ export class BorshWriter {
   }
 
   /**
+   * Write a 16-bit unsigned integer (u16) in little-endian
+   */
+  writeU16(value: number): void {
+    this.buffer.push(value & 0xff);
+    this.buffer.push((value >> 8) & 0xff);
+  }
+
+  /**
    * Write a 32-bit unsigned integer (u32) in little-endian
    */
   writeU32(value: number): void {
@@ -32,6 +40,17 @@ export class BorshWriter {
     const num = BigInt(value);
     for (let i = 0; i < 8; i++) {
       this.buffer.push(Number((num >> BigInt(i * 8)) & BigInt(0xff)));
+    }
+  }
+
+  /**
+   * Write a 32-bit floating point number (f32) in little-endian
+   */
+  writeF32(value: number): void {
+    const view = new DataView(new ArrayBuffer(4));
+    view.setFloat32(0, value, true);
+    for (let i = 0; i < 4; i++) {
+      this.buffer.push(view.getUint8(i));
     }
   }
 

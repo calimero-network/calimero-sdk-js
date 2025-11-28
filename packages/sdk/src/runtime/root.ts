@@ -1,6 +1,11 @@
 import * as env from '../env/api';
 import { serialize, deserialize } from '../utils/serialize';
 import { CollectionSnapshot, instantiateCollection, snapshotCollection } from './collections';
+import { getAbiManifest, getStateRootType } from '../abi/helpers';
+import { serializeWithAbi, deserializeWithAbi } from '../utils/abi-serialize';
+import { BorshWriter } from '../borsh/encoder';
+import { BorshReader } from '../borsh/decoder';
+import type { TypeRef } from '../abi/types';
 
 interface PersistedStateDocument {
   className: string;
@@ -45,7 +50,126 @@ export function saveRootState(state: any): Uint8Array {
     doc.values[key] = value;
   }
 
-  const payload = serialize(doc);
+  // ABI-aware serialization is required
+  const abi = getAbiManifest();
+  if (!abi) {
+    throw new Error('ABI manifest is required but not available for state serialization');
+  }
+
+  const stateRootType = getStateRootType(abi);
+  if (!stateRootType || stateRootType.kind !== 'record' || !stateRootType.fields) {
+    throw new Error('Invalid or missing state_root type in ABI');
+  }
+
+  // Serialize state values according to ABI state_root type for Rust compatibility
+  // Only include fields defined in the ABI state_root type
+  const stateValues: Record<string, unknown> = {};
+  for (const field of stateRootType.fields) {
+    // Collection fields are handled separately in doc.collections
+    // But if ABI requires them as scalar types (e.g., Counter -> u64), provide default value
+    if (field.name in doc.collections) {
+      // Collection fields shouldn't be in Borsh-serialized state (they're JS-specific)
+      // But if ABI expects them as scalar types, provide default value
+      const scalarType = field.type.kind === 'scalar' ? field.type.scalar : field.type.kind;
+      if (
+        scalarType === 'u64' ||
+        scalarType === 'i64' ||
+        scalarType === 'u128' ||
+        scalarType === 'i128'
+      ) {
+        // Collections like Counter are represented as u64 in Rust state
+        // Provide default value of 0
+        stateValues[field.name] = 0n;
+      } else if (
+        scalarType === 'u8' ||
+        scalarType === 'u16' ||
+        scalarType === 'u32' ||
+        scalarType === 'i8' ||
+        scalarType === 'i16' ||
+        scalarType === 'i32'
+      ) {
+        stateValues[field.name] = 0;
+      } else {
+        // For non-scalar collection types, skip (shouldn't happen)
+        continue;
+      }
+      continue;
+    }
+
+    const fieldValue = doc.values[field.name];
+
+    // Handle nullable fields - if field is nullable and value is null/undefined, include null
+    // If field is not nullable and value is null/undefined, provide default value based on type
+    if (fieldValue === null || fieldValue === undefined) {
+      if (field.nullable) {
+        stateValues[field.name] = null;
+      } else {
+        // For non-nullable fields, provide default values
+        // Maps get empty Map, other types get appropriate defaults
+        if (field.type.kind === 'map') {
+          stateValues[field.name] = new Map();
+        } else if (field.type.kind === 'vector' || field.type.kind === 'list') {
+          stateValues[field.name] = [];
+        } else if (field.type.kind === 'set') {
+          stateValues[field.name] = [];
+        } else {
+          // For scalar types, provide appropriate defaults
+          const scalarType = field.type.kind === 'scalar' ? field.type.scalar : field.type.kind;
+          if (
+            scalarType === 'u64' ||
+            scalarType === 'i64' ||
+            scalarType === 'u128' ||
+            scalarType === 'i128'
+          ) {
+            stateValues[field.name] = 0n;
+          } else if (
+            scalarType === 'u8' ||
+            scalarType === 'u16' ||
+            scalarType === 'u32' ||
+            scalarType === 'i8' ||
+            scalarType === 'i16' ||
+            scalarType === 'i32'
+          ) {
+            stateValues[field.name] = 0;
+          } else if (scalarType === 'bool') {
+            stateValues[field.name] = false;
+          } else if (scalarType === 'string') {
+            stateValues[field.name] = '';
+          } else {
+            // For other types, skip and let serialization handle it
+            continue;
+          }
+        }
+      }
+    } else {
+      stateValues[field.name] = fieldValue;
+    }
+  }
+
+  // Serialize state directly using ABI-aware serialization (like Rust does)
+  const stateTypeRef: TypeRef = {
+    kind: 'reference',
+    name: abi.state_root,
+  };
+  const statePayload = serializeWithAbi(stateValues, stateTypeRef, abi);
+
+  // Store collections and metadata using legacy format (they're JS-specific)
+  // Format: [version: u8=1][state: borsh][collections: legacy][metadata: legacy]
+  const writer = new BorshWriter();
+  writer.writeU8(1); // Version 1 = ABI format
+  writer.writeBytes(statePayload);
+
+  // Append collections and metadata using legacy format
+  // Collections are JS-specific CRDT snapshots, not part of Rust state
+  const collectionsAndMetadata = serialize({
+    collections: doc.collections,
+    metadata: doc.metadata,
+  });
+  writer.writeBytes(collectionsAndMetadata);
+
+  const payload = writer.toBytes();
+  env.log('[root] writing state using ABI-aware serialization (Rust-compatible)');
+
   env.log('[root] writing state document to host');
   env.persistRootState(payload, metadata.createdAt, metadata.updatedAt);
   return payload;
@@ -59,29 +183,54 @@ export function loadRootState<T>(stateClass: { new (...args: any[]): T }): T | n
   }
 
   env.log('[root] host returned persisted state payload');
-  const decoded = deserialize<any>(source);
-  if (!decoded || typeof decoded !== 'object') {
-    throw new Error('Unsupported persisted state document');
+
+  // ABI-aware format is required
+  const reader = new BorshReader(source);
+  const formatVersion = reader.readU8();
+
+  if (formatVersion !== 1) {
+    throw new Error(`Unsupported state format version: ${formatVersion} (expected 1)`);
   }
 
-  const candidate = decoded as Record<string, unknown>;
-  const version = (candidate as { version?: unknown }).version;
-  if (typeof version !== 'undefined' && version !== 2) {
-    throw new Error(`Unsupported persisted state version (expected 2, received ${version})`);
+  // ABI-aware format: [version: u8][state: borsh][collections+metadata: legacy]
+  const abi = getAbiManifest();
+  if (!abi) {
+    throw new Error('ABI manifest is required but not available for state deserialization');
   }
 
-  const base = (() => {
-    if (typeof version === 'number') {
-      const { version: _ignored, ...rest } = candidate as { version: number } & Record<
-        string,
-        unknown
-      >;
-      return rest;
-    }
-    return candidate;
-  })();
+  const stateRootType = getStateRootType(abi);
+  if (!stateRootType || stateRootType.kind !== 'record') {
+    throw new Error('Invalid or missing state_root type in ABI');
+  }
 
-  const doc = base as unknown as PersistedStateDocument;
+  // Deserialize state using ABI-aware deserialization
+  const stateTypeRef: TypeRef = {
+    kind: 'reference',
+    name: abi.state_root,
+  };
+  const stateBytes = reader.readBytes(); // readBytes() handles u32 length prefix
+  const stateValues = deserializeWithAbi(stateBytes, stateTypeRef, abi) as Record<string, unknown>;
+
+  // Deserialize collections and metadata (legacy format)
+  // Collections/metadata are stored with u32 length prefix (from writeBytes)
+  const collectionsAndMetadataBytes = reader.readBytes(); // readBytes() handles u32 length prefix
+  const collectionsAndMetadata =
+    collectionsAndMetadataBytes.length > 0
+      ? deserialize<any>(collectionsAndMetadataBytes)
+      : { collections: {}, metadata: null };
+
+  // Reconstruct document format
+  const doc: PersistedStateDocument = {
+    className: stateClass?.name ?? 'AnonymousState',
+    values: stateValues,
+    collections: collectionsAndMetadata.collections || {},
+    metadata: collectionsAndMetadata.metadata || {
+      createdAt: Number(env.timeNow()),
+      updatedAt: Number(env.timeNow()),
+    },
+  };
+
+  env.log('[root] loaded state using ABI-aware deserialization (Rust-compatible)');
 
   if (
     typeof doc.className !== 'string' ||
