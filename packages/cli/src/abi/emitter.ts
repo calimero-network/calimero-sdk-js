@@ -597,7 +597,7 @@ function findProjectRoot(startDir: string): string {
 /**
  * Generate ABI manifest from source code
  */
-export function generateAbiFromSource(sourceCode: string, _filePath?: string): AbiManifest {
+export function generateAbiFromSource(sourceCode: string, filePath?: string): AbiManifest {
   const emitter = new AbiEmitter();
   return emitter.analyzeSource(sourceCode, filePath);
 }
