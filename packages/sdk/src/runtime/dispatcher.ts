@@ -2,6 +2,7 @@ import { log, valueReturn, flushDelta, registerLen, readRegister, input, panic }
 import { StateManager } from './state-manager';
 import { runtimeLogicEntries } from './method-registry';
 import { deserialize } from '../utils/serialize';
+import { RuntimeAbiGenerator } from '../abi/runtime';
 import './sync';
 
 type JsonObject = Record<string, unknown>;
@@ -11,6 +12,20 @@ const textDecoder = new TextDecoder();
 
 if (typeof (globalThis as any).__calimero_register_merge !== 'function') {
   (globalThis as any).__calimero_register_merge = function __calimero_register_merge(): void {};
+}
+
+// Initialize ABI runtime access immediately when dispatcher loads
+// This ensures ABI is available before any state operations
+if (typeof globalThis !== 'undefined') {
+  try {
+    // Ensure ABI functions are available globally
+    RuntimeAbiGenerator.generateRuntimeManifest();
+    log('[dispatcher] ABI runtime manifest initialized');
+  } catch (error) {
+    log(`[dispatcher] WARNING: Failed to initialize ABI manifest: ${error}`);
+    // Don't throw - allow the code to continue, but log the warning
+    // The ABI will be needed when state is loaded, but init might work without it
+  }
 }
 
 interface DispatcherGlobal {

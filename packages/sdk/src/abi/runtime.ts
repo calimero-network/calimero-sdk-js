@@ -33,7 +33,20 @@ export class RuntimeAbiGenerator {
     const buildTimeAbi = this.getBuildTimeAbi();
     if (buildTimeAbi) {
       this.cachedManifest = buildTimeAbi;
+      // Log diagnostic info in development
+      if (typeof console !== 'undefined' && console.log) {
+        console.log('[ABI] Using build-time ABI manifest');
+        console.log(`[ABI] State root: ${buildTimeAbi.state_root || 'none'}`);
+        console.log(`[ABI] Types count: ${Object.keys(buildTimeAbi.types).length}`);
+      }
       return buildTimeAbi;
+    }
+
+    // Log warning if build-time ABI not found
+    if (typeof console !== 'undefined' && console.warn) {
+      console.warn('[ABI] Build-time ABI manifest not found, falling back to runtime reflection');
+      console.warn(`[ABI] globalThis.__CALIMERO_ABI_MANIFEST__: ${typeof (globalThis as any).__CALIMERO_ABI_MANIFEST__ !== 'undefined'}`);
+      console.warn(`[ABI] globalThis.get_abi: ${typeof (globalThis as any).get_abi === 'function'}`);
     }
 
     // Fallback to runtime reflection

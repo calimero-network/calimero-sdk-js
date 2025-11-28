@@ -118,17 +118,24 @@ export function loadRootState<T>(stateClass: { new (...args: any[]): T }): T | n
 
   env.log('[root] host returned persisted state payload');
 
-  // Get ABI manifest
+  // Get ABI manifest - if it's not available, we can't deserialize
+  // This should not happen if ABI injection code executed properly
   let abiManifest: AbiManifest;
   try {
     abiManifest = RuntimeAbiGenerator.generateRuntimeManifest();
   } catch (error) {
     env.log(`[root] failed to generate ABI manifest: ${error}`);
+    // During init, if ABI is missing, log but don't throw - let StateManager handle it
+    // This allows init to proceed even if state loading fails
+    env.log('[root] WARNING: ABI manifest unavailable, cannot deserialize state');
     throw new Error(`Failed to generate ABI manifest: ${error}`);
   }
 
   if (!abiManifest || !abiManifest.types || Object.keys(abiManifest.types).length === 0) {
     env.log('[root] ABI manifest is empty or invalid');
+    env.log(`[root] ABI manifest keys: ${Object.keys(abiManifest || {}).join(', ')}`);
+    env.log(`[root] globalThis.__CALIMERO_ABI_MANIFEST__ exists: ${typeof (globalThis as any).__CALIMERO_ABI_MANIFEST__ !== 'undefined'}`);
+    env.log(`[root] globalThis.get_abi exists: ${typeof (globalThis as any).get_abi === 'function'}`);
     throw new Error('ABI manifest is empty or invalid - cannot deserialize state without ABI');
   }
 
