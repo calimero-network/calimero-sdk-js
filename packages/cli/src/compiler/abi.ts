@@ -136,3 +136,246 @@ export async function generateCodegenAbi(
 
   return codegenAbiPath;
 }
+
+/**
+ * Generates JSON Schema for ABI validation
+ *
+ * @param options - Options for schema generation
+ * @returns Path to generated schema.json file
+ */
+export async function generateAbiSchema(options: AbiOptions): Promise<string> {
+  const schemaPath = path.join(options.outputDir, 'schema.json');
+
+  // JSON Schema definition for ABI manifest
+  const schema = {
+    $schema: 'http://json-schema.org/draft-07/schema#',
+    title: 'Calimero ABI Manifest Schema',
+    description: 'JSON Schema for validating Calimero ABI manifest files',
+    type: 'object',
+    required: ['schema_version', 'types', 'methods', 'events'],
+    properties: {
+      schema_version: {
+        type: 'string',
+        description: 'ABI schema version',
+        enum: ['wasm-abi/1'],
+      },
+      types: {
+        type: 'object',
+        description: 'Type definitions',
+        additionalProperties: {
+          type: 'object',
+          required: ['kind'],
+          oneOf: [
+            {
+              // Record type
+              properties: {
+                kind: { const: 'record' },
+                fields: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    required: ['name', 'type'],
+                    properties: {
+                      name: { type: 'string' },
+                      type: { $ref: '#/definitions/TypeRef' },
+                      nullable: { type: 'boolean' },
+                    },
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ['kind', 'fields'],
+              additionalProperties: false,
+            },
+            {
+              // Variant type
+              properties: {
+                kind: { const: 'variant' },
+                variants: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    required: ['name'],
+                    properties: {
+                      name: { type: 'string' },
+                      code: { type: 'string' },
+                      payload: { $ref: '#/definitions/TypeRef' },
+                    },
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ['kind', 'variants'],
+              additionalProperties: false,
+            },
+            {
+              // Bytes type
+              properties: {
+                kind: { const: 'bytes' },
+                size: { type: 'number' },
+                encoding: { type: 'string' },
+              },
+              required: ['kind'],
+              additionalProperties: false,
+            },
+            {
+              // Alias type
+              properties: {
+                kind: { const: 'alias' },
+                target: { $ref: '#/definitions/TypeRef' },
+              },
+              required: ['kind', 'target'],
+              additionalProperties: false,
+            },
+          ],
+        },
+      },
+      methods: {
+        type: 'array',
+        description: 'Method definitions',
+        items: {
+          type: 'object',
+          required: ['name', 'params'],
+          properties: {
+            name: { type: 'string' },
+            params: {
+              type: 'array',
+              items: {
+                type: 'object',
+                required: ['name', 'type'],
+                properties: {
+                  name: { type: 'string' },
+                  type: { $ref: '#/definitions/TypeRef' },
+                },
+                additionalProperties: false,
+              },
+            },
+            returns: { $ref: '#/definitions/TypeRef' },
+            is_init: { type: 'boolean' },
+            is_view: { type: 'boolean' },
+          },
+          additionalProperties: false,
+        },
+      },
+      events: {
+        type: 'array',
+        description: 'Event definitions',
+        items: {
+          type: 'object',
+          required: ['name'],
+          properties: {
+            name: { type: 'string' },
+            payload: { $ref: '#/definitions/TypeRef' },
+          },
+          additionalProperties: false,
+        },
+      },
+      state_root: {
+        type: 'string',
+        description: 'Root state type name',
+      },
+    },
+    additionalProperties: false,
+    definitions: {
+      TypeRef: {
+        type: 'object',
+        oneOf: [
+          {
+            // Scalar type (Rust format: { "kind": "string" })
+            properties: {
+              kind: {
+                type: 'string',
+                enum: [
+                  'bool',
+                  'u8',
+                  'u16',
+                  'u32',
+                  'u64',
+                  'u128',
+                  'i8',
+                  'i16',
+                  'i32',
+                  'i64',
+                  'i128',
+                  'f32',
+                  'f64',
+                  'string',
+                  'bytes',
+                  'unit',
+                ],
+              },
+            },
+            required: ['kind'],
+            additionalProperties: false,
+          },
+          {
+            // Option type
+            properties: {
+              kind: { const: 'option' },
+              inner: { $ref: '#/definitions/TypeRef' },
+            },
+            required: ['kind', 'inner'],
+            additionalProperties: false,
+          },
+          {
+            // Vector/List type
+            properties: {
+              kind: { enum: ['vector', 'list'] },
+              inner: { $ref: '#/definitions/TypeRef' },
+              items: { $ref: '#/definitions/TypeRef' },
+            },
+            required: ['kind'],
+            anyOf: [{ required: ['inner'] }, { required: ['items'] }],
+            additionalProperties: false,
+          },
+          {
+            // Map type
+            properties: {
+              kind: { const: 'map' },
+              key: { $ref: '#/definitions/TypeRef' },
+              value: { $ref: '#/definitions/TypeRef' },
+            },
+            required: ['kind', 'key', 'value'],
+            additionalProperties: false,
+          },
+          {
+            // Set type
+            properties: {
+              kind: { const: 'set' },
+              inner: { $ref: '#/definitions/TypeRef' },
+              items: { $ref: '#/definitions/TypeRef' },
+            },
+            required: ['kind'],
+            anyOf: [{ required: ['inner'] }, { required: ['items'] }],
+            additionalProperties: false,
+          },
+          {
+            // Reference type (Rust format: { "$ref": "TypeName" })
+            properties: {
+              $ref: { type: 'string' },
+            },
+            required: ['$ref'],
+            additionalProperties: false,
+          },
+          {
+            // Reference type (TypeScript format: { "kind": "reference", "name": "TypeName" })
+            properties: {
+              kind: { const: 'reference' },
+              name: { type: 'string' },
+            },
+            required: ['kind', 'name'],
+            additionalProperties: false,
+          },
+        ],
+      },
+    },
+  };
+
+  fs.writeFileSync(schemaPath, JSON.stringify(schema, null, 2));
+
+  if (options.verbose) {
+    console.log(`ABI schema generated: ${schemaPath}`);
+  }
+
+  return schemaPath;
+}
