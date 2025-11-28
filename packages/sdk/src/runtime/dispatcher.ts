@@ -46,10 +46,14 @@ function readPayload(methodName?: string): unknown {
           } else {
             // Multiple parameters - deserialize as record
             // This is a simplified approach; full implementation would need tuple support
-            return deserializeWithAbi(buffer, {
-              kind: 'reference',
-              name: `Method_${methodName}_Params`,
-            }, abi);
+            return deserializeWithAbi(
+              buffer,
+              {
+                kind: 'reference',
+                name: `Method_${methodName}_Params`,
+              },
+              abi
+            );
           }
         } catch (error) {
           // Fall back to generic deserialization if ABI deserialization fails

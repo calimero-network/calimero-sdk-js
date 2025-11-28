@@ -8,7 +8,7 @@
 import { BorshWriter } from '../borsh/encoder.js';
 import { BorshReader } from '../borsh/decoder.js';
 import type { AbiManifest, TypeRef, TypeDef, ScalarType } from '../abi/types.js';
-import { getAbiManifest, resolveTypeRef, getInnerType, isNullable } from '../abi/helpers.js';
+import { getAbiManifest, resolveTypeRef, isNullable } from '../abi/helpers.js';
 
 /**
  * Serializes a value according to an ABI TypeRef
@@ -159,7 +159,7 @@ function serializeScalar(writer: BorshWriter, value: unknown, scalar: ScalarType
       break;
 
     case 'u64':
-    case 'u128':
+    case 'u128': {
       if (typeof value !== 'bigint' && typeof value !== 'number') {
         throw new Error(`Expected bigint or number for ${scalar}, got ${typeof value}`);
       }
@@ -170,6 +170,7 @@ function serializeScalar(writer: BorshWriter, value: unknown, scalar: ScalarType
         writer.writeU64(0n);
       }
       break;
+    }
 
     case 'i8':
     case 'i16':
@@ -188,7 +189,7 @@ function serializeScalar(writer: BorshWriter, value: unknown, scalar: ScalarType
       break;
 
     case 'i64':
-    case 'i128':
+    case 'i128': {
       if (typeof value !== 'bigint' && typeof value !== 'number') {
         throw new Error(`Expected bigint or number for ${scalar}, got ${typeof value}`);
       }
@@ -198,6 +199,7 @@ function serializeScalar(writer: BorshWriter, value: unknown, scalar: ScalarType
         writer.writeU64(0n);
       }
       break;
+    }
 
     case 'f32':
     case 'f64':
@@ -245,7 +247,7 @@ function serializeTypeDef(
   abi: AbiManifest
 ): void {
   switch (typeDef.kind) {
-    case 'record':
+    case 'record': {
       if (!typeDef.fields) {
         throw new Error('Record type missing fields');
       }
@@ -265,8 +267,9 @@ function serializeTypeDef(
         }
       }
       break;
+    }
 
-    case 'variant':
+    case 'variant': {
       if (!typeDef.variants) {
         throw new Error('Variant type missing variants');
       }
@@ -288,6 +291,7 @@ function serializeTypeDef(
         serializeValue(writer, payload, variant.payload, abi);
       }
       break;
+    }
 
     case 'alias':
       if (!typeDef.target) {
@@ -400,21 +404,25 @@ function deserializeScalar(reader: BorshReader, scalar: ScalarType): unknown {
 
     case 'u64':
       return reader.readU64();
-    case 'u128':
+    case 'u128': {
       // u128 is two u64s
       const low = reader.readU64();
       const high = reader.readU64();
       return (high << 64n) | low;
+    }
 
-    case 'i8':
+    case 'i8': {
       const u8 = reader.readU8();
       return u8 > 127 ? u8 - 256 : u8;
-    case 'i16':
+    }
+    case 'i16': {
       const u16 = reader.readU32();
       return u16 > 32767 ? u16 - 65536 : u16;
-    case 'i32':
+    }
+    case 'i32': {
       const u32 = reader.readU32();
       return u32 > 2147483647 ? u32 - 4294967296 : u32;
+    }
 
     case 'i64':
       return reader.readU64();

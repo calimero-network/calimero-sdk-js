@@ -30,7 +30,7 @@ export function emitWithHandler(event: unknown, handlerName: string): void {
 
 function extractPayload(event: unknown): Uint8Array {
   const eventName = eventConstructorName(event);
-  
+
   // Try ABI-aware serialization if event name and ABI are available
   const abi = getAbiManifest();
   if (abi) {
@@ -39,7 +39,7 @@ function extractPayload(event: unknown): Uint8Array {
       try {
         // Extract the actual payload value from the event
         let payloadValue: unknown = event;
-        
+
         // If event has a serialize method, use it first
         const maybeEvent = event as AppEvent | undefined;
         if (maybeEvent && typeof maybeEvent.serialize === 'function') {
@@ -61,7 +61,7 @@ function extractPayload(event: unknown): Uint8Array {
             payloadValue = eventObj;
           }
         }
-        
+
         return serializeWithAbi(payloadValue, payloadType, abi);
       } catch (error) {
         // Fall back to generic serialization if ABI serialization fails
