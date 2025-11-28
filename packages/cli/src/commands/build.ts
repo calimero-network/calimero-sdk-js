@@ -79,14 +79,8 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
     });
     signale.success('Compiled to WASM');
 
-    // Step 7: Copy ABI JSON to output directory alongside WASM
-    const finalAbiPath = path.join(path.dirname(options.output), 'abi.json');
-    fs.copyFileSync(abiJsonPath, finalAbiPath);
-    if (options.verbose) {
-      signale.info(`ABI JSON saved to: ${finalAbiPath}`);
-    }
-
-    // Step 7.5: Generate codegen-compatible ABI for client generation
+    // Step 7: Generate codegen-compatible ABI for client generation
+    // Note: ABI JSON is already written to outputDir by generateAbiJson, no copy needed
     try {
       await generateCodegenAbi(abiJsonPath, {
         verbose: options.verbose,
