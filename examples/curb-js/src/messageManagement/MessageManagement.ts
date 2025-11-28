@@ -165,10 +165,8 @@ export class MessageManagement {
 
     // Try to get all items, but handle case where vector might not be fully synced
     let allItems: StoredMessage[] = [];
-    let totalCount = 0;
     try {
       allItems = vector.toArray();
-      totalCount = allItems.length;
     } catch (error) {
       // Vector might not be fully synced yet, return empty result
       env.log(
@@ -181,16 +179,51 @@ export class MessageManagement {
       };
     }
 
-    const startPosition = args.offset ?? 0;
-    const limit = args.limit;
+    // Normalize search term (case-insensitive)
+    const normalizedSearch = args.searchTerm
+      ? args.searchTerm.trim().toLowerCase()
+      : null;
 
-    // Get the sliced messages (use allItems we already fetched to avoid calling toArray again)
-    const start = startPosition;
-    const end = limit ? start + limit : allItems.length;
-    const slicedMessages = allItems.slice(Math.max(0, start), Math.min(allItems.length, end));
+    // Filter messages by search term if provided
+    let filteredMessages: StoredMessage[] = allItems;
+    if (normalizedSearch) {
+      filteredMessages = allItems.filter(message =>
+        this.messageMatchesSearch(message, normalizedSearch)
+      );
+    }
+
+    const filteredTotal = filteredMessages.length;
+
+    // Handle empty filtered results
+    if (filteredTotal === 0) {
+      return {
+        messages: [],
+        total_count: 0,
+        start_position: args.offset ?? 0,
+      };
+    }
+
+    // Apply pagination after filtering
+    const limitValue = args.limit ?? filteredTotal;
+    const offsetValue = args.offset ?? 0;
+
+    if (offsetValue >= filteredTotal) {
+      return {
+        messages: [],
+        total_count: filteredTotal,
+        start_position: offsetValue,
+      };
+    }
+
+    // Calculate pagination indices (reverse order like Rust - most recent first)
+    // Messages are stored in chronological order, but we want to return them in reverse
+    // So we slice from the end
+    const endIdx = filteredTotal - offsetValue;
+    const startIdx = endIdx > limitValue ? endIdx - limitValue : 0;
+    const paginatedMessages = filteredMessages.slice(startIdx, endIdx);
 
     // Add reactions and thread info to each message
-    const messagesWithReactions: MessageWithReactions[] = slicedMessages.map(message => {
+    const messagesWithReactions: MessageWithReactions[] = paginatedMessages.map(message => {
       const reactionMap = channel.messageReactions.get(message.id);
       const reactions: Reaction[] = [];
 
@@ -253,9 +286,22 @@ export class MessageManagement {
 
     return {
       messages: messagesWithReactions,
-      total_count: totalCount,
-      start_position: startPosition,
+      total_count: filteredTotal,
+      start_position: offsetValue,
     };
+  }
+
+  /**
+   * Check if a message matches the search term (case-insensitive)
+   * Similar to Rust implementation: searches in message text
+   */
+  private messageMatchesSearch(message: StoredMessage, searchTerm: string): boolean {
+    if (!searchTerm) {
+      return true;
+    }
+
+    const messageText = message.text.toLowerCase();
+    return messageText.includes(searchTerm);
   }
 
   editMessage(executorId: UserId, args: EditMessageArgs): string {
