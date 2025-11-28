@@ -1532,6 +1532,7 @@ void calimero_method_##name() { \
   JS_SetPropertyStr(ctx, global_obj, "__CALIMERO_STORAGE_WASM__", storage_bytes); \
   \
   /* Inject ABI manifest as global variable (optional) */ \
+  /* Inject as string - let JavaScript parse it to avoid memory issues with large JSON */ \
   if (calimero_abi_json_len > 0) { \
     JSValue abi_string = JS_NewStringLen(ctx, (const char *)calimero_abi_json, calimero_abi_json_len); \
     if (JS_IsException(abi_string)) { \
@@ -1542,30 +1543,9 @@ void calimero_method_##name() { \
       JS_FreeValue(ctx, abi_exception); \
       /* Continue without ABI - it's optional */ \
     } else { \
-      const char *abi_cstr = JS_ToCString(ctx, abi_string); \
-      if (!abi_cstr) { \
-        snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: JS_ToCString (ABI) failed", #name); \
-        log_c_string(log_buf); \
-        JS_FreeValue(ctx, abi_string); \
-        /* Continue without ABI - it's optional */ \
-      } else { \
-        JSValue abi_parsed = JS_ParseJSON(ctx, abi_cstr, calimero_abi_json_len, "<abi>"); \
-        if (JS_IsException(abi_parsed)) { \
-          snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: JS_ParseJSON (ABI) exception", #name); \
-          log_c_string(log_buf); \
-          JSValue parse_exception = JS_GetException(ctx); \
-          calimero_log_exception(ctx, parse_exception, "ABI JSON parsing"); \
-          JS_FreeValue(ctx, parse_exception); \
-          JS_FreeCString(ctx, abi_cstr); \
-          JS_FreeValue(ctx, abi_string); \
-          /* Continue without ABI - it's optional */ \
-        } else { \
-          JS_SetPropertyStr(ctx, global_obj, "__CALIMERO_ABI_MANIFEST__", abi_parsed); \
-          JS_FreeValue(ctx, abi_parsed); \
-          JS_FreeCString(ctx, abi_cstr); \
-          JS_FreeValue(ctx, abi_string); \
-        } \
-      } \
+      /* Set as string - JavaScript code will parse it if needed */ \
+      JS_SetPropertyStr(ctx, global_obj, "__CALIMERO_ABI_MANIFEST__", abi_string); \
+      JS_FreeValue(ctx, abi_string); \
     } \
   } \
   JS_FreeValue(ctx, global_obj); \
