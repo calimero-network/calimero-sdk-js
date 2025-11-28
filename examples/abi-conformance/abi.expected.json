@@ -66,13 +66,15 @@
           "name": "bio",
           "type": {
             "kind": "string"
-          }
+          },
+          "nullable": true
         },
         {
           "name": "avatar",
           "type": {
             "kind": "string"
-          }
+          },
+          "nullable": true
         },
         {
           "name": "nicknames",
