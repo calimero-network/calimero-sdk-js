@@ -273,6 +273,33 @@ function readPayload(methodName?: string): unknown {
         throw new Error(`Expected object for multiple parameters, got ${typeof jsonValue}`);
       }
       const jsonObj = jsonValue as Record<string, unknown>;
+
+      // Check if JSON keys match any parameter names
+      const jsonKeys = Object.keys(jsonObj);
+      const paramNames = method.params.map(p => p.name);
+      const hasMatchingKeys = jsonKeys.some(key => paramNames.includes(key));
+
+      // If JSON keys don't match parameter names, check if first parameter is an object type
+      // In that case, the entire JSON payload should be treated as the first parameter
+      if (!hasMatchingKeys && method.params.length > 0) {
+        const firstParam = method.params[0];
+        const firstParamType = firstParam.type;
+        const isObjectType =
+          firstParamType.kind === 'reference' ||
+          firstParamType.$ref ||
+          firstParamType.kind === 'map';
+
+        if (isObjectType) {
+          // First parameter is an object type - treat entire JSON payload as that parameter
+          const result = convertFromJsonCompatible(jsonValue, firstParamType, abi);
+          log(
+            `[dispatcher] readPayload: treating entire JSON payload as first object parameter (type: ${JSON.stringify(firstParamType)})`
+          );
+          return result;
+        }
+      }
+
+      // Otherwise, deserialize each parameter individually by name
       const result: Record<string, unknown> = {};
       for (const param of method.params) {
         const paramValue = jsonObj[param.name];
