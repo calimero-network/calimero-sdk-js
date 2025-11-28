@@ -2,7 +2,6 @@ import { log, valueReturn, flushDelta, registerLen, readRegister, input, panic }
 import { StateManager } from './state-manager';
 import { runtimeLogicEntries } from './method-registry';
 import { getAbiManifest, getMethod } from '../abi/helpers';
-import { deserializeWithAbi } from '../utils/abi-serialize';
 import type { TypeRef, AbiManifest, ScalarType } from '../abi/types';
 import './sync';
 
