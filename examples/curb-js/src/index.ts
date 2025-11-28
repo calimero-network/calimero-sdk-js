@@ -361,8 +361,13 @@ export class CurbChatLogic extends CurbChat {
   }
 
   @View()
-  getMessages(rawInput: GetMessagesArgs | { input: GetMessagesArgs }): string {
-    const args = this.extractInput(rawInput);
+  getMessages(
+    rawInput:
+      | GetMessagesArgs
+      | { input: GetMessagesArgs }
+      | { argsJson: { rawInput: GetMessagesArgs | { input: GetMessagesArgs }; searchTerm?: string | null } }
+  ): string {
+    const args = this.extractGetMessagesArgs(rawInput);
     if (!args || typeof args.channelId !== 'string') {
       return this.wrapResult('Invalid message input');
     }
@@ -519,6 +524,42 @@ export class CurbChatLogic extends CurbChat {
     }
 
     return raw as T;
+  }
+
+  /**
+   * Extracts GetMessagesArgs from various input formats including the argsJson format
+   */
+  private extractGetMessagesArgs(
+    rawInput:
+      | GetMessagesArgs
+      | { input: GetMessagesArgs }
+      | { argsJson: { rawInput: GetMessagesArgs | { input: GetMessagesArgs }; searchTerm?: string | null } }
+  ): GetMessagesArgs | null {
+    if (!rawInput) {
+      return null;
+    }
+
+    // Handle argsJson format
+    if (typeof rawInput === 'object' && 'argsJson' in rawInput) {
+      const argsJson = (rawInput as {
+        argsJson: {
+          rawInput: GetMessagesArgs | { input: GetMessagesArgs };
+          searchTerm?: string | null;
+        };
+      }).argsJson;
+      const args = this.extractInput(argsJson.rawInput);
+      if (!args) {
+        return null;
+      }
+      // Merge searchTerm if provided separately
+      if (argsJson.searchTerm !== undefined) {
+        return { ...args, searchTerm: argsJson.searchTerm };
+      }
+      return args;
+    }
+
+    // Handle standard format
+    return this.extractInput(rawInput);
   }
 
   private ensureChannelAccess(channelId: ChannelId, executorId: UserId): ChannelMetadata | string {
