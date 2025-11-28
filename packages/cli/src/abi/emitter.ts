@@ -438,6 +438,21 @@ export class AbiEmitter {
         return { kind: 'scalar', scalar: 'bool' } as any;
       case 'TSBigIntKeyword':
         return { kind: 'scalar', scalar: 'u64' } as any;
+      case 'TSUnionType':
+        // Handle union types like T | null - extract the non-null type
+        // Filter out null/undefined types and use the first non-null type
+        if (type.types && Array.isArray(type.types)) {
+          for (const unionMember of type.types) {
+            // Skip null and undefined types
+            if (unionMember.type === 'TSNullKeyword' || unionMember.type === 'TSUndefinedKeyword') {
+              continue;
+            }
+            // Recursively extract the first non-null type
+            return this.extractTypeFromAnnotation({ typeAnnotation: unionMember });
+          }
+        }
+        // If all types are null/undefined (shouldn't happen), fall through to default
+        return { kind: 'string' } as any;
       case 'TSTypeReference':
         return this.extractTypeReference(type);
       case 'TSArrayType':

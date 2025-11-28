@@ -201,24 +201,14 @@ if [ "$EVENTS_COUNT" -gt 0 ]; then
     echo -e "${GREEN}✓ All events have valid structure (name + optional payload)${NC}"
 fi
 
-# Check that Counter type maps to u64 (Rust format: { "kind": "u64" } not { "kind": "scalar", "scalar": "u64" })
-if jq -e '.types.ConformanceState.fields[] | select(.name=="counter")' "$OUTPUT_FILE" >/dev/null 2>&1; then
-    COUNTER_TYPE=$(jq -r '.types.ConformanceState.fields[] | select(.name=="counter") | .type.kind' "$OUTPUT_FILE")
-    if [ "$COUNTER_TYPE" != "u64" ]; then
-        echo -e "${YELLOW}⚠ Warning: Counter type is '$COUNTER_TYPE', expected 'u64'${NC}"
-    else
-        echo -e "${GREEN}✓ Counter type correctly maps to u64${NC}"
-    fi
-fi
-
-# Check that UnorderedMap has correct structure
-if jq -e '.types.ConformanceState.fields[] | select(.name=="stringMap")' "$OUTPUT_FILE" >/dev/null 2>&1; then
-    MAP_KIND=$(jq -r '.types.ConformanceState.fields[] | select(.name=="stringMap") | .type.kind' "$OUTPUT_FILE")
+# Check that UnorderedMap has correct structure (using counters field which is a map)
+if jq -e '.types.AbiState.fields[] | select(.name=="counters")' "$OUTPUT_FILE" >/dev/null 2>&1; then
+    MAP_KIND=$(jq -r '.types.AbiState.fields[] | select(.name=="counters") | .type.kind' "$OUTPUT_FILE")
     if [ "$MAP_KIND" != "map" ]; then
-        echo -e "${RED}❌ ERROR: stringMap type must be 'map', got: $MAP_KIND${NC}"
+        echo -e "${RED}❌ ERROR: counters type must be 'map', got: $MAP_KIND${NC}"
         exit 1
     fi
-    MAP_KEY=$(jq -r '.types.ConformanceState.fields[] | select(.name=="stringMap") | .type.key.kind' "$OUTPUT_FILE")
+    MAP_KEY=$(jq -r '.types.AbiState.fields[] | select(.name=="counters") | .type.key.kind' "$OUTPUT_FILE")
     if [ "$MAP_KEY" != "string" ]; then
         echo -e "${RED}❌ ERROR: Map key must be 'string', got: $MAP_KEY${NC}"
         exit 1
@@ -227,10 +217,10 @@ if jq -e '.types.ConformanceState.fields[] | select(.name=="stringMap")' "$OUTPU
 fi
 
 # Check that Vector has correct structure (Rust format uses "list" not "vector")
-if jq -e '.types.ConformanceState.fields[] | select(.name=="items")' "$OUTPUT_FILE" >/dev/null 2>&1; then
-    VECTOR_KIND=$(jq -r '.types.ConformanceState.fields[] | select(.name=="items") | .type.kind' "$OUTPUT_FILE")
+if jq -e '.types.AbiState.fields[] | select(.name=="users")' "$OUTPUT_FILE" >/dev/null 2>&1; then
+    VECTOR_KIND=$(jq -r '.types.AbiState.fields[] | select(.name=="users") | .type.kind' "$OUTPUT_FILE")
     if [ "$VECTOR_KIND" != "list" ]; then
-        echo -e "${RED}❌ ERROR: items type must be 'list' (Rust format), got: $VECTOR_KIND${NC}"
+        echo -e "${RED}❌ ERROR: users type must be 'list' (Rust format), got: $VECTOR_KIND${NC}"
         exit 1
     fi
     echo -e "${GREEN}✓ Vector has correct structure (list)${NC}"

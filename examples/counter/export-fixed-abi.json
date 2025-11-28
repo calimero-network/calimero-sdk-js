@@ -1,0 +1,460 @@
+{
+  "data": {
+    "Alias": {
+      "count": 0,
+      "entries": []
+    },
+    "Application": {
+      "count": 1,
+      "entries": [
+        {
+          "key": {
+            "id": "09c177ed112b7b7a4c1a1daebbad6ac97d63e91cf94b8fd500395ef472aa9852"
+          },
+          "value": {
+            "bytecode": "�D�x����a�G\u001f�\u0007˃Q�q,�U��U��G�w��",
+            "compiled": "���z��\u0011ܒl+`\u0017�i�;�WZ��\u0005��\u0016sI\u001c�P�",
+            "metadata": "",
+            "package": "unknown",
+            "size": 1441143,
+            "source": "file:///app/data/service.wasm",
+            "version": "0.0.0"
+          }
+        }
+      ]
+    },
+    "Blobs": {
+      "count": 8,
+      "entries": [
+        {
+          "key": {
+            "id": "14ea83b8b24c2ebbd5d56b7c4d1e9c6186d8d8cb3e4a85ed8ddd9a4d8079c13e"
+          },
+          "value": {
+            "hash": "\u0014ꃸ�L.���k|M\u001e�a����>J��ݚM�y�>",
+            "links_count": 0,
+            "size": 882848
+          }
+        },
+        {
+          "key": {
+            "id": "1d327cae240c23aafecc4d33cd6579860be726a8ecc0f917d19386ebe2248ee2"
+          },
+          "value": {
+            "hash": "\u001d2|�$\f#���M3�ey�\u000b�&����\u0017ѓ���$��",
+            "links_count": 0,
+            "size": 1048576
+          }
+        },
+        {
+          "key": {
+            "id": "42a94b203e51fa6f1be1c10b3a34dd3aa3aa48c80e41b7bf8e0baef3a8ebcc92"
+          },
+          "value": {
+            "hash": "B�K >Q�o\u001b��\u000b:4�:��H�\u000eA���\u000b���̒",
+            "links_count": 0,
+            "size": 1048576
+          }
+        },
+        {
+          "key": {
+            "id": "8e44bd78b6cbf1f261ec471ff407cb8351e1712cf955f3e755bfe747d477cde3"
+          },
+          "value": {
+            "hash": "ڪ�7���\u0011��1\u00132f����a\u0007�� �x��x",
+            "links_count": 2,
+            "size": 1441143
+          }
+        },
+        {
+          "key": {
+            "id": "a9a3f37a909b11dc926c2b6017f5698c3bf4575a859305b3b81673491ca050f2"
+          },
+          "value": {
+            "hash": "���W;E�h�PԺ^�3E�\u001cc�<�\u0004���\u0010���=",
+            "links_count": 4,
+            "size": 4028576
+          }
+        },
+        {
+          "key": {
+            "id": "b706e385f7e2ea5cbd4decadbe338a3a1441430960647e445b345d92432aa7d9"
+          },
+          "value": {
+            "hash": "�\u0006����\\�M쭾3�:\u0014AC\t`d~D[4]�C*��",
+            "links_count": 0,
+            "size": 392567
+          }
+        },
+        {
+          "key": {
+            "id": "da3ca202bed3539bfeaa08bc4b7d8121eb1554f9ce8487de2a571d90e0694fd0"
+          },
+          "value": {
+            "hash": "�<�\u0002��S���\b�K}�!�\u0015T�΄��*W\u001d��iO�",
+            "links_count": 0,
+            "size": 1048576
+          }
+        },
+        {
+          "key": {
+            "id": "daf934c110e419f1e82b2dbb992829b4414b698004ed995901b65cd17db64e14"
+          },
+          "value": {
+            "hash": "��4�\u0010�\u0019��+-��()�AKi�\u0004�Y\u0001�\\�}�N\u0014",
+            "links_count": 0,
+            "size": 1048576
+          }
+        }
+      ]
+    },
+    "Config": {
+      "count": 1,
+      "entries": [
+        {
+          "key": {
+            "id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15"
+          },
+          "value": {
+            "application_revision": 0,
+            "contract": "v0-6.config.calimero-context.testnet",
+            "members_revision": 0,
+            "network": "testnet",
+            "protocol": "near",
+            "proxy_contract": "2594.v0-6.config.calimero-context.testnet"
+          }
+        }
+      ]
+    },
+    "Delta": {
+      "count": 2,
+      "entries": [
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "delta_id": "9f7d9ac39dab98cbfa4995519c4ccb4fcf7a49967f67ee78f1d64e23a6e3193b"
+          },
+          "value": {
+            "actions_size": 801,
+            "applied": true,
+            "delta_id": "9f7d9ac39dab98cbfa4995519c4ccb4fcf7a49967f67ee78f1d64e23a6e3193b",
+            "expected_root_hash": "bcc800adb95fde907ab88ad8262c66e92bbd791bbb27f0e9a493bf85fdff0a02",
+            "hlc": {
+              "id_hex": "014e1843391ee4bdee100535c0e8c039",
+              "logical_counter": 0,
+              "physical_time_secs": 1764311547,
+              "raw": "7577660397359005696#14e1843391ee4bdee100535c0e8c039",
+              "time_ntp64": 7577660397359005696
+            },
+            "parents": ["c37eec5d1b1611d7b10ebe2307679ba959a9a741fe41a6ba32272bbdafab1adc"],
+            "timestamp": 7577660397359005696,
+            "type": "context_dag_delta"
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "delta_id": "c37eec5d1b1611d7b10ebe2307679ba959a9a741fe41a6ba32272bbdafab1adc"
+          },
+          "value": {
+            "actions_size": 847,
+            "applied": true,
+            "delta_id": "c37eec5d1b1611d7b10ebe2307679ba959a9a741fe41a6ba32272bbdafab1adc",
+            "expected_root_hash": "78903697acb2eaf50628763858f0f43dff9f1dcd41700ec3655f5c5a6d75ef09",
+            "hlc": {
+              "id_hex": "014e1843391ee4bdee100535c0e8c039",
+              "logical_counter": 0,
+              "physical_time_secs": 1764311542,
+              "raw": "7577660376808947712#14e1843391ee4bdee100535c0e8c039",
+              "time_ntp64": 7577660376808947712
+            },
+            "parents": ["0000000000000000000000000000000000000000000000000000000000000000"],
+            "timestamp": 7577660376808947712,
+            "type": "context_dag_delta"
+          }
+        }
+      ]
+    },
+    "Generic": {
+      "count": 0,
+      "entries": []
+    },
+    "Identity": {
+      "count": 1,
+      "entries": [
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "public_key": "B\u000b+N '\u000e��w\u0015��B��Ǟ�f:5�!es�=��\b\u001d"
+          },
+          "value": {
+            "private_key": "i�聻��b$V��\u001an�Z��\u0019�Y��$�X���]�\u001f",
+            "sender_key": "�m��B�\u0017�¹\f�p�1 (\u0012�Jv2�r�i'Z��"
+          }
+        }
+      ]
+    },
+    "Meta": {
+      "count": 1,
+      "entries": [
+        {
+          "key": {
+            "id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15"
+          },
+          "value": {
+            "application_id": "\t�w�\u0011+{zL\u001a\u001d���j�}c�\u001c�K��\u00009^�r��R",
+            "dag_heads": ["9f7d9ac39dab98cbfa4995519c4ccb4fcf7a49967f67ee78f1d64e23a6e3193b"],
+            "root_hash": "bcc800adb95fde907ab88ad8262c66e92bbd791bbb27f0e9a493bf85fdff0a02"
+          }
+        }
+      ]
+    },
+    "State": {
+      "count": 12,
+      "entries": [
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "0065ccd8451c86b7c46d37c40617d7242c8031edc6bdb2cf6c2978d637eabae0"
+          },
+          "value": {
+            "id": "5f379c6490e2e61e449e89ea0380af512be62484b47f51ef3b6417997b2474fa",
+            "note": "Direct ID storage (possibly root collection reference or internal metadata)",
+            "type": "RawId"
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "2da3649e6706e717ab346af6179d85a3fff15ca78c77cb3f1dff4797b678ac57"
+          },
+          "value": {
+            "element": {
+              "id": "80946558749d615bec680a724680c308e25d516188be1334126ac56e60462d2b"
+            },
+            "field": "count",
+            "type": "ScalarEntry",
+            "value": {
+              "parsed": "_7�d���\u001eD���\u0003��Q+�$��Q�;d\u0017�{$t�",
+              "raw": "_7�d���\u001eD���\u0003��Q+�$��Q�;d\u0017�{$t�",
+              "type": "scalar::Bytes { size: Some(32), encoding: None }"
+            }
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "30fb848193caacf91e23c6407e8fa7bcce55b42044e68e554b464e80be23a5ad"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 0,
+              "scalar_fields": 1,
+              "tried_fields": 1
+            },
+            "errors": [
+              "scalar field 'count': Entry bytes not fully consumed: consumed 64, total 148, remaining 84"
+            ],
+            "first_byte_decimal": 136,
+            "first_bytes_hex": "8887fe96bed60d6aac13e8282f93203f",
+            "hex_full": "8887fe96bed60d6aac13e8282f93203f9fd18e511ed7353d467203e751bc37480107d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb150033dcd4a9518ca502e67ab1e569a86b2f7b02ce6a5b5fbb70f25693f2f3057c3914aa3b0167387bc79bf304b2cb9bacef61b49b9f5f8b132a284d9f218d03bea346939b4101187c1846939b4101187c180000",
+            "hex_preview": "8887fe96bed60d6aac13e8282f93203f9fd18e511ed7353d467203e751bc37480107d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb150033dcd4a9518ca502e67ab1e569a86b2f7b02ce6a5b5fbb70f25693f2f3057c3914aa3b0167387bc79bf304b2cb9bacef61b49b9f5f8b132a284d9f218d03",
+            "note": "Unable to decode with ABI (state root: CounterApp)",
+            "raw": "������\rj�\u0013�(/� ?�юQ\u001e�5=Fr\u0003�Q�7H\u0001\u0007�����\u0011�95�����\u0005\u000f<<\u001c��`��]��d�\u0015\u00003�ԩQ��\u0002�z��i�k/{\u0002�j[_�p�V���\u0005|9\u0014�;\u0001g8{Ǜ�\u0004�˛��a���_�\u0013*(M�!�\u0003��F��A\u0001\u0018|\u0018F��A\u0001\u0018|\u0018\u0000\u0000",
+            "size": 148
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "4e97308ff36ce7e48a90aea96fb660e7b103b191189d9b2c0c5acf1c7aa29171"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 0,
+              "scalar_fields": 1,
+              "tried_fields": 1
+            },
+            "errors": [
+              "scalar field 'count': Entry bytes not fully consumed: consumed 64, total 148, remaining 84"
+            ],
+            "first_byte_decimal": 26,
+            "first_bytes_hex": "1acbf4ed40f8f7e52dfe72e899042746",
+            "hex_full": "1acbf4ed40f8f7e52dfe72e899042746925b6cf7cbf36754c2a11d2883d18c25015f379c6490e2e61e449e89ea0380af512be62484b47f51ef3b6417997b2474fa00ea6442df34f454fc47a945ec8180f3d446883f049e0575bbf49f75a538f1297867388877bf74a208b451868146235f5bca0449d6d71f748a1d5d8f755baeb6735bc29d4101187c185bc29d4101187c180000",
+            "hex_preview": "1acbf4ed40f8f7e52dfe72e899042746925b6cf7cbf36754c2a11d2883d18c25015f379c6490e2e61e449e89ea0380af512be62484b47f51ef3b6417997b2474fa00ea6442df34f454fc47a945ec8180f3d446883f049e0575bbf49f75a538f1297867388877bf74a208b451868146235f5bca0449d6d71f748a1d5d8f755bae",
+            "note": "Unable to decode with ABI (state root: CounterApp)",
+            "raw": "\u001a���@���-�r�\u0004'F�[l���gT¡\u001d(�ь%\u0001_7�d���\u001eD���\u0003��Q+�$��Q�;d\u0017�{$t�\u0000�dB�4�T�G�E쁀��F�?\u0004�\u0005u���u�8�)xg8�w�t�\b�Q��F#_[�\u0004I��\u001ft�\u001d]�u[��s[A\u0001\u0018|\u0018[A\u0001\u0018|\u0018\u0000\u0000",
+            "size": 148
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "601b77ce8a132f958eee68dfabc1224fb4e21788734355125a0bce33c6d0730a"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 0,
+              "scalar_fields": 1,
+              "tried_fields": 1
+            },
+            "errors": [
+              "scalar field 'count': Entry bytes not fully consumed: consumed 64, total 148, remaining 84"
+            ],
+            "first_byte_decimal": 239,
+            "first_bytes_hex": "ef5ceac141f51cea29a20cbcf62c59e0",
+            "hex_full": "ef5ceac141f51cea29a20cbcf62c59e0faa371c7001db5d0be605f2379ea1cde0107d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15000d326e147e5fa43bac890f06da097826edfb89d240f2acfd0401239e806b824268d1a61b868a4c70804fd2e3e5371560a3976abc51492e2f460d9e688468eaed255c932400187c18255c932400187c180000",
+            "hex_preview": "ef5ceac141f51cea29a20cbcf62c59e0faa371c7001db5d0be605f2379ea1cde0107d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15000d326e147e5fa43bac890f06da097826edfb89d240f2acfd0401239e806b824268d1a61b868a4c70804fd2e3e5371560a3976abc51492e2f460d9e688468",
+            "note": "Unable to decode with ABI (state root: CounterApp)",
+            "raw": "�\\��A�\u001c�)�\f��,Y���q�\u0000\u001d�о`_#y�\u001c�\u0001\u0007�����\u0011�95�����\u0005\u000f<<\u001c��`��]��d�\u0015\u0000\r2n\u0014~_�;��\u000f\u0006�\tx&����@��\u0004\u0001#��k�BhѦ\u001b��Lp�O���7\u0015`��j�QI./F\r�h�h��%\\�$\u0000\u0018|\u0018%\\�$\u0000\u0018|\u0018\u0000\u0000",
+            "size": 148
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "795479599cdfd947b8c4f8fe2d5f51d2000b7c964a180df40de15d403e8cb2a4"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 0,
+              "scalar_fields": 1,
+              "tried_fields": 1
+            },
+            "errors": [
+              "scalar field 'count': Entry bytes not fully consumed: consumed 64, total 240, remaining 176"
+            ],
+            "first_byte_decimal": 7,
+            "first_bytes_hex": "070400000009000000636c6173734e61",
+            "hex_full": "070400000009000000636c6173734e616d65040c000000436f756e7465724c6f6769630600000076616c75657307000000000b000000636f6c6c656374696f6e73070100000005000000636f756e74070200000004000000747970650407000000436f756e746572020000006964044000000038303934363535383734396436313562656336383061373234363830633330386532356435313631383862653133333431323661633536653630343632643262080000006d6574616461746107020000000900000063726561746564417402669b2400187cb84309000000757064617465644174021fd14101187cb843",
+            "hex_preview": "070400000009000000636c6173734e616d65040c000000436f756e7465724c6f6769630600000076616c75657307000000000b000000636f6c6c656374696f6e73070100000005000000636f756e74070200000004000000747970650407000000436f756e746572020000006964044000000038303934363535383734396436",
+            "note": "Unable to decode with ABI (state root: CounterApp)",
+            "raw": "\u0007\u0004\u0000\u0000\u0000\t\u0000\u0000\u0000className\u0004\f\u0000\u0000\u0000CounterLogic\u0006\u0000\u0000\u0000values\u0007\u0000\u0000\u0000\u0000\u000b\u0000\u0000\u0000collections\u0007\u0001\u0000\u0000\u0000\u0005\u0000\u0000\u0000count\u0007\u0002\u0000\u0000\u0000\u0004\u0000\u0000\u0000type\u0004\u0007\u0000\u0000\u0000Counter\u0002\u0000\u0000\u0000id\u0004@\u0000\u0000\u000080946558749d615bec680a724680c308e25d516188be1334126ac56e60462d2b\b\u0000\u0000\u0000metadata\u0007\u0002\u0000\u0000\u0000\t\u0000\u0000\u0000createdAt\u0002f�$\u0000\u0018|�C\t\u0000\u0000\u0000updatedAt\u0002\u001f�A\u0001\u0018|�C",
+            "size": 240
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "7f9cb0ce7456f2fbf37c9e85a63323129187f82164f69bf400dc16c36013b78e"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 0,
+              "scalar_fields": 1,
+              "tried_fields": 1
+            },
+            "errors": [
+              "scalar field 'count': Entry bytes not fully consumed: consumed 64, total 148, remaining 84"
+            ],
+            "first_byte_decimal": 128,
+            "first_bytes_hex": "80946558749d615bec680a724680c308",
+            "hex_full": "80946558749d615bec680a724680c308e25d516188be1334126ac56e60462d2b0107d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15005673a51c20b2a0e6468bf3c732201c4b353ec9df648034334a8cb084458363c64eabad25fb674655fd9dcd7926b3d08be5c509e0643de9eca47f165877c5be65dd61942400187c18dd61942400187c180000",
+            "hex_preview": "80946558749d615bec680a724680c308e25d516188be1334126ac56e60462d2b0107d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15005673a51c20b2a0e6468bf3c732201c4b353ec9df648034334a8cb084458363c64eabad25fb674655fd9dcd7926b3d08be5c509e0643de9eca47f165877c5",
+            "note": "Unable to decode with ABI (state root: CounterApp)",
+            "raw": "��eXt�a[�h\nrF��\b�]Qa��\u00134\u0012j�n`F-+\u0001\u0007�����\u0011�95�����\u0005\u000f<<\u001c��`��]��d�\u0015\u0000Vs�\u001c ���F���2 \u001cK5>��d�43J���E�c�N��%�gFU���y&�Ћ��\t�d=��\u0016Xwže�a�$\u0000\u0018|\u0018�a�$\u0000\u0018|\u0018\u0000\u0000",
+            "size": 148
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "94bcea7f14e565482a9fff1897d0d3637702238b24fe8077c95a89f720db7e1e"
+          },
+          "value": {
+            "id": "ef5ceac141f51cea29a20cbcf62c59e0faa371c7001db5d0be605f2379ea1cde",
+            "note": "Direct ID storage (possibly root collection reference or internal metadata)",
+            "type": "RawId"
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "a9e16d59a951008c4d14668fb85cf172e004b88750ae1c93b71340dd7f34efc7"
+          },
+          "value": {
+            "element": {
+              "id": "01000000000000001acbf4ed40f8f7e52dfe72e899042746925b6cf7cbf36754"
+            },
+            "field": "count",
+            "type": "ScalarEntry",
+            "value": {
+              "parsed": "420b2b4e20270efd8b7715f8da42bf83",
+              "raw": "@\u0000\u0000\u0000420b2b4e20270efd8b7715f8da42bf83c79ebe663a35af216573f93d898b081d",
+              "type": "scalar::Bytes { size: Some(32), encoding: None }"
+            }
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "b30744a385cbcfabd117da2c293045cdade3cc661db87e2528648ef31a777d07"
+          },
+          "value": {
+            "id": "8887fe96bed60d6aac13e8282f93203f9fd18e511ed7353d467203e751bc3748",
+            "note": "Direct ID storage (possibly root collection reference or internal metadata)",
+            "type": "RawId"
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "bbb0e33652c4a19147780b6dfa96789e33afcfc954b6603e59a31c93c8ec0c3e"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 0,
+              "scalar_fields": 1,
+              "tried_fields": 1
+            },
+            "errors": [
+              "scalar field 'count': Entry bytes not fully consumed: consumed 64, total 233, remaining 169"
+            ],
+            "first_byte_decimal": 95,
+            "first_bytes_hex": "5f379c6490e2e61e449e89ea0380af51",
+            "hex_full": "5f379c6490e2e61e449e89ea0380af512be62484b47f51ef3b6417997b2474fa0107d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb1501010000001acbf4ed40f8f7e52dfe72e899042746925b6cf7cbf36754c2a11d2883d18c25ea6442df34f454fc47a945ec8180f3d446883f049e0575bbf49f75a538f129785bc29d4101187c185bc29d4101187c180043ca79422d7ed932b92974ae750e679bb7da7954e6396ba87c1c843bcdb4c678cc685bb5ed234af078131294ad2094b387dc95e60517918f42a00b373355dbe42915922400187c182915922400187c180000",
+            "hex_preview": "5f379c6490e2e61e449e89ea0380af512be62484b47f51ef3b6417997b2474fa0107d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb1501010000001acbf4ed40f8f7e52dfe72e899042746925b6cf7cbf36754c2a11d2883d18c25ea6442df34f454fc47a945ec8180f3d446883f049e0575bbf49f",
+            "note": "Unable to decode with ABI (state root: CounterApp)",
+            "raw": "_7�d���\u001eD���\u0003��Q+�$��Q�;d\u0017�{$t�\u0001\u0007�����\u0011�95�����\u0005\u000f<<\u001c��`��]��d�\u0015\u0001\u0001\u0000\u0000\u0000\u001a���@���-�r�\u0004'F�[l���gT¡\u001d(�ь%�dB�4�T�G�E쁀��F�?\u0004�\u0005u���u�8�)x[A\u0001\u0018|\u0018[A\u0001\u0018|\u0018\u0000C�yB-~�2�)t�u\u000eg���yT�9k�|\u001c�;ʹ�x�h[��#J�x\u0013\u0012�� ���ܕ�\u0005\u0017��B�\u000b73U��)\u0015�$\u0000\u0018|\u0018)\u0015�$\u0000\u0018|\u0018\u0000\u0000",
+            "size": 233
+          }
+        },
+        {
+          "key": {
+            "context_id": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb15",
+            "state_key": "ca9b74d745ccb1a790a30ba4960c9b58d65b275541885445918b46fc7b47de31"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 0,
+              "scalar_fields": 1,
+              "tried_fields": 1
+            },
+            "errors": [
+              "scalar field 'count': Entry bytes not fully consumed: consumed 64, total 444, remaining 380"
+            ],
+            "first_byte_decimal": 7,
+            "first_bytes_hex": "07d6feb8a6d411b23935ebe8c5edfb05",
+            "hex_full": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb150001040000005f379c6490e2e61e449e89ea0380af512be62484b47f51ef3b6417997b2474fa43ca79422d7ed932b92974ae750e679bb7da7954e6396ba87c1c843bcdb4c6782915922400187c182915922400187c1800ef5ceac141f51cea29a20cbcf62c59e0faa371c7001db5d0be605f2379ea1cde0d326e147e5fa43bac890f06da097826edfb89d240f2acfd0401239e806b8242255c932400187c18255c932400187c180080946558749d615bec680a724680c308e25d516188be1334126ac56e60462d2b5673a51c20b2a0e6468bf3c732201c4b353ec9df648034334a8cb084458363c6dd61942400187c18dd61942400187c18008887fe96bed60d6aac13e8282f93203f9fd18e511ed7353d467203e751bc374833dcd4a9518ca502e67ab1e569a86b2f7b02ce6a5b5fbb70f25693f2f3057c3946939b4101187c1846939b4101187c1800931caa009031a998f891be8781928d7745a353ec6c51504929fb97254a2543e70112ecdcd30455b3d6c86ec8c89e501bcb2fdc24ddd45d9ec6bff8c5f9f2e0eb0000000000000000dec0f84101187c180000",
+            "hex_preview": "07d6feb8a6d411b23935ebe8c5edfb050f3c3c1cabe7a960b2e05dceea64cb150001040000005f379c6490e2e61e449e89ea0380af512be62484b47f51ef3b6417997b2474fa43ca79422d7ed932b92974ae750e679bb7da7954e6396ba87c1c843bcdb4c6782915922400187c182915922400187c1800ef5ceac141f51cea29",
+            "note": "Unable to decode with ABI (state root: CounterApp)",
+            "raw": "\u0007�����\u0011�95�����\u0005\u000f<<\u001c��`��]��d�\u0015\u0000\u0001\u0004\u0000\u0000\u0000_7�d���\u001eD���\u0003��Q+�$��Q�;d\u0017�{$t�C�yB-~�2�)t�u\u000eg���yT�9k�|\u001c�;ʹ�x)\u0015�$\u0000\u0018|\u0018)\u0015�$\u0000\u0018|\u0018\u0000�\\��A�\u001c�)�\f��,Y���q�\u0000\u001d�о`_#y�\u001c�\r2n\u0014~_�;��\u000f\u0006�\tx&����@��\u0004\u0001#��k�B%\\�$\u0000\u0018|\u0018%\\�$\u0000\u0018|\u0018\u0000��eXt�a[�h\nrF��\b�]Qa��\u00134\u0012j�n`F-+Vs�\u001c ���F���2 \u001cK5>��d�43J���E�c��a�$\u0000\u0018|\u0018�a�$\u0000\u0018|\u0018\u0000������\rj�\u0013�(/� ?�юQ\u001e�5=Fr\u0003�Q�7H3�ԩQ��\u0002�z��i�k/{\u0002�j[_�p�V���\u0005|9F��A\u0001\u0018|\u0018F��A\u0001\u0018|\u0018\u0000�\u001c�\u0000�1���������wE�S�lQPI)��%J%C�\u0001\u0012���\u0004U���n�ȞP\u001b�/�$��]�ƿ������\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000���A\u0001\u0018|\u0018\u0000\u0000",
+            "size": 444
+          }
+        }
+      ]
+    }
+  },
+  "database": "Calimero RocksDB Export",
+  "exported_columns": [
+    "Meta",
+    "Config",
+    "Identity",
+    "State",
+    "Delta",
+    "Blobs",
+    "Application",
+    "Alias",
+    "Generic"
+  ]
+}

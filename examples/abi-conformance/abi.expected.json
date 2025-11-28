@@ -72,7 +72,7 @@
         {
           "name": "avatar",
           "type": {
-            "kind": "string"
+            "kind": "bytes"
           },
           "nullable": true
         },
@@ -426,7 +426,7 @@
         }
       ],
       "returns": {
-        "kind": "string"
+        "kind": "u32"
       },
       "is_init": false,
       "is_view": false
@@ -458,7 +458,7 @@
         }
       ],
       "returns": {
-        "kind": "string"
+        "$ref": "Person"
       },
       "is_init": false,
       "is_view": false
@@ -474,7 +474,7 @@
         }
       ],
       "returns": {
-        "kind": "string"
+        "$ref": "UserId32"
       },
       "is_init": false,
       "is_view": false

@@ -1,0 +1,776 @@
+{
+  "data": {
+    "Alias": {
+      "count": 0,
+      "entries": []
+    },
+    "Application": {
+      "count": 1,
+      "entries": [
+        {
+          "key": {
+            "id": "3f582a832dfa9af4143a821a12cc74e006875f0252588fb6fd145d4f27043304"
+          },
+          "value": {
+            "bytecode": "���Z\u001e,\u0005o���\u0016��\u001e�\u0010W\u0012�HN\u0012�x�[���sG",
+            "compiled": "9zb\u001d�@���\u0011d����\u001fy)k\u001a���\u001e3B+X�̘",
+            "metadata": "",
+            "package": "unknown",
+            "size": 1491430,
+            "source": "file:///app/data/service.wasm",
+            "version": "0.0.0"
+          }
+        }
+      ]
+    },
+    "Blobs": {
+      "count": 8,
+      "entries": [
+        {
+          "key": {
+            "id": "02d93b423e2b2570a0909dca65d19ba8ceeeef553f13687fa57054423698a656"
+          },
+          "value": {
+            "hash": "\u0002�;B>+%p����eћ����U?\u0013h�pTB6��V",
+            "links_count": 0,
+            "size": 1048576
+          }
+        },
+        {
+          "key": {
+            "id": "328e0d3392f513efa8acf3fe83df34b336539bc6162336b4c42fb94324378a65"
+          },
+          "value": {
+            "hash": "2�\r3��\u0013館����4�6S��\u0016#6��/�C$7�e",
+            "links_count": 0,
+            "size": 1048576
+          }
+        },
+        {
+          "key": {
+            "id": "397a621dee4092adff1164aab4fce31f79296b1afbe5b3ff1e33422b58b7cc98"
+          },
+          "value": {
+            "hash": "�\u000e\u0017ۃ�W\u0015\u0004`\u0016�O_M��\\��_�e2��\u0019��\u0001",
+            "links_count": 4,
+            "size": 4168336
+          }
+        },
+        {
+          "key": {
+            "id": "536074699ce6d4f71cdfdad92c290ac7cb29f1b00932e3a52a0e6c24c744cd4d"
+          },
+          "value": {
+            "hash": "S`ti����\u001c���,)\n��)�\t2�*\u000el$�D�M",
+            "links_count": 0,
+            "size": 442854
+          }
+        },
+        {
+          "key": {
+            "id": "b4b87d5e2449e4f03449f38c7199a3b8936007a99903ad61b98196793e76b143"
+          },
+          "value": {
+            "hash": "��}^$I��4I�q����`\u0007��\u0003�a���y>v�C",
+            "links_count": 0,
+            "size": 1048576
+          }
+        },
+        {
+          "key": {
+            "id": "bda9c25a1e2c056ff4fb9816a28c1e8d105712fa484e128c789f5bf58c8c7347"
+          },
+          "value": {
+            "hash": "J\u0018\u0013R{\u0013���\u0005\u0011��I|�V�z�u�����?���/c",
+            "links_count": 2,
+            "size": 1491430
+          }
+        },
+        {
+          "key": {
+            "id": "ebe43ba158ba57690399a3b5a77a513263a2282a004b05126126c9baa289ea6f"
+          },
+          "value": {
+            "hash": "��;�X�Wi\u0003����zQ2c�(*\u0000K\u0005\u0012a&ɺ���o",
+            "links_count": 0,
+            "size": 1048576
+          }
+        },
+        {
+          "key": {
+            "id": "ef851540e993e653c436b070f7f57b35e7cbfc2090baea6c648dfcc8839f4606"
+          },
+          "value": {
+            "hash": "�\u0015@��S�6�p��{5��� ���ld��ȃ�F\u0006",
+            "links_count": 0,
+            "size": 1022608
+          }
+        }
+      ]
+    },
+    "Config": {
+      "count": 1,
+      "entries": [
+        {
+          "key": {
+            "id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139"
+          },
+          "value": {
+            "application_revision": 0,
+            "contract": "v0-6.config.calimero-context.testnet",
+            "members_revision": 0,
+            "network": "testnet",
+            "protocol": "near",
+            "proxy_contract": "2593.v0-6.config.calimero-context.testnet"
+          }
+        }
+      ]
+    },
+    "Delta": {
+      "count": 2,
+      "entries": [
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "delta_id": "1e502bf9e1cc71e1ed547c66fb228700a33bb53c679a6a2aeef87f2e72e40d54"
+          },
+          "value": {
+            "actions_size": 2328,
+            "applied": true,
+            "delta_id": "1e502bf9e1cc71e1ed547c66fb228700a33bb53c679a6a2aeef87f2e72e40d54",
+            "expected_root_hash": "abbd1a662804922f48d30f1ae1dd69b0f2e542b597ad708aa3da32233d3e4ced",
+            "hlc": {
+              "id_hex": "7285a969ddd324b55f01ed98c7cb4cb5",
+              "logical_counter": 0,
+              "physical_time_secs": 1764310982,
+              "raw": "7577657968369664000#7285a969ddd324b55f01ed98c7cb4cb5",
+              "time_ntp64": 7577657968369664000
+            },
+            "parents": ["0000000000000000000000000000000000000000000000000000000000000000"],
+            "timestamp": 7577657968369664000,
+            "type": "context_dag_delta"
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "delta_id": "5ee034bb8c8908af6ed93319d24823c671cdc68f765aa38d3c4c45dc36b2a988"
+          },
+          "value": {
+            "actions_size": 1530,
+            "applied": true,
+            "delta_id": "5ee034bb8c8908af6ed93319d24823c671cdc68f765aa38d3c4c45dc36b2a988",
+            "expected_root_hash": "11243f9bb70c297298199850360a7b616bd6336e9def98b06dbaad490a7bdf63",
+            "hlc": {
+              "id_hex": "7285a969ddd324b55f01ed98c7cb4cb5",
+              "logical_counter": 0,
+              "physical_time_secs": 1764310987,
+              "raw": "7577657991537819648#7285a969ddd324b55f01ed98c7cb4cb5",
+              "time_ntp64": 7577657991537819648
+            },
+            "parents": ["1e502bf9e1cc71e1ed547c66fb228700a33bb53c679a6a2aeef87f2e72e40d54"],
+            "timestamp": 7577657991537819648,
+            "type": "context_dag_delta"
+          }
+        }
+      ]
+    },
+    "Generic": {
+      "count": 0,
+      "entries": []
+    },
+    "Identity": {
+      "count": 1,
+      "entries": [
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "public_key": "CF��LU��\u0014�K���$�cy���\f\u000e�x'���X\u0016�"
+          },
+          "value": {
+            "private_key": "�+62��D�\u0010nwin1\u000b�\u000f��\t�\u001d�0���t�\u0005��",
+            "sender_key": "�\u001c���A�)��o�mP}1J�Bۙͫ\u001eD��|��V"
+          }
+        }
+      ]
+    },
+    "Meta": {
+      "count": 1,
+      "entries": [
+        {
+          "key": {
+            "id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139"
+          },
+          "value": {
+            "application_id": "?X*�-���\u0014:�\u001a\u0012�t�\u0006�_\u0002RX���\u0014]O'\u00043\u0004",
+            "dag_heads": ["5ee034bb8c8908af6ed93319d24823c671cdc68f765aa38d3c4c45dc36b2a988"],
+            "root_hash": "11243f9bb70c297298199850360a7b616bd6336e9def98b06dbaad490a7bdf63"
+          }
+        }
+      ]
+    },
+    "State": {
+      "count": 24,
+      "entries": [
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "0b89b28b8a60e10517cc7c052dfb6b32e8a94457b9693e87e978b96d48aabfe1"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 3,
+              "scalar_fields": 1,
+              "tried_fields": 4
+            },
+            "errors": [
+              "map field 'items': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'tags': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'handlersCalled': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'handlerCounter': Entry bytes not fully consumed: consumed 40, total 148"
+            ],
+            "first_byte_decimal": 19,
+            "first_bytes_hex": "135ca3e6fdba2adf5d2ade3bd606b400",
+            "hex_full": "135ca3e6fdba2adf5d2ade3bd606b400fa3b9300c2213f1c2e9355218d5baf4501235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab13900f0b338411bc2d9d172bb5152f0e3fbc0d44dafe9cfc2d40bf6946d6171190d0740c1ec6619d2e7d5a2264c197a481159a180ed03082ed64538e45c191d392437cee075947d177c18cee075947d177c180000",
+            "hex_preview": "135ca3e6fdba2adf5d2ade3bd606b400fa3b9300c2213f1c2e9355218d5baf4501235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab13900f0b338411bc2d9d172bb5152f0e3fbc0d44dafe9cfc2d40bf6946d6171190d0740c1ec6619d2e7d5a2264c197a481159a180ed03082ed64538e45c191d39",
+            "note": "Unable to decode with ABI (state root: KvStore)",
+            "raw": "\u0013\\����*�]*�;�\u0006�\u0000�;�\u0000�!?\u001c.�U!�[�E\u0001#_\u0018\t}$�.\\]��q��R��\n�F�\u001d\u0010�\u0017~�:�9\u0000�8A\u001b���r�QR�����M�����\u000b��maq\u0019\r\u0007@��f\u0019��բ&L\u0019zH\u0011Y���\u0003\b.�E8�\\\u0019\u001d9$7��u�}\u0017|\u0018��u�}\u0017|\u0018\u0000\u0000",
+            "size": 148
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "0f467b48e8d3c1f9efd33c321a1c0942b82069868d852937ec5b770b9a2ac2b3"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 3,
+              "scalar_fields": 1,
+              "tried_fields": 4
+            },
+            "errors": [
+              "map field 'items': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'tags': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'handlersCalled': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'handlerCounter': Entry bytes not fully consumed: consumed 40, total 64"
+            ],
+            "first_byte_decimal": 17,
+            "first_bytes_hex": "118d01d5a0609e10d292a09d7091e51b",
+            "hex_full": "118d01d5a0609e10d292a09d7091e51bfc4449da94ed1c1682585b0344c2479a9ab11f026977f16b88ed764fe940b0c5c0132f2addbd781ccb46ba37d993f778",
+            "hex_preview": "118d01d5a0609e10d292a09d7091e51bfc4449da94ed1c1682585b0344c2479a9ab11f026977f16b88ed764fe940b0c5c0132f2addbd781ccb46ba37d993f778",
+            "note": "Unable to decode with ABI (state root: KvStore)",
+            "raw": "\u0011�\u0001ՠ`�\u0010Ғ��p��\u001b�DIڔ�\u001c\u0016�X[\u0003D�G���\u001f\u0002iw�k��vO�@���\u0013/*ݽx\u001c�F�7ٓ�x",
+            "size": 64
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "111a67996198365126e2545c1bcde800aa90ddff7412dd0d43da53101bb3d4f5"
+          },
+          "value": {
+            "id": "6d57e29872e87e3732acf689eef3c5676fd2d8d4ea6517f9f7f60c74705a8cd8",
+            "note": "Direct ID storage (possibly root collection reference or internal metadata)",
+            "type": "RawId"
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "1f2c5de38080b1a9e9e6a7e3db623eb822c752a83bb9d3ce1edd5f07162fe309"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 3,
+              "scalar_fields": 1,
+              "tried_fields": 4
+            },
+            "errors": [
+              "map field 'items': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'tags': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'handlersCalled': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'handlerCounter': Entry bytes not fully consumed: consumed 40, total 930"
+            ],
+            "first_byte_decimal": 35,
+            "first_bytes_hex": "235f18097d24aa2e5c5ddec271bc8c52",
+            "hex_full": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab13900010a0000006d57e29872e87e3732acf689eef3c5676fd2d8d4ea6517f9f7f60c74705a8cd81ad8aaa1576a6b3c03fcc5a20a0d541a4550e2f9bb17dfa6fb27040534b187f9991655947d177c18991655947d177c1800e94519b4c27cfbe1f690f8fde7bc771965620e1145b2278a90c01daa98b32b33d9b5a1265376e68ce7dda144b4f7255d170b4f6a3713561bff31cc9b1a3fecd8887b56947d177c18887b56947d177c18004e4f65f130ff43520440bd9267f6d19f84e9d8c3a54c5eb9ae5ab797d4f8c05fd702686a189ac931deff7c93cbbeb521fd8cff89154be9b17d6b1b05cb9f3fa0755d5f947d177c18755d5f947d177c18000005b78fbcff869552905c49a3de433f39799bbbb5a7291a351e09e05089c98ad2beb423b4c0522718f03896b6c8f5e045c59b72e656757eefd3da3a18a51300b74560947d177c18b74560947d177c1800118d01d5a0609e10d292a09d7091e51bfc4449da94ed1c1682585b0344c2479abb60e7471dcff54605d50cefd8a3fae7201b16fff39a6bdc381a4d9d7a8eb8736dbc6a947d177c186dbc6a947d177c18009ab11f026977f16b88ed764fe940b0c5c0132f2addbd781ccb46ba37d993f7788f590e9a4da254bd5bb7e3c655866c7173a5215167377fe69dc6ea17528fb45c1b946c947d177c181b946c947d177c1800135ca3e6fdba2adf5d2ade3bd606b400fa3b9300c2213f1c2e9355218d5baf45f0b338411bc2d9d172bb5152f0e3fbc0d44dafe9cfc2d40bf6946d6171190d07cee075947d177c18cee075947d177c1800e27308ea5f2c8431fbe65b9a18b53539c1fd9cd900e4a8eeae0ce86d81857ee449f59360edc3790bc53a01c7d6f020563d7afbfc1784c8a835aaebad51bfd2a9856a77947d177c18856a77947d177c1800668ff2a50bf4dc6453b1746cddb91e896348052b30954eef0f1cab4a1e0ac43ebde3981264b0ceec7919a31d43e94cf2475e9c5e8805ca6a38a56756f1e3051028b978947d177c1828b978947d177c18007cdc2d7def03a81250b0de61aaa39a87951ffafbb16effcbcf74f4eae19fc7ab6014aaeced744bda86aff9ca051ba680bc9510ff2cba32d5ca65c412d9be7f3005f357d57e177c1805f357d57e177c180024e9fb03a37a5cad31a3820e1ba33e4b447cfc183be45daaa9567f5c93d2436e9fafdde520eb2e178e17c8bcf44a5954914fa82d1ebfaae30a1339216214a421000000000000000029d36bd67e177c180000",
+            "hex_preview": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab13900010a0000006d57e29872e87e3732acf689eef3c5676fd2d8d4ea6517f9f7f60c74705a8cd81ad8aaa1576a6b3c03fcc5a20a0d541a4550e2f9bb17dfa6fb27040534b187f9991655947d177c18991655947d177c1800e94519b4c27cfbe1f6",
+            "note": "Unable to decode with ABI (state root: KvStore)",
+            "raw": "#_\u0018\t}$�.\\]��q��R��\n�F�\u001d\u0010�\u0017~�:�9\u0000\u0001\n\u0000\u0000\u0000mW�r�~72������go����e\u0017���\ftpZ��\u001aت�Wjk<\u0003�Ţ\n\rT\u001aEP���\u0017ߦ�'\u0004\u00054����\u0016U�}\u0017|\u0018�\u0016U�}\u0017|\u0018\u0000�E\u0019��|�������w\u0019eb\u000e\u0011E�'���\u001d���+3ٵ�&Sv��ݡD��%]\u0017\u000bOj7\u0013V\u001b�1̛\u001a?�؈{V�}\u0017|\u0018�{V�}\u0017|\u0018\u0000NOe�0�CR\u0004@��g�џ���åL^��Z�����_�\u0002hj\u0018��1��|�˾�!����\u0015K�}k\u001b\u0005˟?�u]_�}\u0017|\u0018u]_�}\u0017|\u0018\u0000\u0000\u0005������R�\\I��C?9y����)\u001a5\u001e\t�P�ɊҾ�#��R'\u0018�8�����Eśr�Vu~���:\u0018�\u0013\u0000�E`�}\u0017|\u0018�E`�}\u0017|\u0018\u0000\u0011�\u0001ՠ`�\u0010Ғ��p��\u001b�DIڔ�\u001c\u0016�X[\u0003D�G��`�G\u001d��F\u0005�\f�أ�� \u001b\u0016��k�8\u001aM�z��sm�j�}\u0017|\u0018m�j�}\u0017|\u0018\u0000��\u001f\u0002iw�k��vO�@���\u0013/*ݽx\u001c�F�7ٓ�x�Y\u000e�M�T�[���U�lqs�!Qg7���\u0017R��\\\u001b�l�}\u0017|\u0018\u001b�l�}\u0017|\u0018\u0000\u0013\\����*�]*�;�\u0006�\u0000�;�\u0000�!?\u001c.�U!�[�E�8A\u001b���r�QR�����M�����\u000b��maq\u0019\r\u0007��u�}\u0017|\u0018��u�}\u0017|\u0018\u0000�s\b�_,�1��[�\u0018�59����\u0000��\f�m��~�I��`��y\u000b�:\u0001��� V=z��\u0017�Ȩ5��Q�ҩ�jw�}\u0017|\u0018�jw�}\u0017|\u0018\u0000f��\u000b��dS�tlݹ\u001e�cH\u0005+0�N�\u000f\u001c�J\u001e\n�>��\u0012d���y\u0019�\u001dC�L�G^�^�\u0005�j8�gV��\u0005\u0010(�x�}\u0017|\u0018(�x�}\u0017|\u0018\u0000|�-}�\u0003�\u0012P��a�����\u001f���n���t���ǫ`\u0014���tKچ���\u0005\u001b����\u0010�,�2��e�\u0012پ0\u0005�W�~\u0017|\u0018\u0005�W�~\u0017|\u0018\u0000$��\u0003�z\\�1��\u000e\u001b�>KD|�\u0018;�]��V\\��Cn���� �.\u0017�\u0017ȼ�JYT�O�-\u001e���\n\u00139!b\u0014�!\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000)�k�~\u0017|\u0018\u0000\u0000",
+            "size": 930
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "245bdebbdc2f15b8cdbb4a8ed8fcf5285a06a2b8b2c0a9cd252449a69dc0f88f"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 3,
+              "scalar_fields": 1,
+              "tried_fields": 4
+            },
+            "errors": [
+              "map field 'items': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'tags': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'handlersCalled': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'handlerCounter': Entry bytes not fully consumed: consumed 40, total 148"
+            ],
+            "first_byte_decimal": 233,
+            "first_bytes_hex": "e94519b4c27cfbe1f690f8fde7bc7719",
+            "hex_full": "e94519b4c27cfbe1f690f8fde7bc771965620e1145b2278a90c01daa98b32b3301235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab13900d9b5a1265376e68ce7dda144b4f7255d170b4f6a3713561bff31cc9b1a3fecd8fa91b926b8f54b69eb8ef6ebae912d837b1ed5ba51d9b08bdf1d9310f2fb9f23887b56947d177c18887b56947d177c180000",
+            "hex_preview": "e94519b4c27cfbe1f690f8fde7bc771965620e1145b2278a90c01daa98b32b3301235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab13900d9b5a1265376e68ce7dda144b4f7255d170b4f6a3713561bff31cc9b1a3fecd8fa91b926b8f54b69eb8ef6ebae912d837b1ed5ba51d9b08bdf1d9310f2fb",
+            "note": "Unable to decode with ABI (state root: KvStore)",
+            "raw": "�E\u0019��|�������w\u0019eb\u000e\u0011E�'���\u001d���+3\u0001#_\u0018\t}$�.\\]��q��R��\n�F�\u001d\u0010�\u0017~�:�9\u0000ٵ�&Sv��ݡD��%]\u0017\u000bOj7\u0013V\u001b�1̛\u001a?�����&��Ki��뮑-�{\u001eպQٰ��\u001d�\u0010���#�{V�}\u0017|\u0018�{V�}\u0017|\u0018\u0000\u0000",
+            "size": 148
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "3ba44a6bf287a96e0ac44b7b807e537d4508b04a88e6a43e42bf6355e4b88244"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 3,
+              "scalar_fields": 1,
+              "tried_fields": 4
+            },
+            "errors": [
+              "map field 'items': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'tags': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'handlersCalled': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'handlerCounter': Entry bytes not fully consumed: consumed 40, total 148"
+            ],
+            "first_byte_decimal": 226,
+            "first_bytes_hex": "e27308ea5f2c8431fbe65b9a18b53539",
+            "hex_full": "e27308ea5f2c8431fbe65b9a18b53539c1fd9cd900e4a8eeae0ce86d81857ee401235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab1390049f59360edc3790bc53a01c7d6f020563d7afbfc1784c8a835aaebad51bfd2a97368b03db844ff8b83d5413113a81fdf5de8bb083130e4c32664ee45e7e72136856a77947d177c18856a77947d177c180000",
+            "hex_preview": "e27308ea5f2c8431fbe65b9a18b53539c1fd9cd900e4a8eeae0ce86d81857ee401235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab1390049f59360edc3790bc53a01c7d6f020563d7afbfc1784c8a835aaebad51bfd2a97368b03db844ff8b83d5413113a81fdf5de8bb083130e4c32664ee45e7e7",
+            "note": "Unable to decode with ABI (state root: KvStore)",
+            "raw": "�s\b�_,�1��[�\u0018�59����\u0000��\f�m��~�\u0001#_\u0018\t}$�.\\]��q��R��\n�F�\u001d\u0010�\u0017~�:�9\u0000I��`��y\u000b�:\u0001��� V=z��\u0017�Ȩ5��Q�ҩsh�=�D����A1\u0013�\u001f�]�\b10��&d�E��!6�jw�}\u0017|\u0018�jw�}\u0017|\u0018\u0000\u0000",
+            "size": 148
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "3cf4e02df47fc93a6d4a9a9d2b84ca374674e9dd3fbcc417d07fac0bfb211e8e"
+          },
+          "value": {
+            "element": {
+              "id": "1c9161118bb45828bebf2ce150edb7baeff681bdb5963ba431eca60f086e1cf3"
+            },
+            "field": "items",
+            "key": {
+              "parsed": "greeting",
+              "raw": "\r\u0000\u0000\u0000\u0004\b\u0000\u0000\u0000greeting",
+              "type": "scalar::String"
+            },
+            "type": "Entry",
+            "value": {
+              "parsed": "\u0007\u0002\u0000\u0000\u0000\u0014\u0000\u0000\u0000__calimeroCollection\u0004\u000b\u0000\u0000\u0000LwwRegister\u0002\u0000\u0000\u0000id\u0004@\u0000\u0000\u00007cdc2d7def03a81250b0de61aaa39a87951ffafbb16effcbcf74f4eae19fc7ab",
+              "raw": "x\u0000\u0000\u0000\u0007\u0002\u0000\u0000\u0000\u0014\u0000\u0000\u0000__calimeroCollection\u0004\u000b\u0000\u0000\u0000LwwRegister\u0002\u0000\u0000\u0000id\u0004@\u0000\u0000\u00007cdc2d7def03a81250b0de61aaa39a87951ffafbb16effcbcf74f4eae19fc7ab",
+              "type": "scalar::String"
+            }
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "3e0a62d6ce80aa0c9027bd550771ef138838b3695b5f492e879bf792971a8abe"
+          },
+          "value": {
+            "id": "4e4f65f130ff43520440bd9267f6d19f84e9d8c3a54c5eb9ae5ab797d4f8c05f",
+            "note": "Direct ID storage (possibly root collection reference or internal metadata)",
+            "type": "RawId"
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "3eb61765dc1bdb0a8f175fc1a146e848a78bbe779beaf9ca0c9b762e3904a073"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 3,
+              "scalar_fields": 1,
+              "tried_fields": 4
+            },
+            "errors": [
+              "map field 'items': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'tags': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'handlersCalled': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'handlerCounter': Entry bytes not fully consumed: consumed 40, total 64"
+            ],
+            "first_byte_decimal": 78,
+            "first_bytes_hex": "4e4f65f130ff43520440bd9267f6d19f",
+            "hex_full": "4e4f65f130ff43520440bd9267f6d19f84e9d8c3a54c5eb9ae5ab797d4f8c05f0005b78fbcff869552905c49a3de433f39799bbbb5a7291a351e09e05089c98a",
+            "hex_preview": "4e4f65f130ff43520440bd9267f6d19f84e9d8c3a54c5eb9ae5ab797d4f8c05f0005b78fbcff869552905c49a3de433f39799bbbb5a7291a351e09e05089c98a",
+            "note": "Unable to decode with ABI (state root: KvStore)",
+            "raw": "NOe�0�CR\u0004@��g�џ���åL^��Z�����_\u0000\u0005������R�\\I��C?9y����)\u001a5\u001e\t�P�Ɋ",
+            "size": 64
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "447a39783d51d1552808a40814d3e470a4f8cc5f9f33a3845725e09273fa7e8a"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 3,
+              "scalar_fields": 1,
+              "tried_fields": 4
+            },
+            "errors": [
+              "map field 'items': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'tags': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'handlersCalled': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'handlerCounter': Entry bytes not fully consumed: consumed 40, total 148"
+            ],
+            "first_byte_decimal": 28,
+            "first_bytes_hex": "1c9161118bb45828bebf2ce150edb7ba",
+            "hex_full": "1c9161118bb45828bebf2ce150edb7baeff681bdb5963ba431eca60f086e1cf3016d57e29872e87e3732acf689eef3c5676fd2d8d4ea6517f9f7f60c74705a8cd80024b8374b4539c3c9025d6f78d70e952e45a346c836182f5d79234a02e49b195f380b09db8b3c7011f97668f2ee3fc24b5e580b735afd1648f8a0fef43bb9912d764074d57e177c18764074d57e177c180000",
+            "hex_preview": "1c9161118bb45828bebf2ce150edb7baeff681bdb5963ba431eca60f086e1cf3016d57e29872e87e3732acf689eef3c5676fd2d8d4ea6517f9f7f60c74705a8cd80024b8374b4539c3c9025d6f78d70e952e45a346c836182f5d79234a02e49b195f380b09db8b3c7011f97668f2ee3fc24b5e580b735afd1648f8a0fef43bb9",
+            "note": "Unable to decode with ABI (state root: KvStore)",
+            "raw": "\u001c�a\u0011��X(��,�P���������;�1�\u000f\bn\u001c�\u0001mW�r�~72������go����e\u0017���\ftpZ��\u0000$�7KE9��\u0002]ox�\u000e�.E�F�6\u0018/]y#J\u0002�\u0019_8\u000b\tۋ<p\u0011�vh��?�K^X\u000bsZ�\u0016H����;��-v@t�~\u0017|\u0018v@t�~\u0017|\u0018\u0000\u0000",
+            "size": 148
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "4ea7708ecde54a52d5d76df7877829491bf4bb018597047f12f65a5988d9e030"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 3,
+              "scalar_fields": 1,
+              "tried_fields": 4
+            },
+            "errors": [
+              "map field 'items': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'tags': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'handlersCalled': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'handlerCounter': Entry bytes not fully consumed: consumed 40, total 148"
+            ],
+            "first_byte_decimal": 0,
+            "first_bytes_hex": "0005b78fbcff869552905c49a3de433f",
+            "hex_full": "0005b78fbcff869552905c49a3de433f39799bbbb5a7291a351e09e05089c98a01235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab13900d2beb423b4c0522718f03896b6c8f5e045c59b72e656757eefd3da3a18a51300f8b3ad692fc934ff3c64b3b706ef18b05a043c4ceefcbdb1aa697a1802c05297b74560947d177c18b74560947d177c180000",
+            "hex_preview": "0005b78fbcff869552905c49a3de433f39799bbbb5a7291a351e09e05089c98a01235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab13900d2beb423b4c0522718f03896b6c8f5e045c59b72e656757eefd3da3a18a51300f8b3ad692fc934ff3c64b3b706ef18b05a043c4ceefcbdb1aa697a1802c0",
+            "note": "Unable to decode with ABI (state root: KvStore)",
+            "raw": "\u0000\u0005������R�\\I��C?9y����)\u001a5\u001e\t�P�Ɋ\u0001#_\u0018\t}$�.\\]��q��R��\n�F�\u001d\u0010�\u0017~�:�9\u0000Ҿ�#��R'\u0018�8�����Eśr�Vu~���:\u0018�\u0013\u0000���i/�4�<d��\u0006�\u0018�Z\u0004<L�����iz\u0018\u0002�R��E`�}\u0017|\u0018�E`�}\u0017|\u0018\u0000\u0000",
+            "size": 148
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "5b8100d819ef69fab7c4cdee7969c7f66a5eded6809c0dd8ffbaf15ffccc1cbb"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 3,
+              "scalar_fields": 1,
+              "tried_fields": 4
+            },
+            "errors": [
+              "map field 'items': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'tags': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'handlersCalled': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'handlerCounter': Entry bytes not fully consumed: consumed 40, total 148"
+            ],
+            "first_byte_decimal": 154,
+            "first_bytes_hex": "9ab11f026977f16b88ed764fe940b0c5",
+            "hex_full": "9ab11f026977f16b88ed764fe940b0c5c0132f2addbd781ccb46ba37d993f77801235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139008f590e9a4da254bd5bb7e3c655866c7173a5215167377fe69dc6ea17528fb45cb6b0a3efde343c41fa91c09be092053da2898547c6b4712cba37edac88df692e1b946c947d177c181b946c947d177c180000",
+            "hex_preview": "9ab11f026977f16b88ed764fe940b0c5c0132f2addbd781ccb46ba37d993f77801235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139008f590e9a4da254bd5bb7e3c655866c7173a5215167377fe69dc6ea17528fb45cb6b0a3efde343c41fa91c09be092053da2898547c6b4712cba37edac88df",
+            "note": "Unable to decode with ABI (state root: KvStore)",
+            "raw": "��\u001f\u0002iw�k��vO�@���\u0013/*ݽx\u001c�F�7ٓ�x\u0001#_\u0018\t}$�.\\]��q��R��\n�F�\u001d\u0010�\u0017~�:�9\u0000�Y\u000e�M�T�[���U�lqs�!Qg7���\u0017R��\\�����4<A������\u0005=���Gƴq,�7����i.\u001b�l�}\u0017|\u0018\u001b�l�}\u0017|\u0018\u0000\u0000",
+            "size": 148
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "64f868c0a59511335530fcaddfb078accfa2738b53f6bfa5f0a49230b2317453"
+          },
+          "value": {
+            "id": "118d01d5a0609e10d292a09d7091e51bfc4449da94ed1c1682585b0344c2479a",
+            "note": "Direct ID storage (possibly root collection reference or internal metadata)",
+            "type": "RawId"
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "852d4961dc1d377155c18dda2ba2ae27dc44edb20f26774add4dc17cb2ccaf5b"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 3,
+              "scalar_fields": 1,
+              "tried_fields": 4
+            },
+            "errors": [
+              "map field 'items': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'tags': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'handlersCalled': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'handlerCounter': Entry bytes not fully consumed: consumed 40, total 148"
+            ],
+            "first_byte_decimal": 17,
+            "first_bytes_hex": "118d01d5a0609e10d292a09d7091e51b",
+            "hex_full": "118d01d5a0609e10d292a09d7091e51bfc4449da94ed1c1682585b0344c2479a01235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab13900bb60e7471dcff54605d50cefd8a3fae7201b16fff39a6bdc381a4d9d7a8eb8733bada628fafd072fd7afcf6203be09e62b4b2924cbf1c6be0444c3b7d70bb43b6dbc6a947d177c186dbc6a947d177c180000",
+            "hex_preview": "118d01d5a0609e10d292a09d7091e51bfc4449da94ed1c1682585b0344c2479a01235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab13900bb60e7471dcff54605d50cefd8a3fae7201b16fff39a6bdc381a4d9d7a8eb8733bada628fafd072fd7afcf6203be09e62b4b2924cbf1c6be0444c3b7d70b",
+            "note": "Unable to decode with ABI (state root: KvStore)",
+            "raw": "\u0011�\u0001ՠ`�\u0010Ғ��p��\u001b�DIڔ�\u001c\u0016�X[\u0003D�G�\u0001#_\u0018\t}$�.\\]��q��R��\n�F�\u001d\u0010�\u0017~�:�9\u0000�`�G\u001d��F\u0005�\f�أ�� \u001b\u0016��k�8\u001aM�z��s;��(��\u0007/ׯ�b\u0003�\t�+K)$��ƾ\u0004D÷�\u000b�;m�j�}\u0017|\u0018m�j�}\u0017|\u0018\u0000\u0000",
+            "size": 148
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "8e78da607dd660da1650b9cc95e109070c9103ef8024b2fc3c860637709eb164"
+          },
+          "value": {
+            "id": "135ca3e6fdba2adf5d2ade3bd606b400fa3b9300c2213f1c2e9355218d5baf45",
+            "note": "Direct ID storage (possibly root collection reference or internal metadata)",
+            "type": "RawId"
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "93c7fce310834121ba24069a16497ecfc6c4a914856cfcc55a04d94ab8553ece"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 3,
+              "scalar_fields": 1,
+              "tried_fields": 4
+            },
+            "errors": [
+              "map field 'items': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'tags': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'handlersCalled': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'handlerCounter': Entry bytes not fully consumed: consumed 40, total 599"
+            ],
+            "first_byte_decimal": 7,
+            "first_bytes_hex": "070400000009000000636c6173734e61",
+            "hex_full": "070400000009000000636c6173734e616d65040c0000004b7653746f72654c6f6769630600000076616c75657307000000000b000000636f6c6c656374696f6e730704000000050000006974656d7307020000000400000074797065040c000000556e6f7264657265644d6170020000006964044000000065393435313962346332376366626531663639306638666465376263373731393635363230653131343562323237386139306330316461613938623332623333040000007461677307020000000400000074797065040c000000556e6f7264657265644d61700200000069640440000000303030356237386662636666383639353532393035633439613364653433336633393739396262626235613732393161333531653039653035303839633938610e00000068616e646c65727343616c6c656407020000000400000074797065040c000000556e6f7264657265644d61700200000069640440000000396162313166303236393737663136623838656437363466653934306230633563303133326632616464626437383163636234366261333764393933663737380e00000068616e646c6572436f756e746572070200000004000000747970650407000000436f756e746572020000006964044000000036363866663261353062663464633634353362313734366364646239316538393633343830353262333039353465656630663163616234613165306163343365080000006d6574616461746107020000000900000063726561746564417402dc7f947d177cb8430900000075706461746564417402df06d67e177cb843",
+            "hex_preview": "070400000009000000636c6173734e616d65040c0000004b7653746f72654c6f6769630600000076616c75657307000000000b000000636f6c6c656374696f6e730704000000050000006974656d7307020000000400000074797065040c000000556e6f7264657265644d617002000000696404400000006539343531396234",
+            "note": "Unable to decode with ABI (state root: KvStore)",
+            "raw": "\u0007\u0004\u0000\u0000\u0000\t\u0000\u0000\u0000className\u0004\f\u0000\u0000\u0000KvStoreLogic\u0006\u0000\u0000\u0000values\u0007\u0000\u0000\u0000\u0000\u000b\u0000\u0000\u0000collections\u0007\u0004\u0000\u0000\u0000\u0005\u0000\u0000\u0000items\u0007\u0002\u0000\u0000\u0000\u0004\u0000\u0000\u0000type\u0004\f\u0000\u0000\u0000UnorderedMap\u0002\u0000\u0000\u0000id\u0004@\u0000\u0000\u0000e94519b4c27cfbe1f690f8fde7bc771965620e1145b2278a90c01daa98b32b33\u0004\u0000\u0000\u0000tags\u0007\u0002\u0000\u0000\u0000\u0004\u0000\u0000\u0000type\u0004\f\u0000\u0000\u0000UnorderedMap\u0002\u0000\u0000\u0000id\u0004@\u0000\u0000\u00000005b78fbcff869552905c49a3de433f39799bbbb5a7291a351e09e05089c98a\u000e\u0000\u0000\u0000handlersCalled\u0007\u0002\u0000\u0000\u0000\u0004\u0000\u0000\u0000type\u0004\f\u0000\u0000\u0000UnorderedMap\u0002\u0000\u0000\u0000id\u0004@\u0000\u0000\u00009ab11f026977f16b88ed764fe940b0c5c0132f2addbd781ccb46ba37d993f778\u000e\u0000\u0000\u0000handlerCounter\u0007\u0002\u0000\u0000\u0000\u0004\u0000\u0000\u0000type\u0004\u0007\u0000\u0000\u0000Counter\u0002\u0000\u0000\u0000id\u0004@\u0000\u0000\u0000668ff2a50bf4dc6453b1746cddb91e896348052b30954eef0f1cab4a1e0ac43e\b\u0000\u0000\u0000metadata\u0007\u0002\u0000\u0000\u0000\t\u0000\u0000\u0000createdAt\u0002��}\u0017|�C\t\u0000\u0000\u0000updatedAt\u0002�\u0006�~\u0017|�C",
+            "size": 599
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "94f1fe5fc4952f82a856220ba9068964b859ed01f3eef40678aa58b26558a2c9"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 3,
+              "scalar_fields": 1,
+              "tried_fields": 4
+            },
+            "errors": [
+              "map field 'items': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'tags': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'handlersCalled': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'handlerCounter': Entry bytes not fully consumed: consumed 40, total 109"
+            ],
+            "first_byte_decimal": 1,
+            "first_bytes_hex": "0110000000040b00000068656c6c6f2d",
+            "hex_full": "0110000000040b00000068656c6c6f2d776f726c6400001b89cb3f2969b202aca98c74e9a886db79b11d9688944346e6cc4c55f7c314fe4b85fdd624e1637993d3c00c0ebc7827dee0da5816cf7cdc2d7def03a81250b0de61aaa39a87951ffafbb16effcbcf74f4eae19fc7ab",
+            "hex_preview": "0110000000040b00000068656c6c6f2d776f726c6400001b89cb3f2969b202aca98c74e9a886db79b11d9688944346e6cc4c55f7c314fe4b85fdd624e1637993d3c00c0ebc7827dee0da5816cf7cdc2d7def03a81250b0de61aaa39a87951ffafbb16effcbcf74f4eae19fc7ab",
+            "note": "Unable to decode with ABI (state root: KvStore)",
+            "raw": "\u0001\u0010\u0000\u0000\u0000\u0004\u000b\u0000\u0000\u0000hello-world\u0000\u0000\u001b��?)i�\u0002���t騆�y�\u001d���CF��LU��\u0014�K���$�cy���\f\u000e�x'���X\u0016�|�-}�\u0003�\u0012P��a�����\u001f���n���t���ǫ",
+            "size": 109
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "a7206ff79c30314d61cbb2b92092dd16817fb963e6a3c48c91df4bc6a995c2ab"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 3,
+              "scalar_fields": 1,
+              "tried_fields": 4
+            },
+            "errors": [
+              "map field 'items': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'tags': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'handlersCalled': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'handlerCounter': Entry bytes not fully consumed: consumed 40, total 148"
+            ],
+            "first_byte_decimal": 124,
+            "first_bytes_hex": "7cdc2d7def03a81250b0de61aaa39a87",
+            "hex_full": "7cdc2d7def03a81250b0de61aaa39a87951ffafbb16effcbcf74f4eae19fc7ab01235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139006014aaeced744bda86aff9ca051ba680bc9510ff2cba32d5ca65c412d9be7f30483aecb76896a43b4ac848f1c8e5aecbe8565a8a8a66475c69dd4020da53a3d105f357d57e177c18576360d57e177c180000",
+            "hex_preview": "7cdc2d7def03a81250b0de61aaa39a87951ffafbb16effcbcf74f4eae19fc7ab01235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139006014aaeced744bda86aff9ca051ba680bc9510ff2cba32d5ca65c412d9be7f30483aecb76896a43b4ac848f1c8e5aecbe8565a8a8a66475c69dd4020da53",
+            "note": "Unable to decode with ABI (state root: KvStore)",
+            "raw": "|�-}�\u0003�\u0012P��a�����\u001f���n���t���ǫ\u0001#_\u0018\t}$�.\\]��q��R��\n�F�\u001d\u0010�\u0017~�:�9\u0000`\u0014���tKچ���\u0005\u001b����\u0010�,�2��e�\u0012پ0H:�h��;J�H�����VZ��fG\\i�@ �S��\u0005�W�~\u0017|\u0018Wc`�~\u0017|\u0018\u0000\u0000",
+            "size": 148
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "b575a6090bf07f4dbeb5b7ab9f0d91af2c31a598cd106b3d3530881d07b0ca73"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 3,
+              "scalar_fields": 1,
+              "tried_fields": 4
+            },
+            "errors": [
+              "map field 'items': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'tags': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'handlersCalled': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'handlerCounter': Entry bytes not fully consumed: consumed 40, total 233"
+            ],
+            "first_byte_decimal": 109,
+            "first_bytes_hex": "6d57e29872e87e3732acf689eef3c567",
+            "hex_full": "6d57e29872e87e3732acf689eef3c5676fd2d8d4ea6517f9f7f60c74705a8cd801235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab13901010000001c9161118bb45828bebf2ce150edb7baeff681bdb5963ba431eca60f086e1cf324b8374b4539c3c9025d6f78d70e952e45a346c836182f5d79234a02e49b195f764074d57e177c18764074d57e177c18001ad8aaa1576a6b3c03fcc5a20a0d541a4550e2f9bb17dfa6fb27040534b187f98a7591748d15b6a61de2830a1637eab5ff7339088db3878c0ad329cfd56d0e9b991655947d177c18991655947d177c180000",
+            "hex_preview": "6d57e29872e87e3732acf689eef3c5676fd2d8d4ea6517f9f7f60c74705a8cd801235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab13901010000001c9161118bb45828bebf2ce150edb7baeff681bdb5963ba431eca60f086e1cf324b8374b4539c3c9025d6f78d70e952e45a346c836182f5d7923",
+            "note": "Unable to decode with ABI (state root: KvStore)",
+            "raw": "mW�r�~72������go����e\u0017���\ftpZ��\u0001#_\u0018\t}$�.\\]��q��R��\n�F�\u001d\u0010�\u0017~�:�9\u0001\u0001\u0000\u0000\u0000\u001c�a\u0011��X(��,�P���������;�1�\u000f\bn\u001c�$�7KE9��\u0002]ox�\u000e�.E�F�6\u0018/]y#J\u0002�\u0019_v@t�~\u0017|\u0018v@t�~\u0017|\u0018\u0000\u001aت�Wjk<\u0003�Ţ\n\rT\u001aEP���\u0017ߦ�'\u0004\u00054����u�t�\u0015��\u001d�\n\u00167��s9\b����\n�)��m\u000e��\u0016U�}\u0017|\u0018�\u0016U�}\u0017|\u0018\u0000\u0000",
+            "size": 233
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "b630736c8db0573bcdc889768bfc949bfcc59ca6399e0510f28132e66d97cd35"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 3,
+              "scalar_fields": 1,
+              "tried_fields": 4
+            },
+            "errors": [
+              "map field 'items': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'tags': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'handlersCalled': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'handlerCounter': Entry bytes not fully consumed: consumed 40, total 64"
+            ],
+            "first_byte_decimal": 19,
+            "first_bytes_hex": "135ca3e6fdba2adf5d2ade3bd606b400",
+            "hex_full": "135ca3e6fdba2adf5d2ade3bd606b400fa3b9300c2213f1c2e9355218d5baf45668ff2a50bf4dc6453b1746cddb91e896348052b30954eef0f1cab4a1e0ac43e",
+            "hex_preview": "135ca3e6fdba2adf5d2ade3bd606b400fa3b9300c2213f1c2e9355218d5baf45668ff2a50bf4dc6453b1746cddb91e896348052b30954eef0f1cab4a1e0ac43e",
+            "note": "Unable to decode with ABI (state root: KvStore)",
+            "raw": "\u0013\\����*�]*�;�\u0006�\u0000�;�\u0000�!?\u001c.�U!�[�Ef��\u000b��dS�tlݹ\u001e�cH\u0005+0�N�\u000f\u001c�J\u001e\n�>",
+            "size": 64
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "b793763b017ddaf7331231509c44fba7a5f70499d8f432a4a828d4fd43d51c6e"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 3,
+              "scalar_fields": 1,
+              "tried_fields": 4
+            },
+            "errors": [
+              "map field 'items': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'tags': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'handlersCalled': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'handlerCounter': Entry bytes not fully consumed: consumed 40, total 64"
+            ],
+            "first_byte_decimal": 109,
+            "first_bytes_hex": "6d57e29872e87e3732acf689eef3c567",
+            "hex_full": "6d57e29872e87e3732acf689eef3c5676fd2d8d4ea6517f9f7f60c74705a8cd8e94519b4c27cfbe1f690f8fde7bc771965620e1145b2278a90c01daa98b32b33",
+            "hex_preview": "6d57e29872e87e3732acf689eef3c5676fd2d8d4ea6517f9f7f60c74705a8cd8e94519b4c27cfbe1f690f8fde7bc771965620e1145b2278a90c01daa98b32b33",
+            "note": "Unable to decode with ABI (state root: KvStore)",
+            "raw": "mW�r�~72������go����e\u0017���\ftpZ���E\u0019��|�������w\u0019eb\u000e\u0011E�'���\u001d���+3",
+            "size": 64
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "b8e8b01d107ed8efdcae5a49fc2c3cef085fe7ca64d5be170da9306dd6702a0e"
+          },
+          "value": {
+            "id": "e27308ea5f2c8431fbe65b9a18b53539c1fd9cd900e4a8eeae0ce86d81857ee4",
+            "note": "Direct ID storage (possibly root collection reference or internal metadata)",
+            "type": "RawId"
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "d17b6e1c9bdc29a137050ad994b8a4bc9a84e9ed33e333b511809ab142d994c1"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 3,
+              "scalar_fields": 1,
+              "tried_fields": 4
+            },
+            "errors": [
+              "map field 'items': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'tags': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'handlersCalled': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'handlerCounter': Entry bytes not fully consumed: consumed 40, total 148"
+            ],
+            "first_byte_decimal": 78,
+            "first_bytes_hex": "4e4f65f130ff43520440bd9267f6d19f",
+            "hex_full": "4e4f65f130ff43520440bd9267f6d19f84e9d8c3a54c5eb9ae5ab797d4f8c05f01235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab13900d702686a189ac931deff7c93cbbeb521fd8cff89154be9b17d6b1b05cb9f3fa0bd18b40024a776c550a62f7bc3e56163b0cc9423e920173e5a36b07c2e2155dd755d5f947d177c18755d5f947d177c180000",
+            "hex_preview": "4e4f65f130ff43520440bd9267f6d19f84e9d8c3a54c5eb9ae5ab797d4f8c05f01235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab13900d702686a189ac931deff7c93cbbeb521fd8cff89154be9b17d6b1b05cb9f3fa0bd18b40024a776c550a62f7bc3e56163b0cc9423e920173e5a36b07c2e21",
+            "note": "Unable to decode with ABI (state root: KvStore)",
+            "raw": "NOe�0�CR\u0004@��g�џ���åL^��Z�����_\u0001#_\u0018\t}$�.\\]��q��R��\n�F�\u001d\u0010�\u0017~�:�9\u0000�\u0002hj\u0018��1��|�˾�!����\u0015K�}k\u001b\u0005˟?��\u0018�\u0000$�v�P�/{��ac�̔#� \u0017>Z6�|.!U�u]_�}\u0017|\u0018u]_�}\u0017|\u0018\u0000\u0000",
+            "size": 148
+          }
+        },
+        {
+          "key": {
+            "context_id": "235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab139",
+            "state_key": "dfdbbb85dbfe4b21949507911591ca087a5612f3ba5677def0e2f055d5cd32c5"
+          },
+          "value": {
+            "debug": {
+              "map_fields": 3,
+              "scalar_fields": 1,
+              "tried_fields": 4
+            },
+            "errors": [
+              "map field 'items': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'tags': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "map field 'handlersCalled': Failed to deserialize key (type: scalar::String): Failed to deserialize Rust string",
+              "scalar field 'handlerCounter': Entry bytes not fully consumed: consumed 40, total 148"
+            ],
+            "first_byte_decimal": 102,
+            "first_bytes_hex": "668ff2a50bf4dc6453b1746cddb91e89",
+            "hex_full": "668ff2a50bf4dc6453b1746cddb91e896348052b30954eef0f1cab4a1e0ac43e01235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab13900bde3981264b0ceec7919a31d43e94cf2475e9c5e8805ca6a38a56756f1e30510f5fe8fb5ade6dd58286194f0260840d62405310c265bbb923d7800858fd8ccdf28b978947d177c1828b978947d177c180000",
+            "hex_preview": "668ff2a50bf4dc6453b1746cddb91e896348052b30954eef0f1cab4a1e0ac43e01235f18097d24aa2e5c5ddec271bc8c52febf0aa046f1921d1085177ed83ab13900bde3981264b0ceec7919a31d43e94cf2475e9c5e8805ca6a38a56756f1e30510f5fe8fb5ade6dd58286194f0260840d62405310c265bbb923d7800858fd8",
+            "note": "Unable to decode with ABI (state root: KvStore)",
+            "raw": "f��\u000b��dS�tlݹ\u001e�cH\u0005+0�N�\u000f\u001c�J\u001e\n�>\u0001#_\u0018\t}$�.\\]��q��R��\n�F�\u001d\u0010�\u0017~�:�9\u0000��\u0012d���y\u0019�\u001dC�L�G^�^�\u0005�j8�gV��\u0005\u0010�������X(a��&\b@�$\u00051\f&[��=x\u0000�����(�x�}\u0017|\u0018(�x�}\u0017|\u0018\u0000\u0000",
+            "size": 148
+          }
+        }
+      ]
+    }
+  },
+  "database": "Calimero RocksDB Export",
+  "exported_columns": [
+    "Meta",
+    "Config",
+    "Identity",
+    "State",
+    "Delta",
+    "Blobs",
+    "Application",
+    "Alias",
+    "Generic"
+  ]
+}
