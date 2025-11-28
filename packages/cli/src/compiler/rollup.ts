@@ -4,7 +4,7 @@
  * Bundles TypeScript/JavaScript with all dependencies
  */
 
-import { rollup } from 'rollup';
+import { rollup, Plugin } from 'rollup';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 import typescript from '@rollup/plugin-typescript';
 import commonjs from '@rollup/plugin-commonjs';
@@ -15,6 +15,7 @@ import * as path from 'path';
 interface RollupOptions {
   verbose: boolean;
   outputDir: string;
+  abiManifest?: any; // Optional ABI manifest to inject
 }
 
 /**
@@ -52,31 +53,60 @@ export async function bundleWithRollup(source: string, options: RollupOptions): 
     }
   }
 
+  // Plugin to inject ABI manifest into the bundle
+  const abiInjectPlugin = (): Plugin => {
+    return {
+      name: 'abi-inject',
+      generateBundle(_options, bundle) {
+        if (options.abiManifest) {
+          // Inject ABI manifest as a global variable
+          const abiCode = `\n// Injected ABI manifest\nif (typeof globalThis !== 'undefined') {\n  globalThis.__CALIMERO_ABI_MANIFEST__ = ${JSON.stringify(options.abiManifest)};\n}\n`;
+
+          // Find the main bundle chunk and prepend ABI code
+          for (const fileName in bundle) {
+            const chunk = bundle[fileName];
+            if (chunk.type === 'chunk' && chunk.isEntry) {
+              chunk.code = abiCode + chunk.code;
+              break;
+            }
+          }
+        }
+      },
+    };
+  };
+
+  const plugins: Plugin[] = [
+    nodeResolve({
+      extensions: ['.js', '.ts'],
+      preferBuiltins: false,
+    }),
+    typescript({
+      tsconfig: tsconfigPath,
+      declaration: false,
+      sourceMap: false,
+      compilerOptions: {
+        module: 'ES2015',
+        target: 'ES2015',
+        importHelpers: false,
+        noEmitHelpers: true,
+      },
+    }),
+    commonjs(),
+    babel({
+      babelHelpers: 'bundled',
+      presets: ['@babel/preset-env'],
+      extensions: ['.js', '.ts'],
+    }),
+  ];
+
+  // Add ABI injection plugin if manifest is provided
+  if (options.abiManifest) {
+    plugins.push(abiInjectPlugin());
+  }
+
   const bundle = await rollup({
     input: entryFile,
-    plugins: [
-      nodeResolve({
-        extensions: ['.js', '.ts'],
-        preferBuiltins: false,
-      }),
-      typescript({
-        tsconfig: tsconfigPath,
-        declaration: false,
-        sourceMap: false,
-        compilerOptions: {
-          module: 'ES2015',
-          target: 'ES2015',
-          importHelpers: false,
-          noEmitHelpers: true,
-        },
-      }),
-      commonjs(),
-      babel({
-        babelHelpers: 'bundled',
-        presets: ['@babel/preset-env'],
-        extensions: ['.js', '.ts'],
-      }),
-    ],
+    plugins,
     external: [], // Bundle everything
     onwarn: (warning, warn) => {
       // Suppress certain warnings
