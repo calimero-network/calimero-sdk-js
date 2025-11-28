@@ -79,10 +79,10 @@ export function saveRootState(state: any): Uint8Array {
 
   // Serialize the document using standard Borsh (no ValueKind prefixes)
   const writer = new BorshWriter();
-  
+
   // Write className
   writer.writeString(doc.className);
-  
+
   // Write values: u32 count + (string key + u32 value_len + bytes + string type_ref) for each
   writer.writeU32(Object.keys(doc.values).length);
   for (const [key, valueBytes] of Object.entries(doc.values)) {
@@ -91,7 +91,7 @@ export function saveRootState(state: any): Uint8Array {
     writer.writeFixedArray(valueBytes);
     writer.writeString(doc.valueTypes[key]);
   }
-  
+
   // Write collections: u32 count + (string key + string type + string id) for each
   writer.writeU32(Object.keys(doc.collections).length);
   for (const [key, snapshot] of Object.entries(doc.collections)) {
@@ -99,7 +99,7 @@ export function saveRootState(state: any): Uint8Array {
     writer.writeString(snapshot.type);
     writer.writeString(snapshot.id);
   }
-  
+
   // Write metadata
   writer.writeU64(BigInt(doc.metadata.createdAt));
   writer.writeU64(BigInt(doc.metadata.updatedAt));
@@ -118,7 +118,7 @@ export function loadRootState<T>(stateClass: { new (...args: any[]): T }): T | n
   }
 
   env.log('[root] host returned persisted state payload');
-  
+
   // Get ABI manifest
   const abiManifest = RuntimeAbiGenerator.generateRuntimeManifest();
   if (!abiManifest.state_root) {
@@ -141,17 +141,16 @@ function loadRootStateAbiAware<T>(
   abiManifest: AbiManifest,
   stateRootType: TypeDef
 ): T {
-
   const reader = new BorshReader(source);
-  
+
   // Read className
   const className = reader.readString();
-  
+
   // Read values
   const valuesCount = reader.readU32();
   const values: Record<string, any> = {};
   const valueTypes: Record<string, any> = {};
-  
+
   for (let i = 0; i < valuesCount; i++) {
     const key = reader.readString();
     const valueLen = reader.readU32();
@@ -160,18 +159,18 @@ function loadRootStateAbiAware<T>(
     valueTypes[key] = JSON.parse(typeRefJson);
     values[key] = valueBytes;
   }
-  
+
   // Read collections
   const collectionsCount = reader.readU32();
   const collections: Record<string, CollectionSnapshot> = {};
-  
+
   for (let i = 0; i < collectionsCount; i++) {
     const key = reader.readString();
     const type = reader.readString();
     const id = reader.readString();
     collections[key] = { type, id };
   }
-  
+
   // Read metadata
   const createdAt = Number(reader.readU64());
   const updatedAt = Number(reader.readU64());
@@ -202,7 +201,7 @@ function loadRootStateAbiAware<T>(
   for (const field of stateRootType.fields || []) {
     const key = field.name;
     const valueBytes = values[key];
-    
+
     if (valueBytes) {
       try {
         const deserialized = deserializeWithAbi(valueBytes, field.type, abiManifest);
@@ -218,7 +217,6 @@ function loadRootStateAbiAware<T>(
   env.log('[root] finished hydrating state instance (ABI-aware Borsh format)');
   return instance;
 }
-
 
 function ensureMetadata(state: any): { createdAt: number; updatedAt: number } {
   const now = Number(env.timeNow());

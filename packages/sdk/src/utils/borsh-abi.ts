@@ -1,6 +1,6 @@
 /**
  * ABI-aware Borsh Serialization
- * 
+ *
  * This module provides serialization/deserialization that uses the ABI
  * to determine the correct format for each field, using standard Borsh
  * format (compatible with Rust) instead of ValueKind-prefixed format.
@@ -32,7 +32,12 @@ export function deserializeWithAbi<T = unknown>(
   return deserializeTypeRef(reader, typeRef, abiManifest) as T;
 }
 
-function serializeTypeRef(value: any, typeRef: TypeRef, abiManifest: any, writer: BorshWriter): void {
+function serializeTypeRef(
+  value: any,
+  typeRef: TypeRef,
+  abiManifest: any,
+  writer: BorshWriter
+): void {
   switch (typeRef.kind) {
     case 'scalar':
       if (!typeRef.scalar) {
@@ -145,7 +150,9 @@ function serializeScalar(value: any, scalarType: ScalarType, writer: BorshWriter
       } else if (Array.isArray(value)) {
         writer.writeBytes(new Uint8Array(value));
       } else {
-        throw new Error(`Cannot serialize bytes: expected Uint8Array or Array, got ${typeof value}`);
+        throw new Error(
+          `Cannot serialize bytes: expected Uint8Array or Array, got ${typeof value}`
+        );
       }
       break;
     default:
@@ -197,7 +204,9 @@ function serializeTypeDef(
       } else if (Array.isArray(value)) {
         writer.writeBytes(new Uint8Array(value));
       } else {
-        throw new Error(`Cannot serialize bytes: expected Uint8Array or Array, got ${typeof value}`);
+        throw new Error(
+          `Cannot serialize bytes: expected Uint8Array or Array, got ${typeof value}`
+        );
       }
       break;
     default:
@@ -351,4 +360,3 @@ function deserializeTypeDef(reader: BorshReader, typeDef: TypeDef, abiManifest: 
       throw new Error(`Unsupported type def kind: ${(typeDef as any).kind}`);
   }
 }
-
