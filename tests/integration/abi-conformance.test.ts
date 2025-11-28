@@ -10,11 +10,7 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
-import {
-  generateAbiFromSource,
-  generateAbiManifestRustFormat,
-  AbiEmitter,
-} from '../../packages/cli/src/abi/emitter';
+import { generateAbiFromSource, AbiEmitter } from '../../packages/cli/src/abi/emitter';
 
 describe('ABI Conformance Tests', () => {
   const outputDir = path.join(__dirname, 'output');
