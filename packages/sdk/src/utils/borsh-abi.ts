@@ -45,7 +45,7 @@ function serializeTypeRef(
       }
       serializeScalar(value, typeRef.scalar, writer);
       break;
-    case 'vector':
+    case 'vector': {
       if (!typeRef.inner) {
         throw new Error('Vector type ref missing inner field');
       }
@@ -57,7 +57,8 @@ function serializeTypeRef(
         serializeTypeRef(item, typeRef.inner!, abiManifest, writer);
       }
       break;
-    case 'map':
+    }
+    case 'map': {
       if (!typeRef.key || !typeRef.value) {
         throw new Error('Map type ref missing key or value field');
       }
@@ -68,7 +69,8 @@ function serializeTypeRef(
         serializeTypeRef(val, typeRef.value, abiManifest, writer);
       }
       break;
-    case 'option':
+    }
+    case 'option': {
       if (value === null || value === undefined) {
         writer.writeU8(0); // None
       } else {
@@ -79,7 +81,8 @@ function serializeTypeRef(
         serializeTypeRef(value, typeRef.inner, abiManifest, writer);
       }
       break;
-    case 'reference':
+    }
+    case 'reference': {
       // Reference types point to a named type in the ABI
       if (!typeRef.name) {
         throw new Error('Reference type ref missing name field');
@@ -90,6 +93,7 @@ function serializeTypeRef(
       }
       serializeTypeDef(value, typeDef, abiManifest, writer);
       break;
+    }
     default:
       throw new Error(`Unsupported type ref kind: ${typeRef.kind}`);
   }
@@ -100,20 +104,22 @@ function serializeScalar(value: any, scalarType: ScalarType, writer: BorshWriter
     case 'bool':
       writer.writeU8(value ? 1 : 0);
       break;
-    case 'i32':
+    case 'i32': {
       // i32: signed 32-bit integer, write as little-endian
       const i32 = value | 0; // Ensure it's a 32-bit signed integer
       writer.writeU32(i32 >>> 0); // Convert to unsigned for writing
       break;
-    case 'i64':
+    }
+    case 'i64': {
       // i64: signed 64-bit integer, write as little-endian
       const i64 = BigInt(value);
       writer.writeU64(i64);
       break;
+    }
     case 'u32':
       writer.writeU32(value);
       break;
-    case 'u64':
+    case 'u64': {
       // For Counter, value is the collection reference (element ID)
       if (hasRegisteredCollection && hasRegisteredCollection(value)) {
         const snapshot = snapshotCollection(value);
@@ -129,13 +135,15 @@ function serializeScalar(value: any, scalarType: ScalarType, writer: BorshWriter
       // Otherwise, serialize as u64
       writer.writeU64(BigInt(value));
       break;
-    case 'f32':
+    }
+    case 'f32': {
       // f32: 32-bit float, write as little-endian
       const f32View = new DataView(new ArrayBuffer(4));
       f32View.setFloat32(0, value, true);
       const f32Bytes = new Uint8Array(f32View.buffer);
       writer.writeFixedArray(f32Bytes);
       break;
+    }
     case 'f64':
       writer.writeF64(value);
       break;
@@ -221,7 +229,7 @@ function deserializeTypeRef(reader: BorshReader, typeRef: TypeRef, abiManifest: 
         throw new Error('Scalar type ref missing scalar field');
       }
       return deserializeScalar(reader, typeRef.scalar);
-    case 'vector':
+    case 'vector': {
       if (!typeRef.inner) {
         throw new Error('Vector type ref missing inner field');
       }
@@ -231,7 +239,8 @@ function deserializeTypeRef(reader: BorshReader, typeRef: TypeRef, abiManifest: 
         array.push(deserializeTypeRef(reader, typeRef.inner, abiManifest));
       }
       return array;
-    case 'map':
+    }
+    case 'map': {
       if (!typeRef.key || !typeRef.value) {
         throw new Error('Map type ref missing key or value field');
       }
@@ -243,7 +252,8 @@ function deserializeTypeRef(reader: BorshReader, typeRef: TypeRef, abiManifest: 
         map.set(key, val);
       }
       return map;
-    case 'option':
+    }
+    case 'option': {
       const isSome = reader.readU8() === 1;
       if (!isSome) {
         return null;
@@ -252,7 +262,8 @@ function deserializeTypeRef(reader: BorshReader, typeRef: TypeRef, abiManifest: 
         throw new Error('Option type ref missing inner field');
       }
       return deserializeTypeRef(reader, typeRef.inner, abiManifest);
-    case 'reference':
+    }
+    case 'reference': {
       if (!typeRef.name) {
         throw new Error('Reference type ref missing name field');
       }
@@ -261,6 +272,7 @@ function deserializeTypeRef(reader: BorshReader, typeRef: TypeRef, abiManifest: 
         throw new Error(`Type '${typeRef.name}' not found in ABI manifest`);
       }
       return deserializeTypeDef(reader, typeDef, abiManifest);
+    }
     default:
       throw new Error(`Unsupported type ref kind: ${typeRef.kind}`);
   }
@@ -270,11 +282,12 @@ function deserializeScalar(reader: BorshReader, scalarType: ScalarType): any {
   switch (scalarType) {
     case 'bool':
       return reader.readU8() === 1;
-    case 'i32':
+    case 'i32': {
       // i32: signed 32-bit integer, read as unsigned then convert
       const u32 = reader.readU32();
       return (u32 | 0) === u32 ? u32 : (u32 | 0x80000000) - 0x80000000;
-    case 'i64':
+    }
+    case 'i64': {
       // i64: signed 64-bit integer
       const u64 = reader.readU64();
       // Convert unsigned bigint to signed
@@ -283,15 +296,17 @@ function deserializeScalar(reader: BorshReader, scalarType: ScalarType): any {
         return Number(u64 - BigInt('0x10000000000000000'));
       }
       return Number(u64);
+    }
     case 'u32':
       return reader.readU32();
     case 'u64':
       return Number(reader.readU64());
-    case 'f32':
+    case 'f32': {
       // f32: 32-bit float
       const f32Bytes = reader.readFixedArray(4);
       const f32View = new DataView(f32Bytes.buffer, f32Bytes.byteOffset, 4);
       return f32View.getFloat32(0, true);
+    }
     case 'f64':
       return reader.readF64();
     case 'string':
@@ -315,15 +330,10 @@ function hexToBytes(hex: string): Uint8Array {
   return bytes;
 }
 
-function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes)
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-}
 
 function deserializeTypeDef(reader: BorshReader, typeDef: TypeDef, abiManifest: any): any {
   switch (typeDef.kind) {
-    case 'record':
+    case 'record': {
       if (!typeDef.fields) {
         throw new Error('Record type def missing fields');
       }
@@ -332,7 +342,8 @@ function deserializeTypeDef(reader: BorshReader, typeDef: TypeDef, abiManifest: 
         result[field.name] = deserializeTypeRef(reader, field.type, abiManifest);
       }
       return result;
-    case 'variant':
+    }
+    case 'variant': {
       if (!typeDef.variants) {
         throw new Error('Variant type def missing variants');
       }
@@ -349,11 +360,13 @@ function deserializeTypeDef(reader: BorshReader, typeDef: TypeDef, abiManifest: 
         };
       }
       return { variant: variant.name };
-    case 'alias':
+    }
+    case 'alias': {
       if (!typeDef.target) {
         throw new Error('Alias type def missing target');
       }
       return deserializeTypeRef(reader, typeDef.target, abiManifest);
+    }
     case 'bytes':
       return reader.readBytes();
     default:

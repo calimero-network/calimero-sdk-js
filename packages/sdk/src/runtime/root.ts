@@ -143,8 +143,8 @@ function loadRootStateAbiAware<T>(
 ): T {
   const reader = new BorshReader(source);
 
-  // Read className
-  const className = reader.readString();
+  // Read className (stored but not used in deserialization)
+  const _className = reader.readString();
 
   // Read values
   const valuesCount = reader.readU32();
@@ -234,8 +234,4 @@ function ensureMetadata(state: any): { createdAt: number; updatedAt: number } {
     writable: true,
   });
   return metadata;
-}
-
-function shouldMergeIntoExisting(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
