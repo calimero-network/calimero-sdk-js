@@ -179,22 +179,26 @@ if [ -n "$VIEW_METHODS" ]; then
     echo -e "${GREEN}✓ Found view methods: $(echo "$VIEW_METHODS" | tr '\n' ' ')${NC}"
 fi
 
-# Check events structure (should have fields array)
+# Check events structure (Rust format: events have name and optionally payload)
 EVENTS_COUNT=$(jq '.events | length' "$OUTPUT_FILE")
 if [ "$EVENTS_COUNT" -gt 0 ]; then
     for i in $(seq 0 $((EVENTS_COUNT - 1))); do
         EVENT_NAME=$(jq -r ".events[$i].name" "$OUTPUT_FILE")
-        if ! jq -e ".events[$i].fields" "$OUTPUT_FILE" >/dev/null 2>&1; then
-            echo -e "${RED}❌ ERROR: Event '$EVENT_NAME' missing 'fields' array${NC}"
+        if [ -z "$EVENT_NAME" ]; then
+            echo -e "${RED}❌ ERROR: Event at index $i missing 'name' property${NC}"
             exit 1
         fi
-        FIELDS_TYPE=$(jq -r ".events[$i].fields | type" "$OUTPUT_FILE")
-        if [ "$FIELDS_TYPE" != "array" ]; then
-            echo -e "${RED}❌ ERROR: Event '$EVENT_NAME' fields must be an array, got: $FIELDS_TYPE${NC}"
-            exit 1
+        # Rust format: events can have just name, or name + payload
+        # payload can be a type reference or a type definition
+        if jq -e ".events[$i].payload" "$OUTPUT_FILE" >/dev/null 2>&1; then
+            PAYLOAD_TYPE=$(jq -r ".events[$i].payload | type" "$OUTPUT_FILE")
+            if [ "$PAYLOAD_TYPE" != "object" ] && [ "$PAYLOAD_TYPE" != "null" ]; then
+                echo -e "${RED}❌ ERROR: Event '$EVENT_NAME' payload must be an object or null, got: $PAYLOAD_TYPE${NC}"
+                exit 1
+            fi
         fi
     done
-    echo -e "${GREEN}✓ All events have valid fields arrays${NC}"
+    echo -e "${GREEN}✓ All events have valid structure (name + optional payload)${NC}"
 fi
 
 # Check that Counter type maps to u64
