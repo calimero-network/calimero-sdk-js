@@ -134,13 +134,11 @@ export function loadRootState<T>(stateClass: { new (...args: any[]): T }): T | n
   const stateValues = deserializeWithAbi(stateBytes, stateTypeRef, abi) as Record<string, unknown>;
 
   // Deserialize collections and metadata (legacy format)
-  // Read remaining bytes after state payload
-  const remainingBytes = source.slice(
-    reader.remaining() === 0 ? source.length : source.length - reader.remaining()
-  );
+  // Collections/metadata are stored with u32 length prefix (from writeBytes)
+  const collectionsAndMetadataBytes = reader.readBytes(); // readBytes() handles u32 length prefix
   const collectionsAndMetadata =
-    remainingBytes.length > 0
-      ? deserialize<any>(remainingBytes)
+    collectionsAndMetadataBytes.length > 0
+      ? deserialize<any>(collectionsAndMetadataBytes)
       : { collections: {}, metadata: null };
 
   // Reconstruct document format
