@@ -85,6 +85,20 @@ function normalizeArgs(payload: unknown, paramNames: string[]): unknown[] {
   }
 
   if (payload && typeof payload === 'object') {
+    // If we have a single parameter name, check if payload has that property
+    // If not, assume payload IS the parameter value itself
+    if (paramNames.length === 1) {
+      const obj = payload as JsonObject;
+      const paramName = paramNames[0];
+      // Check if payload has the parameter name as a property
+      // This handles cases where params are serialized as { paramName: value }
+      if (paramName in obj && Object.keys(obj).length === 1) {
+        return [obj[paramName]];
+      }
+      // Otherwise, payload is the parameter value itself (common for single object params)
+      return [payload];
+    }
+    
     if (paramNames.length === 0) {
       const values = Object.values(payload as JsonObject);
       if (values.length === 0) {
@@ -95,6 +109,8 @@ function normalizeArgs(payload: unknown, paramNames: string[]): unknown[] {
       }
       return [payload];
     }
+    
+    // Multiple parameters - map by name
     const obj = payload as JsonObject;
     return paramNames.map((name, index) => {
       if (name in obj) {
