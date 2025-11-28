@@ -49,7 +49,7 @@ export interface Parameter {
 
 export interface Event {
   name: string;
-  fields: Field[];
+  payload?: TypeRef; // Optional payload type (Rust format)
 }
 
 export interface TypeRef {

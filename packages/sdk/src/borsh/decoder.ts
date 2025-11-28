@@ -59,6 +59,13 @@ export class BorshReader {
     return new TextDecoder().decode(bytes);
   }
 
+  /**
+   * Get remaining bytes length
+   */
+  remaining(): number {
+    return this.bytes.length - this.offset;
+  }
+
   private ensureAvailable(length: number): void {
     if (this.offset + length > this.bytes.length) {
       throw new RangeError('BorshReader: unexpected end of buffer');
