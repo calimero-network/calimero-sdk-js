@@ -1,6 +1,6 @@
 /**
  * ABI Embedding for JavaScript applications
- * 
+ *
  * This module provides both build-time and runtime ABI embedding approaches:
  * 1. Build-time: Embed ABI as custom WASM section (like Rust)
  * 2. Runtime: Export ABI access functions (like Rust get_abi_* functions)
@@ -16,7 +16,7 @@ import { AbiManifest } from './emitter.js';
  */
 export function generateRuntimeAbiCode(manifest: AbiManifest): string {
   const abiJson = JSON.stringify(manifest, null, 2);
-  
+
   return `
 // Auto-generated ABI runtime access code
 // This provides the same interface as Rust's get_abi_* functions
@@ -51,7 +51,7 @@ export function generateCustomSectionCode(manifest: AbiManifest): string {
   const abiJson = JSON.stringify(manifest);
   const abiBytes = Buffer.from(abiJson, 'utf-8');
   const bytesArray = Array.from(abiBytes).join(', ');
-  
+
   return `
 // Auto-generated ABI custom section code
 // This embeds ABI in WASM custom section like Rust does
@@ -114,6 +114,8 @@ export function embedAbi(manifest: AbiManifest, outputDir: string): void {
  */
 export function postProcessWasmWithAbi(wasmPath: string, manifest: AbiManifest): void {
   try {
+    // Dynamic import to avoid circular dependencies
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { embedAbiInWasm } = require('./wasm-post-process.js');
     embedAbiInWasm(wasmPath, manifest);
   } catch (error) {
@@ -165,7 +167,7 @@ export function createAbiInjectionCode(manifest: AbiManifest): string {
 /**
  * Update the C builder to include ABI custom section
  */
-export function generateBuilderUpdate(outputDir: string): string {
+export function generateBuilderUpdate(_outputDir: string): string {
   return `
 // Include ABI embedding code
 #include "abi_embed.c"
@@ -209,7 +211,7 @@ export function validateAbiManifest(manifest: AbiManifest): boolean {
         console.warn(`Invalid method name: ${method.name}`);
         return false;
       }
-      
+
       if (!Array.isArray(method.params)) {
         console.warn(`Invalid params for method ${method.name}`);
         return false;
@@ -222,7 +224,7 @@ export function validateAbiManifest(manifest: AbiManifest): boolean {
         console.warn(`Invalid event name: ${event.name}`);
         return false;
       }
-      
+
       if (!Array.isArray(event.fields)) {
         console.warn(`Invalid fields for event ${event.name}`);
         return false;

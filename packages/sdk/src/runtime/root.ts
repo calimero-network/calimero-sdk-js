@@ -143,7 +143,9 @@ export function loadRootState<T>(stateClass: { new (...args: any[]): T }): T | n
       // List available types for debugging
       const availableTypes = Object.keys(abiManifest.types).join(', ');
       env.log(`[root] available types in ABI: ${availableTypes}`);
-      throw new Error(`ABI manifest missing state_root and cannot infer from class '${className}'. Available types: ${availableTypes}`);
+      throw new Error(
+        `ABI manifest missing state_root and cannot infer from class '${className}'. Available types: ${availableTypes}`
+      );
     }
   }
 

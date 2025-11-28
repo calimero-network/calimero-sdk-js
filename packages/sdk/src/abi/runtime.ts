@@ -60,7 +60,7 @@ export class RuntimeAbiGenerator {
         if (globalThis.__CALIMERO_ABI_MANIFEST__) {
           return globalThis.__CALIMERO_ABI_MANIFEST__;
         }
-        
+
         // Try to get from ABI access functions (for WASM context)
         if (typeof (globalThis as any).get_abi === 'function') {
           try {

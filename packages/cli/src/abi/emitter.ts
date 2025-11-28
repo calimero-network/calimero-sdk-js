@@ -1,6 +1,6 @@
 /**
  * ABI Emitter for JavaScript/TypeScript applications
- * 
+ *
  * This module provides build-time ABI generation similar to Rust's approach.
  * It analyzes TypeScript/JavaScript source code and generates ABI manifests
  * that describe the application's state, methods, and events.
@@ -69,11 +69,20 @@ export interface TypeRef {
   name?: string;
 }
 
-export type ScalarType = 
-  | 'bool' 
-  | 'u8' | 'u16' | 'u32' | 'u64' | 'u128'
-  | 'i8' | 'i16' | 'i32' | 'i64' | 'i128'
-  | 'f32' | 'f64'
+export type ScalarType =
+  | 'bool'
+  | 'u8'
+  | 'u16'
+  | 'u32'
+  | 'u64'
+  | 'u128'
+  | 'i8'
+  | 'i16'
+  | 'i32'
+  | 'i64'
+  | 'i128'
+  | 'f32'
+  | 'f64'
   | 'string'
   | 'bytes';
 
@@ -202,21 +211,15 @@ export class AbiEmitter {
     if (!className) return;
 
     const decorators = classNode.decorators || [];
-    
+
     // Check for @State decorator
-    const hasStateDecorator = decorators.some((d: any) => 
-      this.isCalimeroDecorator(d, 'State')
-    );
+    const hasStateDecorator = decorators.some((d: any) => this.isCalimeroDecorator(d, 'State'));
 
     // Check for @Logic decorator
-    const hasLogicDecorator = decorators.some((d: any) => 
-      this.isCalimeroDecorator(d, 'Logic')
-    );
+    const hasLogicDecorator = decorators.some((d: any) => this.isCalimeroDecorator(d, 'Logic'));
 
     // Check for @Event decorator (for event classes)
-    const hasEventDecorator = decorators.some((d: any) => 
-      this.isCalimeroDecorator(d, 'Event')
-    );
+    const hasEventDecorator = decorators.some((d: any) => this.isCalimeroDecorator(d, 'Event'));
 
     if (hasStateDecorator) {
       this.stateRoot = className;
@@ -262,7 +265,7 @@ export class AbiEmitter {
     classNode.body.body.forEach((member: any) => {
       if (member.type === 'MethodDefinition' && member.key?.name) {
         const methodName = member.key.name;
-        
+
         // Skip private methods and constructor
         if (methodName.startsWith('_') || methodName === 'constructor') {
           return;
@@ -280,12 +283,12 @@ export class AbiEmitter {
             if (param.type === 'Identifier') {
               const paramName = param.name;
               const typeRef = this.extractTypeFromAnnotation(param.typeAnnotation);
-              
+
               // Skip 'this' parameter for non-static methods
               if (index === 0 && !isStatic && paramName === 'this') {
                 return;
               }
-              
+
               params.push({
                 name: paramName,
                 type: typeRef,
@@ -318,8 +321,8 @@ export class AbiEmitter {
     const fields: Field[] = [];
 
     // Analyze constructor parameters as event fields
-    const constructor = classNode.body.body.find((member: any) => 
-      member.type === 'MethodDefinition' && member.kind === 'constructor'
+    const constructor = classNode.body.body.find(
+      (member: any) => member.type === 'MethodDefinition' && member.kind === 'constructor'
     );
 
     if (constructor?.value?.params) {
@@ -347,7 +350,7 @@ export class AbiEmitter {
     }
 
     const type = typeAnnotation.typeAnnotation;
-    
+
     switch (type.type) {
       case 'TSStringKeyword':
         return { kind: 'string' } as any;
@@ -371,7 +374,7 @@ export class AbiEmitter {
 
   private extractTypeReference(type: any): TypeRef {
     const typeName = type.typeName?.name;
-    
+
     if (!typeName) {
       return { kind: 'string' } as any;
     }
@@ -383,7 +386,9 @@ export class AbiEmitter {
           return {
             kind: 'map',
             key: this.extractTypeFromAnnotation({ typeAnnotation: type.typeParameters.params[0] }),
-            value: this.extractTypeFromAnnotation({ typeAnnotation: type.typeParameters.params[1] }),
+            value: this.extractTypeFromAnnotation({
+              typeAnnotation: type.typeParameters.params[1],
+            }),
           };
         }
         break;
@@ -392,7 +397,9 @@ export class AbiEmitter {
         if (type.typeParameters?.params?.length >= 1) {
           return {
             kind: 'list',
-            items: this.extractTypeFromAnnotation({ typeAnnotation: type.typeParameters.params[0] }),
+            items: this.extractTypeFromAnnotation({
+              typeAnnotation: type.typeParameters.params[0],
+            }),
           } as any;
         }
         break;
@@ -400,7 +407,9 @@ export class AbiEmitter {
         if (type.typeParameters?.params?.length >= 1) {
           return {
             kind: 'list',
-            items: this.extractTypeFromAnnotation({ typeAnnotation: type.typeParameters.params[0] }),
+            items: this.extractTypeFromAnnotation({
+              typeAnnotation: type.typeParameters.params[0],
+            }),
           } as any;
         }
         break;
@@ -424,19 +433,19 @@ export class AbiEmitter {
     if (!typeName) return;
 
     const typeAnnotation = typeAlias.typeAnnotation;
-    
+
     // Check if it's an object type literal (type X = { ... })
     if (typeAnnotation?.type === 'TSTypeLiteral') {
       // Extract as a record type
       const fields: Field[] = [];
-      
+
       if (typeAnnotation.members) {
         typeAnnotation.members.forEach((member: any) => {
           if (member.type === 'TSPropertySignature' && member.key?.name) {
             const fieldName = member.key.name;
             const typeRef = this.extractTypeFromAnnotation(member.typeAnnotation);
             const nullable = member.optional || undefined;
-            
+
             fields.push({
               name: fieldName,
               type: typeRef,
@@ -445,7 +454,7 @@ export class AbiEmitter {
           }
         });
       }
-      
+
       // Add as a record type
       this.types.set(typeName, {
         kind: 'record',
@@ -454,7 +463,7 @@ export class AbiEmitter {
     } else {
       // It's a simple alias (type X = Y)
       const targetType = this.extractTypeFromAnnotation({ typeAnnotation });
-      
+
       // Add as an alias type
       this.types.set(typeName, {
         kind: 'alias',
@@ -517,7 +526,7 @@ export class AbiEmitter {
 function findTypeScriptFiles(dir: string, fileList: string[] = []): string[] {
   const files = fs.readdirSync(dir);
 
-  files.forEach((file) => {
+  files.forEach(file => {
     const filePath = path.join(dir, file);
     const stat = fs.statSync(filePath);
 
@@ -540,25 +549,25 @@ function findTypeScriptFiles(dir: string, fileList: string[] = []): string[] {
  */
 export function generateAbiManifest(filePath: string): AbiManifest {
   const emitter = new AbiEmitter();
-  
+
   // Get the directory containing the entry file
   const entryDir = path.dirname(path.resolve(filePath));
   const projectRoot = findProjectRoot(entryDir);
-  
+
   // Find all TypeScript files in the project
   const allTsFiles = findTypeScriptFiles(projectRoot);
-  
+
   if (allTsFiles.length === 0) {
     // Fallback to single file if no other files found
     return emitter.analyzeFile(filePath);
   }
-  
+
   // Ensure the entry file is included
   const resolvedEntryPath = path.resolve(filePath);
   if (!allTsFiles.includes(resolvedEntryPath)) {
     allTsFiles.push(resolvedEntryPath);
   }
-  
+
   // Process all files
   return emitter.analyzeFiles(allTsFiles);
 }
@@ -573,11 +582,11 @@ function findProjectRoot(startDir: string): string {
   while (currentDir !== root) {
     const packageJsonPath = path.join(currentDir, 'package.json');
     const tsconfigPath = path.join(currentDir, 'tsconfig.json');
-    
+
     if (fs.existsSync(packageJsonPath) || fs.existsSync(tsconfigPath)) {
       return currentDir;
     }
-    
+
     currentDir = path.dirname(currentDir);
   }
 
@@ -588,7 +597,7 @@ function findProjectRoot(startDir: string): string {
 /**
  * Generate ABI manifest from source code
  */
-export function generateAbiFromSource(sourceCode: string, filePath?: string): AbiManifest {
+export function generateAbiFromSource(sourceCode: string, _filePath?: string): AbiManifest {
   const emitter = new AbiEmitter();
   return emitter.analyzeSource(sourceCode, filePath);
 }
