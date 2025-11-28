@@ -490,6 +490,18 @@ export class AbiEmitter {
           return this.extractTypeFromAnnotation({ typeAnnotation: type.typeParameters.params[0] });
         }
         break;
+      case 'Map':
+        // Handle JavaScript native Map<K, V> type
+        if (type.typeParameters?.params?.length >= 2) {
+          return {
+            kind: 'map',
+            key: this.extractTypeFromAnnotation({ typeAnnotation: type.typeParameters.params[0] }),
+            value: this.extractTypeFromAnnotation({
+              typeAnnotation: type.typeParameters.params[1],
+            }),
+          };
+        }
+        break;
     }
 
     // Handle Uint8Array as bytes
