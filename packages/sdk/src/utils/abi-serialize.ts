@@ -426,10 +426,11 @@ function deserializeScalar(reader: BorshReader, scalar: ScalarType): unknown {
 
     case 'i64':
       return reader.readU64();
-    case 'i128':
+    case 'i128': {
       const iLow = reader.readU64();
       const iHigh = reader.readU64();
       return (iHigh << 64n) | iLow;
+    }
 
     case 'f32':
     case 'f64':
@@ -454,7 +455,7 @@ function deserializeScalar(reader: BorshReader, scalar: ScalarType): unknown {
  */
 function deserializeTypeDef(reader: BorshReader, typeDef: TypeDef, abi: AbiManifest): unknown {
   switch (typeDef.kind) {
-    case 'record':
+    case 'record': {
       if (!typeDef.fields) {
         throw new Error('Record type missing fields');
       }
@@ -470,8 +471,9 @@ function deserializeTypeDef(reader: BorshReader, typeDef: TypeDef, abi: AbiManif
         record[field.name] = deserializeValue(reader, field.type, abi);
       }
       return record;
+    }
 
-    case 'variant':
+    case 'variant': {
       if (!typeDef.variants) {
         throw new Error('Variant type missing variants');
       }
@@ -490,6 +492,7 @@ function deserializeTypeDef(reader: BorshReader, typeDef: TypeDef, abi: AbiManif
       return {
         type: variant.name,
       };
+    }
 
     case 'alias':
       if (!typeDef.target) {
