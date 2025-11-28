@@ -571,12 +571,24 @@
         {
           "name": "m",
           "type": {
-            "$ref": "Map"
+            "kind": "map",
+            "key": {
+              "kind": "string"
+            },
+            "value": {
+              "kind": "u32"
+            }
           }
         }
       ],
       "returns": {
-        "$ref": "Map"
+        "kind": "map",
+        "key": {
+          "kind": "string"
+        },
+        "value": {
+          "kind": "u32"
+        }
       },
       "is_init": false,
       "is_view": false
@@ -587,12 +599,30 @@
         {
           "name": "m",
           "type": {
-            "$ref": "Map"
+            "kind": "map",
+            "key": {
+              "kind": "string"
+            },
+            "value": {
+              "kind": "list",
+              "items": {
+                "kind": "u32"
+              }
+            }
           }
         }
       ],
       "returns": {
-        "$ref": "Map"
+        "kind": "map",
+        "key": {
+          "kind": "string"
+        },
+        "value": {
+          "kind": "list",
+          "items": {
+            "kind": "u32"
+          }
+        }
       },
       "is_init": false,
       "is_view": false
@@ -603,12 +633,24 @@
         {
           "name": "m",
           "type": {
-            "$ref": "Map"
+            "kind": "map",
+            "key": {
+              "kind": "string"
+            },
+            "value": {
+              "$ref": "Person"
+            }
           }
         }
       ],
       "returns": {
-        "$ref": "Map"
+        "kind": "map",
+        "key": {
+          "kind": "string"
+        },
+        "value": {
+          "$ref": "Person"
+        }
       },
       "is_init": false,
       "is_view": false
