@@ -259,7 +259,9 @@ function readPayload(methodName?: string): unknown {
           result[param.name] = convertFromJsonCompatible(paramValue, param.type, abi);
         }
       }
-      log(`[dispatcher] readPayload: converted ${methodName} params individually`);
+      log(
+        `[dispatcher] readPayload: converted ${methodName} params individually, result keys: ${Object.keys(result).join(', ')}, param names: ${method.params.map(p => p.name).join(', ')}, json keys: ${Object.keys(jsonObj).join(', ')}`
+      );
       return result;
     }
   } catch (error) {
@@ -341,6 +343,9 @@ function createLogicDispatcher(
   return function dispatch(): void {
     const payload = readPayload(methodName);
     const args = normalizeArgs(payload, paramNames);
+    log(
+      `[dispatcher] dispatch: method=${methodName}, paramNames=${JSON.stringify(paramNames)}, args length=${args.length}, args=${JSON.stringify(args)}`
+    );
 
     let logicInstance: any;
     try {
