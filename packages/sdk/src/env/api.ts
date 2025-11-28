@@ -85,14 +85,11 @@ function convertToJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiManif
       }
     }
 
-    // Handle bytes - convert to base64 string
+    // Handle bytes - convert to array of numbers for JSON
     if (scalarType === 'bytes') {
       if (value instanceof Uint8Array) {
-        // Convert to base64 for JSON
-        const binary = Array.from(value)
-          .map(b => String.fromCharCode(b))
-          .join('');
-        return btoa(binary);
+        // Convert to array of numbers for JSON compatibility
+        return Array.from(value);
       }
     }
 
