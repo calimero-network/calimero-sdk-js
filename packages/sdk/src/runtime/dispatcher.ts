@@ -279,23 +279,26 @@ function readPayload(methodName?: string): unknown {
       const paramNames = method.params.map(p => p.name);
       const hasMatchingKeys = jsonKeys.some(key => paramNames.includes(key));
 
-      // If JSON keys don't match parameter names, check if first parameter is an object type
-      // In that case, the entire JSON payload should be treated as the first parameter
-      if (!hasMatchingKeys && method.params.length > 0) {
+      // If JSON keys don't match parameter names, treat entire JSON payload as first parameter
+      // This handles cases where the host sends {title, content} but ABI declares {payload, maybeContent}
+      // The method signature expects the first param to be an object, so pass the entire JSON object
+      if (!hasMatchingKeys && method.params.length > 0 && jsonKeys.length > 0) {
         const firstParam = method.params[0];
         const firstParamType = firstParam.type;
-        const isObjectType =
-          firstParamType.kind === 'reference' ||
-          firstParamType.$ref ||
-          firstParamType.kind === 'map';
 
-        if (isObjectType) {
-          // First parameter is an object type - treat entire JSON payload as that parameter
+        // Try to convert the entire JSON payload as the first parameter
+        // If it fails, fall through to individual parameter deserialization
+        try {
           const result = convertFromJsonCompatible(jsonValue, firstParamType, abi);
           log(
-            `[dispatcher] readPayload: treating entire JSON payload as first object parameter (type: ${JSON.stringify(firstParamType)})`
+            `[dispatcher] readPayload: treating entire JSON payload as first parameter (type: ${JSON.stringify(firstParamType)}, keys: ${jsonKeys.join(', ')})`
           );
           return result;
+        } catch (error) {
+          // If conversion fails, fall through to individual parameter deserialization
+          log(
+            `[dispatcher] readPayload: failed to convert as first parameter, falling back to individual params: ${error instanceof Error ? error.message : String(error)}`
+          );
         }
       }
 
