@@ -62,10 +62,28 @@ export function saveRootState(state: any): Uint8Array {
   }
 
   // Serialize state values according to ABI state_root type for Rust compatibility
-  // Create a state object with only the values (no collections, no metadata)
+  // Only include fields defined in the ABI state_root type
   const stateValues: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(doc.values)) {
-    stateValues[key] = value;
+  for (const field of stateRootType.fields) {
+    const fieldValue = doc.values[field.name];
+
+    // Skip collection fields (they're handled separately)
+    if (field.name in doc.collections) {
+      continue;
+    }
+
+    // Handle nullable fields - if field is nullable and value is null/undefined, include null
+    // If field is not nullable and value is null/undefined, skip it (it will be initialized to default)
+    if (fieldValue === null || fieldValue === undefined) {
+      if (field.nullable) {
+        stateValues[field.name] = null;
+      }
+      // For non-nullable fields, skip null/undefined values
+      // They will be initialized to default values when deserialized
+      continue;
+    }
+
+    stateValues[field.name] = fieldValue;
   }
 
   // Serialize state directly using ABI-aware serialization (like Rust does)
