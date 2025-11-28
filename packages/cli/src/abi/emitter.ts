@@ -431,8 +431,8 @@ export class AbiEmitter {
         // Rust schema doesn't support "set", so convert to list
         if (type.typeParameters?.params?.length >= 1) {
           return {
-            kind: 'list',
-            items: this.extractTypeFromAnnotation({
+            kind: 'vector',
+            inner: this.extractTypeFromAnnotation({
               typeAnnotation: type.typeParameters.params[0],
             }),
           } as any;
@@ -441,8 +441,8 @@ export class AbiEmitter {
       case 'Vector':
         if (type.typeParameters?.params?.length >= 1) {
           return {
-            kind: 'list',
-            items: this.extractTypeFromAnnotation({
+            kind: 'vector',
+            inner: this.extractTypeFromAnnotation({
               typeAnnotation: type.typeParameters.params[0],
             }),
           } as any;
@@ -685,8 +685,9 @@ export class AbiEmitter {
         result.returns = { kind: 'unit' };
       }
 
-      if (method.is_init) result.is_init = method.is_init;
-      if (method.is_view) result.is_view = method.is_view;
+      // Always set is_init and is_view (default to false)
+      result.is_init = method.is_init === true;
+      result.is_view = method.is_view === true;
       if ((method.returns as any)?.nullable) result.returns_nullable = true;
 
       return result;
