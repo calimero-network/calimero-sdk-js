@@ -1544,8 +1544,8 @@ void calimero_method_##name() { \
       /* Continue without ABI - it's optional */ \
     } else { \
       /* Set as string - JavaScript code will parse it if needed */ \
+      /* Note: JS_SetPropertyStr consumes the value reference, so we don't free abi_string */ \
       JS_SetPropertyStr(ctx, global_obj, "__CALIMERO_ABI_MANIFEST__", abi_string); \
-      JS_FreeValue(ctx, abi_string); \
     } \
   } \
   JS_FreeValue(ctx, global_obj); \
