@@ -303,7 +303,6 @@ export class AbiEmitter {
     if (!hasStateDecorator && !hasLogicDecorator && !hasEventDecorator) {
       // Check if it's a variant pattern (abstract class with static factory methods)
       if (classNode.superClass && classNode.superClass.type === 'Identifier') {
-        const superClassName = classNode.superClass.name;
         // This might be a variant class (e.g., Status_Active extends Status)
         // We'll handle variants separately
         return;
