@@ -179,6 +179,7 @@ export class AbiEmitter {
     const ast = parse(sourceCode, {
       sourceType: 'module',
       plugins: ['typescript', 'decorators-legacy', 'classProperties'],
+      attachComment: true,
     });
 
     // Reset state
@@ -187,7 +188,7 @@ export class AbiEmitter {
     this.events = [];
     this.stateRoot = undefined;
 
-    // First pass: Extract type aliases and interfaces
+    // First pass: Extract type aliases and interfaces, and store abstract classes
     traverse(ast, {
       TSTypeAliasDeclaration: (nodePath: any) => {
         this.analyzeTypeAlias(nodePath.node);
@@ -195,11 +196,22 @@ export class AbiEmitter {
       TSInterfaceDeclaration: (nodePath: any) => {
         this.analyzeInterface(nodePath.node);
       },
+      ClassDeclaration: (nodePath: any) => {
+        const className = nodePath.node.id?.name;
+        if (className && nodePath.node.abstract === true) {
+          this.abstractClasses.set(className, nodePath.node);
+        }
+      },
       ExportNamedDeclaration: (nodePath: any) => {
         if (nodePath.node.declaration?.type === 'TSTypeAliasDeclaration') {
-          this.analyzeTypeAlias(nodePath.node.declaration);
+          this.analyzeTypeAlias(nodePath.node.declaration, nodePath.node);
         } else if (nodePath.node.declaration?.type === 'TSInterfaceDeclaration') {
           this.analyzeInterface(nodePath.node.declaration);
+        } else if (nodePath.node.declaration?.type === 'ClassDeclaration') {
+          const className = nodePath.node.declaration.id?.name;
+          if (className && nodePath.node.declaration.abstract === true) {
+            this.abstractClasses.set(className, nodePath.node.declaration);
+          }
         }
       },
     });
@@ -288,7 +300,7 @@ export class AbiEmitter {
         baseClass = this.findClassInAst(ast, baseName);
       }
       // If class has subclasses, treat as variant (classes with subclasses are typically variant bases)
-      // But only if it's abstract or has static factory methods (variant pattern)
+      // Check if it's abstract, has static factory methods, or is referenced in methods/events
       if (baseClass && variants.length > 0) {
         const isAbstract = baseClass.abstract === true;
         const hasStaticMethods = baseClass.body?.body?.some(
@@ -297,10 +309,19 @@ export class AbiEmitter {
             member.static === true &&
             member.key?.name
         );
-        // Only analyze as variant if it's abstract or has static factory methods
-        if (isAbstract || hasStaticMethods) {
-          this.analyzeVariantPattern(baseClass, variants);
-        }
+        // Check if this type is referenced in methods or events (indicates it's a variant type)
+        const isReferenced =
+          this.methods.some(
+            m =>
+              m.params.some(p => p.type.kind === 'reference' && p.type.name === baseName) ||
+              (m.returns && m.returns.kind === 'reference' && m.returns.name === baseName)
+          ) ||
+          this.events.some(e =>
+            e.fields.some(f => f.type.kind === 'reference' && f.type.name === baseName)
+          );
+        // Analyze as variant - if class has subclasses, it's a variant pattern
+        // Additional checks (abstract, static methods, referenced) help confirm but aren't required
+        this.analyzeVariantPattern(baseClass, variants);
       }
     }
 
@@ -576,11 +597,16 @@ export class AbiEmitter {
 
     // Add variant type (always add/update to ensure variant types are included)
     // This handles cases where a placeholder type might have been added earlier
+    // Only add if we have variants and the type doesn't already exist as a record
     if (variants.length > 0) {
-      this.types.set(baseName, {
-        kind: 'variant',
-        variants,
-      });
+      const existingType = this.types.get(baseName);
+      // Don't overwrite record types (state classes)
+      if (!existingType || existingType.kind !== 'record') {
+        this.types.set(baseName, {
+          kind: 'variant',
+          variants,
+        });
+      }
     }
   }
 
@@ -921,7 +947,7 @@ export class AbiEmitter {
     return { kind: 'reference', name: typeName } as any;
   }
 
-  private analyzeTypeAlias(typeAlias: any): void {
+  private analyzeTypeAlias(typeAlias: any, parentNode?: any): void {
     const typeName = typeAlias.id?.name;
     if (!typeName) return;
 
@@ -968,14 +994,25 @@ export class AbiEmitter {
         let explicitSize: number | undefined = undefined;
 
         // Check comment for explicit size annotation (e.g., // bytes[32])
-        if (typeAlias.leadingComments) {
-          for (const comment of typeAlias.leadingComments) {
-            const commentText = comment.value || '';
-            const sizeMatchComment = commentText.match(/bytes\[(\d+)\]/);
-            if (sizeMatchComment) {
-              explicitSize = parseInt(sizeMatchComment[1], 10);
-              break;
-            }
+        // Check both leading and trailing comments (Babel can put comments in either place)
+        // Also check parent node comments (for exported type aliases) and typeAnnotation comments
+        const comments = [
+          ...(typeAlias.leadingComments || []),
+          ...(typeAlias.trailingComments || []),
+          ...(typeAlias.innerComments || []),
+          ...(parentNode?.leadingComments || []),
+          ...(parentNode?.trailingComments || []),
+          ...(parentNode?.innerComments || []),
+          ...(typeAnnotation?.leadingComments || []),
+          ...(typeAnnotation?.trailingComments || []),
+          ...(typeAnnotation?.innerComments || []),
+        ];
+        for (const comment of comments) {
+          const commentText = comment.value || '';
+          const sizeMatchComment = commentText.match(/bytes\[(\d+)\]/);
+          if (sizeMatchComment) {
+            explicitSize = parseInt(sizeMatchComment[1], 10);
+            break;
           }
         }
 
