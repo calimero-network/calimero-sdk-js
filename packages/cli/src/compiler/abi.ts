@@ -205,11 +205,13 @@ export async function generateAbiSchema(options: AbiOptions): Promise<string> {
                 properties: {
                   name: { type: 'string' },
                   type: { $ref: '#/definitions/TypeRef' },
+                  nullable: { type: 'boolean' },
                 },
                 additionalProperties: false,
               },
             },
             returns: { $ref: '#/definitions/TypeRef' },
+            returns_nullable: { type: 'boolean' },
           },
           additionalProperties: false,
         },

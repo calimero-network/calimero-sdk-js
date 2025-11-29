@@ -263,6 +263,7 @@ export class AbiEmitter {
 
     // Final pass: Create variant types from payload types that weren't handled
     // This ensures variant types are always created if payload types exist
+    // BUT only if there's an actual base class (not just payload types with matching prefixes)
     const baseNamesFromPayloads = new Map<string, string[]>(); // baseName -> payload type names
     for (const [typeName, typeDef] of this.types.entries()) {
       // Check if this is a payload type (e.g., Action_MultiStruct, Status_Active)
@@ -279,7 +280,15 @@ export class AbiEmitter {
     }
 
     // Now create variant types for each base name that has payload types
+    // BUT only if we found actual variant classes extending this base (in variantBases)
     for (const [baseName, payloadTypeNames] of baseNamesFromPayloads.entries()) {
+      // Skip if this base wasn't found in variantBases (no actual variant classes)
+      // This prevents creating variant types from payload types that just happen to match a prefix
+      // (e.g., Event_TupleEvent shouldn't create an Event variant if Event is just a decorator)
+      if (!variantBases.has(baseName)) {
+        continue; // No actual variant classes found for this base
+      }
+
       // Check if variant type already exists
       const existingType = this.types.get(baseName);
       // Only skip if it's already a record (state class) or variant
@@ -738,7 +747,15 @@ export class AbiEmitter {
     }
 
     // Now create variant types for each base name that has payload types
+    // BUT only if we found actual variant classes extending this base (in variantBases)
     for (const [baseName, payloadTypeNames] of baseNamesFromPayloads.entries()) {
+      // Skip if this base wasn't found in variantBases (no actual variant classes)
+      // This prevents creating variant types from payload types that just happen to match a prefix
+      // (e.g., Event_TupleEvent shouldn't create an Event variant if Event is just a decorator)
+      if (!variantBases.has(baseName)) {
+        continue; // No actual variant classes found for this base
+      }
+
       // Check if variant type already exists
       const existingType = this.types.get(baseName);
       // Only skip if it's already a record (state class) or variant
@@ -1553,14 +1570,8 @@ export class AbiEmitter {
               explicitSize = parseInt(sizeMatchSource[1], 10);
             }
           }
-          // Check the line before (for leading comments)
-          if (explicitSize === undefined && startLineIndex > 0) {
-            const prevLine = lines[startLineIndex - 1];
-            const sizeMatchPrev = prevLine.match(/bytes\[(\d+)\]/);
-            if (sizeMatchPrev) {
-              explicitSize = parseInt(sizeMatchPrev[1], 10);
-            }
-          }
+          // Don't check the previous line - it might belong to a different type alias
+          // Only check comments on the same line as the type alias declaration
         }
 
         // Use 'bytes' kind directly, not 'scalar'
