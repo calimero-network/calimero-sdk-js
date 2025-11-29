@@ -124,14 +124,14 @@ export class AbiEmitter {
 
       traverse(ast, {
         TSTypeAliasDeclaration: (nodePath: any) => {
-          this.analyzeTypeAlias(nodePath.node);
+          this.analyzeTypeAlias(nodePath.node, undefined, sourceCode);
         },
         TSInterfaceDeclaration: (nodePath: any) => {
           this.analyzeInterface(nodePath.node);
         },
         ExportNamedDeclaration: (nodePath: any) => {
           if (nodePath.node.declaration?.type === 'TSTypeAliasDeclaration') {
-            this.analyzeTypeAlias(nodePath.node.declaration);
+            this.analyzeTypeAlias(nodePath.node.declaration, nodePath.node, sourceCode);
           } else if (nodePath.node.declaration?.type === 'TSInterfaceDeclaration') {
             this.analyzeInterface(nodePath.node.declaration);
           }
@@ -191,7 +191,7 @@ export class AbiEmitter {
     // First pass: Extract type aliases and interfaces, and store abstract classes
     traverse(ast, {
       TSTypeAliasDeclaration: (nodePath: any) => {
-        this.analyzeTypeAlias(nodePath.node);
+        this.analyzeTypeAlias(nodePath.node, undefined, sourceCode);
       },
       TSInterfaceDeclaration: (nodePath: any) => {
         this.analyzeInterface(nodePath.node);
@@ -204,7 +204,7 @@ export class AbiEmitter {
       },
       ExportNamedDeclaration: (nodePath: any) => {
         if (nodePath.node.declaration?.type === 'TSTypeAliasDeclaration') {
-          this.analyzeTypeAlias(nodePath.node.declaration, nodePath.node);
+          this.analyzeTypeAlias(nodePath.node.declaration, nodePath.node, sourceCode);
         } else if (nodePath.node.declaration?.type === 'TSInterfaceDeclaration') {
           this.analyzeInterface(nodePath.node.declaration);
         } else if (nodePath.node.declaration?.type === 'ClassDeclaration') {
@@ -1126,7 +1126,7 @@ export class AbiEmitter {
     return { kind: 'reference', name: typeName } as any;
   }
 
-  private analyzeTypeAlias(typeAlias: any, parentNode?: any): void {
+  private analyzeTypeAlias(typeAlias: any, parentNode?: any, sourceCode?: string): void {
     const typeName = typeAlias.id?.name;
     if (!typeName) return;
 
@@ -1192,6 +1192,44 @@ export class AbiEmitter {
           if (sizeMatchComment) {
             explicitSize = parseInt(sizeMatchComment[1], 10);
             break;
+          }
+        }
+
+        // Fallback: if comment not found in AST, check source code directly
+        if (explicitSize === undefined && sourceCode && typeAlias.loc) {
+          const lines = sourceCode.split('\n');
+          // Check the line where the type alias is declared (comments are usually on the same line)
+          const startLineIndex = typeAlias.loc.start.line - 1; // Babel uses 1-based line numbers
+          const endLineIndex = typeAlias.loc.end.line - 1;
+
+          // Check the declaration line (where the comment is most likely)
+          if (startLineIndex >= 0 && startLineIndex < lines.length) {
+            const line = lines[startLineIndex];
+            const sizeMatchSource = line.match(/bytes\[(\d+)\]/);
+            if (sizeMatchSource) {
+              explicitSize = parseInt(sizeMatchSource[1], 10);
+            }
+          }
+          // Also check the end line (for trailing comments)
+          if (
+            explicitSize === undefined &&
+            endLineIndex >= 0 &&
+            endLineIndex < lines.length &&
+            endLineIndex !== startLineIndex
+          ) {
+            const line = lines[endLineIndex];
+            const sizeMatchSource = line.match(/bytes\[(\d+)\]/);
+            if (sizeMatchSource) {
+              explicitSize = parseInt(sizeMatchSource[1], 10);
+            }
+          }
+          // Check the line before (for leading comments)
+          if (explicitSize === undefined && startLineIndex > 0) {
+            const prevLine = lines[startLineIndex - 1];
+            const sizeMatchPrev = prevLine.match(/bytes\[(\d+)\]/);
+            if (sizeMatchPrev) {
+              explicitSize = parseInt(sizeMatchPrev[1], 10);
+            }
           }
         }
 
