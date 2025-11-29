@@ -300,28 +300,49 @@ export class AbiEmitter {
         baseClass = this.findClassInAst(ast, baseName);
       }
       // If class has subclasses, treat as variant (classes with subclasses are typically variant bases)
-      // Check if it's abstract, has static factory methods, or is referenced in methods/events
-      if (baseClass && variants.length > 0) {
-        const isAbstract = baseClass.abstract === true;
-        const hasStaticMethods = baseClass.body?.body?.some(
-          (member: any) =>
-            (member.type === 'ClassMethod' || member.type === 'MethodDefinition') &&
-            member.static === true &&
-            member.key?.name
-        );
-        // Check if this type is referenced in methods or events (indicates it's a variant type)
-        const isReferenced =
-          this.methods.some(
-            m =>
-              m.params.some(p => p.type.kind === 'reference' && p.type.name === baseName) ||
-              (m.returns && m.returns.kind === 'reference' && m.returns.name === baseName)
-          ) ||
-          this.events.some(e =>
-            e.fields.some(f => f.type.kind === 'reference' && f.type.name === baseName)
-          );
-        // Analyze as variant - if class has subclasses, it's a variant pattern
-        // Additional checks (abstract, static methods, referenced) help confirm but aren't required
-        this.analyzeVariantPattern(baseClass, variants);
+      // Always analyze as variant if we have variants
+      if (variants.length > 0) {
+        if (baseClass) {
+          this.analyzeVariantPattern(baseClass, variants);
+        } else {
+          // Base class not found but we have variants - still create variant type
+          // This handles cases where abstract classes aren't detected correctly
+          const dummyBaseClass = { id: { name: baseName }, abstract: true };
+          this.analyzeVariantPattern(dummyBaseClass, variants);
+        }
+        // Ensure variant type was added (fallback check)
+        if (!this.types.has(baseName)) {
+          // Variant type wasn't added - add it directly
+          // This handles edge cases where analyzeVariantPattern doesn't add the type
+          const existingType = this.types.get(baseName);
+          if (!existingType || existingType.kind !== 'record') {
+            // Extract variants from variant classes
+            const variantList: any[] = [];
+            const seenVariants = new Set<string>();
+            for (const variantClass of variants) {
+              const variantName = variantClass.id?.name;
+              if (!variantName) continue;
+              // Extract variant name
+              let nameParts = variantName.split('_');
+              if (nameParts.length > 1 && nameParts[0] === baseName) {
+                nameParts = nameParts.slice(1);
+              }
+              if (nameParts[nameParts.length - 1] === 'Variant') {
+                nameParts = nameParts.slice(0, -1);
+              }
+              const variantDisplayName = nameParts.join('_') || variantName;
+              if (seenVariants.has(variantDisplayName)) continue;
+              seenVariants.add(variantDisplayName);
+              variantList.push({ name: variantDisplayName });
+            }
+            if (variantList.length > 0) {
+              this.types.set(baseName, {
+                kind: 'variant',
+                variants: variantList,
+              });
+            }
+          }
+        }
       }
     }
 
@@ -600,8 +621,18 @@ export class AbiEmitter {
     // Only add if we have variants and the type doesn't already exist as a record
     if (variants.length > 0) {
       const existingType = this.types.get(baseName);
-      // Don't overwrite record types (state classes)
-      if (!existingType || existingType.kind !== 'record') {
+      // Don't overwrite record types (state classes), but always add variant types
+      if (!existingType) {
+        // No existing type - add variant
+        this.types.set(baseName, {
+          kind: 'variant',
+          variants,
+        });
+      } else if (existingType.kind === 'record') {
+        // Existing type is a record (state class) - don't overwrite
+        // This is correct behavior
+      } else {
+        // Existing type is not a record - update to variant (might have been a placeholder)
         this.types.set(baseName, {
           kind: 'variant',
           variants,
