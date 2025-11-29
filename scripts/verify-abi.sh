@@ -163,20 +163,9 @@ if [ -n "$STATE_ROOT" ]; then
     echo -e "${GREEN}✓ state_root type is a record${NC}"
 fi
 
-# Check that @Init method is marked correctly
+# Check that init method exists (Rust ABI format doesn't use is_init/is_view flags)
 if jq -e '.methods[] | select(.name=="init")' "$OUTPUT_FILE" >/dev/null 2>&1; then
-    INIT_IS_INIT=$(jq -r '.methods[] | select(.name=="init") | .is_init // false' "$OUTPUT_FILE")
-    if [ "$INIT_IS_INIT" != "true" ]; then
-        echo -e "${RED}❌ ERROR: init method missing is_init=true${NC}"
-        exit 1
-    fi
-    echo -e "${GREEN}✓ init method has is_init=true${NC}"
-fi
-
-# Check that @View methods are marked correctly
-VIEW_METHODS=$(jq -r '.methods[] | select(.is_view==true) | .name' "$OUTPUT_FILE" || true)
-if [ -n "$VIEW_METHODS" ]; then
-    echo -e "${GREEN}✓ Found view methods: $(echo "$VIEW_METHODS" | tr '\n' ' ')${NC}"
+    echo -e "${GREEN}✓ init method found${NC}"
 fi
 
 # Check events structure (Rust format: events have name and optionally payload)
