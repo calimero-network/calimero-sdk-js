@@ -169,6 +169,156 @@ export class AbiEmitter {
       });
     }
 
+    // Third pass: Analyze variant patterns (abstract classes with concrete subclasses)
+    // This handles patterns like abstract class Status with Status_Active, Status_Pending, etc.
+    const variantBases = new Map<string, any[]>(); // base class name -> variant classes
+    const abstractClassesMap = new Map<string, any>(); // Store abstract classes
+
+    for (const filePath of filePaths) {
+      const sourceCode = fs.readFileSync(filePath, 'utf-8');
+      const ast = parse(sourceCode, {
+        sourceType: 'module',
+        plugins: ['typescript', 'decorators-legacy', 'classProperties'],
+        attachComment: true,
+      });
+
+      traverse(ast, {
+        ClassDeclaration: (nodePath: any) => {
+          const className = nodePath.node.id?.name;
+          // Store abstract classes
+          if (className && nodePath.node.abstract === true) {
+            abstractClassesMap.set(className, nodePath.node);
+          }
+          // Collect variant classes (classes with superclass)
+          if (className && nodePath.node.superClass?.type === 'Identifier') {
+            const superClassName = nodePath.node.superClass.name;
+            if (!variantBases.has(superClassName)) {
+              variantBases.set(superClassName, []);
+            }
+            variantBases.get(superClassName)!.push(nodePath.node);
+          }
+        },
+        ExportNamedDeclaration: (nodePath: any) => {
+          if (nodePath.node.declaration?.type === 'ClassDeclaration') {
+            const className = nodePath.node.declaration.id?.name;
+            // Store abstract classes
+            if (className && nodePath.node.declaration.abstract === true) {
+              abstractClassesMap.set(className, nodePath.node.declaration);
+            }
+            // Collect variant classes (classes with superclass)
+            if (className && nodePath.node.declaration.superClass?.type === 'Identifier') {
+              const superClassName = nodePath.node.declaration.superClass.name;
+              if (!variantBases.has(superClassName)) {
+                variantBases.set(superClassName, []);
+              }
+              variantBases.get(superClassName)!.push(nodePath.node.declaration);
+            }
+          }
+        },
+      });
+    }
+
+    // Store abstract classes in instance variable for use by analyzeVariantPattern
+    this.abstractClasses = abstractClassesMap;
+
+    // Analyze variant bases and their variants
+    const analyzedBases = new Set<string>();
+    for (const [baseName, variants] of variantBases.entries()) {
+      if (analyzedBases.has(baseName)) continue;
+      analyzedBases.add(baseName);
+
+      // Skip if this class is already defined as a record (state class)
+      if (this.types.has(baseName)) {
+        const existingType = this.types.get(baseName);
+        if (existingType?.kind === 'record') {
+          continue; // This is a state class, not a variant
+        }
+      }
+
+      // Try to find the base class
+      let baseClass = abstractClassesMap.get(baseName);
+      if (!baseClass) {
+        // Try to find in any of the files
+        for (const filePath of filePaths) {
+          const sourceCode = fs.readFileSync(filePath, 'utf-8');
+          const ast = parse(sourceCode, {
+            sourceType: 'module',
+            plugins: ['typescript', 'decorators-legacy', 'classProperties'],
+          });
+          baseClass = this.findClassInAst(ast, baseName);
+          if (baseClass) break;
+        }
+      }
+
+      if (variants.length > 0 && baseName) {
+        if (baseClass) {
+          this.analyzeVariantPattern(baseClass, variants);
+        } else {
+          // Base class not found but we have variants - still create variant type
+          const dummyBaseClass = { id: { name: baseName }, abstract: true };
+          this.analyzeVariantPattern(dummyBaseClass, variants);
+        }
+      }
+    }
+
+    // Final pass: Create variant types from payload types that weren't handled
+    // This ensures variant types are always created if payload types exist
+    const baseNamesFromPayloads = new Map<string, string[]>(); // baseName -> payload type names
+    for (const [typeName, typeDef] of this.types.entries()) {
+      // Check if this is a payload type (e.g., Action_MultiStruct, Status_Active)
+      if (typeDef.kind === 'record' && typeName.includes('_')) {
+        const parts = typeName.split('_');
+        if (parts.length >= 2) {
+          const baseName = parts[0];
+          if (!baseNamesFromPayloads.has(baseName)) {
+            baseNamesFromPayloads.set(baseName, []);
+          }
+          baseNamesFromPayloads.get(baseName)!.push(typeName);
+        }
+      }
+    }
+
+    // Now create variant types for each base name that has payload types
+    for (const [baseName, payloadTypeNames] of baseNamesFromPayloads.entries()) {
+      // Check if variant type already exists
+      const existingType = this.types.get(baseName);
+      // Only skip if it's already a record (state class) or variant
+      if (existingType && existingType.kind === 'record') {
+        continue; // This is a state class, not a variant
+      }
+      if (existingType && existingType.kind === 'variant') {
+        continue; // Already a variant, skip
+      }
+
+      // Create variant type from payload types
+      const variants: any[] = [];
+      const seenVariants = new Set<string>();
+      for (const payloadTypeName of payloadTypeNames) {
+        const variantName = payloadTypeName.substring(baseName.length + 1);
+        if (!seenVariants.has(variantName)) {
+          seenVariants.add(variantName);
+          variants.push({
+            name: variantName,
+            payload: { $ref: payloadTypeName },
+          });
+        }
+      }
+
+      // Always create variant type if we have payload types
+      if (payloadTypeNames.length > 0) {
+        this.types.set(baseName, {
+          kind: 'variant',
+          variants:
+            variants.length > 0
+              ? variants
+              : payloadTypeNames.map(name => ({
+                  name: name.substring(baseName.length + 1),
+                  payload: { $ref: name },
+                })),
+        });
+      }
+    }
+
     return this.generateManifest();
   }
 
