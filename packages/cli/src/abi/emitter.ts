@@ -2144,9 +2144,16 @@ export class AbiEmitter {
       typesWithCrdt[typeName] = serialized;
     }
 
+    // Sort types alphabetically for consistent output
+    const sortedTypes: Record<string, any> = {};
+    const sortedTypeNames = Object.keys(typesWithCrdt).sort();
+    for (const typeName of sortedTypeNames) {
+      sortedTypes[typeName] = typesWithCrdt[typeName];
+    }
+
     return {
       schema_version: 'wasm-abi/1',
-      types: typesWithCrdt,
+      types: sortedTypes,
       methods: [],
       events: [],
       state_root: stateRootTypeName,
