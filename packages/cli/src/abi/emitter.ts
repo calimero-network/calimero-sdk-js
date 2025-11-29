@@ -874,9 +874,9 @@ export class AbiEmitter {
           }
         }
 
+        // Use 'bytes' kind directly, not 'scalar'
         const targetType: any = {
-          kind: 'scalar',
-          scalar: 'bytes',
+          kind: 'bytes',
         };
         if (explicitSize !== undefined) {
           targetType.size = explicitSize;
@@ -984,7 +984,21 @@ export class AbiEmitter {
 
     // Handle bytes type (can be scalar or direct kind)
     if (typeRef.kind === 'scalar' && typeRef.scalar === 'bytes') {
-      return { kind: 'bytes' };
+      const result: any = { kind: 'bytes' };
+      // Preserve size if present
+      if ((typeRef as any).size !== undefined) {
+        result.size = (typeRef as any).size;
+      }
+      return result;
+    }
+    
+    // Handle bytes type directly (from alias)
+    if (typeRef.kind === 'bytes') {
+      const result: any = { kind: 'bytes' };
+      if ((typeRef as any).size !== undefined) {
+        result.size = (typeRef as any).size;
+      }
+      return result;
     }
 
     // Fallback: return as-is (for string, etc.)
@@ -1046,11 +1060,17 @@ export class AbiEmitter {
     return this.methods.map(method => {
       const result: any = {
         name: method.name,
-        params: method.params.map(param => ({
-          name: param.name,
-          type: this.serializeTypeRefToRustFormat(param.type),
-          nullable: (param.type as any).nullable,
-        })),
+        params: method.params.map(param => {
+          const paramObj: any = {
+            name: param.name,
+            type: this.serializeTypeRefToRustFormat(param.type),
+          };
+          // Check nullable flag on param object (set during extraction)
+          if ((param as any).nullable) {
+            paramObj.nullable = true;
+          }
+          return paramObj;
+        }),
       };
 
       if (method.returns) {
