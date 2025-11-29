@@ -29,8 +29,8 @@ export async function generateAbiJson(sourceFile: string, options: AbiOptions): 
 
   const abi = generateAbiManifestRustFormat(sourceFile);
 
-  // Write ABI JSON file
-  fs.writeFileSync(abiJsonPath, JSON.stringify(abi, null, 2));
+  // Write ABI JSON file (with trailing newline for consistency)
+  fs.writeFileSync(abiJsonPath, JSON.stringify(abi, null, 2) + '\n');
 
   if (options.verbose) {
     const stats = fs.statSync(abiJsonPath);
@@ -363,8 +363,8 @@ export async function generateStateSchema(
   // Generate state schema with CRDT metadata
   const stateSchema = generateAbiManifestRustFormatWithStateSchema(sourceFile, abi.state_root);
 
-  // Write state schema JSON file
-  fs.writeFileSync(stateSchemaPath, JSON.stringify(stateSchema, null, 2));
+  // Write state schema JSON file (with trailing newline for consistency)
+  fs.writeFileSync(stateSchemaPath, JSON.stringify(stateSchema, null, 2) + '\n');
 
   if (options.verbose) {
     const stats = fs.statSync(stateSchemaPath);
