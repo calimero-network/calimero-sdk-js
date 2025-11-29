@@ -273,14 +273,34 @@ export class AbiEmitter {
       if (analyzedBases.has(baseName)) continue;
       analyzedBases.add(baseName);
 
+      // Skip if this class is already defined as a record (state class)
+      // State classes should not be analyzed as variants
+      if (this.types.has(baseName)) {
+        const existingType = this.types.get(baseName);
+        if (existingType?.kind === 'record') {
+          continue; // This is a state class, not a variant
+        }
+      }
+
       // Try to find the base class - check stored abstract classes first, then AST
       let baseClass = this.abstractClasses.get(baseName);
       if (!baseClass) {
         baseClass = this.findClassInAst(ast, baseName);
       }
       // If class has subclasses, treat as variant (classes with subclasses are typically variant bases)
+      // But only if it's abstract or has static factory methods (variant pattern)
       if (baseClass && variants.length > 0) {
-        this.analyzeVariantPattern(baseClass, variants);
+        const isAbstract = baseClass.abstract === true;
+        const hasStaticMethods = baseClass.body?.body?.some(
+          (member: any) =>
+            (member.type === 'ClassMethod' || member.type === 'MethodDefinition') &&
+            member.static === true &&
+            member.key?.name
+        );
+        // Only analyze as variant if it's abstract or has static factory methods
+        if (isAbstract || hasStaticMethods) {
+          this.analyzeVariantPattern(baseClass, variants);
+        }
       }
     }
 
