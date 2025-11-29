@@ -505,12 +505,12 @@ export class AbiEmitter {
             let paramName = param.name || param.left?.name;
             const typeAnnotation = param.typeAnnotation || param.left?.typeAnnotation;
             const isOptional = param.optional || false;
-            
+
             // Strip leading underscore from parameter names (convention for unused params)
             if (paramName && paramName.startsWith('_')) {
               paramName = paramName.substring(1);
             }
-            
+
             // Extract type with context for type inference from method name
             const typeRef = this.extractTypeFromAnnotation(typeAnnotation, {
               methodName,
@@ -545,7 +545,7 @@ export class AbiEmitter {
         } else {
           const returnType = member.returnType || member.value?.returnType;
           let returnsNullable = false;
-          
+
           if (returnType) {
             // Check if return type is a union with undefined/null
             if (
@@ -559,7 +559,7 @@ export class AbiEmitter {
                 returnsNullable = true;
               }
             }
-            
+
             returns = this.extractTypeFromAnnotation(returnType, {
               methodName,
               isReturn: true,
@@ -575,7 +575,7 @@ export class AbiEmitter {
             // But check the actual return statement to be more accurate
             // For now, leave undefined and let Rust format serializer handle it
           }
-          
+
           // Store nullable flag for return type
           if (returnsNullable) {
             (returns as any).nullable = true;
@@ -734,10 +734,7 @@ export class AbiEmitter {
       case 'TSArrayType':
         return {
           kind: 'vector',
-          inner: this.extractTypeFromAnnotation(
-            { typeAnnotation: type.elementType },
-            context
-          ),
+          inner: this.extractTypeFromAnnotation({ typeAnnotation: type.elementType }, context),
         } as any;
       default:
         return { kind: 'string' } as any;
@@ -863,7 +860,7 @@ export class AbiEmitter {
         // This is a convention: if type name ends with digits, use as size
         const sizeMatch = typeName.match(/(\d+)$/);
         const size = sizeMatch ? parseInt(sizeMatch[1], 10) : undefined;
-        
+
         // Also check comment for explicit size annotation (e.g., // bytes[32])
         let explicitSize = size;
         if (typeAlias.leadingComments) {
@@ -876,7 +873,7 @@ export class AbiEmitter {
             }
           }
         }
-        
+
         const targetType: any = {
           kind: 'scalar',
           scalar: 'bytes',
@@ -884,7 +881,7 @@ export class AbiEmitter {
         if (explicitSize !== undefined) {
           targetType.size = explicitSize;
         }
-        
+
         this.types.set(typeName, {
           kind: 'alias',
           target: targetType,
@@ -989,7 +986,7 @@ export class AbiEmitter {
     if (typeRef.kind === 'scalar' && typeRef.scalar === 'bytes') {
       return { kind: 'bytes' };
     }
-    
+
     // Fallback: return as-is (for string, etc.)
     if (typeRef.kind === 'scalar') {
       return { kind: typeRef.scalar || 'string' };
@@ -1005,9 +1002,7 @@ export class AbiEmitter {
     const result: Record<string, any> = {};
 
     // Sort types alphabetically for consistent output
-    const sortedTypes = Array.from(this.types.entries()).sort((a, b) =>
-      a[0].localeCompare(b[0])
-    );
+    const sortedTypes = Array.from(this.types.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 
     for (const [typeName, typeDef] of sortedTypes) {
       const serialized: any = {
