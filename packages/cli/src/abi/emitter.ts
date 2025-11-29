@@ -389,7 +389,12 @@ export class AbiEmitter {
       }
     }
 
-    // Create variant types for all base names that have payload types
+    // Also add base names from variantBases (for variants without payloads)
+    for (const baseName of variantBases.keys()) {
+      baseNamesWithPayloads.add(baseName);
+    }
+
+    // Create variant types for all base names that have payload types or variant classes
     for (const baseName of baseNamesWithPayloads) {
       // Check if base type exists and is a record (state class) - don't overwrite
       const existingType = this.types.get(baseName);
@@ -401,8 +406,10 @@ export class AbiEmitter {
       const payloadTypes = Array.from(this.types.keys()).filter(
         name => name.startsWith(`${baseName}_`) && this.types.get(name)?.kind === 'record'
       );
-      // Create variant type if payload types exist
-      if (payloadTypes.length > 0) {
+      // Check if there are variant classes for this base
+      const variantClasses = variantBases.get(baseName) || [];
+      // Create variant type if payload types exist or variant classes exist
+      if (payloadTypes.length > 0 || variantClasses.length > 0) {
         // Create variant type from payload types
         const variants: any[] = [];
         const seenVariants = new Set<string>();
@@ -416,7 +423,6 @@ export class AbiEmitter {
           });
         }
         // Also check for variants without payloads (e.g., Action_Ping)
-        const variantClasses = variantBases.get(baseName) || [];
         for (const variantClass of variantClasses) {
           const variantClassName = variantClass.id?.name;
           if (!variantClassName) continue;
@@ -703,16 +709,52 @@ export class AbiEmitter {
       }
 
       if (fields.length > 0) {
-        // Variant with payload - create a record type for the payload
-        const payloadTypeName = `${baseName}_${variantDisplayName}`;
-        this.types.set(payloadTypeName, {
-          kind: 'record',
-          fields,
-        });
-        variants.push({
-          name: variantDisplayName,
-          payload: { $ref: payloadTypeName },
-        });
+        // Variant with payload
+        // If there's a single field named "payload", use its type directly (Rust ABI format)
+        // Otherwise, create a record type for the payload
+        if (fields.length === 1 && fields[0].name === 'payload') {
+          const payloadType = fields[0].type;
+          // Check if payload type is a reference to an existing type (not a payload type we created)
+          if (payloadType.kind === 'reference' && payloadType.name) {
+            // Check if this is a payload type we would create (e.g., Action_SetName)
+            const wouldCreatePayloadType = `${baseName}_${variantDisplayName}`;
+            if (payloadType.name !== wouldCreatePayloadType) {
+              // Use the reference directly (e.g., UpdatePayload)
+              variants.push({
+                name: variantDisplayName,
+                payload: payloadType,
+              });
+            } else {
+              // This shouldn't happen, but fall through to create payload type
+              const payloadTypeName = `${baseName}_${variantDisplayName}`;
+              this.types.set(payloadTypeName, {
+                kind: 'record',
+                fields,
+              });
+              variants.push({
+                name: variantDisplayName,
+                payload: { $ref: payloadTypeName },
+              });
+            }
+          } else {
+            // Scalar type or other non-reference type - use directly
+            variants.push({
+              name: variantDisplayName,
+              payload: payloadType,
+            });
+          }
+        } else {
+          // Multiple fields or field not named "payload" - create a record type
+          const payloadTypeName = `${baseName}_${variantDisplayName}`;
+          this.types.set(payloadTypeName, {
+            kind: 'record',
+            fields,
+          });
+          variants.push({
+            name: variantDisplayName,
+            payload: { $ref: payloadTypeName },
+          });
+        }
       } else {
         // Variant without payload
         variants.push({
