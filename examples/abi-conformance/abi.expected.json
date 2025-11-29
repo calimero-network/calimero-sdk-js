@@ -1,37 +1,108 @@
 {
   "schema_version": "wasm-abi/1",
   "types": {
-    "UserId32": {
-      "kind": "alias",
-      "target": {
-        "kind": "bytes"
-      }
-    },
-    "Hash64": {
-      "kind": "alias",
-      "target": {
-        "kind": "bytes"
-      }
-    },
-    "Person": {
+    "AbiState": {
       "kind": "record",
       "fields": [
         {
-          "name": "id",
+          "name": "counters",
           "type": {
-            "$ref": "UserId32"
+            "kind": "map",
+            "key": {
+              "kind": "string"
+            },
+            "value": {
+              "kind": "u32"
+            }
           }
         },
         {
-          "name": "name",
+          "name": "users",
           "type": {
+            "kind": "list",
+            "items": {
+              "$ref": "UserId32"
+            }
+          }
+        }
+      ]
+    },
+    "Action": {
+      "kind": "variant",
+      "variants": [
+        {
+          "name": "Ping"
+        },
+        {
+          "name": "SetName",
+          "payload": {
             "kind": "string"
           }
         },
         {
-          "name": "age",
+          "name": "Update",
+          "payload": {
+            "$ref": "UpdatePayload"
+          }
+        },
+        {
+          "name": "MultiTuple",
+          "payload": {
+            "$ref": "Action_MultiTuple"
+          }
+        },
+        {
+          "name": "MultiStruct",
+          "payload": {
+            "$ref": "Action_MultiStruct"
+          }
+        }
+      ]
+    },
+    "Action_MultiStruct": {
+      "kind": "record",
+      "fields": [
+        {
+          "name": "x",
           "type": {
             "kind": "u32"
+          }
+        },
+        {
+          "name": "y",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ]
+    },
+    "Action_MultiTuple": {
+      "kind": "record",
+      "fields": [
+        {
+          "name": "field_0",
+          "type": {
+            "kind": "u32"
+          }
+        },
+        {
+          "name": "field_1",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ]
+    },
+    "ConformanceError": {
+      "kind": "variant",
+      "variants": [
+        {
+          "name": "BadInput"
+        },
+        {
+          "name": "NotFound",
+          "payload": {
+            "kind": "string"
           }
         }
       ]
@@ -55,6 +126,106 @@
           "name": "active",
           "type": {
             "kind": "bool"
+          }
+        }
+      ]
+    },
+    "Event_StructEvent": {
+      "kind": "record",
+      "fields": [
+        {
+          "name": "id",
+          "type": {
+            "kind": "u32"
+          }
+        },
+        {
+          "name": "name",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ]
+    },
+    "Event_TupleEvent": {
+      "kind": "record",
+      "fields": [
+        {
+          "name": "field_0",
+          "type": {
+            "kind": "u32"
+          }
+        },
+        {
+          "name": "field_1",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ]
+    },
+    "Hash64": {
+      "kind": "alias",
+      "target": {
+        "kind": "bytes"
+      }
+    },
+    "InternalResult": {
+      "kind": "record",
+      "fields": [
+        {
+          "name": "original",
+          "type": {
+            "kind": "u32"
+          }
+        },
+        {
+          "name": "calculated",
+          "type": {
+            "kind": "u32"
+          }
+        }
+      ]
+    },
+    "NestedRecord": {
+      "kind": "record",
+      "fields": [
+        {
+          "name": "record",
+          "type": {
+            "$ref": "CustomRecord"
+          }
+        },
+        {
+          "name": "tags",
+          "type": {
+            "kind": "list",
+            "items": {
+              "kind": "string"
+            }
+          }
+        }
+      ]
+    },
+    "Person": {
+      "kind": "record",
+      "fields": [
+        {
+          "name": "id",
+          "type": {
+            "$ref": "UserId32"
+          }
+        },
+        {
+          "name": "name",
+          "type": {
+            "kind": "string"
+          }
+        },
+        {
+          "name": "age",
+          "type": {
+            "kind": "u32"
           }
         }
       ]
@@ -87,118 +258,22 @@
         }
       ]
     },
-    "NestedRecord": {
-      "kind": "record",
-      "fields": [
+    "Status": {
+      "kind": "variant",
+      "variants": [
         {
-          "name": "record",
-          "type": {
-            "$ref": "CustomRecord"
+          "name": "Pending"
+        },
+        {
+          "name": "Active",
+          "payload": {
+            "$ref": "Status_Active"
           }
         },
         {
-          "name": "tags",
-          "type": {
-            "kind": "list",
-            "items": {
-              "kind": "string"
-            }
-          }
-        }
-      ]
-    },
-    "UpdatePayload": {
-      "kind": "record",
-      "fields": [
-        {
-          "name": "age",
-          "type": {
-            "kind": "u32"
-          }
-        }
-      ]
-    },
-    "InternalResult": {
-      "kind": "record",
-      "fields": [
-        {
-          "name": "original",
-          "type": {
-            "kind": "u32"
-          }
-        },
-        {
-          "name": "calculated",
-          "type": {
-            "kind": "u32"
-          }
-        }
-      ]
-    },
-    "Action_MultiTuple": {
-      "kind": "record",
-      "fields": [
-        {
-          "name": "field_0",
-          "type": {
-            "kind": "u32"
-          }
-        },
-        {
-          "name": "field_1",
-          "type": {
-            "kind": "string"
-          }
-        }
-      ]
-    },
-    "Action_MultiStruct": {
-      "kind": "record",
-      "fields": [
-        {
-          "name": "x",
-          "type": {
-            "kind": "u32"
-          }
-        },
-        {
-          "name": "y",
-          "type": {
-            "kind": "string"
-          }
-        }
-      ]
-    },
-    "Event_TupleEvent": {
-      "kind": "record",
-      "fields": [
-        {
-          "name": "field_0",
-          "type": {
-            "kind": "u32"
-          }
-        },
-        {
-          "name": "field_1",
-          "type": {
-            "kind": "string"
-          }
-        }
-      ]
-    },
-    "Event_StructEvent": {
-      "kind": "record",
-      "fields": [
-        {
-          "name": "id",
-          "type": {
-            "kind": "u32"
-          }
-        },
-        {
-          "name": "name",
-          "type": {
-            "kind": "string"
+          "name": "Completed",
+          "payload": {
+            "$ref": "Status_Completed"
           }
         }
       ]
@@ -225,31 +300,23 @@
         }
       ]
     },
-    "AbiState": {
+    "UpdatePayload": {
       "kind": "record",
       "fields": [
         {
-          "name": "counters",
+          "name": "age",
           "type": {
-            "kind": "map",
-            "key": {
-              "kind": "string"
-            },
-            "value": {
-              "kind": "u32"
-            }
-          }
-        },
-        {
-          "name": "users",
-          "type": {
-            "kind": "list",
-            "items": {
-              "$ref": "UserId32"
-            }
+            "kind": "u32"
           }
         }
       ]
+    },
+    "UserId32": {
+      "kind": "alias",
+      "target": {
+        "kind": "bytes",
+        "size": 32
+      }
     }
   },
   "methods": [
@@ -257,19 +324,15 @@
       "name": "init",
       "params": [],
       "returns": {
-        "$ref": "AbiState"
-      },
-      "is_init": true,
-      "is_view": false
+        "kind": "unit"
+      }
     },
     {
       "name": "noop",
       "params": [],
       "returns": {
         "kind": "unit"
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "echo_bool",
@@ -283,9 +346,7 @@
       ],
       "returns": {
         "kind": "bool"
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "echo_i32",
@@ -293,15 +354,13 @@
         {
           "name": "x",
           "type": {
-            "kind": "u32"
+            "kind": "i32"
           }
         }
       ],
       "returns": {
-        "kind": "u32"
-      },
-      "is_init": false,
-      "is_view": false
+        "kind": "i32"
+      }
     },
     {
       "name": "echo_i64",
@@ -309,15 +368,13 @@
         {
           "name": "x",
           "type": {
-            "kind": "u64"
+            "kind": "i64"
           }
         }
       ],
       "returns": {
-        "kind": "u64"
-      },
-      "is_init": false,
-      "is_view": false
+        "kind": "i64"
+      }
     },
     {
       "name": "echo_u32",
@@ -331,9 +388,7 @@
       ],
       "returns": {
         "kind": "u32"
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "echo_u64",
@@ -347,9 +402,7 @@
       ],
       "returns": {
         "kind": "u64"
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "echo_f32",
@@ -357,15 +410,13 @@
         {
           "name": "x",
           "type": {
-            "kind": "u32"
+            "kind": "f32"
           }
         }
       ],
       "returns": {
-        "kind": "u32"
-      },
-      "is_init": false,
-      "is_view": false
+        "kind": "f32"
+      }
     },
     {
       "name": "echo_f64",
@@ -373,15 +424,13 @@
         {
           "name": "x",
           "type": {
-            "kind": "u32"
+            "kind": "f64"
           }
         }
       ],
       "returns": {
-        "kind": "u32"
-      },
-      "is_init": false,
-      "is_view": false
+        "kind": "f64"
+      }
     },
     {
       "name": "echo_string",
@@ -395,9 +444,7 @@
       ],
       "returns": {
         "kind": "string"
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "echo_bytes",
@@ -411,9 +458,7 @@
       ],
       "returns": {
         "kind": "bytes"
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "opt_u32",
@@ -422,30 +467,30 @@
           "name": "x",
           "type": {
             "kind": "u32"
-          }
+          },
+          "nullable": true
         }
       ],
       "returns": {
         "kind": "u32"
       },
-      "is_init": false,
-      "is_view": false
+      "returns_nullable": true
     },
     {
       "name": "opt_string",
       "params": [
         {
-          "name": "s",
+          "name": "x",
           "type": {
             "kind": "string"
-          }
+          },
+          "nullable": true
         }
       ],
       "returns": {
         "kind": "string"
       },
-      "is_init": false,
-      "is_view": false
+      "returns_nullable": true
     },
     {
       "name": "opt_record",
@@ -454,14 +499,14 @@
           "name": "p",
           "type": {
             "$ref": "Person"
-          }
+          },
+          "nullable": true
         }
       ],
       "returns": {
         "$ref": "Person"
       },
-      "is_init": false,
-      "is_view": false
+      "returns_nullable": true
     },
     {
       "name": "opt_id",
@@ -470,14 +515,14 @@
           "name": "x",
           "type": {
             "$ref": "UserId32"
-          }
+          },
+          "nullable": true
         }
       ],
       "returns": {
         "$ref": "UserId32"
       },
-      "is_init": false,
-      "is_view": false
+      "returns_nullable": true
     },
     {
       "name": "list_u32",
@@ -497,9 +542,7 @@
         "items": {
           "kind": "u32"
         }
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "list_strings",
@@ -519,9 +562,7 @@
         "items": {
           "kind": "string"
         }
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "list_records",
@@ -541,9 +582,7 @@
         "items": {
           "$ref": "Person"
         }
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "list_ids",
@@ -563,9 +602,7 @@
         "items": {
           "$ref": "UserId32"
         }
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "map_u32",
@@ -591,9 +628,7 @@
         "value": {
           "kind": "u32"
         }
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "map_list_u32",
@@ -625,9 +660,7 @@
             "kind": "u32"
           }
         }
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "map_record",
@@ -653,9 +686,7 @@
         "value": {
           "$ref": "Person"
         }
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "make_person",
@@ -669,9 +700,7 @@
       ],
       "returns": {
         "$ref": "Person"
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "profile_roundtrip",
@@ -685,15 +714,13 @@
       ],
       "returns": {
         "$ref": "Profile"
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "act",
       "params": [
         {
-          "name": "_a",
+          "name": "a",
           "type": {
             "$ref": "Action"
           }
@@ -701,15 +728,13 @@
       ],
       "returns": {
         "kind": "u32"
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "handle_multi_tuple",
       "params": [
         {
-          "name": "_a",
+          "name": "a",
           "type": {
             "$ref": "Action"
           }
@@ -717,15 +742,13 @@
       ],
       "returns": {
         "kind": "string"
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "handle_multi_struct",
       "params": [
         {
-          "name": "_a",
+          "name": "a",
           "type": {
             "$ref": "Action"
           }
@@ -733,9 +756,7 @@
       ],
       "returns": {
         "kind": "u32"
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "roundtrip_id",
@@ -749,9 +770,7 @@
       ],
       "returns": {
         "$ref": "UserId32"
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "roundtrip_hash",
@@ -765,15 +784,13 @@
       ],
       "returns": {
         "$ref": "Hash64"
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "may_fail",
       "params": [
         {
-          "name": "_flag",
+          "name": "flag",
           "type": {
             "kind": "bool"
           }
@@ -781,15 +798,13 @@
       ],
       "returns": {
         "kind": "u32"
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "find_person",
       "params": [
         {
-          "name": "_name",
+          "name": "name",
           "type": {
             "kind": "string"
           }
@@ -797,9 +812,7 @@
       ],
       "returns": {
         "$ref": "Person"
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "public_with_private_helper",
@@ -813,9 +826,7 @@
       ],
       "returns": {
         "kind": "u32"
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "get_internal_result",
@@ -829,15 +840,13 @@
       ],
       "returns": {
         "$ref": "InternalResult"
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "create_custom_record",
       "params": [
         {
-          "name": "_name",
+          "name": "name",
           "type": {
             "kind": "string"
           }
@@ -851,15 +860,13 @@
       ],
       "returns": {
         "$ref": "CustomRecord"
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "get_nested_record",
       "params": [
         {
-          "name": "_name",
+          "name": "name",
           "type": {
             "kind": "string"
           }
@@ -867,15 +874,13 @@
       ],
       "returns": {
         "$ref": "NestedRecord"
-      },
-      "is_init": false,
-      "is_view": false
+      }
     },
     {
       "name": "get_status",
       "params": [
         {
-          "name": "_timestamp",
+          "name": "timestamp",
           "type": {
             "kind": "u64"
           }
@@ -883,9 +888,7 @@
       ],
       "returns": {
         "$ref": "Status"
-      },
-      "is_init": false,
-      "is_view": false
+      }
     }
   ],
   "events": [
