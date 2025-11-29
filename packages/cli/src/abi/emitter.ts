@@ -384,9 +384,18 @@ export class AbiEmitter {
       const variantName = variantClass.id?.name;
       if (!variantName) continue;
 
-      // Extract variant name (e.g., "Status_Active" -> "Active")
-      const nameParts = variantName.split('_');
-      const variantDisplayName = nameParts.length > 1 ? nameParts.slice(1).join('_') : variantName;
+      // Extract variant name (e.g., "Status_Active_Variant" -> "Active", "Status_Pending" -> "Pending")
+      // Handle both patterns: Status_Active_Variant and Status_Active
+      let nameParts = variantName.split('_');
+      // Remove base name (first part) and "_Variant" suffix if present
+      if (nameParts.length > 1 && nameParts[0] === baseName) {
+        nameParts = nameParts.slice(1);
+      }
+      // Remove "_Variant" suffix if present
+      if (nameParts[nameParts.length - 1] === 'Variant') {
+        nameParts = nameParts.slice(0, -1);
+      }
+      const variantDisplayName = nameParts.join('_') || variantName;
 
       // Skip duplicates
       if (seenVariants.has(variantDisplayName)) {
@@ -493,9 +502,20 @@ export class AbiEmitter {
         const params: Parameter[] = [];
         methodParams.forEach((param: any, index: number) => {
           if (param.type === 'Identifier' || param.type === 'Pattern') {
-            const paramName = param.name || param.left?.name;
+            let paramName = param.name || param.left?.name;
             const typeAnnotation = param.typeAnnotation || param.left?.typeAnnotation;
-            const typeRef = this.extractTypeFromAnnotation(typeAnnotation);
+            const isOptional = param.optional || false;
+            
+            // Strip leading underscore from parameter names (convention for unused params)
+            if (paramName && paramName.startsWith('_')) {
+              paramName = paramName.substring(1);
+            }
+            
+            // Extract type with context for type inference from method name
+            const typeRef = this.extractTypeFromAnnotation(typeAnnotation, {
+              methodName,
+              isReturn: false,
+            });
 
             // Skip 'this' parameter for non-static methods
             if (index === 0 && !isStatic && paramName === 'this') {
@@ -503,10 +523,14 @@ export class AbiEmitter {
             }
 
             if (paramName) {
-              params.push({
+              const paramObj: any = {
                 name: paramName,
                 type: typeRef,
-              });
+              };
+              if (isOptional) {
+                paramObj.nullable = true;
+              }
+              params.push(paramObj);
             }
           }
         });
@@ -520,8 +544,26 @@ export class AbiEmitter {
           returns = { kind: 'scalar', scalar: 'unit' } as any;
         } else {
           const returnType = member.returnType || member.value?.returnType;
+          let returnsNullable = false;
+          
           if (returnType) {
-            returns = this.extractTypeFromAnnotation(returnType);
+            // Check if return type is a union with undefined/null
+            if (
+              returnType.typeAnnotation?.type === 'TSUnionType' &&
+              returnType.typeAnnotation.types
+            ) {
+              const hasUndefined = returnType.typeAnnotation.types.some(
+                (t: any) => t.type === 'TSUndefinedKeyword' || t.type === 'TSNullKeyword'
+              );
+              if (hasUndefined) {
+                returnsNullable = true;
+              }
+            }
+            
+            returns = this.extractTypeFromAnnotation(returnType, {
+              methodName,
+              isReturn: true,
+            });
           }
 
           // Handle void return type - check if return type is explicitly void
@@ -532,6 +574,11 @@ export class AbiEmitter {
             // If no return type annotation, assume void for methods without explicit return
             // But check the actual return statement to be more accurate
             // For now, leave undefined and let Rust format serializer handle it
+          }
+          
+          // Store nullable flag for return type
+          if (returnsNullable) {
+            (returns as any).nullable = true;
           }
         }
 
@@ -612,7 +659,10 @@ export class AbiEmitter {
     }
   }
 
-  private extractTypeFromAnnotation(typeAnnotation: any): TypeRef {
+  private extractTypeFromAnnotation(
+    typeAnnotation: any,
+    context?: { methodName?: string; isReturn?: boolean }
+  ): TypeRef {
     if (!typeAnnotation?.typeAnnotation) {
       return { kind: 'string' } as any; // Default fallback
     }
@@ -622,35 +672,72 @@ export class AbiEmitter {
     switch (type.type) {
       case 'TSStringKeyword':
         return { kind: 'scalar', scalar: 'string' } as any;
-      case 'TSNumberKeyword':
-        // Default to u32 for numbers (can be overridden with explicit types)
-        // TODO: Infer u32 vs i32 vs f64 from context or type annotations
+      case 'TSNumberKeyword': {
+        // Infer type from method name if available (e.g., echo_i32 -> i32, echo_f64 -> f64)
+        if (context?.methodName) {
+          const methodName = context.methodName;
+          if (methodName.includes('_i32') || methodName.includes('_i64')) {
+            return methodName.includes('_i64')
+              ? ({ kind: 'scalar', scalar: 'i64' } as any)
+              : ({ kind: 'scalar', scalar: 'i32' } as any);
+          }
+          if (methodName.includes('_f32') || methodName.includes('_f64')) {
+            return methodName.includes('_f64')
+              ? ({ kind: 'scalar', scalar: 'f64' } as any)
+              : ({ kind: 'scalar', scalar: 'f32' } as any);
+          }
+        }
+        // Default to u32 for numbers
         return { kind: 'scalar', scalar: 'u32' } as any;
+      }
       case 'TSBooleanKeyword':
         return { kind: 'scalar', scalar: 'bool' } as any;
-      case 'TSBigIntKeyword':
+      case 'TSBigIntKeyword': {
+        // Infer signed vs unsigned from method name
+        if (context?.methodName && context.methodName.includes('_i64')) {
+          return { kind: 'scalar', scalar: 'i64' } as any;
+        }
         return { kind: 'scalar', scalar: 'u64' } as any;
-      case 'TSUnionType':
-        // Handle union types like T | null - extract the non-null type
-        // Filter out null/undefined types and use the first non-null type
+      }
+      case 'TSUnionType': {
+        // Handle union types like T | null | undefined
+        let hasNullable = false;
+        let nonNullType: any = null;
         if (type.types && Array.isArray(type.types)) {
           for (const unionMember of type.types) {
-            // Skip null and undefined types
+            // Skip null and undefined types but mark as nullable
             if (unionMember.type === 'TSNullKeyword' || unionMember.type === 'TSUndefinedKeyword') {
+              hasNullable = true;
               continue;
             }
-            // Recursively extract the first non-null type
-            return this.extractTypeFromAnnotation({ typeAnnotation: unionMember });
+            // Extract the first non-null type
+            if (!nonNullType) {
+              nonNullType = this.extractTypeFromAnnotation(
+                { typeAnnotation: unionMember },
+                context
+              );
+            }
           }
+        }
+        if (nonNullType) {
+          // Mark as nullable if union contained null/undefined
+          if (hasNullable && context?.isReturn) {
+            (nonNullType as any).nullable = true;
+          }
+          return nonNullType;
         }
         // If all types are null/undefined (shouldn't happen), fall through to default
         return { kind: 'string' } as any;
+      }
       case 'TSTypeReference':
         return this.extractTypeReference(type);
       case 'TSArrayType':
         return {
           kind: 'vector',
-          inner: this.extractTypeFromAnnotation({ typeAnnotation: type.elementType }),
+          inner: this.extractTypeFromAnnotation(
+            { typeAnnotation: type.elementType },
+            context
+          ),
         } as any;
       default:
         return { kind: 'string' } as any;
@@ -776,15 +863,28 @@ export class AbiEmitter {
         // This is a convention: if type name ends with digits, use as size
         const sizeMatch = typeName.match(/(\d+)$/);
         const size = sizeMatch ? parseInt(sizeMatch[1], 10) : undefined;
-
+        
+        // Also check comment for explicit size annotation (e.g., // bytes[32])
+        let explicitSize = size;
+        if (typeAlias.leadingComments) {
+          for (const comment of typeAlias.leadingComments) {
+            const commentText = comment.value || '';
+            const sizeMatchComment = commentText.match(/bytes\[(\d+)\]/);
+            if (sizeMatchComment) {
+              explicitSize = parseInt(sizeMatchComment[1], 10);
+              break;
+            }
+          }
+        }
+        
         const targetType: any = {
           kind: 'scalar',
           scalar: 'bytes',
         };
-        if (size !== undefined) {
-          targetType.size = size;
+        if (explicitSize !== undefined) {
+          targetType.size = explicitSize;
         }
-
+        
         this.types.set(typeName, {
           kind: 'alias',
           target: targetType,
@@ -885,7 +985,12 @@ export class AbiEmitter {
       return { $ref: (typeRef as any).$ref };
     }
 
-    // Fallback: return as-is (for string, bytes, etc.)
+    // Handle bytes type (can be scalar or direct kind)
+    if (typeRef.kind === 'scalar' && typeRef.scalar === 'bytes') {
+      return { kind: 'bytes' };
+    }
+    
+    // Fallback: return as-is (for string, etc.)
     if (typeRef.kind === 'scalar') {
       return { kind: typeRef.scalar || 'string' };
     }
@@ -899,7 +1004,12 @@ export class AbiEmitter {
   private serializeTypesToRustFormat(): Record<string, any> {
     const result: Record<string, any> = {};
 
-    for (const [typeName, typeDef] of this.types.entries()) {
+    // Sort types alphabetically for consistent output
+    const sortedTypes = Array.from(this.types.entries()).sort((a, b) =>
+      a[0].localeCompare(b[0])
+    );
+
+    for (const [typeName, typeDef] of sortedTypes) {
       const serialized: any = {
         kind: typeDef.kind,
       };
