@@ -52,17 +52,62 @@ async function download(url: string, dest: string): Promise<void> {
     const file = fs.createWriteStream(dest);
     https
       .get(url, response => {
+        // Check for HTTP errors
+        if (response.statusCode && response.statusCode >= 400) {
+          fs.unlinkSync(dest);
+          reject(new Error(`HTTP ${response.statusCode}: Failed to download ${url}`));
+          return;
+        }
+
+        // Track bytes downloaded
+        let bytesDownloaded = 0;
+        const contentLength = response.headers['content-length'];
+        const expectedSize = contentLength ? parseInt(contentLength, 10) : null;
+
+        response.on('data', chunk => {
+          bytesDownloaded += chunk.length;
+        });
+
         response.pipe(file);
         file.on('finish', () => {
           file.close();
+          // Verify download completed if content-length was provided
+          if (expectedSize !== null && bytesDownloaded !== expectedSize) {
+            fs.unlinkSync(dest);
+            reject(
+              new Error(
+                `Download incomplete: expected ${expectedSize} bytes, got ${bytesDownloaded} bytes`
+              )
+            );
+            return;
+          }
           resolve();
         });
       })
       .on('error', error => {
-        fs.unlinkSync(dest);
+        if (fs.existsSync(dest)) {
+          fs.unlinkSync(dest);
+        }
         reject(error);
       });
   });
+}
+
+async function downloadWithRetry(url: string, dest: string, maxRetries = 3): Promise<void> {
+  let lastError: Error | null = null;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await download(url, dest);
+      return; // Success
+    } catch (error) {
+      lastError = error as Error;
+      if (attempt < maxRetries) {
+        signale.warn(`Download attempt ${attempt} failed, retrying... (${error})`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+      }
+    }
+  }
+  throw lastError || new Error('Download failed after retries');
 }
 
 async function installQuickJS(): Promise<void> {
@@ -83,14 +128,21 @@ async function installQuickJS(): Promise<void> {
   const qjscUrl = `https://github.com/near/quickjs/releases/download/${versionTag}/${qjscBinary}`;
   const qjscDest = path.join(depsDir, 'qjsc');
 
-  await download(qjscUrl, qjscDest);
+  await downloadWithRetry(qjscUrl, qjscDest);
   fs.chmodSync(qjscDest, 0o755);
 
   // Download QuickJS source
   const sourceUrl = `https://github.com/near/quickjs/archive/refs/tags/${sourceTar}`;
   const sourceDest = path.join(depsDir, sourceTar);
 
-  await download(sourceUrl, sourceDest);
+  await downloadWithRetry(sourceUrl, sourceDest);
+
+  // Verify file exists and has content before extracting
+  const stats = fs.statSync(sourceDest);
+  if (stats.size === 0) {
+    fs.unlinkSync(sourceDest);
+    throw new Error('Downloaded file is empty');
+  }
 
   // Extract source
   execSync(`tar xzf ${sourceTar} --strip-components=1 -C ${quickjsDir}`, {
@@ -116,7 +168,14 @@ async function installWasiSDK(): Promise<void> {
   const url = `https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-11/${tarName}`;
   const dest = path.join(depsDir, tarName);
 
-  await download(url, dest);
+  await downloadWithRetry(url, dest);
+
+  // Verify file exists and has content before extracting
+  const stats = fs.statSync(dest);
+  if (stats.size === 0) {
+    fs.unlinkSync(dest);
+    throw new Error('Downloaded file is empty');
+  }
 
   // Extract
   execSync(`tar xzf ${tarName} --strip-components=1 -C ${wasiDir}`, {
@@ -144,7 +203,14 @@ async function installBinaryen(): Promise<void> {
   const url = `https://github.com/ailisp/binaryen/releases/download/${versionTag}/${tarName}`;
   const dest = path.join(depsDir, tarName);
 
-  await download(url, dest);
+  await downloadWithRetry(url, dest);
+
+  // Verify file exists and has content before extracting
+  const stats = fs.statSync(dest);
+  if (stats.size === 0) {
+    fs.unlinkSync(dest);
+    throw new Error('Downloaded file is empty');
+  }
 
   // Extract
   execSync(`tar xzf ${tarName} -C ${binaryenDir}`, {
