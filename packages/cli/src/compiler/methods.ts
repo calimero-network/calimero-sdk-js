@@ -135,7 +135,10 @@ async function tryLoadMethodRegistry(jsFile: string): Promise<MethodRegistrySnap
 }
 
 function emitHeaders(outputDir: string, methods: string[]): void {
-  const uniqueMethods = Array.from(new Set(methods));
+  // Filter and ensure all methods are strings
+  const uniqueMethods = Array.from(
+    new Set(methods.filter(m => typeof m === 'string' && m.length > 0))
+  );
 
   const methodMacroLines = uniqueMethods.map(method => `DEFINE_CALIMERO_METHOD(${method})`);
 

@@ -84,7 +84,8 @@ describe('ABI Embedding', () => {
       expect(abi.methods.length).toBeGreaterThan(0);
 
       // Check that init method exists
-      const initMethod = abi.methods.find((m: { is_init?: boolean }) => m.is_init === true);
+      // Note: is_init is not part of Rust ABI format, so we check by name
+      const initMethod = abi.methods.find((m: { name: string }) => m.name === 'init');
       expect(initMethod).toBeDefined();
     });
   });
