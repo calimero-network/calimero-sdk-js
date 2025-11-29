@@ -61,12 +61,13 @@ export interface Event {
 }
 
 export interface TypeRef {
-  kind: 'scalar' | 'option' | 'vector' | 'map' | 'set' | 'reference';
+  kind: 'scalar' | 'option' | 'vector' | 'map' | 'set' | 'reference' | 'bytes';
   scalar?: ScalarType;
   inner?: TypeRef;
   key?: TypeRef;
   value?: TypeRef;
   name?: string;
+  size?: number; // For bytes type
 }
 
 export type ScalarType =
@@ -940,7 +941,25 @@ export class AbiEmitter {
    * Rust format uses { "kind": "u32" } for scalars, not { "kind": "scalar", "scalar": "u32" }
    */
   private serializeTypeRefToRustFormat(typeRef: TypeRef): any {
+    // Handle bytes type directly (from alias) - check early before type narrowing
+    if (typeRef.kind === 'bytes') {
+      const result: any = { kind: 'bytes' };
+      if (typeRef.size !== undefined) {
+        result.size = typeRef.size;
+      }
+      return result;
+    }
+
     if (typeRef.kind === 'scalar' && typeRef.scalar) {
+      // Handle bytes type (can be scalar)
+      if (typeRef.scalar === 'bytes') {
+        const result: any = { kind: 'bytes' };
+        // Preserve size if present
+        if ((typeRef as any).size !== undefined) {
+          result.size = (typeRef as any).size;
+        }
+        return result;
+      }
       // Rust format: { "kind": "u32" } instead of { "kind": "scalar", "scalar": "u32" }
       // Special case: "unit" should stay as "unit"
       if (typeRef.scalar === 'unit') {
@@ -965,6 +984,15 @@ export class AbiEmitter {
       };
     }
 
+    if (typeRef.kind === 'set' && typeRef.inner) {
+      // Rust format uses "list" for sets, and "items" not "inner"
+      return {
+        kind: 'list',
+        items: this.serializeTypeRefToRustFormat(typeRef.inner),
+        crdt_type: 'unordered_set',
+      };
+    }
+
     if (typeRef.kind === 'option' && typeRef.inner) {
       return {
         kind: 'option',
@@ -980,25 +1008,6 @@ export class AbiEmitter {
     // Handle $ref format (already in Rust format)
     if ((typeRef as any).$ref) {
       return { $ref: (typeRef as any).$ref };
-    }
-
-    // Handle bytes type (can be scalar or direct kind)
-    if (typeRef.kind === 'scalar' && typeRef.scalar === 'bytes') {
-      const result: any = { kind: 'bytes' };
-      // Preserve size if present
-      if ((typeRef as any).size !== undefined) {
-        result.size = (typeRef as any).size;
-      }
-      return result;
-    }
-    
-    // Handle bytes type directly (from alias)
-    if (typeRef.kind === 'bytes') {
-      const result: any = { kind: 'bytes' };
-      if ((typeRef as any).size !== undefined) {
-        result.size = (typeRef as any).size;
-      }
-      return result;
     }
 
     // Fallback: return as-is (for string, etc.)
