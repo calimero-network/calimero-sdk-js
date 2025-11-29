@@ -220,8 +220,8 @@ export class AbiLogic extends AbiState {
     return x;
   }
 
-  opt_string(s?: string): string | undefined {
-    return s;
+  opt_string(x?: string): string | undefined {
+    return x;
   }
 
   opt_record(p?: Person): Person | undefined {
