@@ -402,27 +402,21 @@ export class AbiEmitter {
         continue; // This is a state class, not a variant
       }
 
+      // Check if there are variant classes for this base
+      const variantClasses = variantBases.get(baseName) || [];
       // Check if there are payload types for this base
       const payloadTypes = Array.from(this.types.keys()).filter(
         name => name.startsWith(`${baseName}_`) && this.types.get(name)?.kind === 'record'
       );
-      // Check if there are variant classes for this base
-      const variantClasses = variantBases.get(baseName) || [];
-      // Create variant type if payload types exist or variant classes exist
+
+      // Always create variant type if payload types exist or variant classes exist
+      // This ensures variant types are created even if analyzeVariantPattern didn't add them
       if (payloadTypes.length > 0 || variantClasses.length > 0) {
-        // Create variant type from payload types
+        // Create variant type - start by collecting variants from variant classes
         const variants: any[] = [];
         const seenVariants = new Set<string>();
-        for (const payloadTypeName of payloadTypes) {
-          const variantName = payloadTypeName.substring(baseName.length + 1);
-          if (seenVariants.has(variantName)) continue;
-          seenVariants.add(variantName);
-          variants.push({
-            name: variantName,
-            payload: { $ref: payloadTypeName },
-          });
-        }
-        // Also check for variants without payloads (e.g., Action_Ping)
+
+        // First, collect variants from variant classes (this ensures all variants are included)
         for (const variantClass of variantClasses) {
           const variantClassName = variantClass.id?.name;
           if (!variantClassName) continue;
@@ -436,24 +430,202 @@ export class AbiEmitter {
           const variantDisplayName = nameParts.join('_') || variantClassName;
           if (!seenVariants.has(variantDisplayName)) {
             seenVariants.add(variantDisplayName);
-            // Check if payload type exists
-            const payloadTypeName = `${baseName}_${variantDisplayName}`;
-            if (this.types.has(payloadTypeName)) {
-              variants.push({
-                name: variantDisplayName,
-                payload: { $ref: payloadTypeName },
+
+            // Check if variant has payload (constructor parameters)
+            let payloadType: any = undefined;
+            if (variantClass.body?.body) {
+              variantClass.body.body.forEach((member: any) => {
+                if (member.type === 'ClassMethod' || member.type === 'MethodDefinition') {
+                  if (member.key?.name === 'constructor' && member.params) {
+                    member.params.forEach((param: any) => {
+                      // Handle TSParameterProperty (TypeScript parameter property: constructor(public field: type))
+                      if (
+                        param.type === 'TSParameterProperty' &&
+                        param.accessibility === 'public'
+                      ) {
+                        const innerParam = param.parameter;
+                        if (innerParam.name === 'payload') {
+                          payloadType = this.extractTypeFromAnnotation(innerParam.typeAnnotation);
+                        }
+                      }
+                    });
+                  }
+                }
               });
+            }
+
+            if (payloadType) {
+              // Variant has payload
+              // Check if payload type is a reference to an existing type
+              if (payloadType.kind === 'reference' && payloadType.name) {
+                // Check if the referenced type exists
+                if (this.types.has(payloadType.name)) {
+                  // Use the reference directly (e.g., Action_MultiStruct, UpdatePayload)
+                  variants.push({
+                    name: variantDisplayName,
+                    payload: payloadType,
+                  });
+                } else {
+                  // Reference doesn't exist - check if payload type name matches pattern
+                  const payloadTypeName = `${baseName}_${variantDisplayName}`;
+                  if (this.types.has(payloadTypeName)) {
+                    variants.push({
+                      name: variantDisplayName,
+                      payload: { $ref: payloadTypeName },
+                    });
+                  } else {
+                    // Use the reference anyway (might be a forward reference)
+                    variants.push({
+                      name: variantDisplayName,
+                      payload: payloadType,
+                    });
+                  }
+                }
+              } else {
+                // Scalar type or other non-reference type - use directly
+                variants.push({
+                  name: variantDisplayName,
+                  payload: payloadType,
+                });
+              }
             } else {
+              // Variant without payload
               variants.push({ name: variantDisplayName });
             }
           }
         }
-        if (variants.length > 0) {
-          this.types.set(baseName, {
-            kind: 'variant',
-            variants,
+
+        // Also add variants from payload types that weren't already added
+        for (const payloadTypeName of payloadTypes) {
+          const variantName = payloadTypeName.substring(baseName.length + 1);
+          if (!seenVariants.has(variantName)) {
+            seenVariants.add(variantName);
+            variants.push({
+              name: variantName,
+              payload: { $ref: payloadTypeName },
+            });
+          }
+        }
+
+        // Always create variant type if we have variants OR if payload types exist
+        // This ensures variant types are created even if variant classes weren't found
+        if (variants.length > 0 || payloadTypes.length > 0) {
+          // If variants.length is 0 but payloadTypes exist, create variants from payload types
+          if (variants.length === 0 && payloadTypes.length > 0) {
+            for (const payloadTypeName of payloadTypes) {
+              const variantName = payloadTypeName.substring(baseName.length + 1);
+              if (!seenVariants.has(variantName)) {
+                seenVariants.add(variantName);
+                variants.push({
+                  name: variantName,
+                  payload: { $ref: payloadTypeName },
+                });
+              }
+            }
+          }
+
+          // Always create variant type if we have variants
+          if (variants.length > 0) {
+            // Merge with existing variants if variant type already exists
+            if (existingType && existingType.kind === 'variant' && existingType.variants) {
+              // Merge variants, avoiding duplicates
+              const existingVariants = existingType.variants;
+              const existingVariantNames = new Set(existingVariants.map((v: any) => v.name));
+              for (const variant of variants) {
+                if (!existingVariantNames.has(variant.name)) {
+                  existingVariants.push(variant);
+                }
+              }
+              this.types.set(baseName, {
+                kind: 'variant',
+                variants: existingVariants,
+              });
+            } else {
+              // Create new variant type
+              this.types.set(baseName, {
+                kind: 'variant',
+                variants,
+              });
+            }
+          } else if (payloadTypes.length > 0) {
+            // Fallback: create variant type from payload types even if variants.length is 0
+            // This handles edge cases where variant extraction failed
+            const fallbackVariants: any[] = [];
+            for (const payloadTypeName of payloadTypes) {
+              const variantName = payloadTypeName.substring(baseName.length + 1);
+              fallbackVariants.push({
+                name: variantName,
+                payload: { $ref: payloadTypeName },
+              });
+            }
+            if (fallbackVariants.length > 0) {
+              this.types.set(baseName, {
+                kind: 'variant',
+                variants: fallbackVariants,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Final safety check: Create variant types from any payload types that weren't handled
+    // This ensures variant types are always created if payload types exist
+    // First, collect all base names from payload types
+    const baseNamesFromPayloads = new Map<string, string[]>(); // baseName -> payload type names
+    for (const [typeName, typeDef] of this.types.entries()) {
+      // Check if this is a payload type (e.g., Action_MultiStruct, Status_Active)
+      if (typeDef.kind === 'record' && typeName.includes('_')) {
+        const parts = typeName.split('_');
+        if (parts.length >= 2) {
+          const baseName = parts[0];
+          if (!baseNamesFromPayloads.has(baseName)) {
+            baseNamesFromPayloads.set(baseName, []);
+          }
+          baseNamesFromPayloads.get(baseName)!.push(typeName);
+        }
+      }
+    }
+
+    // Now create variant types for each base name that has payload types
+    for (const [baseName, payloadTypeNames] of baseNamesFromPayloads.entries()) {
+      // Check if variant type already exists
+      const existingType = this.types.get(baseName);
+      // Only skip if it's already a record (state class) or variant
+      if (existingType && existingType.kind === 'record') {
+        continue; // This is a state class, not a variant
+      }
+      if (existingType && existingType.kind === 'variant') {
+        continue; // Already a variant, skip
+      }
+
+      // Create variant type from payload types
+      const variants: any[] = [];
+      const seenVariants = new Set<string>();
+      for (const payloadTypeName of payloadTypeNames) {
+        const variantName = payloadTypeName.substring(baseName.length + 1);
+        if (!seenVariants.has(variantName)) {
+          seenVariants.add(variantName);
+          variants.push({
+            name: variantName,
+            payload: { $ref: payloadTypeName },
           });
         }
+      }
+
+      // Always create variant type if we have payload types
+      // variants.length should be > 0 if payloadTypeNames.length > 0, but create it anyway
+      if (payloadTypeNames.length > 0) {
+        this.types.set(baseName, {
+          kind: 'variant',
+          variants:
+            variants.length > 0
+              ? variants
+              : payloadTypeNames.map(name => ({
+                  name: name.substring(baseName.length + 1),
+                  payload: { $ref: name },
+                })),
+        });
       }
     }
 
@@ -714,18 +886,26 @@ export class AbiEmitter {
         // Otherwise, create a record type for the payload
         if (fields.length === 1 && fields[0].name === 'payload') {
           const payloadType = fields[0].type;
-          // Check if payload type is a reference to an existing type (not a payload type we created)
+          // Check if payload type is a reference to an existing type
           if (payloadType.kind === 'reference' && payloadType.name) {
-            // Check if this is a payload type we would create (e.g., Action_SetName)
+            // Check if the referenced type already exists (e.g., Action_MultiStruct, UpdatePayload)
+            // If it exists, use it directly; otherwise, it might be a payload type we need to create
             const wouldCreatePayloadType = `${baseName}_${variantDisplayName}`;
-            if (payloadType.name !== wouldCreatePayloadType) {
-              // Use the reference directly (e.g., UpdatePayload)
+            if (this.types.has(payloadType.name)) {
+              // Type already exists - use it directly (e.g., Action_MultiStruct, UpdatePayload)
+              variants.push({
+                name: variantDisplayName,
+                payload: payloadType,
+              });
+            } else if (payloadType.name !== wouldCreatePayloadType) {
+              // Reference to a type that doesn't exist yet but isn't the payload type we'd create
+              // This might be a forward reference - use it directly
               variants.push({
                 name: variantDisplayName,
                 payload: payloadType,
               });
             } else {
-              // This shouldn't happen, but fall through to create payload type
+              // This is the payload type we would create - create it now
               const payloadTypeName = `${baseName}_${variantDisplayName}`;
               this.types.set(payloadTypeName, {
                 kind: 'record',
