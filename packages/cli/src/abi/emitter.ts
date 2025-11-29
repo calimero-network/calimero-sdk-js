@@ -301,7 +301,7 @@ export class AbiEmitter {
       }
       // If class has subclasses, treat as variant (classes with subclasses are typically variant bases)
       // Always analyze as variant if we have variants
-      if (variants.length > 0) {
+      if (variants.length > 0 && baseName) {
         if (baseClass) {
           this.analyzeVariantPattern(baseClass, variants);
         } else {
@@ -310,18 +310,24 @@ export class AbiEmitter {
           const dummyBaseClass = { id: { name: baseName }, abstract: true };
           this.analyzeVariantPattern(dummyBaseClass, variants);
         }
-        // Ensure variant type was added (fallback check)
-        if (!this.types.has(baseName)) {
-          // Variant type wasn't added - add it directly
-          // This handles edge cases where analyzeVariantPattern doesn't add the type
-          const existingType = this.types.get(baseName);
-          if (!existingType || existingType.kind !== 'record') {
-            // Extract variants from variant classes
+        // Always ensure variant type was added (critical check)
+        // analyzeVariantPattern should add it, but ensure it's there as fallback
+        const existingType = this.types.get(baseName);
+        if (!existingType || existingType.kind !== 'record') {
+          // Check if variant type was already added
+          if (existingType && existingType.kind === 'variant') {
+            // Already added - good! Skip fallback
+          } else {
+            // Variant type wasn't added - extract variants from payload types that were created
+            // Look for payload types that match the pattern: ${baseName}_${variantName}
             const variantList: any[] = [];
             const seenVariants = new Set<string>();
+
+            // Extract variants from variant classes and payload types
             for (const variantClass of variants) {
               const variantName = variantClass.id?.name;
               if (!variantName) continue;
+
               // Extract variant name
               let nameParts = variantName.split('_');
               if (nameParts.length > 1 && nameParts[0] === baseName) {
@@ -333,8 +339,31 @@ export class AbiEmitter {
               const variantDisplayName = nameParts.join('_') || variantName;
               if (seenVariants.has(variantDisplayName)) continue;
               seenVariants.add(variantDisplayName);
-              variantList.push({ name: variantDisplayName });
+
+              // Check if payload type exists (e.g., Action_MultiStruct, Status_Active)
+              const payloadTypeName = `${baseName}_${variantDisplayName}`;
+              if (this.types.has(payloadTypeName)) {
+                variantList.push({
+                  name: variantDisplayName,
+                  payload: { $ref: payloadTypeName },
+                });
+              } else {
+                // Check constructor for payload
+                const hasPayload = variantClass.body?.body?.some(
+                  (member: any) =>
+                    (member.type === 'ClassMethod' || member.type === 'MethodDefinition') &&
+                    member.key?.name === 'constructor' &&
+                    member.params?.length > 0
+                );
+                if (hasPayload) {
+                  // Has payload but payload type not created - create simple variant
+                  variantList.push({ name: variantDisplayName });
+                } else {
+                  variantList.push({ name: variantDisplayName });
+                }
+              }
             }
+
             if (variantList.length > 0) {
               this.types.set(baseName, {
                 kind: 'variant',
@@ -342,6 +371,82 @@ export class AbiEmitter {
               });
             }
           }
+        }
+      }
+    }
+
+    // Final pass: Create variant types from payload types that exist
+    // This handles cases where payload types were created but variant type wasn't added
+    const baseNamesWithPayloads = new Set<string>();
+    for (const [typeName, typeDef] of this.types.entries()) {
+      // Check if this is a payload type (e.g., Action_MultiStruct, Status_Active)
+      if (typeDef.kind === 'record' && typeName.includes('_')) {
+        const parts = typeName.split('_');
+        if (parts.length >= 2) {
+          const baseName = parts[0];
+          baseNamesWithPayloads.add(baseName);
+        }
+      }
+    }
+
+    // Create variant types for all base names that have payload types
+    for (const baseName of baseNamesWithPayloads) {
+      // Check if base type exists and is a record (state class) - don't overwrite
+      const existingType = this.types.get(baseName);
+      if (existingType && existingType.kind === 'record') {
+        continue; // This is a state class, not a variant
+      }
+
+      // Check if there are payload types for this base
+      const payloadTypes = Array.from(this.types.keys()).filter(
+        name => name.startsWith(`${baseName}_`) && this.types.get(name)?.kind === 'record'
+      );
+      // Create variant type if payload types exist
+      if (payloadTypes.length > 0) {
+        // Create variant type from payload types
+        const variants: any[] = [];
+        const seenVariants = new Set<string>();
+        for (const payloadTypeName of payloadTypes) {
+          const variantName = payloadTypeName.substring(baseName.length + 1);
+          if (seenVariants.has(variantName)) continue;
+          seenVariants.add(variantName);
+          variants.push({
+            name: variantName,
+            payload: { $ref: payloadTypeName },
+          });
+        }
+        // Also check for variants without payloads (e.g., Action_Ping)
+        const variantClasses = variantBases.get(baseName) || [];
+        for (const variantClass of variantClasses) {
+          const variantClassName = variantClass.id?.name;
+          if (!variantClassName) continue;
+          let nameParts = variantClassName.split('_');
+          if (nameParts.length > 1 && nameParts[0] === baseName) {
+            nameParts = nameParts.slice(1);
+          }
+          if (nameParts[nameParts.length - 1] === 'Variant') {
+            nameParts = nameParts.slice(0, -1);
+          }
+          const variantDisplayName = nameParts.join('_') || variantClassName;
+          if (!seenVariants.has(variantDisplayName)) {
+            seenVariants.add(variantDisplayName);
+            // Check if payload type exists
+            const payloadTypeName = `${baseName}_${variantDisplayName}`;
+            if (this.types.has(payloadTypeName)) {
+              variants.push({
+                name: variantDisplayName,
+                payload: { $ref: payloadTypeName },
+              });
+            } else {
+              variants.push({ name: variantDisplayName });
+            }
+          }
+        }
+        if (variants.length > 0) {
+          this.types.set(baseName, {
+            kind: 'variant',
+            variants,
+          });
         }
       }
     }
@@ -621,7 +726,7 @@ export class AbiEmitter {
     // Only add if we have variants and the type doesn't already exist as a record
     if (variants.length > 0) {
       const existingType = this.types.get(baseName);
-      // Don't overwrite record types (state classes), but always add variant types
+      // Don't overwrite record types (state classes), but always add/update variant types
       if (!existingType) {
         // No existing type - add variant
         this.types.set(baseName, {
@@ -632,7 +737,8 @@ export class AbiEmitter {
         // Existing type is a record (state class) - don't overwrite
         // This is correct behavior
       } else {
-        // Existing type is not a record - update to variant (might have been a placeholder)
+        // Existing type exists but is not a record - update to variant
+        // This handles cases where a placeholder was added earlier
         this.types.set(baseName, {
           kind: 'variant',
           variants,
