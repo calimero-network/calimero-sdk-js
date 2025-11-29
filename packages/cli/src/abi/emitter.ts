@@ -1454,6 +1454,32 @@ export class AbiEmitter {
     }
 
     const type = typeAnnotation.typeAnnotation || typeAnnotation;
+
+    // Handle union types (e.g., number | null, boolean | null)
+    // Extract non-null types from unions, similar to extractTypeFromAnnotation
+    if (type.type === 'TSUnionType') {
+      let nonNullType: any = null;
+      if (type.types && Array.isArray(type.types)) {
+        for (const unionMember of type.types) {
+          // Skip null and undefined types
+          if (unionMember.type === 'TSNullKeyword' || unionMember.type === 'TSUndefinedKeyword') {
+            continue;
+          }
+          // Extract the first non-null type recursively
+          if (!nonNullType) {
+            nonNullType = this.serializeTypeRefWithCrdtMetadata({
+              typeAnnotation: unionMember,
+            });
+          }
+        }
+      }
+      if (nonNullType) {
+        return nonNullType;
+      }
+      // If all types are null/undefined (shouldn't happen), fall through to default
+      return { kind: 'string' };
+    }
+
     const typeName = type.typeName?.name;
 
     if (!typeName) {
