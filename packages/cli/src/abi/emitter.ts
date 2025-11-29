@@ -514,19 +514,25 @@ export class AbiEmitter {
         // Extract return type
         // Babel uses 'returnType', TypeScript uses 'value.returnType'
         let returns: TypeRef | undefined;
-        const returnType = member.returnType || member.value?.returnType;
-        if (returnType) {
-          returns = this.extractTypeFromAnnotation(returnType);
-        }
-
-        // Handle void return type - check if return type is explicitly void
-        const returnTypeNode = member.returnType || member.value?.returnType;
-        if (returnTypeNode?.typeAnnotation?.type === 'TSVoidKeyword') {
+        
+        // Init methods always return unit in Rust ABI format
+        if (isInit) {
           returns = { kind: 'scalar', scalar: 'unit' } as any;
-        } else if (!returns) {
-          // If no return type annotation, assume void for methods without explicit return
-          // But check the actual return statement to be more accurate
-          // For now, leave undefined and let Rust format serializer handle it
+        } else {
+          const returnType = member.returnType || member.value?.returnType;
+          if (returnType) {
+            returns = this.extractTypeFromAnnotation(returnType);
+          }
+
+          // Handle void return type - check if return type is explicitly void
+          const returnTypeNode = member.returnType || member.value?.returnType;
+          if (returnTypeNode?.typeAnnotation?.type === 'TSVoidKeyword') {
+            returns = { kind: 'scalar', scalar: 'unit' } as any;
+          } else if (!returns) {
+            // If no return type annotation, assume void for methods without explicit return
+            // But check the actual return statement to be more accurate
+            // For now, leave undefined and let Rust format serializer handle it
+          }
         }
 
         this.methods.push({
