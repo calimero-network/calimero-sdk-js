@@ -514,7 +514,7 @@ export class AbiEmitter {
         // Extract return type
         // Babel uses 'returnType', TypeScript uses 'value.returnType'
         let returns: TypeRef | undefined;
-        
+
         // Init methods always return unit in Rust ABI format
         if (isInit) {
           returns = { kind: 'scalar', scalar: 'unit' } as any;
