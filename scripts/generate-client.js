@@ -41,7 +41,7 @@ const abi = JSON.parse(fs.readFileSync(ABI_FILE, 'utf-8'));
 const { state_root, ...filteredAbi } = abi;
 
 // Create temporary file for filtered ABI
-const tempDir = os.tmpdir();
+const tempDir = require('os').tmpdir();
 const tempAbiPath = path.join(tempDir, `calimero-abi-${Date.now()}.json`);
 
 try {
