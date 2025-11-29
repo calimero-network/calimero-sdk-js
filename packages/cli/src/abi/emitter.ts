@@ -93,6 +93,7 @@ export class AbiEmitter {
   private methods: Method[] = [];
   private events: Event[] = [];
   private stateRoot?: string;
+  private abstractClasses: Map<string, any> = new Map(); // Track abstract classes for variant analysis
 
   /**
    * Analyze a JavaScript/TypeScript file and generate ABI manifest
@@ -233,6 +234,11 @@ export class AbiEmitter {
     traverse(ast, {
       ClassDeclaration: (nodePath: any) => {
         const className = nodePath.node.id?.name;
+        // Store abstract classes
+        if (className && nodePath.node.abstract === true) {
+          this.abstractClasses.set(className, nodePath.node);
+        }
+        // Collect variant classes (classes with superclass)
         if (className && nodePath.node.superClass?.type === 'Identifier') {
           const superClassName = nodePath.node.superClass.name;
           if (!variantBases.has(superClassName)) {
@@ -244,6 +250,11 @@ export class AbiEmitter {
       ExportNamedDeclaration: (nodePath: any) => {
         if (nodePath.node.declaration?.type === 'ClassDeclaration') {
           const className = nodePath.node.declaration.id?.name;
+          // Store abstract classes
+          if (className && nodePath.node.declaration.abstract === true) {
+            this.abstractClasses.set(className, nodePath.node.declaration);
+          }
+          // Collect variant classes (classes with superclass)
           if (className && nodePath.node.declaration.superClass?.type === 'Identifier') {
             const superClassName = nodePath.node.declaration.superClass.name;
             if (!variantBases.has(superClassName)) {
@@ -262,9 +273,73 @@ export class AbiEmitter {
       if (analyzedBases.has(baseName)) continue;
       analyzedBases.add(baseName);
 
-      const baseClass = this.findClassInAst(ast, baseName);
-      if (baseClass && baseClass.abstract) {
+      // Try to find the base class - check stored abstract classes first, then AST
+      let baseClass = this.abstractClasses.get(baseName);
+      if (!baseClass) {
+        baseClass = this.findClassInAst(ast, baseName);
+      }
+      // If class has subclasses, treat as variant (classes with subclasses are typically variant bases)
+      if (baseClass && variants.length > 0) {
         this.analyzeVariantPattern(baseClass, variants);
+      }
+    }
+
+    // Also check for abstract classes that are referenced in methods/events but might not have been found
+    // This handles cases where variant types are used but the pattern wasn't detected
+    const referencedTypes = new Set<string>();
+    // Collect all referenced types from methods
+    this.methods.forEach(method => {
+      method.params.forEach(param => {
+        if (param.type.kind === 'reference' && param.type.name) {
+          referencedTypes.add(param.type.name);
+        }
+      });
+      if (method.returns && method.returns.kind === 'reference' && method.returns.name) {
+        referencedTypes.add(method.returns.name);
+      }
+    });
+    // Collect all referenced types from events
+    this.events.forEach(event => {
+      event.fields.forEach(field => {
+        if (field.type.kind === 'reference' && field.type.name) {
+          referencedTypes.add(field.type.name);
+        }
+      });
+    });
+
+    // For each referenced type that's not in types map, check if it's a variant base
+    for (const typeName of referencedTypes) {
+      if (!this.types.has(typeName)) {
+        // Try to find the class - check stored abstract classes first, then AST
+        let classNode = this.abstractClasses.get(typeName);
+        if (!classNode) {
+          classNode = this.findClassInAst(ast, typeName);
+        }
+        if (classNode) {
+          // Check if it has subclasses (variant pattern)
+          const subclasses = variantBases.get(typeName) || [];
+          if (subclasses.length > 0) {
+            this.analyzeVariantPattern(classNode, subclasses);
+          } else {
+            // If no subclasses found but class is abstract with static methods, analyze as variant
+            // This handles cases where variant pattern detection failed
+            const hasStaticMethods = classNode.body?.body?.some(
+              (member: any) =>
+                (member.type === 'ClassMethod' || member.type === 'MethodDefinition') &&
+                member.static === true &&
+                member.key?.name
+            );
+            if (classNode.abstract === true || hasStaticMethods) {
+              // Create empty variant type as fallback (will be populated if subclasses are found later)
+              // Actually, don't add empty variants - only add if we have subclasses
+              // But ensure we try to find subclasses one more time
+              const subclassesRetry = variantBases.get(typeName) || [];
+              if (subclassesRetry.length > 0) {
+                this.analyzeVariantPattern(classNode, subclassesRetry);
+              }
+            }
+          }
+        }
       }
     }
 
@@ -297,6 +372,11 @@ export class AbiEmitter {
 
     if (hasEventDecorator) {
       this.analyzeEventClass(classNode);
+    }
+
+    // Store abstract classes for variant pattern analysis
+    if (classNode.abstract === true) {
+      this.abstractClasses.set(className, classNode);
     }
 
     // Also analyze classes that are referenced but not decorated (e.g., Profile, Status variants)
@@ -354,6 +434,11 @@ export class AbiEmitter {
   }
 
   private findClassInAst(ast: any, className: string): any {
+    // First check if we've already stored this abstract class
+    if (this.abstractClasses.has(className)) {
+      return this.abstractClasses.get(className);
+    }
+
     let found: any = null;
     traverse(ast, {
       ClassDeclaration: (nodePath: any) => {
@@ -469,8 +554,9 @@ export class AbiEmitter {
       }
     }
 
-    // Add variant type (only if not already present)
-    if (!this.types.has(baseName)) {
+    // Add variant type (always add/update to ensure variant types are included)
+    // This handles cases where a placeholder type might have been added earlier
+    if (variants.length > 0) {
       this.types.set(baseName, {
         kind: 'variant',
         variants,
@@ -857,13 +943,11 @@ export class AbiEmitter {
         typeAnnotation.typeName?.name === 'Uint8Array'
       ) {
         // For bytes aliases, check if there's a size constraint
-        // Check for size annotation in type name (e.g., UserId32 -> 32)
-        // This is a convention: if type name ends with digits, use as size
-        const sizeMatch = typeName.match(/(\d+)$/);
-        const size = sizeMatch ? parseInt(sizeMatch[1], 10) : undefined;
+        // Only extract size from comments (e.g., // bytes[32]) or type annotations
+        // Do NOT infer size from type name alone
+        let explicitSize: number | undefined = undefined;
 
-        // Also check comment for explicit size annotation (e.g., // bytes[32])
-        let explicitSize = size;
+        // Check comment for explicit size annotation (e.g., // bytes[32])
         if (typeAlias.leadingComments) {
           for (const comment of typeAlias.leadingComments) {
             const commentText = comment.value || '';
