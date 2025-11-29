@@ -37,10 +37,11 @@ console.log(`   Output: ${OUTPUT_DIR}`);
 
 // Read ABI and filter out state_root for abi-codegen (it doesn't support this field)
 const abi = JSON.parse(fs.readFileSync(ABI_FILE, 'utf-8'));
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { state_root, ...filteredAbi } = abi;
 
 // Create temporary file for filtered ABI
-const tempDir = require('os').tmpdir();
+const tempDir = os.tmpdir();
 const tempAbiPath = path.join(tempDir, `calimero-abi-${Date.now()}.json`);
 
 try {
