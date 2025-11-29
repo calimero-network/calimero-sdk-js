@@ -4,10 +4,11 @@
  * Script to generate TypeScript client from ABI using abi-codegen
  * Usage: node scripts/generate-client.js <abi-json-path> <output-dir> [client-name]
  *
- * This script filters out Rust-specific fields (state_root, is_init, is_view)
- * from the ABI before passing it to abi-codegen, while keeping the original abi.json intact.
+ * Note: Filters out state_root for abi-codegen compatibility, while keeping
+ * the original abi.json intact with all fields for runtime use.
  */
 
+/* eslint-disable @typescript-eslint/no-var-requires */
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
@@ -19,7 +20,9 @@ const CLIENT_NAME = process.argv[4];
 if (!fs.existsSync(ABI_FILE)) {
   console.error(`❌ Error: ABI file not found: ${ABI_FILE}`);
   console.error('');
-  console.error('Usage: node scripts/generate-client.js <abi-json-path> <output-dir> [client-name]');
+  console.error(
+    'Usage: node scripts/generate-client.js <abi-json-path> <output-dir> [client-name]'
+  );
   console.error('');
   console.error('Example:');
   console.error(
@@ -32,19 +35,9 @@ console.log('📦 Generating TypeScript client from ABI...');
 console.log(`   Input:  ${ABI_FILE}`);
 console.log(`   Output: ${OUTPUT_DIR}`);
 
-// Read and filter ABI (remove Rust-specific fields)
+// Read ABI and filter out state_root for abi-codegen (it doesn't support this field)
 const abi = JSON.parse(fs.readFileSync(ABI_FILE, 'utf-8'));
-
-// Filter out Rust-specific fields: state_root, is_init, is_view
-const filteredAbi = {
-  schema_version: abi.schema_version,
-  types: abi.types,
-  methods: abi.methods.map((method) => {
-    const { is_init, is_view, ...rest } = method;
-    return rest;
-  }),
-  events: abi.events,
-};
+const { state_root, ...filteredAbi } = abi;
 
 // Create temporary file for filtered ABI
 const tempDir = require('os').tmpdir();
@@ -64,7 +57,7 @@ try {
     stdio: 'inherit',
   });
 
-  codegen.on('close', (code) => {
+  codegen.on('close', code => {
     // Clean up temporary file
     try {
       fs.unlinkSync(tempAbiPath);
@@ -93,4 +86,3 @@ try {
   console.error('❌ Error:', error.message);
   process.exit(1);
 }
-

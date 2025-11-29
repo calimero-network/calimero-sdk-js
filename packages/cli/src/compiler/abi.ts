@@ -210,8 +210,6 @@ export async function generateAbiSchema(options: AbiOptions): Promise<string> {
               },
             },
             returns: { $ref: '#/definitions/TypeRef' },
-            is_init: { type: 'boolean' },
-            is_view: { type: 'boolean' },
           },
           additionalProperties: false,
         },
@@ -337,4 +335,41 @@ export async function generateAbiSchema(options: AbiOptions): Promise<string> {
   }
 
   return schemaPath;
+}
+
+/**
+ * Generates state schema JSON (state_root + types with CRDT metadata) from source
+ *
+ * @param sourceFile - Path to source TypeScript/JavaScript file
+ * @param abiJsonPath - Path to ABI JSON file (for state_root reference)
+ * @param options - Options for state schema generation
+ * @returns Path to generated state-schema.json file
+ */
+export async function generateStateSchema(
+  sourceFile: string,
+  abiJsonPath: string,
+  options: AbiOptions
+): Promise<string> {
+  const stateSchemaPath = path.join(options.outputDir, 'state-schema.json');
+
+  // Read ABI manifest to get state_root
+  const abi = JSON.parse(fs.readFileSync(abiJsonPath, 'utf-8'));
+
+  // Import the emitter to generate state schema with CRDT metadata
+  const { generateAbiManifestRustFormatWithStateSchema } = await import('../abi/emitter.js');
+
+  // Generate state schema with CRDT metadata
+  const stateSchema = generateAbiManifestRustFormatWithStateSchema(sourceFile, abi.state_root);
+
+  // Write state schema JSON file
+  fs.writeFileSync(stateSchemaPath, JSON.stringify(stateSchema, null, 2));
+
+  if (options.verbose) {
+    const stats = fs.statSync(stateSchemaPath);
+    console.log(
+      `State schema generated: ${stateSchemaPath} (${(stats.size / 1024).toFixed(2)} KB)`
+    );
+  }
+
+  return stateSchemaPath;
 }

@@ -1,0 +1,18 @@
+{
+  "name": "state-schema-conformance-example",
+  "version": "0.1.0",
+  "private": true,
+  "description": "State schema conformance test example for Calimero JavaScript SDK",
+  "scripts": {
+    "build": "calimero-sdk build src/index.ts -o build/service.wasm",
+    "build:manual": "calimero-sdk build src/index.ts -o build/service.wasm",
+    "clean": "rm -rf build"
+  },
+  "dependencies": {
+    "@calimero-network/calimero-sdk-js": "workspace:*"
+  },
+  "devDependencies": {
+    "@calimero-network/calimero-cli-js": "workspace:*",
+    "typescript": "^5.3.3"
+  }
+}

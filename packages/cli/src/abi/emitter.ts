@@ -202,9 +202,11 @@ export class AbiEmitter {
       },
     });
 
-    // Second pass: Find decorated classes
+    // Second pass: Find all classes (decorated and referenced)
     // Track analyzed classes to avoid duplicates (exported classes appear in both ClassDeclaration and ExportNamedDeclaration)
     const analyzedClasses = new Set<string>();
+
+    // First, analyze decorated classes (State, Logic, Event)
     traverse(ast, {
       ClassDeclaration: (nodePath: any) => {
         const className = nodePath.node.id?.name;
@@ -223,6 +225,47 @@ export class AbiEmitter {
         }
       },
     });
+
+    // Third pass: Analyze variant patterns (abstract classes with concrete subclasses)
+    // This handles patterns like abstract class Status with Status_Active, Status_Pending, etc.
+    const variantBases = new Map<string, any[]>(); // base class name -> variant classes
+    traverse(ast, {
+      ClassDeclaration: (nodePath: any) => {
+        const className = nodePath.node.id?.name;
+        if (className && nodePath.node.superClass?.type === 'Identifier') {
+          const superClassName = nodePath.node.superClass.name;
+          if (!variantBases.has(superClassName)) {
+            variantBases.set(superClassName, []);
+          }
+          variantBases.get(superClassName)!.push(nodePath.node);
+        }
+      },
+      ExportNamedDeclaration: (nodePath: any) => {
+        if (nodePath.node.declaration?.type === 'ClassDeclaration') {
+          const className = nodePath.node.declaration.id?.name;
+          if (className && nodePath.node.declaration.superClass?.type === 'Identifier') {
+            const superClassName = nodePath.node.declaration.superClass.name;
+            if (!variantBases.has(superClassName)) {
+              variantBases.set(superClassName, []);
+            }
+            variantBases.get(superClassName)!.push(nodePath.node.declaration);
+          }
+        }
+      },
+    });
+
+    // Analyze variant bases and their variants
+    // Use a Set to track analyzed bases to avoid duplicates
+    const analyzedBases = new Set<string>();
+    for (const [baseName, variants] of variantBases.entries()) {
+      if (analyzedBases.has(baseName)) continue;
+      analyzedBases.add(baseName);
+
+      const baseClass = this.findClassInAst(ast, baseName);
+      if (baseClass && baseClass.abstract) {
+        this.analyzeVariantPattern(baseClass, variants);
+      }
+    }
 
     return this.generateManifest();
   }
@@ -254,6 +297,31 @@ export class AbiEmitter {
     if (hasEventDecorator) {
       this.analyzeEventClass(classNode);
     }
+
+    // Also analyze classes that are referenced but not decorated (e.g., Profile, Status variants)
+    // These are used as types in state fields or method parameters
+    if (!hasStateDecorator && !hasLogicDecorator && !hasEventDecorator) {
+      // Check if it's a variant pattern (abstract class with static factory methods)
+      if (classNode.superClass && classNode.superClass.type === 'Identifier') {
+        const superClassName = classNode.superClass.name;
+        // This might be a variant class (e.g., Status_Active extends Status)
+        // We'll handle variants separately
+        return;
+      }
+
+      // Check if it's a regular record class (has properties but no decorators)
+      // Only analyze if it has properties (not abstract/empty)
+      if (!classNode.abstract && classNode.body?.body?.length > 0) {
+        const hasProperties = classNode.body.body.some(
+          (member: any) =>
+            (member.type === 'ClassProperty' || member.type === 'PropertyDefinition') &&
+            !member.key?.name?.startsWith('_')
+        );
+        if (hasProperties) {
+          this.analyzeStateClass(classNode);
+        }
+      }
+    }
   }
 
   private analyzeStateClass(classNode: any): void {
@@ -276,10 +344,129 @@ export class AbiEmitter {
       }
     });
 
-    this.types.set(className, {
-      kind: 'record',
-      fields,
+    // Only add if not already present (to avoid overwriting variants)
+    if (!this.types.has(className)) {
+      this.types.set(className, {
+        kind: 'record',
+        fields,
+      });
+    }
+  }
+
+  private findClassInAst(ast: any, className: string): any {
+    let found: any = null;
+    traverse(ast, {
+      ClassDeclaration: (nodePath: any) => {
+        if (nodePath.node.id?.name === className) {
+          found = nodePath.node;
+        }
+      },
+      ExportNamedDeclaration: (nodePath: any) => {
+        if (
+          nodePath.node.declaration?.type === 'ClassDeclaration' &&
+          nodePath.node.declaration.id?.name === className
+        ) {
+          found = nodePath.node.declaration;
+        }
+      },
     });
+    return found;
+  }
+
+  private analyzeVariantPattern(baseClass: any, variantClasses: any[]): void {
+    const baseName = baseClass.id?.name;
+    if (!baseName) return;
+
+    const variants: any[] = [];
+    const seenVariants = new Set<string>();
+
+    // Analyze each variant class
+    for (const variantClass of variantClasses) {
+      const variantName = variantClass.id?.name;
+      if (!variantName) continue;
+
+      // Extract variant name (e.g., "Status_Active" -> "Active")
+      const nameParts = variantName.split('_');
+      const variantDisplayName = nameParts.length > 1 ? nameParts.slice(1).join('_') : variantName;
+
+      // Skip duplicates
+      if (seenVariants.has(variantDisplayName)) {
+        continue;
+      }
+      seenVariants.add(variantDisplayName);
+
+      // Check if variant has payload (constructor parameters or properties)
+      const fields: Field[] = [];
+
+      // Check constructor parameters first (TypeScript pattern: constructor(public field: type))
+      if (variantClass.body?.body) {
+        variantClass.body.body.forEach((member: any) => {
+          // Check for constructor with parameters
+          if (member.type === 'ClassMethod' || member.type === 'MethodDefinition') {
+            if (member.key?.name === 'constructor' && member.params) {
+              member.params.forEach((param: any) => {
+                // Handle TSParameterProperty (TypeScript parameter property: constructor(public field: type))
+                if (param.type === 'TSParameterProperty' && param.accessibility === 'public') {
+                  const innerParam = param.parameter;
+                  const fieldName = innerParam.name;
+                  const typeRef = this.extractTypeFromAnnotation(innerParam.typeAnnotation);
+                  fields.push({
+                    name: fieldName,
+                    type: typeRef,
+                  });
+                }
+                // Handle regular Identifier (fallback)
+                else if (param.type === 'Identifier' && param.accessibility === 'public') {
+                  const fieldName = param.name;
+                  const typeRef = this.extractTypeFromAnnotation(param.typeAnnotation);
+                  fields.push({
+                    name: fieldName,
+                    type: typeRef,
+                  });
+                }
+              });
+            }
+          }
+          // Check for class properties
+          if (member.type === 'ClassProperty' || member.type === 'PropertyDefinition') {
+            const fieldName = member.key?.name;
+            if (fieldName && !fieldName.startsWith('_')) {
+              const typeRef = this.extractTypeFromAnnotation(member.typeAnnotation);
+              fields.push({
+                name: fieldName,
+                type: typeRef,
+              });
+            }
+          }
+        });
+      }
+
+      if (fields.length > 0) {
+        // Variant with payload - create a record type for the payload
+        const payloadTypeName = `${baseName}_${variantDisplayName}`;
+        this.types.set(payloadTypeName, {
+          kind: 'record',
+          fields,
+        });
+        variants.push({
+          name: variantDisplayName,
+          payload: { $ref: payloadTypeName },
+        });
+      } else {
+        // Variant without payload
+        variants.push({
+          name: variantDisplayName,
+        });
+      }
+    }
+
+    // Add variant type (only if not already present)
+    if (!this.types.has(baseName)) {
+      this.types.set(baseName, {
+        kind: 'variant',
+        variants,
+      });
+    }
   }
 
   private analyzeLogicClass(classNode: any): void {
@@ -580,10 +767,22 @@ export class AbiEmitter {
         typeAnnotation.typeName?.name === 'Uint8Array'
       ) {
         // For bytes aliases, check if there's a size constraint
-        // For now, treat as variable-size bytes
+        // Check for size annotation in type name (e.g., UserId32 -> 32)
+        // This is a convention: if type name ends with digits, use as size
+        const sizeMatch = typeName.match(/(\d+)$/);
+        const size = sizeMatch ? parseInt(sizeMatch[1], 10) : undefined;
+
+        const targetType: any = {
+          kind: 'scalar',
+          scalar: 'bytes',
+        };
+        if (size !== undefined) {
+          targetType.size = size;
+        }
+
         this.types.set(typeName, {
           kind: 'alias',
-          target: { kind: 'scalar', scalar: 'bytes' },
+          target: targetType,
         });
       } else {
         // Add as an alias type
@@ -757,9 +956,7 @@ export class AbiEmitter {
         result.returns = { kind: 'unit' };
       }
 
-      // Always set is_init and is_view (default to false)
-      result.is_init = method.is_init === true;
-      result.is_view = method.is_view === true;
+      // Note: is_init and is_view are not included in Rust ABI format
       if ((method.returns as any)?.nullable) result.returns_nullable = true;
 
       return result;
@@ -830,6 +1027,280 @@ export class AbiEmitter {
       state_root: this.stateRoot,
     };
   }
+
+  /**
+   * Serialize type reference with CRDT metadata for state schema
+   */
+  private serializeTypeRefWithCrdtMetadata(typeAnnotation: any): any {
+    if (!typeAnnotation) {
+      return { kind: 'string' };
+    }
+
+    const type = typeAnnotation.typeAnnotation || typeAnnotation;
+    const typeName = type.typeName?.name;
+
+    if (!typeName) {
+      // Handle scalar types
+      if (type.type === 'TSStringKeyword') {
+        return { kind: 'string' };
+      }
+      if (type.type === 'TSNumberKeyword') {
+        return { kind: 'u32' };
+      }
+      if (type.type === 'TSBooleanKeyword') {
+        return { kind: 'bool' };
+      }
+      if (type.type === 'TSBigIntKeyword') {
+        return { kind: 'u64' };
+      }
+      return { kind: 'string' };
+    }
+
+    // Handle CRDT collection types
+    switch (typeName) {
+      case 'UnorderedMap': {
+        if (type.typeParameters?.params?.length >= 2) {
+          const keyType = this.serializeTypeRefWithCrdtMetadata({
+            typeAnnotation: type.typeParameters.params[0],
+          });
+          const valueType = this.serializeTypeRefWithCrdtMetadata({
+            typeAnnotation: type.typeParameters.params[1],
+          });
+          return {
+            kind: 'map',
+            key: keyType,
+            value: valueType,
+            crdt_type: 'unordered_map',
+          };
+        }
+        break;
+      }
+      case 'UnorderedSet': {
+        if (type.typeParameters?.params?.length >= 1) {
+          const itemType = this.serializeTypeRefWithCrdtMetadata({
+            typeAnnotation: type.typeParameters.params[0],
+          });
+          return {
+            kind: 'list',
+            items: itemType,
+            crdt_type: 'unordered_set',
+          };
+        }
+        break;
+      }
+      case 'Vector': {
+        if (type.typeParameters?.params?.length >= 1) {
+          const itemType = this.serializeTypeRefWithCrdtMetadata({
+            typeAnnotation: type.typeParameters.params[0],
+          });
+          return {
+            kind: 'list',
+            items: itemType,
+            crdt_type: 'vector',
+          };
+        }
+        break;
+      }
+      case 'Counter': {
+        return {
+          kind: 'record',
+          fields: [],
+          crdt_type: 'counter',
+        };
+      }
+      case 'LwwRegister': {
+        if (type.typeParameters?.params?.length >= 1) {
+          const innerType = this.serializeTypeRefWithCrdtMetadata({
+            typeAnnotation: type.typeParameters.params[0],
+          });
+          return {
+            kind: 'record',
+            fields: [],
+            crdt_type: 'lww_register',
+            inner_type: innerType,
+          };
+        }
+        break;
+      }
+      default: {
+        // Handle type references (e.g., Person, Status)
+        return { $ref: typeName };
+      }
+    }
+
+    return { kind: 'string' };
+  }
+
+  /**
+   * Generate state schema with CRDT metadata
+   */
+  public generateStateSchemaWithCrdtMetadata(sourceCode: string, stateRootTypeName: string): any {
+    const stateRootType = this.types.get(stateRootTypeName);
+    if (!stateRootType || stateRootType.kind !== 'record') {
+      throw new Error(`State root type ${stateRootTypeName} not found or not a record`);
+    }
+
+    // Re-parse source to get CRDT metadata for state fields
+    const ast = parse(sourceCode, {
+      sourceType: 'module',
+      plugins: ['typescript', 'classProperties', 'decorators-legacy'],
+    });
+
+    // Find the state class
+    let stateClassNode: any = null;
+    traverse(ast, {
+      ClassDeclaration: (nodePath: any) => {
+        const className = nodePath.node.id?.name;
+        const decorators = nodePath.node.decorators || [];
+        const hasStateDecorator = decorators.some((d: any) => {
+          const expr = d.expression;
+          return (
+            (expr.type === 'Identifier' && expr.name === 'State') || expr.callee?.name === 'State'
+          );
+        });
+        if (className === stateRootTypeName && hasStateDecorator) {
+          stateClassNode = nodePath.node;
+        }
+      },
+    });
+
+    if (!stateClassNode) {
+      throw new Error(`State class ${stateRootTypeName} not found in source`);
+    }
+
+    // Serialize state fields with CRDT metadata
+    const fieldsWithCrdt: any[] = [];
+    stateClassNode.body.body.forEach((member: any) => {
+      if (member.type === 'ClassProperty' || member.type === 'PropertyDefinition') {
+        const fieldName = member.key?.name;
+        if (fieldName && !fieldName.startsWith('_')) {
+          const typeRef = this.serializeTypeRefWithCrdtMetadata(member.typeAnnotation);
+          fieldsWithCrdt.push({
+            name: fieldName,
+            type: typeRef,
+          });
+        }
+      }
+    });
+
+    // Build types map with CRDT metadata
+    const typesWithCrdt: Record<string, any> = {};
+
+    // Add state root type with CRDT metadata
+    typesWithCrdt[stateRootTypeName] = {
+      kind: 'record',
+      fields: fieldsWithCrdt,
+    };
+
+    // Re-analyze all classes to get CRDT metadata for their fields
+    const allClasses = new Map<string, any>();
+    traverse(ast, {
+      ClassDeclaration: (nodePath: any) => {
+        const className = nodePath.node.id?.name;
+        if (className && className !== stateRootTypeName) {
+          allClasses.set(className, nodePath.node);
+        }
+      },
+      ExportNamedDeclaration: (nodePath: any) => {
+        if (nodePath.node.declaration?.type === 'ClassDeclaration') {
+          const className = nodePath.node.declaration.id?.name;
+          if (className && className !== stateRootTypeName) {
+            allClasses.set(className, nodePath.node.declaration);
+          }
+        }
+      },
+    });
+
+    // Analyze classes with CRDT metadata
+    for (const [className, classNode] of allClasses.entries()) {
+      // Skip if already processed as variant
+      if (this.types.has(className) && this.types.get(className)?.kind === 'variant') {
+        continue;
+      }
+
+      const fieldsWithCrdtForClass: any[] = [];
+      if (classNode.body?.body) {
+        classNode.body.body.forEach((member: any) => {
+          if (member.type === 'ClassProperty' || member.type === 'PropertyDefinition') {
+            const fieldName = member.key?.name;
+            if (fieldName && !fieldName.startsWith('_')) {
+              const typeRef = this.serializeTypeRefWithCrdtMetadata(member.typeAnnotation);
+              fieldsWithCrdtForClass.push({
+                name: fieldName,
+                type: typeRef,
+              });
+            }
+          }
+        });
+      }
+
+      if (fieldsWithCrdtForClass.length > 0) {
+        typesWithCrdt[className] = {
+          kind: 'record',
+          fields: fieldsWithCrdtForClass,
+        };
+      }
+    }
+
+    // Add all other types (variants, aliases, interfaces) without CRDT metadata
+    for (const [typeName, typeDef] of this.types.entries()) {
+      if (typeName === stateRootTypeName) continue;
+      // Skip classes already processed above
+      if (typesWithCrdt[typeName]) continue;
+
+      const serialized: any = {
+        kind: typeDef.kind,
+      };
+
+      if (typeDef.fields) {
+        serialized.fields = typeDef.fields.map((field: any) => ({
+          name: field.name,
+          type: this.serializeTypeRefToRustFormat(field.type),
+          nullable: field.nullable,
+        }));
+      }
+
+      if (typeDef.variants) {
+        serialized.variants = typeDef.variants.map((variant: any) => ({
+          name: variant.name,
+          code: variant.code,
+          payload: variant.payload ? this.serializeTypeRefToRustFormat(variant.payload) : undefined,
+        }));
+      }
+
+      if (typeDef.target) {
+        const targetSerialized = this.serializeTypeRefToRustFormat(typeDef.target);
+        // Preserve size for bytes types
+        if (targetSerialized.kind === 'bytes' && (typeDef.target as any).size !== undefined) {
+          targetSerialized.size = (typeDef.target as any).size;
+        }
+        serialized.target = targetSerialized;
+      }
+
+      typesWithCrdt[typeName] = serialized;
+    }
+
+    return {
+      schema_version: 'wasm-abi/1',
+      types: typesWithCrdt,
+      methods: [],
+      events: [],
+      state_root: stateRootTypeName,
+    };
+  }
+}
+
+/**
+ * Generate ABI manifest in Rust format with state schema (CRDT metadata)
+ */
+export function generateAbiManifestRustFormatWithStateSchema(
+  sourceFile: string,
+  stateRootTypeName: string
+): any {
+  const sourceCode = fs.readFileSync(sourceFile, 'utf-8');
+  const emitter = new AbiEmitter();
+  emitter.analyzeSource(sourceCode, sourceFile);
+  return emitter.generateStateSchemaWithCrdtMetadata(sourceCode, stateRootTypeName);
 }
 
 /**

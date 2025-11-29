@@ -8,7 +8,12 @@ import { compileToC } from '../compiler/quickjs.js';
 import { compileToWasm } from '../compiler/wasm.js';
 import { optimizeWasm } from '../compiler/optimize.js';
 import { generateMethodsHeader } from '../compiler/methods.js';
-import { generateAbiJson, generateAbiHeader, generateAbiSchema } from '../compiler/abi.js';
+import {
+  generateAbiJson,
+  generateAbiHeader,
+  generateAbiSchema,
+  generateStateSchema,
+} from '../compiler/abi.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -41,7 +46,22 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
     const abiManifest = JSON.parse(fs.readFileSync(abiJsonPath, 'utf-8'));
     signale.success('ABI manifest generated');
 
-    // Step 2: Generate ABI header for WASM embedding
+    // Step 2: Generate state schema (state_root + types with CRDT metadata)
+    signale.await('Generating state schema...');
+    try {
+      await generateStateSchema(source, abiJsonPath, {
+        verbose: options.verbose,
+        outputDir,
+      });
+      signale.success('State schema generated');
+    } catch (error) {
+      // Non-fatal: state schema generation is optional
+      if (options.verbose) {
+        signale.warn(`Failed to generate state schema: ${error}`);
+      }
+    }
+
+    // Step 3: Generate ABI header for WASM embedding
     signale.await('Generating ABI header...');
     await generateAbiHeader(abiJsonPath, {
       verbose: options.verbose,
@@ -49,7 +69,7 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
     });
     signale.success('ABI header generated');
 
-    // Step 3: Bundle with Rollup (with ABI injection)
+    // Step 4: Bundle with Rollup (with ABI injection)
     signale.await('Bundling JavaScript with Rollup...');
     const jsBundle = await bundleWithRollup(source, {
       verbose: options.verbose,
@@ -58,12 +78,12 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
     });
     signale.success('JavaScript bundled');
 
-    // Step 4: Generate methods header
+    // Step 5: Generate methods header
     signale.await('Extracting service methods...');
     await generateMethodsHeader(jsBundle, outputDir);
     signale.success('Methods extracted');
 
-    // Step 5: Compile to C with QuickJS
+    // Step 6: Compile to C with QuickJS
     signale.await('Compiling to C with QuickJS...');
     const cCodePath = await compileToC(jsBundle, {
       verbose: options.verbose,
@@ -71,7 +91,7 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
     });
     signale.success('Compiled to C');
 
-    // Step 6: Compile to WASM
+    // Step 7: Compile to WASM
     signale.await('Compiling to WebAssembly...');
     const wasmPath = await compileToWasm(cCodePath, {
       verbose: options.verbose,
@@ -79,7 +99,7 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
     });
     signale.success('Compiled to WASM');
 
-    // Step 7: Generate JSON Schema for ABI validation
+    // Step 8: Generate JSON Schema for ABI validation
     signale.await('Generating ABI schema...');
     try {
       await generateAbiSchema({
@@ -94,7 +114,7 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
       }
     }
 
-    // Step 8: Optimize (if enabled)
+    // Step 9: Optimize (if enabled)
     if (options.optimize) {
       signale.await('Optimizing WASM...');
       await optimizeWasm(wasmPath, options.output, {
