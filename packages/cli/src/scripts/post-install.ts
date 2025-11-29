@@ -45,32 +45,74 @@ if (fs.existsSync(depsDir)) {
 fs.mkdirSync(depsDir, { recursive: true });
 
 /**
- * Downloads a file from URL
+ * Downloads a file from URL with redirect support
  */
-async function download(url: string, dest: string): Promise<void> {
+async function download(url: string, dest: string, redirectCount = 0): Promise<void> {
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(dest);
     https
       .get(url, response => {
+        // Handle redirects (3xx status codes)
+        if (
+          response.statusCode &&
+          response.statusCode >= 300 &&
+          response.statusCode < 400 &&
+          response.headers.location
+        ) {
+          file.close();
+          fs.unlinkSync(dest);
+          if (redirectCount >= 5) {
+            reject(new Error(`Too many redirects for ${url}`));
+            return;
+          }
+          // Follow redirect
+          download(response.headers.location, dest, redirectCount + 1)
+            .then(resolve)
+            .catch(reject);
+          return;
+        }
+
         // Check for HTTP errors
         if (response.statusCode && response.statusCode >= 400) {
+          file.close();
           fs.unlinkSync(dest);
           reject(new Error(`HTTP ${response.statusCode}: Failed to download ${url}`));
           return;
         }
 
-        // Track bytes downloaded
+        // Track bytes downloaded and check content type
         let bytesDownloaded = 0;
+        let firstChunk: Buffer | null = null;
         const contentLength = response.headers['content-length'];
         const expectedSize = contentLength ? parseInt(contentLength, 10) : null;
+        const contentType = response.headers['content-type'] || '';
 
         response.on('data', chunk => {
           bytesDownloaded += chunk.length;
+          // Store first chunk to check if it's HTML (error page)
+          if (!firstChunk && chunk.length > 0) {
+            firstChunk = Buffer.from(chunk);
+          }
         });
 
         response.pipe(file);
         file.on('finish', () => {
           file.close();
+          // Check if we got an HTML error page instead of the file
+          if (
+            firstChunk &&
+            (contentType.includes('text/html') ||
+              firstChunk
+                .toString('utf-8', 0, Math.min(100, firstChunk.length))
+                .trim()
+                .startsWith('<!'))
+          ) {
+            fs.unlinkSync(dest);
+            reject(
+              new Error(`Received HTML error page instead of file. URL might be incorrect: ${url}`)
+            );
+            return;
+          }
           // Verify download completed if content-length was provided
           if (expectedSize !== null && bytesDownloaded !== expectedSize) {
             fs.unlinkSync(dest);
@@ -81,10 +123,17 @@ async function download(url: string, dest: string): Promise<void> {
             );
             return;
           }
+          // Verify file is not empty (even if content-length wasn't provided)
+          if (bytesDownloaded === 0) {
+            fs.unlinkSync(dest);
+            reject(new Error(`Downloaded file is empty: ${url}`));
+            return;
+          }
           resolve();
         });
       })
       .on('error', error => {
+        file.close();
         if (fs.existsSync(dest)) {
           fs.unlinkSync(dest);
         }
@@ -98,6 +147,15 @@ async function downloadWithRetry(url: string, dest: string, maxRetries = 3): Pro
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       await download(url, dest);
+      // Verify file was actually downloaded
+      if (!fs.existsSync(dest)) {
+        throw new Error(`File was not created: ${dest}`);
+      }
+      const stats = fs.statSync(dest);
+      if (stats.size === 0) {
+        fs.unlinkSync(dest);
+        throw new Error(`Downloaded file is empty (0 bytes) from ${url}`);
+      }
       return; // Success
     } catch (error) {
       lastError = error as Error;
@@ -138,11 +196,17 @@ async function installQuickJS(): Promise<void> {
   await downloadWithRetry(sourceUrl, sourceDest);
 
   // Verify file exists and has content before extracting
+  if (!fs.existsSync(sourceDest)) {
+    throw new Error(`Downloaded file does not exist: ${sourceDest}`);
+  }
   const stats = fs.statSync(sourceDest);
   if (stats.size === 0) {
     fs.unlinkSync(sourceDest);
-    throw new Error('Downloaded file is empty');
+    throw new Error(
+      `Downloaded file is empty (0 bytes): ${sourceUrl}\nThis usually means the file doesn't exist at the URL or the download failed.`
+    );
   }
+  signale.info(`Downloaded ${sourceTar}: ${stats.size} bytes`);
 
   // Extract source
   execSync(`tar xzf ${sourceTar} --strip-components=1 -C ${quickjsDir}`, {
