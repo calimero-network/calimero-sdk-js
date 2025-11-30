@@ -69,21 +69,21 @@ if [ -n "$SPECIFIC_WORKFLOW" ]; then
   # Test specific workflow - try to find it by name
   WORKFLOW_FOUND=""
   # Try exact match first
-  for workflow in $(find_workflows); do
+  while IFS= read -r workflow; do
     if [[ "$(basename "$workflow")" == "$SPECIFIC_WORKFLOW" ]] || \
        [[ "$(basename "$workflow" .yml)" == "$SPECIFIC_WORKFLOW" ]] || \
        [[ "$workflow" == *"$SPECIFIC_WORKFLOW"* ]]; then
       WORKFLOW_FOUND="$workflow"
       break
     fi
-  done
+  done < <(find_workflows)
   
   if [ -z "$WORKFLOW_FOUND" ] || [ ! -f "$WORKFLOW_FOUND" ]; then
     echo "❌ Error: Workflow file not found: $SPECIFIC_WORKFLOW"
     echo "   Available workflows:"
-    find_workflows | while read -r wf; do
+    while IFS= read -r wf; do
       echo "     - $wf"
-    done
+    done < <(find_workflows)
     exit 1
   fi
   WORKFLOWS=("$WORKFLOW_FOUND")
