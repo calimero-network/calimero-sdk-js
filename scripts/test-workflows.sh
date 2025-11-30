@@ -57,10 +57,10 @@ find_workflows() {
   while IFS= read -r -d '' file; do
     workflows+=("$file")
   done < <(find examples -type f -name "*.yml" -path "*/workflows/*" -print0 2>/dev/null)
-  # Find default.yml files in example directories
+  # Find default.yml files in example directories (excluding workflows subdirectories)
   while IFS= read -r -d '' file; do
     workflows+=("$file")
-  done < <(find examples -type f -name "default.yml" -print0 2>/dev/null)
+  done < <(find examples -type f -name "default.yml" ! -path "*/workflows/*" -print0 2>/dev/null)
   printf '%s\n' "${workflows[@]}"
 }
 
