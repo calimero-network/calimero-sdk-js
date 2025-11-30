@@ -251,10 +251,18 @@ jobs:
           merobox stop --all || true
           merobox nuke -f || true
 
-          # Check if any workflow files exist before proceeding
-          WORKFLOW_FILES=(merobox-workflows/workflow-*.yml)
-          if [ ! -f "${WORKFLOW_FILES[0]}" ]; then
-            echo "Error: No workflow files found matching pattern: merobox-workflows/workflow-*.yml"
+          # Find all workflow files in examples directories
+          # Look for .yml files in examples/*/workflows/ and examples/*/default.yml
+          WORKFLOW_FILES=()
+          while IFS= read -r -d '' file; do
+            WORKFLOW_FILES+=("$file")
+          done < <(find examples -type f -name "*.yml" -path "*/workflows/*" -print0 2>/dev/null)
+          while IFS= read -r -d '' file; do
+            WORKFLOW_FILES+=("$file")
+          done < <(find examples -type f -name "default.yml" -print0 2>/dev/null)
+
+          if [ ${#WORKFLOW_FILES[@]} -eq 0 ]; then
+            echo "Error: No workflow files found in examples directories"
             exit 1
           fi
 

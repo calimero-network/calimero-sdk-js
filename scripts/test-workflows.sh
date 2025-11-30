@@ -4,12 +4,11 @@
 # Usage: 
 #   ./scripts/test-workflows.sh                    # Test all workflows
 #   ./scripts/test-workflows.sh --verbose          # Test all with verbose output
-#   ./scripts/test-workflows.sh simple-counter      # Test specific workflow
-#   ./scripts/test-workflows.sh workflow-simple-counter.yml  # Test with full name
+#   ./scripts/test-workflows.sh counter            # Test specific workflow
+#   ./scripts/test-workflows.sh counter-js.yml     # Test with full filename
 
 set -e
 
-WORKFLOWS_DIR="merobox-workflows"
 VERBOSE=false
 SPECIFIC_WORKFLOW=""
 
@@ -23,7 +22,7 @@ while [[ $# -gt 0 ]]; do
     --help|-h)
       echo "Usage: $0 [OPTIONS] [WORKFLOW_NAME]"
       echo ""
-      echo "Test merobox workflows"
+      echo "Test merobox workflows from examples directories"
       echo ""
       echo "Options:"
       echo "  --verbose, -v    Show detailed output for each workflow"
@@ -32,8 +31,8 @@ while [[ $# -gt 0 ]]; do
       echo "Examples:"
       echo "  $0                                    # Test all workflows"
       echo "  $0 --verbose                          # Test all with verbose output"
-      echo "  $0 simple-counter                     # Test specific workflow"
-      echo "  $0 workflow-simple-counter.yml        # Test with full filename"
+      echo "  $0 counter                            # Test specific workflow"
+      echo "  $0 counter-js.yml                     # Test with full filename"
       exit 0
       ;;
     *)
@@ -50,28 +49,51 @@ if ! command -v merobox &> /dev/null; then
   exit 1
 fi
 
+# Find all workflow files in examples directories
+# Look for .yml files in examples/*/workflows/ and examples/*/default.yml
+find_workflows() {
+  local workflows=()
+  # Find workflows in workflows/ subdirectories
+  while IFS= read -r -d '' file; do
+    workflows+=("$file")
+  done < <(find examples -type f -name "*.yml" -path "*/workflows/*" -print0 2>/dev/null)
+  # Find default.yml files in example directories
+  while IFS= read -r -d '' file; do
+    workflows+=("$file")
+  done < <(find examples -type f -name "default.yml" -print0 2>/dev/null)
+  printf '%s\n' "${workflows[@]}"
+}
+
 # Get all workflow files
 if [ -n "$SPECIFIC_WORKFLOW" ]; then
-  # Test specific workflow
-  if [[ "$SPECIFIC_WORKFLOW" != *.yml ]]; then
-    SPECIFIC_WORKFLOW="${SPECIFIC_WORKFLOW}.yml"
-  fi
-  if [[ "$SPECIFIC_WORKFLOW" != workflow-* ]]; then
-    SPECIFIC_WORKFLOW="workflow-${SPECIFIC_WORKFLOW}"
-  fi
-  WORKFLOWS=("$WORKFLOWS_DIR/$SPECIFIC_WORKFLOW")
+  # Test specific workflow - try to find it by name
+  WORKFLOW_FOUND=""
+  # Try exact match first
+  for workflow in $(find_workflows); do
+    if [[ "$(basename "$workflow")" == "$SPECIFIC_WORKFLOW" ]] || \
+       [[ "$(basename "$workflow" .yml)" == "$SPECIFIC_WORKFLOW" ]] || \
+       [[ "$workflow" == *"$SPECIFIC_WORKFLOW"* ]]; then
+      WORKFLOW_FOUND="$workflow"
+      break
+    fi
+  done
   
-  if [ ! -f "${WORKFLOWS[0]}" ]; then
-    echo "❌ Error: Workflow file not found: ${WORKFLOWS[0]}"
+  if [ -z "$WORKFLOW_FOUND" ] || [ ! -f "$WORKFLOW_FOUND" ]; then
+    echo "❌ Error: Workflow file not found: $SPECIFIC_WORKFLOW"
+    echo "   Available workflows:"
+    find_workflows | while read -r wf; do
+      echo "     - $wf"
+    done
     exit 1
   fi
+  WORKFLOWS=("$WORKFLOW_FOUND")
 else
   # Get all workflow files
-  WORKFLOWS=("$WORKFLOWS_DIR"/workflow-*.yml)
+  mapfile -t WORKFLOWS < <(find_workflows)
 fi
 
-if [ ${#WORKFLOWS[@]} -eq 0 ] || [ ! -f "${WORKFLOWS[0]}" ]; then
-  echo "❌ Error: No workflow files found in $WORKFLOWS_DIR"
+if [ ${#WORKFLOWS[@]} -eq 0 ]; then
+  echo "❌ Error: No workflow files found in examples directories"
   exit 1
 fi
 
