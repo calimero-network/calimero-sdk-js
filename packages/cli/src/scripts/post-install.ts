@@ -9,9 +9,9 @@ import * as https from 'https';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import * as tar from 'tar';
 
 const { Signale } = signaleDefault;
 const signale = new Signale({ scope: 'postinstall', interactive: true });
@@ -21,24 +21,41 @@ const ARCH = os.arch();
 
 console.log(`Platform: ${PLATFORM}, Architecture: ${ARCH}`);
 
-const SUPPORTED_PLATFORMS = ['linux', 'darwin'];
+const SUPPORTED_PLATFORMS = ['linux', 'darwin', 'win32'];
 const SUPPORTED_ARCH = ['x64', 'arm64'];
 
 if (!SUPPORTED_PLATFORMS.includes(PLATFORM)) {
-  console.error(`Platform ${PLATFORM} is not supported`);
+  signale.error(`Platform ${PLATFORM} is not supported`);
+  signale.info('Supported platforms: Linux, macOS, Windows');
   process.exit(1);
 }
 
 if (!SUPPORTED_ARCH.includes(ARCH)) {
-  console.error(`Architecture ${ARCH} is not supported`);
+  signale.error(`Architecture ${ARCH} is not supported`);
+  signale.info('Supported architectures: x64, arm64');
   process.exit(1);
 }
 
+if (PLATFORM === 'win32') {
+  signale.warn('Windows support is experimental');
+  signale.info('Note: QuickJS, WASI-SDK, and Binaryen binaries may not be available for Windows');
+  signale.info('Consider using WSL (Windows Subsystem for Linux) for full support');
+}
+
 // Create deps directory
-// In ES modules, use import.meta.url instead of __dirname
+// Calculate path: from lib/scripts/post-install.js, go up to package root, then to src/deps
+// This matches the shell script which uses scripts/../src/deps
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const depsDir = path.join(__dirname, '../../deps');
+// If we're in lib/scripts, go to package root (../../), then to src/deps
+// If we're in src/scripts (dev), go to package root (../..), then to src/deps
+let packageRoot: string;
+if (__dirname.includes('/lib/')) {
+  packageRoot = path.join(__dirname, '../..');
+} else {
+  packageRoot = path.join(__dirname, '../..');
+}
+const depsDir = path.join(packageRoot, 'src', 'deps');
 if (fs.existsSync(depsDir)) {
   fs.rmSync(depsDir, { recursive: true, force: true });
 }
@@ -173,7 +190,7 @@ async function installQuickJS(): Promise<void> {
 
   const version = '0.1.3';
   const versionTag = `v${version}`;
-  const systemName = PLATFORM === 'darwin' ? 'macOS' : 'Linux';
+  const systemName = PLATFORM === 'darwin' ? 'macOS' : PLATFORM === 'win32' ? 'Windows' : 'Linux';
   const archName = ARCH === 'x64' ? 'X64' : 'arm64';
 
   const qjscBinary = `qjsc-${systemName}-${archName}`;
@@ -184,10 +201,22 @@ async function installQuickJS(): Promise<void> {
 
   // Download qjsc binary
   const qjscUrl = `https://github.com/near/quickjs/releases/download/${versionTag}/${qjscBinary}`;
-  const qjscDest = path.join(depsDir, 'qjsc');
+  const qjscDest = path.join(depsDir, PLATFORM === 'win32' ? 'qjsc.exe' : 'qjsc');
 
-  await downloadWithRetry(qjscUrl, qjscDest);
-  fs.chmodSync(qjscDest, 0o755);
+  try {
+    await downloadWithRetry(qjscUrl, qjscDest);
+    if (PLATFORM !== 'win32') {
+      fs.chmodSync(qjscDest, 0o755);
+    }
+  } catch (error) {
+    if (PLATFORM === 'win32') {
+      signale.error('QuickJS Windows binary not available');
+      signale.info('Windows binaries may not be available for QuickJS');
+      signale.info('Consider using WSL (Windows Subsystem for Linux) for full support');
+      throw error;
+    }
+    throw error;
+  }
 
   // Download QuickJS source
   const sourceUrl = `https://github.com/near/quickjs/archive/refs/tags/${sourceTar}`;
@@ -208,10 +237,12 @@ async function installQuickJS(): Promise<void> {
   }
   signale.info(`Downloaded ${sourceTar}: ${stats.size} bytes`);
 
-  // Extract source
-  execSync(`tar xzf ${sourceTar} --strip-components=1 -C ${quickjsDir}`, {
-    cwd: depsDir,
-    stdio: 'pipe',
+  // Extract source using tar library (cross-platform)
+  await tar.extract({
+    file: path.resolve(sourceDest),
+    cwd: path.resolve(quickjsDir),
+    strip: 1,
+    gzip: true,
   });
 
   fs.unlinkSync(sourceDest);
@@ -241,10 +272,12 @@ async function installWasiSDK(): Promise<void> {
     throw new Error('Downloaded file is empty');
   }
 
-  // Extract
-  execSync(`tar xzf ${tarName} --strip-components=1 -C ${wasiDir}`, {
-    cwd: depsDir,
-    stdio: 'pipe',
+  // Extract using tar library (cross-platform)
+  await tar.extract({
+    file: path.resolve(dest),
+    cwd: path.resolve(wasiDir),
+    strip: 1,
+    gzip: true,
   });
 
   fs.unlinkSync(dest);
@@ -257,7 +290,7 @@ async function installBinaryen(): Promise<void> {
 
   const version = '0.1.16';
   const versionTag = `v${version}`;
-  const systemName = PLATFORM === 'darwin' ? 'macOS' : 'Linux';
+  const systemName = PLATFORM === 'darwin' ? 'macOS' : PLATFORM === 'win32' ? 'Windows' : 'Linux';
   const archName = ARCH === 'x64' ? 'X64' : 'ARM64';
   const tarName = `binaryen-${systemName}-${archName}.tar.gz`;
 
@@ -276,10 +309,11 @@ async function installBinaryen(): Promise<void> {
     throw new Error('Downloaded file is empty');
   }
 
-  // Extract
-  execSync(`tar xzf ${tarName} -C ${binaryenDir}`, {
-    cwd: depsDir,
-    stdio: 'pipe',
+  // Extract using tar library (cross-platform)
+  await tar.extract({
+    file: path.resolve(dest),
+    cwd: path.resolve(binaryenDir),
+    gzip: true,
   });
 
   fs.unlinkSync(dest);
