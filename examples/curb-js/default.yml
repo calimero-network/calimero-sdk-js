@@ -13,7 +13,7 @@ steps:
   - name: Install Curb Application
     type: install_application
     node: curb-node-1
-    path: 'examples/curb-js/build/curb.wasm'
+    path: './build/curb.wasm'
     dev: true
     outputs:
       app_id: applicationId
