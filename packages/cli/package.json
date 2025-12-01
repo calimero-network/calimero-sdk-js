@@ -19,7 +19,7 @@
     "build": "tsc",
     "clean": "rm -rf lib",
     "test": "jest --passWithNoTests",
-    "install-deps": "bash scripts/install-deps.sh",
+    "install-deps": "node scripts/install-deps.js",
     "postinstall": "bash scripts/postinstall.sh",
     "prepublishOnly": "pnpm build"
   },
@@ -49,7 +49,8 @@
     "@rollup/plugin-typescript": "^11.1.6",
     "commander": "^11.1.0",
     "rollup": "^4.9.1",
-    "signale": "^1.4.0"
+    "signale": "^1.4.0",
+    "tar": "^7.0.1"
   },
   "devDependencies": {
     "@types/babel__core": "^7.20.5",
