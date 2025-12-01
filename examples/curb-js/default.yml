@@ -13,7 +13,7 @@ steps:
   - name: Install Curb Application
     type: install_application
     node: curb-node-1
-    path: './build/curb.wasm'
+    path: 'examples/curb-js/build/curb.wasm'
     dev: true
     outputs:
       app_id: applicationId
@@ -32,8 +32,6 @@ steps:
   - name: Wait For Context Sync
     type: wait
     seconds: 1
-
-
 stop_all_nodes: false
 restart: true
 wait_timeout: 60

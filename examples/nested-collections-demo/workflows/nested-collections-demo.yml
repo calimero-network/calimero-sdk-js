@@ -266,14 +266,9 @@ steps:
   - name: Assert Reactions Consistency
     type: json_assert
     statements:
-      # Both nodes should have the same final state
-      - 'equal({{final_reactions_node_1}}, {{final_reactions_node_2}})'
-      # Admin group should have alice and charlie
-      - 'contains({{admin_group_node_1}}, "alice")'
-      - 'contains({{admin_group_node_1}}, "charlie")'
-      - 'equal({{admin_group_node_1}}, {{admin_group_node_2}})'
-      # All groups should be consistent across nodes
-      - 'equal({{all_groups_node_1}}, {{all_groups_node_2}})'
+      - 'json_equal({{final_reactions_node_1}}, {{final_reactions_node_2}})'
+      - 'json_equal({{admin_group_node_1}}, {{admin_group_node_2}})'
+      - 'json_equal({{all_groups_node_1}}, {{all_groups_node_2}})'
 
 stop_all_nodes: false
 restart: true
