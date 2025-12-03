@@ -33,8 +33,10 @@ Complex nested structures like `Map<K, Set<V>>` and `Map<K, Map<K2, V2>>` work s
 ### Prerequisites
 
 - Node.js 18+ with WASI support
-- `pnpm` ≥ 8 (or npm/yarn)
+- `pnpm` ≥ 8 (or npm/yarn)
 - Access to a Calimero node (`merod`) and CLI (`meroctl`)
+
+> **Note for Windows users:** Building/compiling is not supported natively on Windows. Use WSL (Windows Subsystem for Linux) instead. See [WINDOWS_SETUP.md](WINDOWS_SETUP.md).
 
 ### Install
 
@@ -125,6 +127,8 @@ merobox bootstrap run examples/team-metrics/workflows/team-metrics-js.yml --log-
 ---
 
 ## Development & Testing
+
+> **Windows users:** Run these commands in WSL, not PowerShell/CMD.
 
 ```bash
 # Install dependencies
