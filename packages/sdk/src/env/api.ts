@@ -182,18 +182,20 @@ function convertToJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiManif
         );
         if (matchingVariant) {
           // Convert string enum to object format: { type: "VariantName" }
-          // If variant has a payload, we can't convert from string alone, so return as-is
-          // (this case shouldn't happen for unit variants)
+          // If variant has a payload, we can't convert from string alone
           if (matchingVariant.payload) {
-            // Variant has payload - can't convert from string alone
-            // Return the string as-is and let the caller handle it
-            return value;
+            // Variant has payload - can't convert from string alone (consistent with abi-serialize.ts)
+            throw new Error(
+              `Cannot convert string enum value "${value}" for variant "${matchingVariant.name}" with payload. Variants with payload must be provided as objects.`
+            );
           }
           // Unit variant - convert to object format
           return { type: matchingVariant.name };
         }
-        // If no match found, still convert to object format using the string value
-        return { type: value };
+        // If no match found, throw an error for invalid enum values (consistent with dispatcher.ts)
+        throw new Error(
+          `Invalid variant value "${value}" for variant type ${typeName}. Valid variants: ${typeDef.variants.map(v => v.name).join(', ')}`
+        );
       }
       // If it's an object, return as-is (variants are typically represented as objects with a discriminator)
       if (typeof value === 'object' && value !== null) {
