@@ -2,7 +2,7 @@ import { log, valueReturn, flushDelta, registerLen, readRegister, input, panic }
 import { StateManager } from './state-manager';
 import { runtimeLogicEntries } from './method-registry';
 import { getAbiManifest, getMethod } from '../abi/helpers';
-import type { TypeRef, AbiManifest, ScalarType } from '../abi/types';
+import type { TypeRef, AbiManifest, ScalarType, Variant } from '../abi/types';
 import './sync';
 
 type JsonObject = Record<string, unknown>;
@@ -157,21 +157,25 @@ function convertFromJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiMan
       if (typeof value === 'string') {
         // Check if the string matches a variant name (case-insensitive)
         const matchingVariant = typeDef.variants.find(
-          (v: any) => v.name.toLowerCase() === value.toLowerCase()
+          (v: Variant) => v.name.toLowerCase() === value.toLowerCase()
         );
         if (matchingVariant) {
-          // Return the string value as-is (JavaScript code expects the enum string value)
-          return value;
+          // Return the normalized variant name (correct casing) for consistency
+          return matchingVariant.name;
         }
-        // If no match found, still return the string (might be a valid enum value)
-        return value;
+        // If no match found, throw an error for invalid enum values
+        throw new Error(
+          `Invalid variant value "${value}" for variant type ${typeName}. Valid variants: ${typeDef.variants.map(v => v.name).join(', ')}`
+        );
       }
       // If it's an object, return as-is (variants are typically represented as objects with a discriminator)
       if (typeof value === 'object' && value !== null) {
         return value;
       }
-      // For other types, return as-is
-      return value;
+      // For other types, throw an error (consistent with api.ts)
+      throw new Error(
+        `Expected object or string for variant type ${typeName}, got ${typeof value}`
+      );
     }
 
     // Handle alias types
