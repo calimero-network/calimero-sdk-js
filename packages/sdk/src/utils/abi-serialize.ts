@@ -388,7 +388,9 @@ function serializeTypeDef(
           // Convert string enum to object format: { type: "VariantName" }
           // If variant has a payload, we can't convert from string alone
           if (matchingVariant.payload) {
-            throw new Error(`Cannot serialize string enum value "${value}" for variant with payload`);
+            throw new Error(
+              `Cannot serialize string enum value "${value}" for variant with payload`
+            );
           }
           // Unit variant - convert to object format
           variantObj = { type: matchingVariant.name };
