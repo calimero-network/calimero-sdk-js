@@ -7,7 +7,7 @@
 
 import { BorshWriter } from '../borsh/encoder.js';
 import { BorshReader } from '../borsh/decoder.js';
-import type { AbiManifest, TypeRef, TypeDef, ScalarType } from '../abi/types.js';
+import type { AbiManifest, TypeRef, TypeDef, ScalarType, Variant } from '../abi/types.js';
 import { getAbiManifest, resolveTypeRef, isNullable } from '../abi/helpers.js';
 
 /**
@@ -377,10 +377,30 @@ function serializeTypeDef(
         throw new Error('Variant type missing variants');
       }
       // Variants are serialized as u8 discriminant + payload
-      if (typeof value !== 'object' || value === null) {
-        throw new Error(`Expected object for variant, got ${typeof value}`);
+      // Handle string enum values (TypeScript enums) by converting to object format
+      let variantObj: Record<string, unknown>;
+      if (typeof value === 'string') {
+        // Check if the string matches a variant name (case-insensitive)
+        const matchingVariant = typeDef.variants.find(
+          (v: Variant) => v.name.toLowerCase() === value.toLowerCase()
+        );
+        if (matchingVariant) {
+          // Convert string enum to object format: { type: "VariantName" }
+          // If variant has a payload, we can't convert from string alone
+          if (matchingVariant.payload) {
+            throw new Error(`Cannot serialize string enum value "${value}" for variant with payload`);
+          }
+          // Unit variant - convert to object format
+          variantObj = { type: matchingVariant.name };
+        } else {
+          // If no match found, use the string value as the type
+          variantObj = { type: value };
+        }
+      } else if (typeof value === 'object' && value !== null) {
+        variantObj = value as Record<string, unknown>;
+      } else {
+        throw new Error(`Expected object or string for variant, got ${typeof value}`);
       }
-      const variantObj = value as Record<string, unknown>;
       // Find which variant this is (check for discriminant or type field)
       const variantName = variantObj.type || variantObj.kind || Object.keys(variantObj)[0];
       const variant = typeDef.variants.find(v => v.name === variantName);

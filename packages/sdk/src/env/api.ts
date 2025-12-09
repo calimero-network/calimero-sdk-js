@@ -9,7 +9,7 @@ import '../polyfills/text-encoding';
 
 import type { HostEnv } from './bindings';
 import { getAbiManifest, getMethod } from '../abi/helpers';
-import type { TypeRef, AbiManifest, ScalarType } from '../abi/types';
+import type { TypeRef, AbiManifest, ScalarType, Variant } from '../abi/types';
 
 // This will be provided by QuickJS runtime via builder.c
 declare const env: HostEnv;
@@ -173,12 +173,35 @@ function convertToJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiManif
 
     // Handle variant types
     if (typeDef.kind === 'variant' && typeDef.variants) {
-      // Variants are typically represented as objects with a discriminator
-      if (typeof value !== 'object' || value === null) {
-        throw new Error(`Expected object for variant type ${typeName}, got ${typeof value}`);
+      // Variants can be represented as objects with a discriminator OR as strings (for TypeScript enums)
+      // If value is a string, convert it to the expected object format
+      if (typeof value === 'string') {
+        // Check if the string matches a variant name (case-insensitive)
+        const matchingVariant = typeDef.variants.find(
+          (v: Variant) => v.name.toLowerCase() === value.toLowerCase()
+        );
+        if (matchingVariant) {
+          // Convert string enum to object format: { type: "VariantName" }
+          // If variant has a payload, we can't convert from string alone, so return as-is
+          // (this case shouldn't happen for unit variants)
+          if (matchingVariant.payload) {
+            // Variant has payload - can't convert from string alone
+            // Return the string as-is and let the caller handle it
+            return value;
+          }
+          // Unit variant - convert to object format
+          return { type: matchingVariant.name };
+        }
+        // If no match found, still convert to object format using the string value
+        return { type: value };
       }
-      // Return as-is for variants (they should already be JSON-compatible)
-      return value;
+      // If it's an object, return as-is (variants are typically represented as objects with a discriminator)
+      if (typeof value === 'object' && value !== null) {
+        return value;
+      }
+      throw new Error(
+        `Expected object or string for variant type ${typeName}, got ${typeof value}`
+      );
     }
 
     // Handle alias types
