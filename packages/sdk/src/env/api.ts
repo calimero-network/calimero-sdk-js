@@ -213,16 +213,28 @@ export function valueReturn(value: unknown, methodName?: string): void {
     return;
   }
 
-  // Check if return type is string and value is already a string
-  // In this case, assume it's already JSON-stringified and don't double-stringify
+  // Handle string return types: distinguish pre-stringified JSON from plain strings
   const isStringType =
     method.returns.kind === 'string' ||
     (method.returns.kind === 'scalar' && method.returns.scalar === 'string');
 
   if (isStringType && typeof value === 'string') {
-    // Value is already a JSON string, return it as-is
-    env.value_return(textEncoder.encode(value));
-    return;
+    const trimmed = value.trim();
+    const looksLikeJson =
+      (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+      (trimmed.startsWith('[') && trimmed.endsWith(']'));
+
+    if (looksLikeJson) {
+      try {
+        JSON.parse(value);
+        // Valid JSON object/array - return as-is to avoid double-stringification
+        env.value_return(textEncoder.encode(value));
+        return;
+      } catch {
+        // Invalid JSON, fall through to normal stringify
+      }
+    }
+    // Plain string - fall through to JSON.stringify
   }
 
   // Convert value to JSON-compatible format based on ABI type
