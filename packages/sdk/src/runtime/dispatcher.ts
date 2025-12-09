@@ -152,11 +152,25 @@ function convertFromJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiMan
 
     // Handle variant types
     if (typeDef.kind === 'variant' && typeDef.variants) {
-      // Variants are typically represented as objects with a discriminator
-      if (typeof value !== 'object' || value === null) {
-        throw new Error(`Expected object for variant type ${typeName}, got ${typeof value}`);
+      // Variants can be represented as objects with a discriminator OR as strings (for TypeScript enums)
+      // If value is a string, check if it matches a variant name
+      if (typeof value === 'string') {
+        // Check if the string matches a variant name (case-insensitive)
+        const matchingVariant = typeDef.variants.find(
+          (v: any) => v.name.toLowerCase() === value.toLowerCase()
+        );
+        if (matchingVariant) {
+          // Return the string value as-is (JavaScript code expects the enum string value)
+          return value;
+        }
+        // If no match found, still return the string (might be a valid enum value)
+        return value;
       }
-      // Return as-is for variants (they should already be JSON-compatible)
+      // If it's an object, return as-is (variants are typically represented as objects with a discriminator)
+      if (typeof value === 'object' && value !== null) {
+        return value;
+      }
+      // For other types, return as-is
       return value;
     }
 
