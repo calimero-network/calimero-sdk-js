@@ -160,6 +160,12 @@ function convertFromJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiMan
           (v: Variant) => v.name.toLowerCase() === value.toLowerCase()
         );
         if (matchingVariant) {
+          // If variant has a payload, we can't convert from string alone
+          if (matchingVariant.payload) {
+            throw new Error(
+              `Cannot convert string enum value "${value}" for variant "${matchingVariant.name}" with payload. Variants with payload must be provided as objects.`
+            );
+          }
           // Return the normalized variant name (correct casing) for consistency
           return matchingVariant.name;
         }
