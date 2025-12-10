@@ -213,6 +213,30 @@ export function valueReturn(value: unknown, methodName?: string): void {
     return;
   }
 
+  // Handle string return types: distinguish pre-stringified JSON from plain strings
+  const isStringType =
+    method.returns.kind === 'string' ||
+    (method.returns.kind === 'scalar' && method.returns.scalar === 'string');
+
+  if (isStringType && typeof value === 'string') {
+    const trimmed = value.trim();
+    const looksLikeJson =
+      (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+      (trimmed.startsWith('[') && trimmed.endsWith(']'));
+
+    if (looksLikeJson) {
+      try {
+        JSON.parse(value);
+        // Valid JSON object/array - return as-is to avoid double-stringification
+        env.value_return(textEncoder.encode(value));
+        return;
+      } catch {
+        // Invalid JSON, fall through to normal stringify
+      }
+    }
+    // Plain string - fall through to JSON.stringify
+  }
+
   // Convert value to JSON-compatible format based on ABI type
   const jsonValue = convertToJsonCompatible(value, method.returns, abi);
   const jsonString = JSON.stringify(jsonValue);
