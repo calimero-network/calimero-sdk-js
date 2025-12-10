@@ -129,11 +129,16 @@ export class AbiEmitter {
         TSInterfaceDeclaration: (nodePath: any) => {
           this.analyzeInterface(nodePath.node);
         },
+        TSEnumDeclaration: (nodePath: any) => {
+          this.analyzeEnum(nodePath.node);
+        },
         ExportNamedDeclaration: (nodePath: any) => {
           if (nodePath.node.declaration?.type === 'TSTypeAliasDeclaration') {
             this.analyzeTypeAlias(nodePath.node.declaration, nodePath.node, sourceCode);
           } else if (nodePath.node.declaration?.type === 'TSInterfaceDeclaration') {
             this.analyzeInterface(nodePath.node.declaration);
+          } else if (nodePath.node.declaration?.type === 'TSEnumDeclaration') {
+            this.analyzeEnum(nodePath.node.declaration);
           }
         },
       });
@@ -355,6 +360,9 @@ export class AbiEmitter {
       TSInterfaceDeclaration: (nodePath: any) => {
         this.analyzeInterface(nodePath.node);
       },
+      TSEnumDeclaration: (nodePath: any) => {
+        this.analyzeEnum(nodePath.node);
+      },
       ClassDeclaration: (nodePath: any) => {
         const className = nodePath.node.id?.name;
         if (className && nodePath.node.abstract === true) {
@@ -366,6 +374,8 @@ export class AbiEmitter {
           this.analyzeTypeAlias(nodePath.node.declaration, nodePath.node, sourceCode);
         } else if (nodePath.node.declaration?.type === 'TSInterfaceDeclaration') {
           this.analyzeInterface(nodePath.node.declaration);
+        } else if (nodePath.node.declaration?.type === 'TSEnumDeclaration') {
+          this.analyzeEnum(nodePath.node.declaration);
         } else if (nodePath.node.declaration?.type === 'ClassDeclaration') {
           const className = nodePath.node.declaration.id?.name;
           if (className && nodePath.node.declaration.abstract === true) {
@@ -1623,6 +1633,54 @@ export class AbiEmitter {
       kind: 'record',
       fields,
     });
+  }
+
+  private analyzeEnum(enumNode: any): void {
+    const enumName = enumNode.id?.name;
+    if (!enumName) return;
+
+    // Convert TypeScript enum to variant type
+    // Each enum member becomes a variant
+    const variants: Variant[] = [];
+
+    if (enumNode.members && Array.isArray(enumNode.members)) {
+      enumNode.members.forEach((member: any) => {
+        const memberName = member.id?.name;
+        if (!memberName) return;
+
+        // TypeScript enums can have string or numeric values
+        // For string enums, the value is the string literal
+        // For numeric enums, we use the member name as the variant name
+        let variantName = memberName;
+
+        // Check if enum member has an initializer (value)
+        if (member.initializer) {
+          // If it's a string literal, we could use it, but for ABI we use the member name
+          // The actual value is handled at runtime
+          if (member.initializer.type === 'StringLiteral') {
+            // String enum - variant name is the member name
+            variantName = memberName;
+          } else if (member.initializer.type === 'NumericLiteral') {
+            // Numeric enum - variant name is the member name
+            variantName = memberName;
+          }
+        }
+
+        // Add variant without payload (enum members are unit variants)
+        variants.push({
+          name: variantName,
+        });
+      });
+    }
+
+    // Add as a variant type (Rust enums are represented as variants in ABI)
+    // Only add if not already present (to avoid overwriting)
+    if (!this.types.has(enumName) && variants.length > 0) {
+      this.types.set(enumName, {
+        kind: 'variant',
+        variants,
+      });
+    }
   }
 
   private isCalimeroDecorator(decorator: any, name: string): boolean {

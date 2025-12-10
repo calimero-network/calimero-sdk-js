@@ -2,7 +2,7 @@ import { log, valueReturn, flushDelta, registerLen, readRegister, input, panic }
 import { StateManager } from './state-manager';
 import { runtimeLogicEntries } from './method-registry';
 import { getAbiManifest, getMethod } from '../abi/helpers';
-import type { TypeRef, AbiManifest, ScalarType } from '../abi/types';
+import type { TypeRef, AbiManifest, ScalarType, Variant } from '../abi/types';
 import './sync';
 
 type JsonObject = Record<string, unknown>;
@@ -152,12 +152,36 @@ function convertFromJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiMan
 
     // Handle variant types
     if (typeDef.kind === 'variant' && typeDef.variants) {
-      // Variants are typically represented as objects with a discriminator
-      if (typeof value !== 'object' || value === null) {
-        throw new Error(`Expected object for variant type ${typeName}, got ${typeof value}`);
+      // Variants can be represented as objects with a discriminator OR as strings (for TypeScript enums)
+      // If value is a string, check if it matches a variant name
+      if (typeof value === 'string') {
+        // Check if the string matches a variant name (case-insensitive)
+        const matchingVariant = typeDef.variants.find(
+          (v: Variant) => v.name.toLowerCase() === value.toLowerCase()
+        );
+        if (matchingVariant) {
+          // If variant has a payload, we can't convert from string alone
+          if (matchingVariant.payload) {
+            throw new Error(
+              `Cannot convert string enum value "${value}" for variant "${matchingVariant.name}" with payload. Variants with payload must be provided as objects.`
+            );
+          }
+          // Return the normalized variant name (correct casing) for consistency
+          return matchingVariant.name;
+        }
+        // If no match found, throw an error for invalid enum values
+        throw new Error(
+          `Invalid variant value "${value}" for variant type ${typeName}. Valid variants: ${typeDef.variants.map(v => v.name).join(', ')}`
+        );
       }
-      // Return as-is for variants (they should already be JSON-compatible)
-      return value;
+      // If it's an object, return as-is (variants are typically represented as objects with a discriminator)
+      if (typeof value === 'object' && value !== null) {
+        return value;
+      }
+      // For other types, throw an error (consistent with api.ts)
+      throw new Error(
+        `Expected object or string for variant type ${typeName}, got ${typeof value}`
+      );
     }
 
     // Handle alias types
