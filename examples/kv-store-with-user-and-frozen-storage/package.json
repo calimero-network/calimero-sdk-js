@@ -1,0 +1,17 @@
+{
+  "name": "kv-store-with-user-and-frozen-storage-example",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Key-value store with UserStorage and FrozenStorage example for Calimero",
+  "scripts": {
+    "build": "calimero-sdk build src/index.ts -o build/service.wasm",
+    "clean": "rm -rf build"
+  },
+  "dependencies": {
+    "@calimero-network/calimero-sdk-js": "workspace:*"
+  },
+  "devDependencies": {
+    "@calimero-network/calimero-cli-js": "workspace:*",
+    "typescript": "^5.3.3"
+  }
+}
