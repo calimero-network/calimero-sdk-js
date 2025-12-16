@@ -60,6 +60,7 @@
     "directory": "packages/sdk"
   },
   "dependencies": {
+    "@noble/hashes": "^1.7.1",
     "borsh": "^1.0.0"
   },
   "devDependencies": {
