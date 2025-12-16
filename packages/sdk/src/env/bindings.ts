@@ -86,4 +86,7 @@ export interface HostEnv {
   blob_close(fd: bigint, blob_id_buf: Uint8Array): boolean;
   blob_announce_to_context(blob_id: Uint8Array, context_id: Uint8Array): number;
   random_bytes(buffer: Uint8Array): void;
+
+  // Crypto
+  ed25519_verify(signature: Uint8Array, publicKey: Uint8Array, message: Uint8Array): number;
 }

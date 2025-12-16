@@ -153,6 +153,7 @@ extern uint64_t blob_read(uint64_t fd, uint64_t buffer_ptr);  // Returns PtrSize
 extern uint64_t blob_write(uint64_t fd, uint64_t data_buffer_ptr);  // Returns PtrSizedInt (u64)
 extern uint32_t blob_close(uint64_t fd, uint64_t blob_id_buffer_ptr);  // Returns Bool (u32)
 extern uint32_t blob_announce_to_context(uint64_t blob_id_buffer_ptr, uint64_t context_id_buffer_ptr);  // Returns Bool (u32)
+extern uint32_t ed25519_verify(uint64_t signature_buffer_ptr, uint64_t public_key_buffer_ptr, uint64_t message_buffer_ptr);  // Returns Bool (u32)
 
 // Buffer descriptor struct - MUST match calimero-sys Slice<'a, u8>
 // #[repr(C)] struct with ptr: u64, len: u64, _phantom: PhantomData (zero-sized)
@@ -1398,6 +1399,44 @@ static JSValue js_blob_announce_to_context(JSContext *ctx, JSValueConst this_val
   return JS_NewUint32(ctx, result);
 }
 
+// Wrapper: ed25519_verify
+static JSValue js_ed25519_verify(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 3) {
+    return JS_ThrowTypeError(ctx, "ed25519_verify expects signature, public_key, and message");
+  }
+
+  size_t signature_len;
+  uint8_t *signature_ptr = JSValueToUint8Array(ctx, argv[0], &signature_len);
+  if (!signature_ptr) {
+    return JS_ThrowTypeError(ctx, "ed25519_verify: signature must be Uint8Array");
+  }
+  if (signature_len != 64) {
+    return JS_ThrowRangeError(ctx, "ed25519_verify: signature must be 64 bytes");
+  }
+
+  size_t public_key_len;
+  uint8_t *public_key_ptr = JSValueToUint8Array(ctx, argv[1], &public_key_len);
+  if (!public_key_ptr) {
+    return JS_ThrowTypeError(ctx, "ed25519_verify: public_key must be Uint8Array");
+  }
+  if (public_key_len != 32) {
+    return JS_ThrowRangeError(ctx, "ed25519_verify: public_key must be 32 bytes");
+  }
+
+  size_t message_len;
+  uint8_t *message_ptr = JSValueToUint8Array(ctx, argv[2], &message_len);
+  if (!message_ptr) {
+    return JS_ThrowTypeError(ctx, "ed25519_verify: message must be Uint8Array");
+  }
+
+  CalimeroBuffer signature_buf = make_buffer(signature_ptr, signature_len);
+  CalimeroBuffer public_key_buf = make_buffer(public_key_ptr, public_key_len);
+  CalimeroBuffer message_buf = make_buffer(message_ptr, message_len);
+
+  uint32_t result = ed25519_verify((uint64_t)&signature_buf, (uint64_t)&public_key_buf, (uint64_t)&message_buf);
+  return JS_NewBool(ctx, result);
+}
+
 // ===========================
 // Register Host Functions
 // ===========================
@@ -1477,6 +1516,9 @@ void js_add_calimero_host_functions(JSContext *ctx) {
   JS_SetPropertyStr(ctx, env, "blob_write", JS_NewCFunction(ctx, js_blob_write, "blob_write", 2));
   JS_SetPropertyStr(ctx, env, "blob_close", JS_NewCFunction(ctx, js_blob_close, "blob_close", 2));
   JS_SetPropertyStr(ctx, env, "blob_announce_to_context", JS_NewCFunction(ctx, js_blob_announce_to_context, "blob_announce_to_context", 2));
+  
+  // Crypto
+  JS_SetPropertyStr(ctx, env, "ed25519_verify", JS_NewCFunction(ctx, js_ed25519_verify, "ed25519_verify", 3));
   
   // Set global env object
   JS_SetPropertyStr(ctx, global, "env", env);
