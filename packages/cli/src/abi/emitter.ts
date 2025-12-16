@@ -1460,6 +1460,32 @@ export class AbiEmitter {
           return this.extractTypeFromAnnotation({ typeAnnotation: type.typeParameters.params[0] });
         }
         break;
+      case 'FrozenStorage':
+        // FrozenStorage<T> is internally UnorderedMap<Hash, FrozenValue<T>>
+        // Hash is a 32-byte Uint8Array (content-addressable key)
+        if (type.typeParameters?.params?.length >= 1) {
+          return {
+            kind: 'map',
+            key: { kind: 'scalar', scalar: 'bytes' } as any,
+            value: this.extractTypeFromAnnotation({
+              typeAnnotation: type.typeParameters.params[0],
+            }),
+          };
+        }
+        break;
+      case 'UserStorage':
+        // UserStorage<V> is internally UnorderedMap<PublicKey, V>
+        // PublicKey is a 32-byte Uint8Array
+        if (type.typeParameters?.params?.length >= 1) {
+          return {
+            kind: 'map',
+            key: { kind: 'scalar', scalar: 'bytes' } as any,
+            value: this.extractTypeFromAnnotation({
+              typeAnnotation: type.typeParameters.params[0],
+            }),
+          };
+        }
+        break;
       case 'Map':
         // Handle JavaScript native Map<K, V> type
         if (type.typeParameters?.params?.length >= 2) {
