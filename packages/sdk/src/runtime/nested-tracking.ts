@@ -6,6 +6,7 @@
  */
 
 import { hasRegisteredCollection, snapshotCollection } from './collections';
+import { flushDelta } from '../env/api';
 
 interface CollectionTracker {
   id: string;
@@ -69,43 +70,66 @@ class NestedCollectionTracker {
   }
 
   /**
-   * Mark a collection for update and schedule propagation
+   * Mark a collection for update and propagate changes synchronously.
+   *
+   * Note: We use synchronous propagation instead of microtasks because
+   * QuickJS (used in WASM) may not process microtasks before the method
+   * returns and state is saved. This ensures changes are properly
+   * propagated to parent collections before state persistence.
    */
   private markForUpdate(collectionId: string): void {
     this.pendingUpdates.add(collectionId);
 
+    // Propagate changes synchronously to ensure they're captured
+    // before state is saved. Using microtasks doesn't work reliably
+    // in QuickJS/WASM environment.
     if (!this.updateScheduled) {
       this.updateScheduled = true;
-      // Use microtask to batch updates
-      Promise.resolve().then(() => {
-        this.propagateUpdates();
-        this.updateScheduled = false;
-      });
+      this.propagateUpdates();
+      this.updateScheduled = false;
     }
   }
 
   /**
-   * Propagate updates to parent collections
+   * Propagate updates to parent collections.
+   * Uses a loop to handle cascading updates (when forceParentUpdate adds new pending updates).
    */
   private propagateUpdates(): void {
     const processedParents = new Set<string>();
+    const maxIterations = 100; // Prevent infinite loops
+    let iterations = 0;
 
-    for (const collectionId of this.pendingUpdates) {
-      const tracker = this.trackers.get(collectionId);
-      if (!tracker) continue;
+    while (this.pendingUpdates.size > 0 && iterations < maxIterations) {
+      iterations++;
 
-      // Notify all parent collections
-      for (const parent of tracker.parents) {
-        const parentSnapshot = snapshotCollection(parent.collection);
-        if (!parentSnapshot || processedParents.has(parentSnapshot.id)) continue;
+      // Get the current set of pending updates and clear it
+      const currentUpdates = new Set(this.pendingUpdates);
+      this.pendingUpdates.clear();
 
-        // Force parent to re-serialize by calling set with the same key/value
-        this.forceParentUpdate(parent.collection, parent.key, tracker.id);
-        processedParents.add(parentSnapshot.id);
+      // Track collections processed in THIS iteration only
+      // This allows collections to be reprocessed in subsequent iterations
+      // if they're re-marked for update (e.g., via forceParentUpdate)
+      const processedThisIteration = new Set<string>();
+
+      for (const collectionId of currentUpdates) {
+        // Skip if we've already processed this collection in this iteration
+        if (processedThisIteration.has(collectionId)) continue;
+        processedThisIteration.add(collectionId);
+
+        const tracker = this.trackers.get(collectionId);
+        if (!tracker) continue;
+
+        // Notify all parent collections
+        for (const parent of tracker.parents) {
+          const parentSnapshot = snapshotCollection(parent.collection);
+          if (!parentSnapshot || processedParents.has(parentSnapshot.id)) continue;
+
+          // Force parent to re-serialize by calling set with the same key/value
+          this.forceParentUpdate(parent.collection, parent.key, tracker.id);
+          processedParents.add(parentSnapshot.id);
+        }
       }
     }
-
-    this.pendingUpdates.clear();
   }
 
   /**
@@ -125,6 +149,25 @@ class NestedCollectionTracker {
         // Mark parent for update too
         this.markForUpdate(parentSnapshot.id);
       }
+    } else if (parentSnapshot.type === 'UserStorage') {
+      // UserStorage uses insert() for setting values, and the key is always the executor's PublicKey
+      // For nested collections inside UserStorage, we need to re-insert to propagate changes
+      if (parentCollection.get && parentCollection.insert) {
+        const currentValue = parentCollection.get();
+        if (currentValue) {
+          // CRITICAL: Flush nested collection's changes to storage before re-inserting
+          // This ensures the nested map's internal state (entries) is persisted
+          // before we serialize it as a collection reference for UserStorage
+          flushDelta();
+          const originalInsert = Object.getPrototypeOf(parentCollection).insert;
+          originalInsert.call(parentCollection, currentValue);
+          this.markForUpdate(parentSnapshot.id);
+        }
+      }
+    } else if (parentSnapshot.type === 'FrozenStorage') {
+      // FrozenStorage is immutable, nested collections shouldn't change
+      // Just mark for update to ensure consistency
+      this.markForUpdate(parentSnapshot.id);
     } else if (parentSnapshot.type === 'Vector') {
       // For Vector, we can't modify individual elements in-place since it's append-only.
       // The nested collection change will still be tracked and propagated through

@@ -6,6 +6,7 @@ import {
   hasRegisteredCollection,
 } from '../runtime/collections';
 import { getMergeableType, markMergeableInstance } from '../runtime/mergeable-registry';
+
 const MERGEABLE_SENTINEL = '__calimeroMergeType';
 
 enum ValueKind {
