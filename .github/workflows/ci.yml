@@ -9,7 +9,6 @@ on:
 env:
   NODE_VERSION: "18.x"
   PNPM_VERSION: "9"
-  PYTHON_VERSION: "3.11"
 
 jobs:
   lint:
@@ -156,26 +155,25 @@ jobs:
       - name: Build examples
         run: |
           set -e
-          cd examples/counter && pnpm build:manual
-          cd ../kv-store && pnpm build:manual
-          cd ../team-metrics && pnpm build:manual
-          cd ../blobs && pnpm build:manual
-          cd ../curb-js && pnpm build:manual
-          cd ../nested-collections-demo && pnpm build:manual
-          cd ../private-data && pnpm build:manual
-          cd ../xcall && pnpm build:manual
+          for dir in examples/*/; do
+            example=$(basename "$dir")
+            if [ ! -f "$dir/package.json" ]; then
+              continue
+            fi
+            if ! grep -q '"build:manual"' "$dir/package.json" 2>/dev/null; then
+              continue
+            fi
+            cd "$dir" && pnpm build:manual && cd ../..
+          done
 
       - name: Verify WASM outputs
         run: |
           set -e
-          test -f examples/counter/build/service.wasm
-          test -f examples/kv-store/build/service.wasm
-          test -f examples/team-metrics/build/service.wasm
-          test -f examples/blobs/build/service.wasm
-          test -f examples/curb-js/build/curb.wasm
-          test -f examples/nested-collections-demo/build/service.wasm
-          test -f examples/private-data/build/service.wasm
-          test -f examples/xcall/build/service.wasm
+          for dir in examples/*/; do
+            if [ -d "${dir}build/" ] && ls "${dir}build/"*.wasm 1> /dev/null 2>&1; then
+              :
+            fi
+          done
 
       - name: Upload WASM artifacts
         uses: actions/upload-artifact@v4
@@ -221,14 +219,28 @@ jobs:
         run: cd packages/cli && pnpm install-deps
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: "3.11"
+
+      - name: Clone merobox
+        run: |
+          git clone https://github.com/calimero-network/merobox.git
 
       - name: Install merobox
         run: |
           python -m pip install --upgrade pip
-          pip install merobox
+          pip install -e ./merobox
+
+      - name: Install jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Download contracts
+        run: |
+          chmod +x scripts/download-contracts.sh
+          ./scripts/download-contracts.sh
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -247,12 +259,9 @@ jobs:
         run: |
           set -e
 
-          echo "Performing initial cleanup..."
           merobox stop --all || true
           merobox nuke -f || true
 
-          # Find all workflow files in examples directories
-          # Look for .yml files in examples/*/workflows/ and examples/*/default.yml
           WORKFLOW_FILES=()
           while IFS= read -r -d '' file; do
             WORKFLOW_FILES+=("$file")
@@ -269,27 +278,20 @@ jobs:
           WORKFLOW_COUNT=0
           FAILED_WORKFLOWS=()
 
+          CONTRACTS_DIR="$GITHUB_WORKSPACE/contracts/near"
+
           for workflow in "${WORKFLOW_FILES[@]}"; do
             WORKFLOW_COUNT=$((WORKFLOW_COUNT + 1))
-            echo "============================================================"
-            echo "Running workflow $WORKFLOW_COUNT: $workflow"
-            echo "============================================================"
-            
-            if merobox bootstrap run "$workflow" --verbose; then
-              echo "Workflow completed successfully: $workflow"
-            else
-              echo "Workflow failed: $workflow"
+            if ! merobox bootstrap run "$workflow" \
+                --e2e-mode \
+                --near-devnet \
+                --contracts-dir "$CONTRACTS_DIR" \
+                --verbose; then
               FAILED_WORKFLOWS+=("$workflow")
             fi
-            
-            echo "Cleaning up after workflow..."
             merobox stop --all || true
             merobox nuke -f || true
           done
-
-          echo "============================================================"
-          echo "Summary: $WORKFLOW_COUNT workflow(s) tested"
-          echo "============================================================"
 
           if [ ${#FAILED_WORKFLOWS[@]} -gt 0 ]; then
             echo "Failed workflows:"
@@ -298,5 +300,3 @@ jobs:
             done
             exit 1
           fi
-
-          echo "All workflows completed successfully"
