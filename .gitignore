@@ -71,6 +71,9 @@ temp/
 packages/cli/deps/
 **/deps/
 
+# Contracts (downloaded via download-contracts.sh script)
+contracts/
+
 
 
 # Generated files
