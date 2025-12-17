@@ -379,7 +379,7 @@ function normalizeArgs(payload: unknown, paramNames: string[]): unknown[] {
         return values;
       }
       // If we have multiple values but no param names, extract values in order
-      // This handles cases where readPayload returns {key: "...", value: "..."} 
+      // This handles cases where readPayload returns {key: "...", value: "..."}
       // but paramNames wasn't populated from method registry
       return values;
     }
@@ -435,7 +435,7 @@ function createLogicDispatcher(
 ): () => void {
   return function dispatch(): void {
     const payload = readPayload(methodName);
-    
+
     // Get parameter names from ABI if not provided from method registry
     let effectiveParamNames = paramNames;
     if (effectiveParamNames.length === 0) {
@@ -443,14 +443,16 @@ function createLogicDispatcher(
       log(`[dispatcher] ABI lookup for ${methodName}: hasAbi=${!!abi}`);
       if (abi) {
         const method = getMethod(abi, methodName);
-        log(`[dispatcher] Method lookup for ${methodName}: hasMethod=${!!method}, params=${method ? method.params.map(p => p.name).join(',') : 'none'}`);
+        log(
+          `[dispatcher] Method lookup for ${methodName}: hasMethod=${!!method}, params=${method ? method.params.map(p => p.name).join(',') : 'none'}`
+        );
         if (method) {
           effectiveParamNames = method.params.map(p => p.name);
           log(`[dispatcher] Extracted paramNames from ABI: ${JSON.stringify(effectiveParamNames)}`);
         }
       }
     }
-    
+
     const args = normalizeArgs(payload, effectiveParamNames);
     log(
       `[dispatcher] dispatch: method=${methodName}, paramNames=${JSON.stringify(effectiveParamNames)}, args length=${args.length}, args=${JSON.stringify(args)}`
