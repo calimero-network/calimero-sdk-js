@@ -9,7 +9,6 @@ on:
 env:
   NODE_VERSION: "18.x"
   PNPM_VERSION: "9"
-  PYTHON_VERSION: "3.11"
 
 jobs:
   lint:
@@ -220,14 +219,18 @@ jobs:
         run: cd packages/cli && pnpm install-deps
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: "3.11"
+
+      - name: Clone merobox
+        run: |
+          git clone https://github.com/calimero-network/merobox.git
 
       - name: Install merobox
         run: |
           python -m pip install --upgrade pip
-          pip install merobox
+          pip install -e ./merobox
 
       - name: Install jq
         run: |
@@ -276,7 +279,7 @@ jobs:
           FAILED_WORKFLOWS=()
 
           CONTRACTS_DIR="$GITHUB_WORKSPACE/contracts/near"
-          
+
           for workflow in "${WORKFLOW_FILES[@]}"; do
             WORKFLOW_COUNT=$((WORKFLOW_COUNT + 1))
             if ! merobox bootstrap run "$workflow" \
