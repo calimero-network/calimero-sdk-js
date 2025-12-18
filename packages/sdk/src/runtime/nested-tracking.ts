@@ -150,17 +150,37 @@ class NestedCollectionTracker {
         this.markForUpdate(parentSnapshot.id);
       }
     } else if (parentSnapshot.type === 'UserStorage') {
-      // UserStorage uses insert() for setting values, and the key is always the executor's PublicKey
+      // UserStorage uses insert() for setting values for the current executor
       // For nested collections inside UserStorage, we need to re-insert to propagate changes
+      // If key is provided (from getForUser), use getForUser(key) and setForUser(key, value)
+      // Otherwise, use get() and insert() for the current executor
       if (parentCollection.get && parentCollection.insert) {
-        const currentValue = parentCollection.get();
+        let currentValue: any = null;
+
+        // If key is provided, use getForUser to get the correct user's value
+        if (key !== undefined && key !== null && parentCollection.getForUser) {
+          currentValue = parentCollection.getForUser(key);
+        } else {
+          // Fall back to get() for current executor (backward compatibility)
+          currentValue = parentCollection.get();
+        }
+
         if (currentValue) {
           // CRITICAL: Flush nested collection's changes to storage before re-inserting
           // This ensures the nested map's internal state (entries) is persisted
           // before we serialize it as a collection reference for UserStorage
           flushDelta();
-          const originalInsert = Object.getPrototypeOf(parentCollection).insert;
-          originalInsert.call(parentCollection, currentValue);
+
+          // If key is provided, use setForUser to set for that specific user
+          // Otherwise, use insert() for the current executor
+          if (key !== undefined && key !== null && parentCollection.setForUser) {
+            parentCollection.setForUser(key, currentValue);
+          } else {
+            // Use insert() for current executor
+            const originalInsert = Object.getPrototypeOf(parentCollection).insert;
+            originalInsert.call(parentCollection, currentValue);
+          }
+
           this.markForUpdate(parentSnapshot.id);
         }
       }

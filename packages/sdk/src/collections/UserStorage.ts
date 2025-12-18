@@ -193,6 +193,20 @@ export class UserStorage<V> {
   }
 
   /**
+   * Sets data for a specific user by their PublicKey.
+   *
+   * This method is primarily used internally by the nested collection tracking system
+   * to propagate changes to nested collections accessed via `getForUser()`.
+   *
+   * @param userKey - The 32-byte PublicKey of the user
+   * @param value - The value to store
+   * @returns The previous value if it existed, null otherwise
+   */
+  setForUser(userKey: PublicKey, value: V): V | null {
+    return this.setInternal(userKey, value);
+  }
+
+  /**
    * Removes data for the current executor.
    *
    * @returns The previous value if it existed, null otherwise
