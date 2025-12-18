@@ -215,7 +215,7 @@ export class KvStoreWithUserAndFrozenLogic extends KvStoreWithUserAndFrozen {
     const executorId = env.executorIdHex();
     env.log(`[kv-store] Setting nested key ${key} for user ${executorId}: ${value}`);
 
-    // Get or create the user's nested map 
+    // Get or create the user's nested map
     let nestedMap = this.userItemsNested.get();
     if (!nestedMap) {
       nestedMap = new UnorderedMap<string, LwwRegister<string>>();

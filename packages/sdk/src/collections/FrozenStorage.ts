@@ -133,7 +133,7 @@ export class FrozenStorage<T> {
    * @returns The 32-byte SHA256 hash (key) of the stored value
    */
   add(value: T): Hash {
-    // Serialize the value using pure Borsh format (no ValueKind tags) 
+    // Serialize the value using pure Borsh format (no ValueKind tags)
     const valueBytes = serializeBorshForHash(value);
     const hash = sha256(valueBytes);
 

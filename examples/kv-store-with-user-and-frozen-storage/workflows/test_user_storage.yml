@@ -3,7 +3,7 @@ name: KV-store user storage workflow
 
 # Configuration options
 stop_all_nodes: true
-restart: false  
+restart: false
 wait_timeout: 120
 
 nodes:
@@ -46,7 +46,7 @@ steps:
     executor_public_key: '{{member_public_key}}'
     method: set_user_simple
     args:
-      value: "SomeSimpleUserString"
+      value: 'SomeSimpleUserString'
 
   # Step 8: simple user storage get
   - name: Simple user storage get test
@@ -71,8 +71,8 @@ steps:
     executor_public_key: '{{member_public_key}}'
     method: set_user_nested
     args:
-      key: "UserNestedKey1"
-      value: "UserNestedValue1"
+      key: 'UserNestedKey1'
+      value: 'UserNestedValue1'
 
   - name: Nested user storage get test
     type: call
@@ -81,7 +81,7 @@ steps:
     executor_public_key: '{{member_public_key}}'
     method: get_user_nested
     args:
-      key: "UserNestedKey1"
+      key: 'UserNestedKey1'
     outputs:
       nested_value_res: result
 
@@ -108,7 +108,7 @@ steps:
   # Wait after Node 1 messages
   - name: Wait after Node 1 Messages
     type: wait_for_sync
-    context_id: "{{context_id}}"
+    context_id: '{{context_id}}'
     nodes:
       - new-calimero-node-1
       - new-calimero-node-2
@@ -124,7 +124,7 @@ steps:
     executor_public_key: '{{public_key_new-calimero-node-2}}'
     method: get_user_simple_for
     args:
-      user_key: "{{member_public_key}}"
+      user_key: '{{member_public_key}}'
     outputs:
       node2_simple_value_res_specific_user: result
 
@@ -141,7 +141,7 @@ steps:
     executor_public_key: '{{public_key_new-calimero-node-2}}'
     method: set_user_simple
     args:
-      value: "SimpleUserStringFromNode2"
+      value: 'SimpleUserStringFromNode2'
 
   # Step 13: Node2: get simple user storage (belongs to Node2 PublicKey)
   - name: Simple user storage get test for a specific user
@@ -161,7 +161,7 @@ steps:
   # Wait after Node 2 messages
   - name: Wait after Node 2 Messages
     type: wait_for_sync
-    context_id: "{{context_id}}"
+    context_id: '{{context_id}}'
     nodes:
       - new-calimero-node-1
       - new-calimero-node-2
@@ -177,7 +177,7 @@ steps:
     executor_public_key: '{{member_public_key}}'
     method: get_user_simple_for
     args:
-      user_key: "{{public_key_new-calimero-node-2}}"
+      user_key: '{{public_key_new-calimero-node-2}}'
     outputs:
       node1_simple_value_res_from_node2: result
 
