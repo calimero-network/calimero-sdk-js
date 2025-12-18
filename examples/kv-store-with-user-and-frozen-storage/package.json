@@ -4,7 +4,7 @@
   "private": true,
   "description": "Key-value store with UserStorage and FrozenStorage example for Calimero",
   "scripts": {
-    "build": "calimero-sdk build src/index.ts -o build/service.wasm",
+    "build:manual": "calimero-sdk build src/index.ts -o build/service.wasm",
     "clean": "rm -rf build"
   },
   "dependencies": {
