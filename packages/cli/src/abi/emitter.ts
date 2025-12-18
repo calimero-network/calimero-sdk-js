@@ -1170,6 +1170,31 @@ export class AbiEmitter {
         const methodParams = member.params || member.value?.params || [];
         const params: Parameter[] = [];
         methodParams.forEach((param: any, index: number) => {
+          // Handle ObjectPattern (destructured object parameters)
+          if (param.type === 'ObjectPattern') {
+            const typeAnnotation = param.typeAnnotation;
+            const isOptional = param.optional || false;
+
+            // Extract type from annotation (should be a record/object type)
+            const typeRef = this.extractTypeFromAnnotation(typeAnnotation, {
+              methodName,
+              isReturn: false,
+            });
+
+            // For destructured object parameters, use a synthetic parameter name
+            // The type annotation defines the structure
+            const paramObj: any = {
+              name: 'params', // Synthetic name for destructured object param
+              type: typeRef,
+            };
+            if (isOptional) {
+              paramObj.nullable = true;
+            }
+            params.push(paramObj);
+            return;
+          }
+
+          // Handle regular Identifier or Pattern parameters
           if (param.type === 'Identifier' || param.type === 'Pattern') {
             let paramName = param.name || param.left?.name;
             const typeAnnotation = param.typeAnnotation || param.left?.typeAnnotation;
