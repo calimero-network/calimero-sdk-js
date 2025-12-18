@@ -209,55 +209,39 @@ export class KvStoreWithUserAndFrozenLogic extends KvStoreWithUserAndFrozen {
 
   /**
    * Sets a key-value pair in the *current* user's nested map.
-   * Uses direct UnorderedMap nesting - following the nested-collections-demo pattern.
-   * The nested tracker automatically propagates changes when nested collections are modified.
+   * Get or create nested map, modify it, then re-insert.
    */
   set_user_nested(key: string, value: string): void {
     const executorId = env.executorIdHex();
     env.log(`[kv-store] Setting nested key ${key} for user ${executorId}: ${value}`);
 
-    // Get or create the user's nested map
-    // CRITICAL: Don't re-get after insertion - use the same instance!
-    // Re-getting creates a new instance that might not have the latest data
+    // Get or create the user's nested map 
     let nestedMap = this.userItemsNested.get();
     if (!nestedMap) {
       nestedMap = new UnorderedMap<string, LwwRegister<string>>();
-      const nestedMapId = nestedMap.id();
-      env.log(`[kv-store] Created new nested map (ID: ${nestedMapId}) for user ${executorId}`);
-
-      // Insert the nested map into UserStorage
-      this.userItemsNested.insert(nestedMap);
-      env.log(`[kv-store] Inserted nested map (ID: ${nestedMapId}) into UserStorage`);
-
-      // DON'T re-get here - use the same instance we just created and inserted
-      // The nested map instance we have is already connected to storage
-    } else {
-      env.log(`[kv-store] Using existing nested map (ID: ${nestedMap.id()})`);
     }
 
     // Get or create the register for this key
     let register = nestedMap.get(key);
     if (!register) {
       register = new LwwRegister<string>();
-      env.log(`[kv-store] Created new register for key ${key}`);
-    } else {
-      env.log(`[kv-store] Using existing register for key ${key}`);
     }
 
+    // Set the value in the register
     register.set(value);
-    env.log(`[kv-store] Set value in register: ${value}`);
 
+    // Set the register in the nested map
     nestedMap.set(key, register);
-    env.log(`[kv-store] Set register in nested map for key ${key}`);
 
-    // The nested tracker should automatically propagate changes to UserStorage
-    // No need to manually re-insert (following nested-collections-demo pattern)
+    // Re-insert the nested map into UserStorage
+    this.userItemsNested.insert(nestedMap);
 
     emit(new UserNestedSet(executorId, key, value));
   }
 
   /**
    * Gets a value from the *current* user's nested map.
+   * returns Option<String> (null if not found).
    */
   get_user_nested(key: string): string | null {
     const executorId = env.executorIdHex();
@@ -265,26 +249,15 @@ export class KvStoreWithUserAndFrozenLogic extends KvStoreWithUserAndFrozen {
 
     const nestedMap = this.userItemsNested.get();
     if (!nestedMap) {
-      env.log(`[kv-store] No nested map found for user ${executorId}`);
       return null;
     }
-
-    env.log(
-      `[kv-store] Found nested map (ID: ${nestedMap.id()}), size: ${nestedMap.entries().length}, checking for key ${key}`
-    );
-
-    const allKeys = nestedMap.keys();
-    env.log(`[kv-store] All keys in nested map: ${JSON.stringify(allKeys)}`);
 
     const register = nestedMap.get(key);
     if (!register) {
-      env.log(`[kv-store] No register found for key ${key} in nested map`);
       return null;
     }
 
-    const value = register.get();
-    env.log(`[kv-store] Retrieved value for key ${key}: ${value}`);
-    return value;
+    return register.get();
   }
 
   // --- Frozen Storage Methods ---
@@ -306,12 +279,22 @@ export class KvStoreWithUserAndFrozenLogic extends KvStoreWithUserAndFrozen {
 
   /**
    * Gets an immutable value from frozen storage by its hash.
+   * throws error if not found
    */
-  get_frozen(hash_hex: string): string | null {
+  get_frozen(hash_hex: string): string {
     env.log(`[kv-store] Getting frozen value for hash ${hash_hex}`);
 
     const hashBytes = hexToBytes(hash_hex);
-    return this.frozenItems.get(hashBytes);
+    if (hashBytes.length !== 32) {
+      throw new Error('dehex error');
+    }
+
+    const value = this.frozenItems.get(hashBytes);
+    if (value === null) {
+      throw new Error('Frozen value is not found');
+    }
+
+    return value;
   }
 }
 

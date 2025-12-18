@@ -1,4 +1,4 @@
-description: KV-Store Frozen storage workflow test (JavaScript SDK)
+description: KV-Store Frozen storage workflow test
 name: KV-store frozen storage workflow
 
 # Configuration options
@@ -10,13 +10,13 @@ nodes:
   chain_id: testnet-1
   count: 2
   image: ghcr.io/calimero-network/merod:edge
-  prefix: frozen-storage-node
+  prefix: new-calimero-node
 
 steps:
   # Step 1: Install the application on the first node
   - name: Install Application on Node 1
     type: install_application
-    node: frozen-storage-node-1
+    node: new-calimero-node-1
     path: 'examples/kv-store-with-user-and-frozen-storage/build/service.wasm'
     dev: true
     outputs:
@@ -25,19 +25,30 @@ steps:
   # Step 2: Create mesh with both nodes
   - name: Create Mesh
     type: create_mesh
-    context_node: frozen-storage-node-1
+    context_node: new-calimero-node-1
     application_id: '{{app_id}}'
     nodes:
-      - frozen-storage-node-2
+      - new-calimero-node-2
     capability: member
     outputs:
       context_id: contextId
       member_public_key: memberPublicKey
 
-  # Step 4: Add frozen storage value
-  - name: Frozen storage add test
+  # Step 6: Set a value in the storage
+  - name: Set value in the storage 'my_key1':'my_value1'
     type: call
-    node: frozen-storage-node-1
+    node: new-calimero-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: set
+    args:
+      key: 'my_key1'
+      value: 'my_value1'
+
+  # Step 7: frozen storage set
+  - name: Frozen storage set test
+    type: call
+    node: new-calimero-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
     method: add_frozen
@@ -46,10 +57,15 @@ steps:
     outputs:
       frozen_value_hash_hex: result.output
 
-  # Step 5: Get frozen storage value
+  - name: Assert frozen storage key is expected
+    type: json_assert
+    statements:
+      - 'json_equal({{frozen_value_hash_hex}}, "c8acd3c44a96324de12a82dd674aa1c93a635fbb76a852ae14363f9b1971beb1")'
+
+  # Step 8: frozen storage get
   - name: Frozen storage get test
     type: call
-    node: frozen-storage-node-1
+    node: new-calimero-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
     method: get_frozen
@@ -63,25 +79,23 @@ steps:
     statements:
       - 'json_equal({{frozen_value_res}}, {"output": "SomeFrozenString"})'
 
-  # Cross-Node Sync Testing
-
-  # Wait for sync after Node 1 messages
+  # Wait after Node 1 messages
   - name: Wait after Node 1 Messages
     type: wait_for_sync
     context_id: '{{context_id}}'
     nodes:
-      - frozen-storage-node-1
-      - frozen-storage-node-2
+      - new-calimero-node-1
+      - new-calimero-node-2
     timeout: 60
     check_interval: 2
     trigger_sync: true
 
-  # Step 6: Node 2 gets the frozen storage value
-  - name: Node 2 - Frozen storage get test
+  # Step 11: Node2: get frozen storage
+  - name: Node 2 - frozen storage get test
     type: call
-    node: frozen-storage-node-2
+    node: new-calimero-node-2
     context_id: '{{context_id}}'
-    executor_public_key: '{{public_key_frozen-storage-node-2}}'
+    executor_public_key: '{{public_key_new-calimero-node-2}}'
     method: get_frozen
     args:
       hash_hex: '{{frozen_value_hash_hex}}'
@@ -93,33 +107,38 @@ steps:
     statements:
       - 'json_equal({{node2_frozen_value_res}}, {"output": "SomeFrozenString"})'
 
-  # Step 7: Node 2 adds its own frozen storage value
-  - name: Node 2 - Frozen storage add test
+  # Step 12: Node2: set frozen storage
+  - name: Frozen storage set test (on Node 2)
     type: call
-    node: frozen-storage-node-2
+    node: new-calimero-node-2
     context_id: '{{context_id}}'
-    executor_public_key: '{{public_key_frozen-storage-node-2}}'
+    executor_public_key: '{{public_key_new-calimero-node-2}}'
     method: add_frozen
     args:
       value: 'SomeFrozenString2'
     outputs:
       frozen_value_hash_hex_node2: result.output
 
-  # Wait for sync after Node 2 messages
+  - name: Node 2 - Assert frozen storage key is expected
+    type: json_assert
+    statements:
+      - 'json_equal({{frozen_value_hash_hex_node2}}, "ceaa4337dea4ad0ced60eb2c58a7b69ecab93fe07ee76e0ad2fd5dcb4001f5ff")'
+
+  # Wait after Node 2 messages
   - name: Wait after Node 2 Messages
     type: wait_for_sync
     context_id: '{{context_id}}'
     nodes:
-      - frozen-storage-node-1
-      - frozen-storage-node-2
+      - new-calimero-node-1
+      - new-calimero-node-2
     timeout: 60
     check_interval: 2
     trigger_sync: true
 
-  # Step 8: Node 1 gets the frozen value added by Node 2
-  - name: Node 1 - Frozen storage get test (from Node 2)
+  # Step 13: Node1: get frozen storage (that was set by Node2)
+  - name: Node 1 - frozen storage get test (that was set by Node2)
     type: call
-    node: frozen-storage-node-1
+    node: new-calimero-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
     method: get_frozen
@@ -128,7 +147,7 @@ steps:
     outputs:
       node1_frozen_value_from_node2_res: result
 
-  - name: Node 1 - Assert frozen storage value (from Node 2) is expected
+  - name: Node 1 - Assert frozen storage value got (from Node 2) is expected
     type: json_assert
     statements:
       - 'json_equal({{node1_frozen_value_from_node2_res}}, {"output": "SomeFrozenString2"})'

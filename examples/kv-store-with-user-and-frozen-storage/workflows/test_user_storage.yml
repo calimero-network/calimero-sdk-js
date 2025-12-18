@@ -1,22 +1,22 @@
-description: KV-Store user storage workflow test (JavaScript SDK)
+description: KV-Store user storage workflow test
 name: KV-store user storage workflow
 
 # Configuration options
-stop_all_nodes: false
-restart: false
+stop_all_nodes: true
+restart: false  
 wait_timeout: 120
 
 nodes:
   chain_id: testnet-1
   count: 2
   image: ghcr.io/calimero-network/merod:edge
-  prefix: user-storage-node
+  prefix: new-calimero-node
 
 steps:
   # Step 1: Install the application on the first node
   - name: Install Application on Node 1
     type: install_application
-    node: user-storage-node-1
+    node: new-calimero-node-1
     path: 'examples/kv-store-with-user-and-frozen-storage/build/service.wasm'
     dev: true
     outputs:
@@ -25,10 +25,10 @@ steps:
   # Step 2: Create mesh with both nodes
   - name: Create Mesh
     type: create_mesh
-    context_node: user-storage-node-1
+    context_node: new-calimero-node-1
     application_id: '{{app_id}}'
     nodes:
-      - user-storage-node-2
+      - new-calimero-node-2
     capability: member
     outputs:
       context_id: contextId
@@ -38,20 +38,20 @@ steps:
   # Testing Phase: User Storage Simple
   # ============================================
 
-  # Step 3: Simple user storage set
+  # Step 7: simple user storage set
   - name: Simple user storage set test
     type: call
-    node: user-storage-node-1
+    node: new-calimero-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
     method: set_user_simple
     args:
-      value: 'SomeSimpleUserString'
+      value: "SomeSimpleUserString"
 
-  # Step 4: Simple user storage get
+  # Step 8: simple user storage get
   - name: Simple user storage get test
     type: call
-    node: user-storage-node-1
+    node: new-calimero-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
     method: get_user_simple
@@ -62,35 +62,26 @@ steps:
     type: json_assert
     statements:
       - 'json_equal({{simple_value_res}}, {"output": "SomeSimpleUserString"})'
-  # ============================================
-  # Testing Phase: User Storage Nested (using direct UnorderedMap)
-  # ============================================
 
-  # Step 5: Nested user storage set
+  # Step 9: nested user storage set
   - name: Nested user storage set test
     type: call
-    node: user-storage-node-1
+    node: new-calimero-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
     method: set_user_nested
     args:
-      key: 'UserNestedKey1'
-      value: 'UserNestedValue1'
+      key: "UserNestedKey1"
+      value: "UserNestedValue1"
 
-  # Wait for state to persist and nested tracking to propagate
-  - name: Wait after nested set (for state persistence)
-    type: wait
-    duration: 2
-
-  # Step 6: Nested user storage get
   - name: Nested user storage get test
     type: call
-    node: user-storage-node-1
+    node: new-calimero-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
     method: get_user_nested
     args:
-      key: 'UserNestedKey1'
+      key: "UserNestedKey1"
     outputs:
       nested_value_res: result
 
@@ -99,54 +90,65 @@ steps:
     statements:
       - 'json_equal({{nested_value_res}}, {"output": "UserNestedValue1"})'
 
-  # ============================================
-  # Cross-Node Sync Testing
-  # ============================================
+  # Step 10: get simple user storage on Node 1
+  - name: Simple user storage get test for a specific user
+    type: call
+    node: new-calimero-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: get_user_simple
+    outputs:
+      simple_value_res_specific_user: result
 
-  # Wait for sync after Node 1 messages
+  - name: Assert simple user storage value got is expected
+    type: json_assert
+    statements:
+      - 'json_equal({{simple_value_res_specific_user}}, {"output": "SomeSimpleUserString"})'
+
+  # Wait after Node 1 messages
   - name: Wait after Node 1 Messages
     type: wait_for_sync
-    context_id: '{{context_id}}'
+    context_id: "{{context_id}}"
     nodes:
-      - user-storage-node-1
-      - user-storage-node-2
+      - new-calimero-node-1
+      - new-calimero-node-2
     timeout: 60
     check_interval: 2
     trigger_sync: true
 
-  # Step 7: Node 2 gets simple user storage for a specific user (Node 1)
+  # Step 11: Node2: get simple user storage for a specific user
   - name: Node 2 - Simple user storage get test for a specific user
     type: call
-    node: user-storage-node-2
+    node: new-calimero-node-2
     context_id: '{{context_id}}'
-    executor_public_key: '{{public_key_user-storage-node-2}}'
+    executor_public_key: '{{public_key_new-calimero-node-2}}'
     method: get_user_simple_for
     args:
-      user_key: '{{member_public_key}}'
+      user_key: "{{member_public_key}}"
     outputs:
       node2_simple_value_res_specific_user: result
 
-  - name: Assert simple user storage value got is expected (from Node 2)
+  - name: Assert simple user storage value got is expected
     type: json_assert
     statements:
       - 'json_equal({{node2_simple_value_res_specific_user}}, {"output": "SomeSimpleUserString"})'
 
-  # Step 8: Node 2 sets its own simple user storage
-  - name: Node 2 - Simple user storage set
+  # Step 12: Node2: set simple user storage
+  - name: Node 2 - Simple user storage get test for a specific user
     type: call
-    node: user-storage-node-2
+    node: new-calimero-node-2
     context_id: '{{context_id}}'
-    executor_public_key: '{{public_key_user-storage-node-2}}'
+    executor_public_key: '{{public_key_new-calimero-node-2}}'
     method: set_user_simple
     args:
-      value: 'SimpleUserStringFromNode2'
+      value: "SimpleUserStringFromNode2"
 
-  # Step 9: Node 2 gets its own simple user storage
-  - name: Node 2 - Simple user storage get
+  # Step 13: Node2: get simple user storage (belongs to Node2 PublicKey)
+  - name: Simple user storage get test for a specific user
     type: call
-    node: user-storage-node-2
+    node: new-calimero-node-2
     context_id: '{{context_id}}'
-    executor_public_key: '{{public_key_user-storage-node-2}}'
+    executor_public_key: '{{public_key_new-calimero-node-2}}'
     method: get_user_simple
     outputs:
       node2_simple_value_res: result
@@ -156,30 +158,30 @@ steps:
     statements:
       - 'json_equal({{node2_simple_value_res}}, {"output": "SimpleUserStringFromNode2"})'
 
-  # Wait for sync after Node 2 messages
+  # Wait after Node 2 messages
   - name: Wait after Node 2 Messages
     type: wait_for_sync
-    context_id: '{{context_id}}'
+    context_id: "{{context_id}}"
     nodes:
-      - user-storage-node-1
-      - user-storage-node-2
+      - new-calimero-node-1
+      - new-calimero-node-2
     timeout: 60
     check_interval: 2
     trigger_sync: true
 
-  # Step 10: Node 1 gets Node 2's simple user storage
-  - name: Node 1 - Simple user storage get for Node 2 user
+  # Step 14: Node1: get simple user storage for Node 2 user
+  - name: Node 1 - Simple user storage get test for a specific user (from Node2)
     type: call
-    node: user-storage-node-1
+    node: new-calimero-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
     method: get_user_simple_for
     args:
-      user_key: '{{public_key_user-storage-node-2}}'
+      user_key: "{{public_key_new-calimero-node-2}}"
     outputs:
       node1_simple_value_res_from_node2: result
 
-  - name: Assert simple user storage value from Node 2 is expected
+  - name: Assert simple user storage value got is expected
     type: json_assert
     statements:
       - 'json_equal({{node1_simple_value_res_from_node2}}, {"output": "SimpleUserStringFromNode2"})'
