@@ -1829,6 +1829,7 @@ void calimero_method_##name() { \
   } \
   /* Set as string - JavaScript code will parse it if needed */ \
   /* Note: JS_SetPropertyStr consumes the value reference, so we don't free abi_string */ \
+  JSValue global_obj = JS_GetGlobalObject(ctx); \
   JS_SetPropertyStr(ctx, global_obj, "__CALIMERO_ABI_MANIFEST__", abi_string); \
   JS_FreeValue(ctx, global_obj); \
   snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: storage wasm and ABI injected", #name); \
