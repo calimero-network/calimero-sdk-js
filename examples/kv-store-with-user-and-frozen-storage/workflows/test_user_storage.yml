@@ -5,6 +5,7 @@ name: KV-store user storage workflow
 stop_all_nodes: true
 restart: false
 wait_timeout: 120
+force_pull_image: true
 
 nodes:
   chain_id: testnet-1
