@@ -116,8 +116,10 @@ Final Service (~500KB + ABI)
               │ serialize via borsh-value
               ▼
 ┌───────────────────────────┐
-│ storage-wasm bindings     │
+│ Host Function Bridge      │
 │   js_crdt_* host calls    │
+│   js_user_storage_*       │
+│   js_frozen_storage_*     │
 │   storage_{read,write}    │
 └─────────────┬─────────────┘
               │ pass raw bytes + CRDT IDs

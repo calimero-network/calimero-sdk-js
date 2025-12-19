@@ -1,5 +1,5 @@
 /**
- * UnorderedMap - backed by the Rust `JsUnorderedMap` CRDT via storage-wasm.
+ * UnorderedMap - backed by the Rust `JsUnorderedMap` CRDT via host functions.
  * Keys and values are serialized using the SDK's JSON-based serialization.
  */
 

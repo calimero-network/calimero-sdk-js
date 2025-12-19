@@ -9,7 +9,6 @@
 #include "quickjs-libc-min.h"  // ADDED: For js_std_loop and module helpers (matching NEAR SDK!)
 #include "libbf.h"
 #include "code.h"
-#include "storage_wasm.h"
 #include "abi.h"  // ABI manifest embedded as byte array
 
 static void log_c_string(const char *msg);
@@ -1809,24 +1808,6 @@ void calimero_method_##name() { \
   snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: host functions wired", #name); \
   log_c_string(log_buf); \
  \
-  JSValue storage_bytes = JS_NewArrayBufferCopy( \
-      ctx, \
-      calimero_sdk_js_packages_sdk_src_wasm_storage_wasm_wasm, \
-      calimero_sdk_js_packages_sdk_src_wasm_storage_wasm_wasm_len); \
-  if (JS_IsException(storage_bytes)) { \
-    snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: JS_NewArrayBufferCopy exception", #name); \
-    log_c_string(log_buf); \
-    JSValue buf_exception = JS_GetException(ctx); \
-    calimero_log_exception(ctx, buf_exception, "storage buffer"); \
-    calimero_panic_with_exception(ctx, buf_exception); \
-    JS_FreeValue(ctx, buf_exception); \
-    JS_FreeContext(ctx); \
-    JS_FreeRuntime(rt); \
-    __builtin_unreachable(); \
-  } \
-  JSValue global_obj = JS_GetGlobalObject(ctx); \
-  JS_SetPropertyStr(ctx, global_obj, "__CALIMERO_STORAGE_WASM__", storage_bytes); \
-  \
   /* Inject ABI manifest as global variable (required) */ \
   /* Inject as string - let JavaScript parse it to avoid memory issues with large JSON */ \
   if (calimero_abi_json_len == 0) { \

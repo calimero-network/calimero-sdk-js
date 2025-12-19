@@ -57,7 +57,7 @@ export async function generateAbiHeader(abiJsonPath: string, options: AbiOptions
   const abiJson = fs.readFileSync(abiJsonPath, 'utf-8');
   const abiBytes = Buffer.from(abiJson, 'utf-8');
 
-  // Generate C header file similar to storage_wasm.h
+  // Generate C header file (similar format to embedded byte arrays)
   // Use xxd-style format: unsigned char array with length
   const lines: string[] = [];
   lines.push('#ifndef CALIMERO_ABI_H');
