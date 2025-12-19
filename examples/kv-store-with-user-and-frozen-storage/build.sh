@@ -6,7 +6,7 @@ set -e
 
 echo "Building kv-store-with-user-and-frozen-storage example..."
 
-pnpm build
+pnpm build:manual
 
 echo "✅ Build complete: build/service.wasm"
 
