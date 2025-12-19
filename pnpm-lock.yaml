@@ -47,6 +47,22 @@ importers:
         specifier: ^5.3.3
         version: 5.9.3
 
+  examples/access-control:
+    dependencies:
+      '@calimero-network/calimero-sdk-js':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      bs58:
+        specifier: ^5.0.0
+        version: 5.0.0
+    devDependencies:
+      '@calimero-network/calimero-cli-js':
+        specifier: workspace:*
+        version: link:../../packages/cli
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
   examples/blobs:
     dependencies:
       '@calimero-network/calimero-sdk-js':
