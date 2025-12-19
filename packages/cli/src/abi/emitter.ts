@@ -1169,6 +1169,7 @@ export class AbiEmitter {
         // Babel uses 'params' directly, TypeScript uses 'value.params'
         const methodParams = member.params || member.value?.params || [];
         const params: Parameter[] = [];
+        let objectPatternIndex = 0; // Counter for unique synthetic names
         methodParams.forEach((param: any, index: number) => {
           // Handle ObjectPattern (destructured object parameters)
           if (param.type === 'ObjectPattern') {
@@ -1181,16 +1182,16 @@ export class AbiEmitter {
               isReturn: false,
             });
 
-            // For destructured object parameters, use a synthetic parameter name
-            // The type annotation defines the structure
+            // For destructured object parameters, use unique synthetic names (params0, params1, etc.) to avoid conflicts
             const paramObj: any = {
-              name: 'params', // Synthetic name for destructured object param
+              name: `params${objectPatternIndex}`,
               type: typeRef,
             };
             if (isOptional) {
               paramObj.nullable = true;
             }
             params.push(paramObj);
+            objectPatternIndex++; // Increment counter for next ObjectPattern
             return;
           }
 
