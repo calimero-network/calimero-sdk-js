@@ -594,6 +594,66 @@ export function jsCrdtCounterGetExecutorCount(
   return env.js_crdt_counter_get_executor_count(counterId, register, executorId);
 }
 
+export function jsUserStorageNew(register: bigint): number {
+  return env.js_user_storage_new(register);
+}
+
+export function jsUserStorageInsert(
+  storageId: Uint8Array,
+  value: Uint8Array,
+  register: bigint
+): number {
+  return env.js_user_storage_insert(storageId, value, register);
+}
+
+export function jsUserStorageGet(storageId: Uint8Array, register: bigint): number {
+  return env.js_user_storage_get(storageId, register);
+}
+
+export function jsUserStorageGetForUser(
+  storageId: Uint8Array,
+  userKey: Uint8Array,
+  register: bigint
+): number {
+  return env.js_user_storage_get_for_user(storageId, userKey, register);
+}
+
+export function jsUserStorageRemove(storageId: Uint8Array, register: bigint): number {
+  return env.js_user_storage_remove(storageId, register);
+}
+
+export function jsUserStorageContains(storageId: Uint8Array): number {
+  return env.js_user_storage_contains(storageId);
+}
+
+export function jsUserStorageContainsUser(storageId: Uint8Array, userKey: Uint8Array): number {
+  return env.js_user_storage_contains_user(storageId, userKey);
+}
+
+export function jsFrozenStorageNew(register: bigint): number {
+  return env.js_frozen_storage_new(register);
+}
+
+export function jsFrozenStorageAdd(
+  storageId: Uint8Array,
+  value: Uint8Array,
+  register: bigint
+): number {
+  return env.js_frozen_storage_add(storageId, value, register);
+}
+
+export function jsFrozenStorageGet(
+  storageId: Uint8Array,
+  hash: Uint8Array,
+  register: bigint
+): number {
+  return env.js_frozen_storage_get(storageId, hash, register);
+}
+
+export function jsFrozenStorageContains(storageId: Uint8Array, hash: Uint8Array): number {
+  return env.js_frozen_storage_contains(storageId, hash);
+}
+
 /**
  * Flush pending delta actions to the host.
  *

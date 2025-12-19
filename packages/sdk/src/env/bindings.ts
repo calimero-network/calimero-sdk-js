@@ -54,6 +54,21 @@ export interface HostEnv {
     register_id: bigint,
     executorId?: Uint8Array
   ): number;
+  js_user_storage_new(register_id: bigint): number;
+  js_user_storage_insert(storageId: Uint8Array, value: Uint8Array, register_id: bigint): number;
+  js_user_storage_get(storageId: Uint8Array, register_id: bigint): number;
+  js_user_storage_get_for_user(
+    storageId: Uint8Array,
+    userKey: Uint8Array,
+    register_id: bigint
+  ): number;
+  js_user_storage_remove(storageId: Uint8Array, register_id: bigint): number;
+  js_user_storage_contains(storageId: Uint8Array): number;
+  js_user_storage_contains_user(storageId: Uint8Array, userKey: Uint8Array): number;
+  js_frozen_storage_new(register_id: bigint): number;
+  js_frozen_storage_add(storageId: Uint8Array, value: Uint8Array, register_id: bigint): number;
+  js_frozen_storage_get(storageId: Uint8Array, hash: Uint8Array, register_id: bigint): number;
+  js_frozen_storage_contains(storageId: Uint8Array, hash: Uint8Array): number;
 
   // Context
   context_id(register_id: bigint): void;

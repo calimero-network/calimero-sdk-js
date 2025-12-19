@@ -19,11 +19,13 @@
 import { serialize, deserialize } from '../utils/serialize';
 import * as env from '../env/api';
 import {
-  mapNew,
-  mapGet,
-  mapInsert,
-  mapRemove,
-  mapContains,
+  userStorageNew,
+  userStorageGet,
+  userStorageGetForUser,
+  userStorageInsert,
+  userStorageRemove,
+  userStorageContains,
+  userStorageContainsUser,
   mapEntries,
 } from '../runtime/storage-wasm';
 import {
@@ -85,19 +87,9 @@ export class UserStorage<V> {
     if (options.id) {
       this.mapId = normalizeMapId(options.id);
     } else {
-      try {
-        this.mapId = mapNew();
-      } catch (error) {
-        const message = `[collections::UserStorage] mapNew failed: ${error instanceof Error ? error.message : String(error)}`;
-        try {
-          env.log(message);
-        } catch {
-          if (typeof console !== 'undefined' && typeof console.error === 'function') {
-            console.error(message);
-          }
-        }
-        env.panic(message);
-      }
+      // userStorageNew() will throw an error if it fails (via decodeError)
+      // No need for try-catch - let the error propagate naturally
+      this.mapId = userStorageNew();
     }
 
     // Register with nested tracker for automatic change propagation
@@ -142,8 +134,18 @@ export class UserStorage<V> {
    * @returns The current user's stored value, or null if not found
    */
   get(): V | null {
+    const raw = userStorageGet(this.mapId);
+    if (!raw) return null;
+
     const executorKey = env.executorId();
-    return this.getForUser(executorKey);
+    const value = deserialize<V>(raw);
+
+    // Re-register nested collections with parent relationship when retrieving
+    if (hasRegisteredCollection(value)) {
+      nestedTracker.registerCollection(value, this, executorKey);
+    }
+
+    return value;
   }
 
   /**
@@ -154,8 +156,7 @@ export class UserStorage<V> {
    */
   getForUser(userKey: PublicKey): V | null {
     validatePublicKey(userKey, 'getForUser');
-    const keyBytes = serialize(userKey);
-    const raw = mapGet(this.mapId, keyBytes);
+    const raw = userStorageGetForUser(this.mapId, userKey);
     if (!raw) return null;
 
     const value = deserialize<V>(raw);
@@ -176,8 +177,7 @@ export class UserStorage<V> {
    * @returns true if the current user has stored data
    */
   containsCurrentUser(): boolean {
-    const executorKey = env.executorId();
-    return this.containsUser(executorKey);
+    return userStorageContains(this.mapId);
   }
 
   /**
@@ -188,19 +188,21 @@ export class UserStorage<V> {
    */
   containsUser(userKey: PublicKey): boolean {
     validatePublicKey(userKey, 'containsUser');
-    const keyBytes = serialize(userKey);
-    return mapContains(this.mapId, keyBytes);
+    return userStorageContainsUser(this.mapId, userKey);
   }
 
   /**
    * Sets data for a specific user by their PublicKey.
    *
    * This method is primarily used internally by the nested collection tracking system
-   * to propagate changes to nested collections accessed via `getForUser()`.
+   * to propagate changes to nested collections. However, it can only be used for the
+   * current executor's data - nested collections belonging to other users (accessed
+   * via `getForUser()`) are read-only and cannot be modified.
    *
-   * @param userKey - The 32-byte PublicKey of the user
+   * @param userKey - The 32-byte PublicKey of the user (must match current executor)
    * @param value - The value to store
    * @returns The previous value if it existed, null otherwise
+   * @throws Error if userKey does not match the current executor
    */
   setForUser(userKey: PublicKey, value: V): V | null {
     return this.setInternal(userKey, value);
@@ -212,9 +214,7 @@ export class UserStorage<V> {
    * @returns The previous value if it existed, null otherwise
    */
   remove(): V | null {
-    const executorKey = env.executorId();
-    const keyBytes = serialize(executorKey);
-    const raw = mapRemove(this.mapId, keyBytes);
+    const raw = userStorageRemove(this.mapId);
     nestedTracker.notifyCollectionModified(this);
     return raw ? deserialize<V>(raw) : null;
   }
@@ -260,23 +260,30 @@ export class UserStorage<V> {
 
   private setInternal(key: PublicKey, value: V): V | null {
     validatePublicKey(key, 'insert');
-    const keyBytes = serialize(key);
+    const executorKey = env.executorId();
+
+    // Only allow setting for the current executor
+    // The nested tracker's setForUser should only be called for the current executor
+    if (key.length !== executorKey.length || !key.every((byte, i) => byte === executorKey[i])) {
+      throw new Error('UserStorage.setInternal: can only set data for the current executor');
+    }
+
     let nextValue = value;
 
     const mergeableType = getMergeableType(value);
     if (mergeableType) {
-      const current = this.getForUser(key);
+      const current = this.get();
       if (current) {
         nextValue = mergeMergeableValues(current, value);
       }
     }
 
     const valueBytes = serialize(nextValue);
-    const previous = mapInsert(this.mapId, keyBytes, valueBytes);
+    const previous = userStorageInsert(this.mapId, valueBytes);
 
     // Register nested collections for automatic tracking after storage
     if (hasRegisteredCollection(nextValue)) {
-      nestedTracker.registerCollection(nextValue, this, key);
+      nestedTracker.registerCollection(nextValue, this, executorKey);
     }
 
     // Notify tracker of modification

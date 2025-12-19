@@ -38,6 +38,17 @@ import {
   jsCrdtCounterIncrement,
   jsCrdtCounterValue,
   jsCrdtCounterGetExecutorCount,
+  jsUserStorageNew,
+  jsUserStorageInsert,
+  jsUserStorageGet,
+  jsUserStorageGetForUser,
+  jsUserStorageRemove,
+  jsUserStorageContains,
+  jsUserStorageContainsUser,
+  jsFrozenStorageNew,
+  jsFrozenStorageAdd,
+  jsFrozenStorageGet,
+  jsFrozenStorageContains,
 } from '../env/api';
 
 const REGISTER_ID = 0n;
@@ -516,4 +527,181 @@ export function counterGetExecutorCount(counterId: Uint8Array, executorId?: Uint
 
   const value = readBigUint64();
   return value;
+}
+
+// UserStorage functions
+
+export function userStorageNew(): Uint8Array {
+  const status = Number(jsUserStorageNew(REGISTER_ID));
+  if (status < 0) {
+    decodeError('userStorageNew');
+  }
+
+  const id = readRegisterBytes();
+  if (id.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] userStorageNew returned invalid id length (${id.length})`);
+  }
+  return id;
+}
+
+export function userStorageInsert(storageId: Uint8Array, value: Uint8Array): Uint8Array | null {
+  ensureCollectionId(storageId, 'storageId');
+  ensureUint8Array(value, 'value');
+
+  const status = Number(jsUserStorageInsert(storageId, value, REGISTER_ID));
+  if (status < 0) {
+    decodeError('userStorageInsert');
+  }
+
+  if (status === 0) {
+    return null;
+  }
+
+  const previous = readRegisterBytes();
+  return previous;
+}
+
+export function userStorageGet(storageId: Uint8Array): Uint8Array | null {
+  ensureCollectionId(storageId, 'storageId');
+
+  const status = Number(jsUserStorageGet(storageId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('userStorageGet');
+  }
+  if (status === 0) {
+    return null;
+  }
+
+  const value = readRegisterBytes();
+  return value;
+}
+
+export function userStorageGetForUser(
+  storageId: Uint8Array,
+  userKey: Uint8Array
+): Uint8Array | null {
+  ensureCollectionId(storageId, 'storageId');
+  ensureUint8Array(userKey, 'userKey');
+  if (userKey.length !== 32) {
+    throw new TypeError('userKey must be 32 bytes');
+  }
+
+  const status = Number(jsUserStorageGetForUser(storageId, userKey, REGISTER_ID));
+  if (status < 0) {
+    decodeError('userStorageGetForUser');
+  }
+  if (status === 0) {
+    return null;
+  }
+
+  const value = readRegisterBytes();
+  return value;
+}
+
+export function userStorageRemove(storageId: Uint8Array): Uint8Array | null {
+  ensureCollectionId(storageId, 'storageId');
+
+  const status = Number(jsUserStorageRemove(storageId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('userStorageRemove');
+  }
+
+  if (status === 1) {
+    const previous = readRegisterBytes();
+    return previous;
+  }
+
+  return null;
+}
+
+export function userStorageContains(storageId: Uint8Array): boolean {
+  ensureCollectionId(storageId, 'storageId');
+
+  const status = Number(jsUserStorageContains(storageId));
+  if (status < 0) {
+    decodeError('userStorageContains');
+  }
+
+  return status === 1;
+}
+
+export function userStorageContainsUser(storageId: Uint8Array, userKey: Uint8Array): boolean {
+  ensureCollectionId(storageId, 'storageId');
+  ensureUint8Array(userKey, 'userKey');
+  if (userKey.length !== 32) {
+    throw new TypeError('userKey must be 32 bytes');
+  }
+
+  const status = Number(jsUserStorageContainsUser(storageId, userKey));
+  if (status < 0) {
+    decodeError('userStorageContainsUser');
+  }
+
+  return status === 1;
+}
+
+// FrozenStorage functions
+
+export function frozenStorageNew(): Uint8Array {
+  const status = Number(jsFrozenStorageNew(REGISTER_ID));
+  if (status < 0) {
+    decodeError('frozenStorageNew');
+  }
+
+  const id = readRegisterBytes();
+  if (id.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] frozenStorageNew returned invalid id length (${id.length})`);
+  }
+  return id;
+}
+
+export function frozenStorageAdd(storageId: Uint8Array, value: Uint8Array): Uint8Array {
+  ensureCollectionId(storageId, 'storageId');
+  ensureUint8Array(value, 'value');
+
+  const status = Number(jsFrozenStorageAdd(storageId, value, REGISTER_ID));
+  if (status < 0) {
+    decodeError('frozenStorageAdd');
+  }
+
+  // The hash is returned in the register
+  const hash = readRegisterBytes();
+  if (hash.length !== 32) {
+    throw new Error(`[storage] frozenStorageAdd returned invalid hash length (${hash.length})`);
+  }
+  return hash;
+}
+
+export function frozenStorageGet(storageId: Uint8Array, hash: Uint8Array): Uint8Array | null {
+  ensureCollectionId(storageId, 'storageId');
+  ensureUint8Array(hash, 'hash');
+  if (hash.length !== 32) {
+    throw new TypeError('hash must be 32 bytes');
+  }
+
+  const status = Number(jsFrozenStorageGet(storageId, hash, REGISTER_ID));
+  if (status < 0) {
+    decodeError('frozenStorageGet');
+  }
+  if (status === 0) {
+    return null;
+  }
+
+  const value = readRegisterBytes();
+  return value;
+}
+
+export function frozenStorageContains(storageId: Uint8Array, hash: Uint8Array): boolean {
+  ensureCollectionId(storageId, 'storageId');
+  ensureUint8Array(hash, 'hash');
+  if (hash.length !== 32) {
+    throw new TypeError('hash must be 32 bytes');
+  }
+
+  const status = Number(jsFrozenStorageContains(storageId, hash));
+  if (status < 0) {
+    decodeError('frozenStorageContains');
+  }
+
+  return status === 1;
 }

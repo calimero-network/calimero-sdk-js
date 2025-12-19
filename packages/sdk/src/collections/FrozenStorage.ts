@@ -11,8 +11,13 @@
 import { serialize, deserialize } from '../utils/serialize';
 import { sha256 } from '../utils/sha256';
 import { BorshWriter } from '../borsh/encoder';
-import * as env from '../env/api';
-import { mapNew, mapGet, mapInsert, mapContains, mapEntries } from '../runtime/storage-wasm';
+import {
+  frozenStorageNew,
+  frozenStorageAdd,
+  frozenStorageGet,
+  frozenStorageContains,
+  mapEntries,
+} from '../runtime/storage-wasm';
 import {
   registerCollectionType,
   CollectionSnapshot,
@@ -91,13 +96,9 @@ export class FrozenStorage<T> {
     if (options.id) {
       this.mapId = normalizeMapId(options.id);
     } else {
-      try {
-        this.mapId = mapNew();
-      } catch (error) {
-        const message = `[collections::FrozenStorage] mapNew failed: ${error instanceof Error ? error.message : String(error)}`;
-        env.log(message);
-        env.panic(message);
-      }
+      // frozenStorageNew() will throw an error if it fails (via decodeError)
+      // No need for try-catch - let the error propagate naturally
+      this.mapId = frozenStorageNew();
     }
 
     nestedTracker.registerCollection(this);
@@ -133,22 +134,22 @@ export class FrozenStorage<T> {
    * @returns The 32-byte SHA256 hash (key) of the stored value
    */
   add(value: T): Hash {
-    // Serialize the value using pure Borsh format (no ValueKind tags)
-    const valueBytes = serializeBorshForHash(value);
-    const hash = sha256(valueBytes);
+    // Prepare bytes: strings/Uint8Array as raw bytes, other types as Borsh-serialized
+    // Rust will serialize Vec<u8> with borsh::to_vec (u32 length + bytes)
+    let valueBytes: Uint8Array;
+    if (typeof value === 'string') {
+      valueBytes = new TextEncoder().encode(value);
+    } else if (value instanceof Uint8Array) {
+      valueBytes = value;
+    } else {
+      valueBytes = serializeBorshForHash(value);
+    }
 
-    // Wrap in FrozenValue for immutability semantics
-    const frozenValue = new FrozenValue(value);
-    const frozenValueBytes = serialize(frozenValue);
+    const hash = frozenStorageAdd(this.mapId, valueBytes);
 
-    // Insert using hash as key
-    mapInsert(this.mapId, hash, frozenValueBytes);
-
-    // Register nested collections if applicable
     if (hasRegisteredCollection(value)) {
       nestedTracker.registerCollection(value, this, hash);
     }
-
     nestedTracker.notifyCollectionModified(this);
 
     return new Uint8Array(hash);
@@ -165,23 +166,22 @@ export class FrozenStorage<T> {
       throw new TypeError('FrozenStorage hash must be a 32-byte Uint8Array');
     }
 
-    const raw = mapGet(this.mapId, hash);
+    const raw = frozenStorageGet(this.mapId, hash);
     if (!raw) {
       return null;
     }
 
-    const frozenValue = deserialize<FrozenValue<T>>(raw);
-    // Handle both class instances and plain objects from deserialization
-    if (frozenValue && typeof frozenValue === 'object') {
-      if (frozenValue instanceof FrozenValue) {
-        return frozenValue.value;
-      }
-      // Handle plain object deserialization
-      if ('value' in frozenValue) {
-        return (frozenValue as { value: T }).value;
+    // Rust returns raw Vec<u8> bytes. Detect format: ValueKind tag (0-7) = Borsh, else UTF-8
+    const firstByte = raw.length > 0 ? raw[0] : -1;
+    if (firstByte >= 0 && firstByte <= 7) {
+      try {
+        return deserialize<T>(raw);
+      } catch {
+        // Fall through to UTF-8 decoding
       }
     }
-    return null;
+
+    return new TextDecoder('utf-8', { fatal: false }).decode(raw) as unknown as T;
   }
 
   /**
@@ -195,7 +195,7 @@ export class FrozenStorage<T> {
       throw new TypeError('FrozenStorage hash must be a 32-byte Uint8Array');
     }
 
-    return mapContains(this.mapId, hash);
+    return frozenStorageContains(this.mapId, hash);
   }
 
   /**
@@ -253,8 +253,27 @@ export class FrozenStorage<T> {
    * @returns The 32-byte SHA256 hash
    */
   static computeHash<T>(value: T): Hash {
-    const valueBytes = serializeBorshForHash(value);
-    return sha256(valueBytes);
+    // Match the same serialization logic as add()
+    let valueBytes: Uint8Array;
+
+    if (typeof value === 'string') {
+      // Send raw UTF-8 bytes - Rust will serialize as Vec<u8> (u32 length + bytes)
+      const encoder = new TextEncoder();
+      valueBytes = encoder.encode(value);
+    } else if (value instanceof Uint8Array) {
+      // Send raw bytes - Rust will serialize as Vec<u8>
+      valueBytes = value;
+    } else {
+      // For other types, serialize using Borsh format
+      valueBytes = serializeBorshForHash(value);
+    }
+
+    // Rust serializes Vec<u8> as: u32 length + bytes
+    const writer = new BorshWriter();
+    writer.writeBytes(valueBytes);
+    const serialized = writer.toBytes();
+
+    return sha256(serialized);
   }
 
   toJSON(): Record<string, unknown> {
