@@ -8,9 +8,10 @@
  * Internally implemented as UnorderedMap<Hash, FrozenValue<T>> with StorageType::Frozen.
  */
 
-import { serialize, deserialize } from '../utils/serialize';
+import { serialize } from '../utils/serialize';
 import { sha256 } from '../utils/sha256';
 import { BorshWriter } from '../borsh/encoder';
+import { deserializeBorshWithFallback } from '../utils/borsh-value';
 import {
   frozenStorageNew,
   frozenStorageAdd,
@@ -134,16 +135,7 @@ export class FrozenStorage<T> {
    * @returns The 32-byte SHA256 hash (key) of the stored value
    */
   add(value: T): Hash {
-    // Prepare bytes: strings/Uint8Array as raw bytes, other types as Borsh-serialized
-    // Rust will serialize Vec<u8> with borsh::to_vec (u32 length + bytes)
-    let valueBytes: Uint8Array;
-    if (typeof value === 'string') {
-      valueBytes = new TextEncoder().encode(value);
-    } else if (value instanceof Uint8Array) {
-      valueBytes = value;
-    } else {
-      valueBytes = serializeBorshForHash(value);
-    }
+    const valueBytes = serializeBorshForHash(value);
 
     const hash = frozenStorageAdd(this.mapId, valueBytes);
 
@@ -171,17 +163,7 @@ export class FrozenStorage<T> {
       return null;
     }
 
-    // Rust returns raw Vec<u8> bytes. Detect format: ValueKind tag (0-7) = Borsh, else UTF-8
-    const firstByte = raw.length > 0 ? raw[0] : -1;
-    if (firstByte >= 0 && firstByte <= 7) {
-      try {
-        return deserialize<T>(raw);
-      } catch {
-        // Fall through to UTF-8 decoding
-      }
-    }
-
-    return new TextDecoder('utf-8', { fatal: false }).decode(raw) as unknown as T;
+    return deserializeBorshWithFallback<T>(raw);
   }
 
   /**
@@ -216,15 +198,7 @@ export class FrozenStorage<T> {
   entries(): Array<[Hash, T]> {
     const serializedEntries = mapEntries(this.mapId);
     return serializedEntries.map(([hashBytes, valueBytes]) => {
-      const frozenValue = deserialize<FrozenValue<T>>(valueBytes);
-      let value: T;
-      if (frozenValue instanceof FrozenValue) {
-        value = frozenValue.value;
-      } else if (frozenValue && typeof frozenValue === 'object' && 'value' in frozenValue) {
-        value = (frozenValue as { value: T }).value;
-      } else {
-        value = frozenValue as unknown as T;
-      }
+      const value = deserializeBorshWithFallback<T>(valueBytes);
       return [new Uint8Array(hashBytes), value];
     });
   }
@@ -253,27 +227,8 @@ export class FrozenStorage<T> {
    * @returns The 32-byte SHA256 hash
    */
   static computeHash<T>(value: T): Hash {
-    // Match the same serialization logic as add()
-    let valueBytes: Uint8Array;
-
-    if (typeof value === 'string') {
-      // Send raw UTF-8 bytes - Rust will serialize as Vec<u8> (u32 length + bytes)
-      const encoder = new TextEncoder();
-      valueBytes = encoder.encode(value);
-    } else if (value instanceof Uint8Array) {
-      // Send raw bytes - Rust will serialize as Vec<u8>
-      valueBytes = value;
-    } else {
-      // For other types, serialize using Borsh format
-      valueBytes = serializeBorshForHash(value);
-    }
-
-    // Rust serializes Vec<u8> as: u32 length + bytes
-    const writer = new BorshWriter();
-    writer.writeBytes(valueBytes);
-    const serialized = writer.toBytes();
-
-    return sha256(serialized);
+    const valueBytes = serializeBorshForHash(value);
+    return sha256(valueBytes);
   }
 
   toJSON(): Record<string, unknown> {
@@ -287,42 +242,36 @@ export class FrozenStorage<T> {
 // Helper functions
 
 /**
- * Serializes a value using pure Borsh format (no ValueKind tags) to match Rust's borsh::to_vec.
- * This is used for computing hashes in FrozenStorage to ensure compatibility with Rust SDK.
- *
- * Rust serializes: borsh::to_vec(&value) then Sha256::digest(&data_bytes)
- * This function produces the same bytes as borsh::to_vec for primitive types.
+ * Serializes a value for hash computation. Rust receives Vec<u8> and does borsh::to_vec(&value),
+ * so we send raw bytes that Rust will serialize as u32 length + bytes.
  */
 function serializeBorshForHash<T>(value: T): Uint8Array {
-  const writer = new BorshWriter();
-
-  // Handle primitive types using pure Borsh format (matching Rust)
+  // For strings, send raw UTF-8 bytes (Rust serializes Vec<u8> as u32 length + bytes)
   if (typeof value === 'string') {
-    // Borsh string: u32 length + UTF-8 bytes
-    writer.writeString(value);
-  } else if (typeof value === 'number') {
-    // For numbers, we need to determine the type. Default to f64 for now.
-    // In practice, Rust would use a specific integer type, but for hash compatibility
-    // we'll use f64 as a reasonable default.
+    return new TextEncoder().encode(value);
+  }
+  // For Uint8Array, send raw bytes
+  if (value instanceof Uint8Array) {
+    return value;
+  }
+  // For numbers, serialize as Borsh f64 (8 bytes)
+  if (typeof value === 'number') {
+    const writer = new BorshWriter();
     writer.writeF64(value);
-  } else if (typeof value === 'boolean') {
-    // Borsh bool: u8 (0 or 1)
+    return writer.toBytes();
+  }
+  // For booleans, serialize as Borsh u8 (1 byte)
+  if (typeof value === 'boolean') {
+    const writer = new BorshWriter();
     writer.writeU8(value ? 1 : 0);
-  } else if (value instanceof Uint8Array) {
-    // Borsh bytes: u32 length + bytes
-    writer.writeBytes(value);
-  } else if (value === null || value === undefined) {
-    // For null/undefined, we can't serialize in pure Borsh without type info
-    // This shouldn't happen for FrozenStorage, but handle gracefully
+    return writer.toBytes();
+  }
+  if (value === null || value === undefined) {
     throw new Error('Cannot serialize null/undefined for hash computation');
-  } else {
-    // For complex types, fall back to regular serialize (with ValueKind)
-    // This maintains compatibility for complex nested structures
-    // Note: This may produce different hashes than Rust for complex types
-    return serialize(value);
   }
 
-  return writer.toBytes();
+  // For complex types, fall back to regular serialize (with ValueKind)
+  return serialize(value);
 }
 
 function normalizeMapId(id: Uint8Array | string): Uint8Array {
