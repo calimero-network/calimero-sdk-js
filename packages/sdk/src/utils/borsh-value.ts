@@ -435,13 +435,14 @@ export function deserializeBorshWithFallback<T = unknown>(raw: Uint8Array): T {
   }
 
   // Try raw UTF-8 string (strings are stored as raw bytes)
+  // Use fatal: true to throw on invalid UTF-8, allowing fallback to other formats
   try {
-    const decoded = new TextDecoder().decode(raw);
+    const decoded = new TextDecoder('utf-8', { fatal: true }).decode(raw);
     if (decoded.length > 0) {
       return decoded as unknown as T;
     }
   } catch {
-    // Not valid UTF-8
+    // Not valid UTF-8, continue to other deserialization attempts
   }
 
   // Try Borsh f64 (numbers)
