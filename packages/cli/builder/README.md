@@ -21,8 +21,21 @@ This directory contains the C glue code that bridges QuickJS and Calimero host f
 2. JavaScript → `code.h` (QuickJS qjsc)
 3. Extract methods → `methods.h` (Babel parser)
 4. Compile all → WASM (Clang/WASI-SDK)
+5. Embed `storage_wasm.wasm` via `storage_wasm.h`
 
-**Note:** All CRDT operations are handled via dedicated host functions (e.g., `js_crdt_map_*`, `js_user_storage_*`, `js_frozen_storage_*`).
+### Updating `storage_wasm.h`
+
+The header is generated from the Rust `storage-wasm` crate. Regenerate it whenever storage logic
+changes so the bundled QuickJS runtime stays in sync:
+
+```bash
+cargo build --release --target wasm32-wasip1 -p storage-wasm
+cp target/wasm32-wasip1/release/storage_wasm.wasm calimero-sdk-js/packages/sdk/src/wasm/storage_wasm.wasm
+xxd -i calimero-sdk-js/packages/sdk/src/wasm/storage_wasm.wasm > calimero-sdk-js/packages/cli/builder/storage_wasm.h
+```
+
+The Calimero node images consume the same header at build time, so make sure the binary and header
+are refreshed before producing new SDK releases or container images.
 
 ## Host Functions
 

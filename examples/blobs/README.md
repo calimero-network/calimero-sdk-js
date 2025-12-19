@@ -20,6 +20,10 @@ State classes in Calimero JS services are reinstantiated for every method call. 
 
 See `src/index.ts` for the canonical pattern.
 
+> **Note:** If you change the Rust storage runtime while working on this example, regenerate the
+> shared `storage_wasm.wasm` and header as documented in `packages/sdk/README.md` so the JS
+> collections keep using the updated persistence shim.
+
 ## Commands
 
 ```bash

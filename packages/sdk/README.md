@@ -67,6 +67,33 @@ Values are serialized with the same helper as service state, but they are writte
 
 ## Documentation
 
+### Updating the storage shim
+
+`@calimero-network/calimero-sdk-js` ships a prebuilt `storage_wasm.wasm` that mirrors the Rust `storage-wasm` crate.
+Whenever the Rust runtime or storage crate changes, regenerate the artifact and the C header that
+embeds it. From the repository root:
+
+1. Build the updated shim for WASI:
+
+```bash
+cargo build --release --target wasm32-wasip1 -p storage-wasm
+```
+
+2. Copy the resulting WASM into the SDK package:
+
+```bash
+cp target/wasm32-wasip1/release/storage_wasm.wasm calimero-sdk-js/packages/sdk/src/wasm/storage_wasm.wasm
+```
+
+3. Refresh the header used by the CLI builder:
+
+```bash
+xxd -i calimero-sdk-js/packages/sdk/src/wasm/storage_wasm.wasm > calimero-sdk-js/packages/cli/builder/storage_wasm.h
+```
+
+Both the SDK and the Calimero runtime load this shim at build time, so keep the binary and header in
+sync with the latest runtime changes before publishing packages or rebuilding Docker images.
+
 See the [main repository documentation](../../README.md) for complete guides and API reference.
 
 ## License
