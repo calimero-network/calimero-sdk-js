@@ -228,7 +228,13 @@ export class FrozenStorage<T> {
    */
   static computeHash<T>(value: T): Hash {
     const valueBytes = serializeBorshForHash(value);
-    return sha256(valueBytes);
+    const writer = new BorshWriter();
+    writer.writeU32(valueBytes.length);
+    const lengthPrefix = new Uint8Array(writer.toBytes());
+    const combined = new Uint8Array(lengthPrefix.length + valueBytes.length);
+    combined.set(lengthPrefix, 0);
+    combined.set(valueBytes, lengthPrefix.length);
+    return sha256(combined);
   }
 
   toJSON(): Record<string, unknown> {
