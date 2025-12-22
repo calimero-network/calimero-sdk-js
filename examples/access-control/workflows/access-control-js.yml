@@ -1,0 +1,181 @@
+description: Access Control Application Workflow (JavaScript SDK)
+name: Access Control App Test
+
+force_pull_image: true
+
+nodes:
+  chain_id: testnet-1
+  count: 2
+  image: ghcr.io/calimero-network/merod:edge
+  prefix: access-control-node
+
+steps:
+  - name: Install Access Control Application
+    type: install_application
+    node: access-control-node-1
+    path: 'examples/access-control/build/service.wasm'
+    dev: true
+    outputs:
+      app_id: applicationId
+
+  - name: Create Access Control Context
+    type: create_context
+    node: access-control-node-1
+    application_id: '{{app_id}}'
+    params: '{}'
+    outputs:
+      context_id: contextId
+      member_public_key: memberPublicKey
+
+  - name: Check Initial Membership
+    type: call
+    node: access-control-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: isMember
+    args:
+      publicKeyBase58: '{{member_public_key}}'
+    outputs:
+      is_member_result: result.output
+
+  - name: Assert Creator Is Member
+    type: json_assert
+    statements:
+      - 'equal({{is_member_result}}, true)'
+
+  - name: Get All Members
+    type: call
+    node: access-control-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getAllMembers
+    outputs:
+      all_members_result: result.output
+
+  - name: Assert One Member
+    type: assert
+    statements:
+      - 'is_set({{all_members_result}})'
+      - 'contains({{all_members_result}}, {{member_public_key}})'
+
+  - name: Create Second Context Member
+    type: create_context
+    node: access-control-node-1
+    application_id: '{{app_id}}'
+    params: '{}'
+    outputs:
+      second_context_id: contextId
+      second_member_public_key: memberPublicKey
+
+  - name: Add Second Member To First Context
+    type: call
+    node: access-control-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: addMember
+    args:
+      publicKeyBase58: '{{second_member_public_key}}'
+
+  - name: Wait For Member Addition
+    type: wait
+    duration: 2s
+
+  - name: Verify Second Member
+    type: call
+    node: access-control-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: isMember
+    args:
+      publicKeyBase58: '{{second_member_public_key}}'
+    outputs:
+      second_is_member_result: result.output
+
+  - name: Assert Second Member Is Member
+    type: json_assert
+    statements:
+      - 'equal({{second_is_member_result}}, true)'
+
+  - name: Get All Members Again
+    type: call
+    node: access-control-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getAllMembers
+    outputs:
+      all_members_after_add: result.output
+
+  - name: Assert Two Members
+    type: assert
+    statements:
+      - 'is_set({{all_members_after_add}})'
+      - 'contains({{all_members_after_add}}, {{member_public_key}})'
+      - 'contains({{all_members_after_add}}, {{second_member_public_key}})'
+
+  - name: Remove Second Member
+    type: call
+    node: access-control-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: kickMember
+    args:
+      publicKeyBase58: '{{second_member_public_key}}'
+
+  - name: Wait For Member Removal
+    type: wait
+    duration: 2s
+
+  - name: Verify Second Member Removed
+    type: call
+    node: access-control-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: isMember
+    args:
+      publicKeyBase58: '{{second_member_public_key}}'
+    outputs:
+      second_is_member_after_remove: result.output
+
+  - name: Assert Second Member Not Member
+    type: json_assert
+    statements:
+      - 'equal({{second_is_member_after_remove}}, false)'
+
+  - name: Create Child Context With Alias
+    type: call
+    node: access-control-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: createContextChild
+    args:
+      protocol: 'near'
+      applicationIdBase58: '{{app_id}}'
+      alias: 'child-context-1'
+
+  - name: Wait For Child Context Creation
+    type: wait
+    duration: 10s
+
+
+  - name: Resolve Child Context Alias
+    type: call
+    node: access-control-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getChildId
+    args:
+      alias: 'child-context-1'
+    outputs:
+      child_context_id_res: result
+      child_context_id: result.output
+
+  - name: Assert Child Context ID Resolved
+    type: assert
+    statements:
+      - 'is_set({{child_context_id}})'
+      - 'not_equal({{child_context_id}}, null)'
+      - 'not_equal({{child_context_id}}, "")'
+
+stop_all_nodes: false
+restart: true
+wait_timeout: 120

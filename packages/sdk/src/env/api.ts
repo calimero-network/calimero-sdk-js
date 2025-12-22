@@ -10,6 +10,7 @@ import '../polyfills/text-encoding';
 import type { HostEnv } from './bindings';
 import { getAbiManifest, getMethod } from '../abi/helpers';
 import type { TypeRef, AbiManifest, ScalarType, Variant } from '../abi/types';
+import { BorshReader } from '../borsh/decoder';
 
 // This will be provided by QuickJS runtime via builder.c
 declare const env: HostEnv;
@@ -307,6 +308,242 @@ export function executorId(): Uint8Array {
   const buf = new Uint8Array(len);
   env.read_register(REGISTER_ID, buf);
   return buf;
+}
+
+/**
+ * Adds a member to the current context.
+ * This is an asynchronous operation - the member is added after successful execution.
+ *
+ * @param publicKey - 32-byte Ed25519 public key of the member to add
+ * @throws TypeError if publicKey is not 32 bytes
+ *
+ * @example
+ * ```typescript
+ * import { contextAddMember } from '@calimero-network/calimero-sdk-js/env';
+ *
+ * const memberKey = new Uint8Array(32); // Member's public key
+ * contextAddMember(memberKey);
+ * ```
+ */
+export function contextAddMember(publicKey: Uint8Array): void {
+  if (!(publicKey instanceof Uint8Array)) {
+    throw new TypeError('contextAddMember: publicKey must be a Uint8Array');
+  }
+  if (publicKey.length !== 32) {
+    throw new RangeError('contextAddMember: publicKey must be exactly 32 bytes');
+  }
+  env.context_add_member(publicKey);
+}
+
+/**
+ * Removes a member from the current context.
+ * This is an asynchronous operation - the member is removed after successful execution.
+ *
+ * @param publicKey - 32-byte Ed25519 public key of the member to remove
+ * @throws TypeError if publicKey is not 32 bytes
+ *
+ * @example
+ * ```typescript
+ * import { contextRemoveMember } from '@calimero-network/calimero-sdk-js/env';
+ *
+ * const memberKey = new Uint8Array(32); // Member's public key
+ * contextRemoveMember(memberKey);
+ * ```
+ */
+export function contextRemoveMember(publicKey: Uint8Array): void {
+  if (!(publicKey instanceof Uint8Array)) {
+    throw new TypeError('contextRemoveMember: publicKey must be a Uint8Array');
+  }
+  if (publicKey.length !== 32) {
+    throw new RangeError('contextRemoveMember: publicKey must be exactly 32 bytes');
+  }
+  env.context_remove_member(publicKey);
+}
+
+/**
+ * Checks if a public key is a member of the current context.
+ * This is a synchronous read operation that queries the committed local state.
+ *
+ * @param publicKey - 32-byte Ed25519 public key to check
+ * @returns true if the public key is a member, false otherwise
+ * @throws TypeError if publicKey is not 32 bytes
+ *
+ * @example
+ * ```typescript
+ * import { contextIsMember } from '@calimero-network/calimero-sdk-js/env';
+ *
+ * const memberKey = new Uint8Array(32); // Member's public key
+ * const isMember = contextIsMember(memberKey);
+ * if (isMember) {
+ *   console.log('User is a member');
+ * }
+ * ```
+ */
+export function contextIsMember(publicKey: Uint8Array): boolean {
+  if (!(publicKey instanceof Uint8Array)) {
+    throw new TypeError('contextIsMember: publicKey must be a Uint8Array');
+  }
+  if (publicKey.length !== 32) {
+    throw new RangeError('contextIsMember: publicKey must be exactly 32 bytes');
+  }
+  return Boolean(env.context_is_member(publicKey));
+}
+
+/**
+ * Gets all members of the current context.
+ * This is a synchronous read operation that queries the committed local state.
+ *
+ * @returns Array of 32-byte public keys representing context members
+ *
+ * @example
+ * ```typescript
+ * import { contextMembers } from '@calimero-network/calimero-sdk-js/env';
+ *
+ * const members = contextMembers();
+ * console.log(`Context has ${members.length} members`);
+ * for (const memberKey of members) {
+ *   console.log('Member:', bytesToHex(memberKey));
+ * }
+ * ```
+ */
+export function contextMembers(): Uint8Array[] {
+  env.context_members(REGISTER_ID);
+  const len = Number(env.register_len(REGISTER_ID));
+  if (len === 0) {
+    return [];
+  }
+
+  // Read the serialized array of public keys
+  const buf = new Uint8Array(len);
+  env.read_register(REGISTER_ID, buf);
+
+  // Deserialize: Rust returns Vec<PublicKey> as Borsh-serialized
+  // Format: u32 length + [32 bytes] for each PublicKey (fixed-size array, no length prefix)
+  const reader = new BorshReader(buf);
+  const count = reader.readU32();
+  const members: Uint8Array[] = [];
+
+  for (let i = 0; i < count; i++) {
+    // PublicKey is [u8; 32] in Rust, which is serialized as 32 bytes directly (no length prefix)
+    const keyBytes = reader.readFixedArray(32);
+    members.push(keyBytes);
+  }
+
+  return members;
+}
+
+/**
+ * Creates a new child context with the specified protocol, application ID, initialization arguments, and alias.
+ * This is an asynchronous operation - the context is created after successful execution.
+ *
+ * @param protocol - Protocol identifier (e.g., "near", "icp", "stellar")
+ * @param applicationId - 32-byte application ID for the new context
+ * @param initArgs - Initialization arguments as JSON bytes (typically '{}' for default)
+ * @param alias - Alias string for the context (max 64 bytes)
+ * @throws TypeError if parameters are invalid
+ * @throws RangeError if alias is too long
+ *
+ * @example
+ * ```typescript
+ * import { contextCreate } from '@calimero-network/calimero-sdk-js/env';
+ *
+ * const protocol = new TextEncoder().encode('near');
+ * const appId = new Uint8Array(32); // Application ID
+ * const initArgs = new TextEncoder().encode('{}');
+ * const alias = new TextEncoder().encode('my-context');
+ * contextCreate(protocol, appId, initArgs, alias);
+ * ```
+ */
+export function contextCreate(
+  protocol: Uint8Array,
+  applicationId: Uint8Array,
+  initArgs: Uint8Array,
+  alias: Uint8Array
+): void {
+  if (!(protocol instanceof Uint8Array)) {
+    throw new TypeError('contextCreate: protocol must be a Uint8Array');
+  }
+  if (!(applicationId instanceof Uint8Array)) {
+    throw new TypeError('contextCreate: applicationId must be a Uint8Array');
+  }
+  if (applicationId.length !== 32) {
+    throw new RangeError('contextCreate: applicationId must be exactly 32 bytes');
+  }
+  if (!(initArgs instanceof Uint8Array)) {
+    throw new TypeError('contextCreate: initArgs must be a Uint8Array');
+  }
+  if (!(alias instanceof Uint8Array)) {
+    throw new TypeError('contextCreate: alias must be a Uint8Array');
+  }
+  if (alias.length > 64) {
+    throw new RangeError('contextCreate: alias must be at most 64 bytes');
+  }
+  env.context_create(protocol, applicationId, initArgs, alias);
+}
+
+/**
+ * Deletes a context.
+ * This is an asynchronous operation - the context is deleted after successful execution.
+ *
+ * @param contextId - 32-byte context ID to delete. Pass the current context ID for self-deletion.
+ * @throws TypeError if contextId is not 32 bytes
+ *
+ * @example
+ * ```typescript
+ * import { contextDelete, contextId } from '@calimero-network/calimero-sdk-js/env';
+ *
+ * // Self-delete (delete current context)
+ * const currentId = contextId();
+ * contextDelete(currentId);
+ * ```
+ */
+export function contextDelete(contextId: Uint8Array): void {
+  if (!(contextId instanceof Uint8Array)) {
+    throw new TypeError('contextDelete: contextId must be a Uint8Array');
+  }
+  if (contextId.length !== 32) {
+    throw new RangeError('contextDelete: contextId must be exactly 32 bytes');
+  }
+  env.context_delete(contextId);
+}
+
+/**
+ * Resolves a context alias to a context ID.
+ * This is a synchronous read operation.
+ *
+ * @param alias - Alias string to resolve
+ * @returns 32-byte context ID if alias exists, null otherwise
+ *
+ * @example
+ * ```typescript
+ * import { contextResolveAlias } from '@calimero-network/calimero-sdk-js/env';
+ *
+ * const alias = new TextEncoder().encode('my-context');
+ * const contextId = contextResolveAlias(alias);
+ * if (contextId) {
+ *   console.log('Resolved context ID:', bytesToHex(contextId));
+ * }
+ * ```
+ */
+export function contextResolveAlias(alias: Uint8Array): Uint8Array | null {
+  if (!(alias instanceof Uint8Array)) {
+    throw new TypeError('contextResolveAlias: alias must be a Uint8Array');
+  }
+  const found = env.context_resolve_alias(alias, REGISTER_ID);
+  if (found === 0) {
+    return null;
+  }
+  const len = Number(env.register_len(REGISTER_ID));
+  if (len === 0) {
+    return null;
+  }
+  const buf = new Uint8Array(len);
+  env.read_register(REGISTER_ID, buf);
+  // Context ID is 32 bytes
+  if (buf.length === 32) {
+    return buf;
+  }
+  return null;
 }
 
 /**

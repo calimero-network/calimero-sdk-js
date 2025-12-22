@@ -1,0 +1,19 @@
+{
+  "name": "access-control-example",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Access control example demonstrating context management functions",
+  "scripts": {
+    "build": "pnpm run build:manual",
+    "build:manual": "calimero-sdk build src/index.ts -o build/service.wasm",
+    "clean": "rm -rf build"
+  },
+  "dependencies": {
+    "@calimero-network/calimero-sdk-js": "workspace:*",
+    "bs58": "^5.0.0"
+  },
+  "devDependencies": {
+    "@calimero-network/calimero-cli-js": "workspace:*",
+    "typescript": "^5.3.3"
+  }
+}
