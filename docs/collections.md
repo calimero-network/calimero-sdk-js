@@ -210,6 +210,139 @@ const value = register.get(); // 'hello'
 const timestamp = register.timestamp(); // when it was set
 ```
 
+## UserStorage<K, V>
+
+User-owned, signed storage collection for per-user data. Keys are PublicKeys (32 bytes) that identify the user who owns the data. Writes are signed by the executor and verified on other nodes.
+
+```typescript
+import { UserStorage } from '@calimero-network/calimero-sdk-js/collections';
+import { createUserStorage } from '@calimero-network/calimero-sdk-js';
+
+interface UserProfile {
+  displayName: string;
+  score: number;
+  badges: string[];
+}
+
+// Create a user storage for user profiles
+const userProfiles = createUserStorage<UserProfile>();
+
+// Insert data for the current executor (key is automatically set to executor's PublicKey)
+userProfiles.insert({
+  displayName: 'Alice',
+  score: 100,
+  badges: ['newcomer', 'contributor'],
+});
+
+// Get current user's data
+const myProfile = userProfiles.get();
+
+// Get any user's data by their PublicKey
+const somePublicKey = new Uint8Array(32); // Another user's public key
+const otherProfile = userProfiles.getForUser(somePublicKey);
+
+// Check if current user has data
+const hasProfile = userProfiles.containsCurrentUser();
+
+// Check if another user has data
+const hasOther = userProfiles.containsUser(somePublicKey);
+
+// Remove current user's data
+userProfiles.remove();
+
+// Iterate over all users
+const allUsers = userProfiles.entries(); // [[publicKey, profile], ...]
+const allKeys = userProfiles.keys(); // [publicKey1, publicKey2, ...]
+const allProfiles = userProfiles.values(); // [profile1, profile2, ...]
+const count = userProfiles.size(); // number of users
+```
+
+### How It Works
+
+1. **Writing**: When a user modifies data in `UserStorage`, the storage layer creates an action marked with `StorageType::User`.
+2. **Signing**: The action is signed using the executor's identity private key, with a `signature` and `nonce` embedded in the metadata.
+3. **Verification**: When other nodes receive this action, they verify:
+   - **Signature**: Validates against the owner's public key
+   - **Replay Protection**: Ensures the nonce is strictly greater than the last-seen nonce
+
+### Use Cases
+
+- Per-user settings and preferences
+- User-owned game data (scores, inventory)
+- Personal documents with ownership verification
+- Any data that should be verifiably owned by a specific user
+
+## FrozenStorage<T>
+
+Immutable, content-addressable storage collection. Values are keyed by their SHA256 hash, ensuring content-addressability. Once inserted, values cannot be updated or deleted.
+
+```typescript
+import { FrozenStorage, FrozenValue } from '@calimero-network/calimero-sdk-js/collections';
+import { createFrozenStorage } from '@calimero-network/calimero-sdk-js';
+
+// Create frozen storage for documents
+const documents = createFrozenStorage<Document>();
+
+// Add a value - returns its SHA256 hash
+const hash = documents.add({
+  title: 'Important Document',
+  content: 'This content is immutable...',
+  timestamp: Date.now(),
+});
+
+// Retrieve by hash
+const doc = documents.get(hash);
+
+// Check if hash exists
+const exists = documents.has(hash);
+
+// Get all stored documents
+const allEntries = documents.entries(); // [[hash, document], ...]
+const allHashes = documents.hashes(); // [hash1, hash2, ...]
+const allDocs = documents.values(); // [doc1, doc2, ...]
+
+// Compute hash without storing (useful for deduplication)
+const wouldBeHash = FrozenStorage.computeHash(myValue);
+
+// Attempting to remove throws an error
+// documents.remove(hash); // Error: FrozenStorage does not support remove
+```
+
+### How It Works
+
+1. **Content-Addressing**: When you call `add(value)`, the storage:
+   - Serializes the value
+   - Computes its SHA256 hash
+   - Uses the hash as the key in the underlying map
+2. **Immutability**: Values are wrapped in `FrozenValue<T>`, which has an empty merge implementation, preventing any changes.
+3. **Verification**: The storage layer enforces:
+   - **No Updates/Deletes**: Update and delete actions are strictly forbidden
+   - **Content-Addressing**: Add actions are only accepted if the key matches the SHA256 hash of the value
+
+### Use Cases
+
+- Audit logs and immutable records
+- Document versioning (each version gets a unique hash)
+- Certificates and attestations
+- Content-addressable data sharing
+- Deduplication (same content = same hash)
+
+### FrozenValue<T>
+
+The wrapper type that ensures immutability:
+
+```typescript
+import { FrozenValue } from '@calimero-network/calimero-sdk-js/collections';
+
+// FrozenValue wraps any value
+const frozen = new FrozenValue({ data: 'immutable' });
+console.log(frozen.value); // { data: 'immutable' }
+
+// Merge is a no-op - frozen values don't change
+const other = new FrozenValue({ data: 'different' });
+const result = frozen.merge(other); // Returns original frozen value
+```
+
 ## Best Practices
 
 ### Use the Right Collection

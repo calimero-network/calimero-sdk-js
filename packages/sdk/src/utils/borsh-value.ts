@@ -6,6 +6,7 @@ import {
   hasRegisteredCollection,
 } from '../runtime/collections';
 import { getMergeableType, markMergeableInstance } from '../runtime/mergeable-registry';
+
 const MERGEABLE_SENTINEL = '__calimeroMergeType';
 
 enum ValueKind {
@@ -422,4 +423,76 @@ export function deepCloneNormalized(value: any): any {
     result[key] = deepCloneNormalized(entryValue);
   }
   return result;
+}
+
+/**
+ * Deserializes a value from FrozenStorage.
+ * Handles raw UTF-8 strings, Borsh primitives, and ValueKind complex types.
+ */
+export function deserializeBorshWithFallback<T = unknown>(raw: Uint8Array): T {
+  if (raw.length === 0) {
+    return '' as unknown as T;
+  }
+
+  // Try raw UTF-8 string (strings are stored as raw bytes)
+  // Use fatal: true to throw on invalid UTF-8, allowing fallback to other formats
+  try {
+    const decoded = new TextDecoder('utf-8', { fatal: true }).decode(raw);
+    if (decoded.length > 0) {
+      return decoded as unknown as T;
+    }
+  } catch {
+    // Not valid UTF-8, continue to other deserialization attempts
+  }
+
+  // Try Borsh f64 (numbers)
+  if (raw.length === 8) {
+    try {
+      const reader = new BorshReader(raw);
+      const num = reader.readF64();
+      if (reader.remaining() === 0) {
+        return num as unknown as T;
+      }
+    } catch {
+      // Not f64
+    }
+  }
+
+  // Try Borsh u8 (booleans)
+  if (raw.length === 1) {
+    try {
+      const reader = new BorshReader(raw);
+      const bool = reader.readU8() === 1;
+      if (reader.remaining() === 0) {
+        return bool as unknown as T;
+      }
+    } catch {
+      // Not u8
+    }
+  }
+
+  // Try Borsh bytes (Uint8Array)
+  if (raw.length >= 4) {
+    try {
+      const reader = new BorshReader(raw);
+      const bytes = reader.readBytes();
+      if (reader.remaining() === 0) {
+        return bytes as unknown as T;
+      }
+    } catch {
+      // Not valid Borsh bytes
+    }
+  }
+
+  // Fallback to ValueKind (complex types)
+  const firstByte = raw[0];
+  if (firstByte >= 0 && firstByte <= 7) {
+    try {
+      return deserializeJsValue<T>(raw);
+    } catch {
+      // ValueKind deserialization failed
+    }
+  }
+
+  throw new Error(`Failed to deserialize value: unknown Borsh format`);
 }

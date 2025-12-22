@@ -1169,7 +1169,33 @@ export class AbiEmitter {
         // Babel uses 'params' directly, TypeScript uses 'value.params'
         const methodParams = member.params || member.value?.params || [];
         const params: Parameter[] = [];
+        let objectPatternIndex = 0; // Counter for unique synthetic names
         methodParams.forEach((param: any, index: number) => {
+          // Handle ObjectPattern (destructured object parameters)
+          if (param.type === 'ObjectPattern') {
+            const typeAnnotation = param.typeAnnotation;
+            const isOptional = param.optional || false;
+
+            // Extract type from annotation (should be a record/object type)
+            const typeRef = this.extractTypeFromAnnotation(typeAnnotation, {
+              methodName,
+              isReturn: false,
+            });
+
+            // For destructured object parameters, use unique synthetic names (params0, params1, etc.) to avoid conflicts
+            const paramObj: any = {
+              name: `params${objectPatternIndex}`,
+              type: typeRef,
+            };
+            if (isOptional) {
+              paramObj.nullable = true;
+            }
+            params.push(paramObj);
+            objectPatternIndex++; // Increment counter for next ObjectPattern
+            return;
+          }
+
+          // Handle regular Identifier or Pattern parameters
           if (param.type === 'Identifier' || param.type === 'Pattern') {
             let paramName = param.name || param.left?.name;
             const typeAnnotation = param.typeAnnotation || param.left?.typeAnnotation;
@@ -1458,6 +1484,32 @@ export class AbiEmitter {
       case 'LwwRegister':
         if (type.typeParameters?.params?.length >= 1) {
           return this.extractTypeFromAnnotation({ typeAnnotation: type.typeParameters.params[0] });
+        }
+        break;
+      case 'FrozenStorage':
+        // FrozenStorage<T> is internally UnorderedMap<Hash, FrozenValue<T>>
+        // Hash is a 32-byte Uint8Array (content-addressable key)
+        if (type.typeParameters?.params?.length >= 1) {
+          return {
+            kind: 'map',
+            key: { kind: 'scalar', scalar: 'bytes' } as any,
+            value: this.extractTypeFromAnnotation({
+              typeAnnotation: type.typeParameters.params[0],
+            }),
+          };
+        }
+        break;
+      case 'UserStorage':
+        // UserStorage<V> is internally UnorderedMap<PublicKey, V>
+        // PublicKey is a 32-byte Uint8Array
+        if (type.typeParameters?.params?.length >= 1) {
+          return {
+            kind: 'map',
+            key: { kind: 'scalar', scalar: 'bytes' } as any,
+            value: this.extractTypeFromAnnotation({
+              typeAnnotation: type.typeParameters.params[0],
+            }),
+          };
         }
         break;
       case 'Map':

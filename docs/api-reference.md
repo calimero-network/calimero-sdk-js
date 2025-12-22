@@ -248,6 +248,29 @@ Gets current timestamp in nanoseconds.
 const now = env.timeNow();
 ```
 
+### ed25519Verify(signature, publicKey, message): boolean
+
+Verifies an Ed25519 signature.
+
+```typescript
+const signature = new Uint8Array(64); // 64-byte signature
+const publicKey = new Uint8Array(32); // 32-byte public key
+const message = new TextEncoder().encode('Hello, World!');
+
+const isValid = env.ed25519Verify(signature, publicKey, message);
+if (!isValid) {
+  throw new Error('Invalid signature');
+}
+```
+
+**Parameters:**
+
+- `signature`: 64-byte Ed25519 signature as `Uint8Array`
+- `publicKey`: 32-byte Ed25519 public key as `Uint8Array`
+- `message`: Message bytes as `Uint8Array`
+
+**Returns:** `true` if signature is valid, `false` otherwise
+
 ## Events
 
 ### emit(event: AppEvent): void
@@ -271,6 +294,36 @@ emitWithHandler(new ItemAdded('key', 'value'), 'onItemAdded');
 See [Collections Guide](./collections.md) for detailed documentation on:
 
 - UnorderedMap
+- UnorderedSet
 - Vector
 - Counter
 - LwwRegister
+- **UserStorage** - User-owned, signed storage with PublicKey keys
+- **FrozenStorage** - Immutable, content-addressable storage
+
+## State Helpers
+
+Factory functions for creating CRDT collections:
+
+```typescript
+import {
+  createUnorderedMap,
+  createUnorderedSet,
+  createVector,
+  createCounter,
+  createLwwRegister,
+  createUserStorage,
+  createFrozenStorage,
+} from '@calimero-network/calimero-sdk-js';
+
+// Standard collections
+const map = createUnorderedMap<string, number>();
+const set = createUnorderedSet<string>();
+const vec = createVector<string>();
+const counter = createCounter();
+const register = createLwwRegister<string>();
+
+// Specialized storage
+const userStorage = createUserStorage<UserProfile>();
+const frozenStorage = createFrozenStorage<Document>();
+```

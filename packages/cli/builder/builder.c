@@ -147,6 +147,17 @@ extern int32_t js_crdt_counter_new(uint64_t register_id);
 extern int32_t js_crdt_counter_increment(uint64_t counter_id_buffer_ptr);
 extern int32_t js_crdt_counter_value(uint64_t counter_id_buffer_ptr, uint64_t register_id);
 extern int32_t js_crdt_counter_get_executor_count(uint64_t counter_id_buffer_ptr, uint64_t executor_buffer_ptr, uint32_t has_executor, uint64_t register_id);
+extern int32_t js_user_storage_new(uint64_t register_id);
+extern int32_t js_user_storage_insert(uint64_t storage_id_buffer_ptr, uint64_t value_buffer_ptr, uint64_t register_id);
+extern int32_t js_user_storage_get(uint64_t storage_id_buffer_ptr, uint64_t register_id);
+extern int32_t js_user_storage_get_for_user(uint64_t storage_id_buffer_ptr, uint64_t user_key_buffer_ptr, uint64_t register_id);
+extern int32_t js_user_storage_remove(uint64_t storage_id_buffer_ptr, uint64_t register_id);
+extern int32_t js_user_storage_contains(uint64_t storage_id_buffer_ptr);
+extern int32_t js_user_storage_contains_user(uint64_t storage_id_buffer_ptr, uint64_t user_key_buffer_ptr);
+extern int32_t js_frozen_storage_new(uint64_t register_id);
+extern int32_t js_frozen_storage_add(uint64_t storage_id_buffer_ptr, uint64_t value_buffer_ptr, uint64_t register_id);
+extern int32_t js_frozen_storage_get(uint64_t storage_id_buffer_ptr, uint64_t hash_buffer_ptr, uint64_t register_id);
+extern int32_t js_frozen_storage_contains(uint64_t storage_id_buffer_ptr, uint64_t hash_buffer_ptr);
 extern void commit(uint64_t root_hash_buffer_ptr, uint64_t artifact_buffer_ptr);
 extern void persist_root_state(uint64_t doc_buffer_ptr, uint64_t created_at, uint64_t updated_at);
 extern int32_t read_root_state(uint64_t register_id);
@@ -161,6 +172,7 @@ extern uint64_t blob_read(uint64_t fd, uint64_t buffer_ptr);  // Returns PtrSize
 extern uint64_t blob_write(uint64_t fd, uint64_t data_buffer_ptr);  // Returns PtrSizedInt (u64)
 extern uint32_t blob_close(uint64_t fd, uint64_t blob_id_buffer_ptr);  // Returns Bool (u32)
 extern uint32_t blob_announce_to_context(uint64_t blob_id_buffer_ptr, uint64_t context_id_buffer_ptr);  // Returns Bool (u32)
+extern uint32_t ed25519_verify(uint64_t signature_buffer_ptr, uint64_t public_key_buffer_ptr, uint64_t message_buffer_ptr);  // Returns Bool (u32)
 
 // Buffer descriptor struct - MUST match calimero-sys Slice<'a, u8>
 // #[repr(C)] struct with ptr: u64, len: u64, _phantom: PhantomData (zero-sized)
@@ -1539,6 +1551,276 @@ static JSValue js_blob_announce_to_context(JSContext *ctx, JSValueConst this_val
   return JS_NewUint32(ctx, result);
 }
 
+// Wrapper: js_user_storage_new
+static JSValue js_env_user_storage_new(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 1) {
+    return JS_ThrowTypeError(ctx, "js_user_storage_new expects register_id");
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[0], &register_id) < 0) {
+    return JS_EXCEPTION;
+  }
+  int32_t result = js_user_storage_new((uint64_t)register_id);
+  return JS_NewInt32(ctx, result);
+}
+
+// Wrapper: js_user_storage_insert
+static JSValue js_env_user_storage_insert(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 3) {
+    return JS_ThrowTypeError(ctx, "js_user_storage_insert expects storageId, value, and register_id");
+  }
+  size_t storage_id_len;
+  uint8_t *storage_id_ptr = JSValueToUint8Array(ctx, argv[0], &storage_id_len);
+  if (!storage_id_ptr || storage_id_len != 32) {
+    return JS_ThrowRangeError(ctx, "storageId must be 32 bytes");
+  }
+  size_t value_len;
+  uint8_t *value_ptr = JSValueToUint8Array(ctx, argv[1], &value_len);
+  if (!value_ptr) {
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[2], &register_id) < 0) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer storage_id_buf = make_buffer(storage_id_ptr, storage_id_len);
+  CalimeroBuffer value_buf = make_buffer(value_ptr, value_len);
+  int32_t result = js_user_storage_insert((uint64_t)&storage_id_buf, (uint64_t)&value_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, result);
+}
+
+// Wrapper: js_user_storage_get
+static JSValue js_env_user_storage_get(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 2) {
+    return JS_ThrowTypeError(ctx, "js_user_storage_get expects storageId and register_id");
+  }
+  size_t storage_id_len;
+  uint8_t *storage_id_ptr = JSValueToUint8Array(ctx, argv[0], &storage_id_len);
+  if (!storage_id_ptr || storage_id_len != 32) {
+    return JS_ThrowRangeError(ctx, "storageId must be 32 bytes");
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[1], &register_id) < 0) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer storage_id_buf = make_buffer(storage_id_ptr, storage_id_len);
+  int32_t result = js_user_storage_get((uint64_t)&storage_id_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, result);
+}
+
+// Wrapper: js_user_storage_get_for_user
+static JSValue js_env_user_storage_get_for_user(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 3) {
+    return JS_ThrowTypeError(ctx, "js_user_storage_get_for_user expects storageId, userKey, and register_id");
+  }
+  size_t storage_id_len;
+  uint8_t *storage_id_ptr = JSValueToUint8Array(ctx, argv[0], &storage_id_len);
+  if (!storage_id_ptr || storage_id_len != 32) {
+    return JS_ThrowRangeError(ctx, "storageId must be 32 bytes");
+  }
+  size_t user_key_len;
+  uint8_t *user_key_ptr = JSValueToUint8Array(ctx, argv[1], &user_key_len);
+  if (!user_key_ptr || user_key_len != 32) {
+    return JS_ThrowRangeError(ctx, "userKey must be 32 bytes");
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[2], &register_id) < 0) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer storage_id_buf = make_buffer(storage_id_ptr, storage_id_len);
+  CalimeroBuffer user_key_buf = make_buffer(user_key_ptr, user_key_len);
+  int32_t result = js_user_storage_get_for_user((uint64_t)&storage_id_buf, (uint64_t)&user_key_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, result);
+}
+
+// Wrapper: js_user_storage_remove
+static JSValue js_env_user_storage_remove(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 2) {
+    return JS_ThrowTypeError(ctx, "js_user_storage_remove expects storageId and register_id");
+  }
+  size_t storage_id_len;
+  uint8_t *storage_id_ptr = JSValueToUint8Array(ctx, argv[0], &storage_id_len);
+  if (!storage_id_ptr || storage_id_len != 32) {
+    return JS_ThrowRangeError(ctx, "storageId must be 32 bytes");
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[1], &register_id) < 0) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer storage_id_buf = make_buffer(storage_id_ptr, storage_id_len);
+  int32_t result = js_user_storage_remove((uint64_t)&storage_id_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, result);
+}
+
+// Wrapper: js_user_storage_contains
+static JSValue js_env_user_storage_contains(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 1) {
+    return JS_ThrowTypeError(ctx, "js_user_storage_contains expects storageId");
+  }
+  size_t storage_id_len;
+  uint8_t *storage_id_ptr = JSValueToUint8Array(ctx, argv[0], &storage_id_len);
+  if (!storage_id_ptr || storage_id_len != 32) {
+    return JS_ThrowRangeError(ctx, "storageId must be 32 bytes");
+  }
+  CalimeroBuffer storage_id_buf = make_buffer(storage_id_ptr, storage_id_len);
+  int32_t result = js_user_storage_contains((uint64_t)&storage_id_buf);
+  return JS_NewInt32(ctx, result);
+}
+
+// Wrapper: js_user_storage_contains_user
+static JSValue js_env_user_storage_contains_user(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 2) {
+    return JS_ThrowTypeError(ctx, "js_user_storage_contains_user expects storageId and userKey");
+  }
+  size_t storage_id_len;
+  uint8_t *storage_id_ptr = JSValueToUint8Array(ctx, argv[0], &storage_id_len);
+  if (!storage_id_ptr || storage_id_len != 32) {
+    return JS_ThrowRangeError(ctx, "storageId must be 32 bytes");
+  }
+  size_t user_key_len;
+  uint8_t *user_key_ptr = JSValueToUint8Array(ctx, argv[1], &user_key_len);
+  if (!user_key_ptr || user_key_len != 32) {
+    return JS_ThrowRangeError(ctx, "userKey must be 32 bytes");
+  }
+  CalimeroBuffer storage_id_buf = make_buffer(storage_id_ptr, storage_id_len);
+  CalimeroBuffer user_key_buf = make_buffer(user_key_ptr, user_key_len);
+  int32_t result = js_user_storage_contains_user((uint64_t)&storage_id_buf, (uint64_t)&user_key_buf);
+  return JS_NewInt32(ctx, result);
+}
+
+// Wrapper: js_frozen_storage_new
+static JSValue js_env_frozen_storage_new(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 1) {
+    return JS_ThrowTypeError(ctx, "js_frozen_storage_new expects register_id");
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[0], &register_id) < 0) {
+    return JS_EXCEPTION;
+  }
+  int32_t result = js_frozen_storage_new((uint64_t)register_id);
+  return JS_NewInt32(ctx, result);
+}
+
+// Wrapper: js_frozen_storage_add
+static JSValue js_env_frozen_storage_add(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 3) {
+    return JS_ThrowTypeError(ctx, "js_frozen_storage_add expects storageId, value, and register_id");
+  }
+  size_t storage_id_len;
+  uint8_t *storage_id_ptr = JSValueToUint8Array(ctx, argv[0], &storage_id_len);
+  if (!storage_id_ptr || storage_id_len != 32) {
+    return JS_ThrowRangeError(ctx, "storageId must be 32 bytes");
+  }
+  size_t value_len;
+  uint8_t *value_ptr = JSValueToUint8Array(ctx, argv[1], &value_len);
+  if (!value_ptr) {
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[2], &register_id) < 0) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer storage_id_buf = make_buffer(storage_id_ptr, storage_id_len);
+  CalimeroBuffer value_buf = make_buffer(value_ptr, value_len);
+  int32_t result = js_frozen_storage_add((uint64_t)&storage_id_buf, (uint64_t)&value_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, result);
+}
+
+// Wrapper: js_frozen_storage_get
+static JSValue js_env_frozen_storage_get(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 3) {
+    return JS_ThrowTypeError(ctx, "js_frozen_storage_get expects storageId, hash, and register_id");
+  }
+  size_t storage_id_len;
+  uint8_t *storage_id_ptr = JSValueToUint8Array(ctx, argv[0], &storage_id_len);
+  if (!storage_id_ptr || storage_id_len != 32) {
+    return JS_ThrowRangeError(ctx, "storageId must be 32 bytes");
+  }
+  size_t hash_len;
+  uint8_t *hash_ptr = JSValueToUint8Array(ctx, argv[1], &hash_len);
+  if (!hash_ptr || hash_len != 32) {
+    return JS_ThrowRangeError(ctx, "hash must be 32 bytes");
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[2], &register_id) < 0) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer storage_id_buf = make_buffer(storage_id_ptr, storage_id_len);
+  CalimeroBuffer hash_buf = make_buffer(hash_ptr, hash_len);
+  int32_t result = js_frozen_storage_get((uint64_t)&storage_id_buf, (uint64_t)&hash_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, result);
+}
+
+// Wrapper: js_frozen_storage_contains
+static JSValue js_env_frozen_storage_contains(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 2) {
+    return JS_ThrowTypeError(ctx, "js_frozen_storage_contains expects storageId and hash");
+  }
+  size_t storage_id_len;
+  uint8_t *storage_id_ptr = JSValueToUint8Array(ctx, argv[0], &storage_id_len);
+  if (!storage_id_ptr || storage_id_len != 32) {
+    return JS_ThrowRangeError(ctx, "storageId must be 32 bytes");
+  }
+  size_t hash_len;
+  uint8_t *hash_ptr = JSValueToUint8Array(ctx, argv[1], &hash_len);
+  if (!hash_ptr || hash_len != 32) {
+    return JS_ThrowRangeError(ctx, "hash must be 32 bytes");
+  }
+  CalimeroBuffer storage_id_buf = make_buffer(storage_id_ptr, storage_id_len);
+  CalimeroBuffer hash_buf = make_buffer(hash_ptr, hash_len);
+  int32_t result = js_frozen_storage_contains((uint64_t)&storage_id_buf, (uint64_t)&hash_buf);
+  return JS_NewInt32(ctx, result);
+}
+
+// Wrapper: ed25519_verify
+static JSValue js_ed25519_verify(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 3) {
+    return JS_ThrowTypeError(ctx, "ed25519_verify expects signature, public_key, and message");
+  }
+
+  size_t signature_len;
+  uint8_t *signature_ptr = JSValueToUint8Array(ctx, argv[0], &signature_len);
+  if (!signature_ptr) {
+    return JS_ThrowTypeError(ctx, "ed25519_verify: signature must be Uint8Array");
+  }
+  if (signature_len != 64) {
+    return JS_ThrowRangeError(ctx, "ed25519_verify: signature must be 64 bytes");
+  }
+
+  size_t public_key_len;
+  uint8_t *public_key_ptr = JSValueToUint8Array(ctx, argv[1], &public_key_len);
+  if (!public_key_ptr) {
+    return JS_ThrowTypeError(ctx, "ed25519_verify: public_key must be Uint8Array");
+  }
+  if (public_key_len != 32) {
+    return JS_ThrowRangeError(ctx, "ed25519_verify: public_key must be 32 bytes");
+  }
+
+  size_t message_len;
+  uint8_t *message_ptr = JSValueToUint8Array(ctx, argv[2], &message_len);
+  if (!message_ptr) {
+    return JS_ThrowTypeError(ctx, "ed25519_verify: message must be Uint8Array");
+  }
+
+  CalimeroBuffer signature_buf = make_buffer(signature_ptr, signature_len);
+  CalimeroBuffer public_key_buf = make_buffer(public_key_ptr, public_key_len);
+  CalimeroBuffer message_buf = make_buffer(message_ptr, message_len);
+
+  uint32_t result = ed25519_verify((uint64_t)&signature_buf, (uint64_t)&public_key_buf, (uint64_t)&message_buf);
+  return JS_NewBool(ctx, result);
+}
+
 // ===========================
 // Register Host Functions
 // ===========================
@@ -1585,6 +1867,17 @@ void js_add_calimero_host_functions(JSContext *ctx) {
   JS_SetPropertyStr(ctx, env, "js_crdt_counter_increment", JS_NewCFunction(ctx, js_env_crdt_counter_increment, "js_crdt_counter_increment", 1));
   JS_SetPropertyStr(ctx, env, "js_crdt_counter_value", JS_NewCFunction(ctx, js_env_crdt_counter_value, "js_crdt_counter_value", 2));
   JS_SetPropertyStr(ctx, env, "js_crdt_counter_get_executor_count", JS_NewCFunction(ctx, js_env_crdt_counter_get_executor_count, "js_crdt_counter_get_executor_count", 3));
+  JS_SetPropertyStr(ctx, env, "js_user_storage_new", JS_NewCFunction(ctx, js_env_user_storage_new, "js_user_storage_new", 1));
+  JS_SetPropertyStr(ctx, env, "js_user_storage_insert", JS_NewCFunction(ctx, js_env_user_storage_insert, "js_user_storage_insert", 3));
+  JS_SetPropertyStr(ctx, env, "js_user_storage_get", JS_NewCFunction(ctx, js_env_user_storage_get, "js_user_storage_get", 2));
+  JS_SetPropertyStr(ctx, env, "js_user_storage_get_for_user", JS_NewCFunction(ctx, js_env_user_storage_get_for_user, "js_user_storage_get_for_user", 3));
+  JS_SetPropertyStr(ctx, env, "js_user_storage_remove", JS_NewCFunction(ctx, js_env_user_storage_remove, "js_user_storage_remove", 2));
+  JS_SetPropertyStr(ctx, env, "js_user_storage_contains", JS_NewCFunction(ctx, js_env_user_storage_contains, "js_user_storage_contains", 1));
+  JS_SetPropertyStr(ctx, env, "js_user_storage_contains_user", JS_NewCFunction(ctx, js_env_user_storage_contains_user, "js_user_storage_contains_user", 2));
+  JS_SetPropertyStr(ctx, env, "js_frozen_storage_new", JS_NewCFunction(ctx, js_env_frozen_storage_new, "js_frozen_storage_new", 1));
+  JS_SetPropertyStr(ctx, env, "js_frozen_storage_add", JS_NewCFunction(ctx, js_env_frozen_storage_add, "js_frozen_storage_add", 3));
+  JS_SetPropertyStr(ctx, env, "js_frozen_storage_get", JS_NewCFunction(ctx, js_env_frozen_storage_get, "js_frozen_storage_get", 3));
+  JS_SetPropertyStr(ctx, env, "js_frozen_storage_contains", JS_NewCFunction(ctx, js_env_frozen_storage_contains, "js_frozen_storage_contains", 2));
   
   // Context
   JS_SetPropertyStr(ctx, env, "context_id", JS_NewCFunction(ctx, js_context_id, "context_id", 1));
@@ -1625,6 +1918,9 @@ void js_add_calimero_host_functions(JSContext *ctx) {
   JS_SetPropertyStr(ctx, env, "blob_write", JS_NewCFunction(ctx, js_blob_write, "blob_write", 2));
   JS_SetPropertyStr(ctx, env, "blob_close", JS_NewCFunction(ctx, js_blob_close, "blob_close", 2));
   JS_SetPropertyStr(ctx, env, "blob_announce_to_context", JS_NewCFunction(ctx, js_blob_announce_to_context, "blob_announce_to_context", 2));
+  
+  // Crypto
+  JS_SetPropertyStr(ctx, env, "ed25519_verify", JS_NewCFunction(ctx, js_ed25519_verify, "ed25519_verify", 3));
   
   // Set global env object
   JS_SetPropertyStr(ctx, global, "env", env);

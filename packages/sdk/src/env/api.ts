@@ -831,6 +831,66 @@ export function jsCrdtCounterGetExecutorCount(
   return env.js_crdt_counter_get_executor_count(counterId, register, executorId);
 }
 
+export function jsUserStorageNew(register: bigint): number {
+  return env.js_user_storage_new(register);
+}
+
+export function jsUserStorageInsert(
+  storageId: Uint8Array,
+  value: Uint8Array,
+  register: bigint
+): number {
+  return env.js_user_storage_insert(storageId, value, register);
+}
+
+export function jsUserStorageGet(storageId: Uint8Array, register: bigint): number {
+  return env.js_user_storage_get(storageId, register);
+}
+
+export function jsUserStorageGetForUser(
+  storageId: Uint8Array,
+  userKey: Uint8Array,
+  register: bigint
+): number {
+  return env.js_user_storage_get_for_user(storageId, userKey, register);
+}
+
+export function jsUserStorageRemove(storageId: Uint8Array, register: bigint): number {
+  return env.js_user_storage_remove(storageId, register);
+}
+
+export function jsUserStorageContains(storageId: Uint8Array): number {
+  return env.js_user_storage_contains(storageId);
+}
+
+export function jsUserStorageContainsUser(storageId: Uint8Array, userKey: Uint8Array): number {
+  return env.js_user_storage_contains_user(storageId, userKey);
+}
+
+export function jsFrozenStorageNew(register: bigint): number {
+  return env.js_frozen_storage_new(register);
+}
+
+export function jsFrozenStorageAdd(
+  storageId: Uint8Array,
+  value: Uint8Array,
+  register: bigint
+): number {
+  return env.js_frozen_storage_add(storageId, value, register);
+}
+
+export function jsFrozenStorageGet(
+  storageId: Uint8Array,
+  hash: Uint8Array,
+  register: bigint
+): number {
+  return env.js_frozen_storage_get(storageId, hash, register);
+}
+
+export function jsFrozenStorageContains(storageId: Uint8Array, hash: Uint8Array): number {
+  return env.js_frozen_storage_contains(storageId, hash);
+}
+
 /**
  * Flush pending delta actions to the host.
  *
@@ -950,4 +1010,53 @@ export function randomBytes(buffer: Uint8Array): void {
     throw new Error('random_bytes host function unavailable');
   }
   env.random_bytes(buffer);
+}
+
+/**
+ * Verifies an Ed25519 signature.
+ *
+ * @param signature - The 64-byte Ed25519 signature
+ * @param publicKey - The 32-byte Ed25519 public key
+ * @param message - The message that was signed
+ * @returns true if the signature is valid, false otherwise
+ *
+ * @example
+ * ```typescript
+ * import { ed25519Verify } from '@calimero-network/calimero-sdk-js/env';
+ *
+ * const signature = new Uint8Array(64); // 64-byte signature
+ * const publicKey = new Uint8Array(32); // 32-byte public key
+ * const message = new TextEncoder().encode('Hello, World!');
+ *
+ * const isValid = ed25519Verify(signature, publicKey, message);
+ * if (!isValid) {
+ *   throw new Error('Invalid signature');
+ * }
+ * ```
+ */
+export function ed25519Verify(
+  signature: Uint8Array,
+  publicKey: Uint8Array,
+  message: Uint8Array
+): boolean {
+  if (!(signature instanceof Uint8Array)) {
+    throw new TypeError('ed25519Verify: signature must be a Uint8Array');
+  }
+  if (signature.length !== 64) {
+    throw new RangeError('ed25519Verify: signature must be exactly 64 bytes');
+  }
+  if (!(publicKey instanceof Uint8Array)) {
+    throw new TypeError('ed25519Verify: publicKey must be a Uint8Array');
+  }
+  if (publicKey.length !== 32) {
+    throw new RangeError('ed25519Verify: publicKey must be exactly 32 bytes');
+  }
+  if (!(message instanceof Uint8Array)) {
+    throw new TypeError('ed25519Verify: message must be a Uint8Array');
+  }
+  if (typeof (env as HostEnv).ed25519_verify !== 'function') {
+    throw new Error('ed25519_verify host function unavailable');
+  }
+
+  return Boolean(env.ed25519_verify(signature, publicKey, message));
 }

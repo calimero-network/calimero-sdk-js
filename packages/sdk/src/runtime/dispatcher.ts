@@ -429,7 +429,10 @@ function normalizeArgs(payload: unknown, paramNames: string[]): unknown[] {
       if (values.length === 1) {
         return values;
       }
-      return [payload];
+      // If we have multiple values but no param names, extract values in order
+      // This handles cases where readPayload returns {key: "...", value: "..."}
+      // but paramNames wasn't populated from method registry
+      return values;
     }
 
     // Multiple parameters - map by name
@@ -479,6 +482,42 @@ function handleError(method: string, error: unknown): never {
   panic(message);
 }
 
+/**
+ * Gets effective parameter names, falling back to ABI if not provided from method registry
+ */
+function getEffectiveParamNames(
+  methodName: string,
+  paramNames: string[],
+  enableLogging = false
+): string[] {
+  if (paramNames.length > 0) {
+    return paramNames;
+  }
+
+  const abi = getAbiManifest();
+  if (enableLogging) {
+    log(`[dispatcher] ABI lookup for ${methodName}: hasAbi=${!!abi}`);
+  }
+
+  if (abi) {
+    const method = getMethod(abi, methodName);
+    if (enableLogging) {
+      log(
+        `[dispatcher] Method lookup for ${methodName}: hasMethod=${!!method}, params=${method ? method.params.map(p => p.name).join(',') : 'none'}`
+      );
+    }
+    if (method) {
+      const extracted = method.params.map(p => p.name);
+      if (enableLogging) {
+        log(`[dispatcher] Extracted paramNames from ABI: ${JSON.stringify(extracted)}`);
+      }
+      return extracted;
+    }
+  }
+
+  return paramNames;
+}
+
 function createLogicDispatcher(
   logicCtor: any,
   stateCtor: any,
@@ -489,21 +528,7 @@ function createLogicDispatcher(
   return function dispatch(): void {
     const payload = readPayload(methodName);
 
-    // If paramNames is empty, try to get parameter names from ABI
-    let effectiveParamNames = paramNames;
-    if (effectiveParamNames.length === 0) {
-      const abi = getAbiManifest();
-      if (abi) {
-        const method = getMethod(abi, methodName);
-        if (method && method.params.length > 0) {
-          effectiveParamNames = method.params.map(p => p.name);
-          log(
-            `[dispatcher] dispatch: using ABI parameter names for ${methodName}: ${JSON.stringify(effectiveParamNames)}`
-          );
-        }
-      }
-    }
-
+    const effectiveParamNames = getEffectiveParamNames(methodName, paramNames, true);
     const args = normalizeArgs(payload, effectiveParamNames);
     log(
       `[dispatcher] dispatch: method=${methodName}, paramNames=${JSON.stringify(effectiveParamNames)}, args length=${args.length}, args=${JSON.stringify(args)}`
@@ -558,10 +583,12 @@ function createInitDispatcher(
 ): () => void {
   return function initDispatch(): void {
     const payload = readPayload(methodName);
-    const args = normalizeArgs(payload, paramNames);
+
+    const effectiveParamNames = getEffectiveParamNames(methodName, paramNames);
+    const args = normalizeArgs(payload, effectiveParamNames);
 
     log(
-      `[dispatcher] initDispatch: method=${methodName}, paramNames=${JSON.stringify(paramNames)}, payload type=${typeof payload}, args length=${args.length}`
+      `[dispatcher] initDispatch: method=${methodName}, paramNames=${JSON.stringify(effectiveParamNames)}, payload type=${typeof payload}, args length=${args.length}`
     );
     // Only add payload as fallback if args is truly empty (not just containing null/undefined)
     // Check if args has any non-null/undefined values

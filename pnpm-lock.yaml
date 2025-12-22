@@ -121,6 +121,19 @@ importers:
         specifier: ^5.3.3
         version: 5.9.3
 
+  examples/kv-store-with-user-and-frozen-storage:
+    dependencies:
+      '@calimero-network/calimero-sdk-js':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+    devDependencies:
+      '@calimero-network/calimero-cli-js':
+        specifier: workspace:*
+        version: link:../../packages/cli
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
   examples/nested-collections-demo:
     dependencies:
       '@calimero-network/calimero-sdk-js':
@@ -252,6 +265,9 @@ importers:
 
   packages/sdk:
     dependencies:
+      '@noble/hashes':
+        specifier: ^1.7.1
+        version: 1.8.0
       borsh:
         specifier: ^1.0.0
         version: 1.0.0
@@ -970,6 +986,10 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@noble/hashes@1.8.0':
+    resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
+    engines: {node: ^14.21.3 || >=16}
 
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
@@ -3512,6 +3532,8 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@noble/hashes@1.8.0': {}
 
   '@nodelib/fs.scandir@2.1.5':
     dependencies:
