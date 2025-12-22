@@ -265,10 +265,50 @@ function readPayload(methodName?: string): unknown {
     if (method.params.length === 1) {
       // Single parameter - check if it's an object type
       const paramType = method.params[0].type;
+      const paramName = method.params[0].name;
       const isObjectType =
         paramType.kind === 'reference' ||
         paramType.$ref ||
-        (typeof jsonValue === 'object' && jsonValue !== null && !Array.isArray(jsonValue));
+        (paramType.kind === 'scalar' &&
+          paramType.scalar !== 'string' &&
+          paramType.scalar !== 'bytes');
+
+      // If JSON is an object but parameter is a scalar (like string), extract the value
+      // This handles cases where host sends {"paramName": "value"} for a string parameter
+      if (
+        !isObjectType &&
+        typeof jsonValue === 'object' &&
+        jsonValue !== null &&
+        !Array.isArray(jsonValue)
+      ) {
+        const jsonObj = jsonValue as Record<string, unknown>;
+        const keys = Object.keys(jsonObj);
+        // If object is empty, return undefined (parameter not provided)
+        if (keys.length === 0) {
+          log(
+            `[dispatcher] readPayload: empty object for ${methodName} scalar param, returning undefined`
+          );
+          return undefined;
+        }
+        // If object has a single key matching the parameter name, extract that value
+        if (keys.length === 1 && keys[0] === paramName) {
+          const scalarValue = jsonObj[paramName];
+          const result = convertFromJsonCompatible(scalarValue, paramType, abi);
+          log(
+            `[dispatcher] readPayload: extracted ${methodName} single scalar param from object (key: ${paramName}, type: ${JSON.stringify(paramType)}, result type: ${typeof result})`
+          );
+          return result;
+        }
+        // If object has a single key but doesn't match param name, extract the value anyway
+        if (keys.length === 1) {
+          const scalarValue = jsonObj[keys[0]];
+          const result = convertFromJsonCompatible(scalarValue, paramType, abi);
+          log(
+            `[dispatcher] readPayload: extracted ${methodName} single scalar param from object (key: ${keys[0]}, type: ${JSON.stringify(paramType)}, result type: ${typeof result})`
+          );
+          return result;
+        }
+      }
 
       if (
         isObjectType &&
@@ -371,7 +411,18 @@ function normalizeArgs(payload: unknown, paramNames: string[]): unknown[] {
     }
 
     if (paramNames.length === 0) {
-      const values = Object.values(payload as JsonObject);
+      // If payload is an object with a single key, extract that value
+      // This handles cases where readPayload returns an object but we need the scalar value
+      const obj = payload as JsonObject;
+      const keys = Object.keys(obj);
+      if (keys.length === 1) {
+        const value = obj[keys[0]];
+        log(
+          `[dispatcher] normalizeArgs: extracted single value from object (key: ${keys[0]}, value type: ${typeof value})`
+        );
+        return [value];
+      }
+      const values = Object.values(obj);
       if (values.length === 0) {
         return [];
       }
@@ -406,6 +457,11 @@ function normalizeArgs(payload: unknown, paramNames: string[]): unknown[] {
   }
 
   if (payload === undefined || payload === null) {
+    // If we have parameter names, return undefined for each parameter
+    // This allows the method to handle missing parameters (e.g., optional params)
+    if (paramNames.length > 0) {
+      return paramNames.map(() => undefined);
+    }
     return [];
   }
 
@@ -432,9 +488,25 @@ function createLogicDispatcher(
 ): () => void {
   return function dispatch(): void {
     const payload = readPayload(methodName);
-    const args = normalizeArgs(payload, paramNames);
+
+    // If paramNames is empty, try to get parameter names from ABI
+    let effectiveParamNames = paramNames;
+    if (effectiveParamNames.length === 0) {
+      const abi = getAbiManifest();
+      if (abi) {
+        const method = getMethod(abi, methodName);
+        if (method && method.params.length > 0) {
+          effectiveParamNames = method.params.map(p => p.name);
+          log(
+            `[dispatcher] dispatch: using ABI parameter names for ${methodName}: ${JSON.stringify(effectiveParamNames)}`
+          );
+        }
+      }
+    }
+
+    const args = normalizeArgs(payload, effectiveParamNames);
     log(
-      `[dispatcher] dispatch: method=${methodName}, paramNames=${JSON.stringify(paramNames)}, args length=${args.length}, args=${JSON.stringify(args)}`
+      `[dispatcher] dispatch: method=${methodName}, paramNames=${JSON.stringify(effectiveParamNames)}, args length=${args.length}, args=${JSON.stringify(args)}`
     );
 
     let logicInstance: any;

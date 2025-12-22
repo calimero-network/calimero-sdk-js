@@ -110,6 +110,14 @@ extern void executor_id(uint64_t register_id);
 extern void emit(uint64_t event_ptr);
 extern void emit_with_handler(uint64_t event_ptr, uint64_t handler_buffer_ptr);
 extern void xcall(uint64_t xcall_ptr);
+// Context Management (PR 1663 & 1686)
+extern void context_add_member(uint64_t public_key_buffer_ptr);
+extern void context_remove_member(uint64_t public_key_buffer_ptr);
+extern uint32_t context_is_member(uint64_t public_key_buffer_ptr);  // Returns Bool (u32)
+extern void context_members(uint64_t register_id);
+extern void context_create(uint64_t protocol_buffer_ptr, uint64_t application_id_buffer_ptr, uint64_t init_args_buffer_ptr, uint64_t alias_buffer_ptr);
+extern void context_delete(uint64_t context_id_buffer_ptr);
+extern uint32_t context_resolve_alias(uint64_t alias_buffer_ptr, uint64_t register_id);  // Returns Bool (u32)
 extern uint32_t storage_read(uint64_t key_buffer_ptr, uint64_t register_id);  // Returns Bool (u32)
 extern uint32_t storage_write(uint64_t key_buffer_ptr, uint64_t value_buffer_ptr, uint64_t register_id);  // Returns Bool (u32)
 extern uint32_t storage_remove(uint64_t key_buffer_ptr, uint64_t register_id);  // Returns Bool (u32)
@@ -1105,6 +1113,139 @@ static JSValue js_executor_id(JSContext *ctx, JSValueConst this_val, int argc, J
   return JS_UNDEFINED;
 }
 
+// Wrapper: context_add_member
+static JSValue js_env_context_add_member(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 1) {
+    return JS_ThrowTypeError(ctx, "context_add_member expects publicKey");
+  }
+  size_t public_key_len;
+  uint8_t *public_key_ptr = JSValueToUint8Array(ctx, argv[0], &public_key_len);
+  if (!public_key_ptr || public_key_len != 32) {
+    return JS_ThrowRangeError(ctx, "publicKey must be 32 bytes");
+  }
+  CalimeroBuffer public_key_buf = make_buffer(public_key_ptr, public_key_len);
+  context_add_member((uint64_t)&public_key_buf);
+  return JS_UNDEFINED;
+}
+
+// Wrapper: context_remove_member
+static JSValue js_env_context_remove_member(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 1) {
+    return JS_ThrowTypeError(ctx, "context_remove_member expects publicKey");
+  }
+  size_t public_key_len;
+  uint8_t *public_key_ptr = JSValueToUint8Array(ctx, argv[0], &public_key_len);
+  if (!public_key_ptr || public_key_len != 32) {
+    return JS_ThrowRangeError(ctx, "publicKey must be 32 bytes");
+  }
+  CalimeroBuffer public_key_buf = make_buffer(public_key_ptr, public_key_len);
+  context_remove_member((uint64_t)&public_key_buf);
+  return JS_UNDEFINED;
+}
+
+// Wrapper: context_is_member
+static JSValue js_env_context_is_member(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 1) {
+    return JS_ThrowTypeError(ctx, "context_is_member expects publicKey");
+  }
+  size_t public_key_len;
+  uint8_t *public_key_ptr = JSValueToUint8Array(ctx, argv[0], &public_key_len);
+  if (!public_key_ptr || public_key_len != 32) {
+    return JS_ThrowRangeError(ctx, "publicKey must be 32 bytes");
+  }
+  CalimeroBuffer public_key_buf = make_buffer(public_key_ptr, public_key_len);
+  uint32_t result = context_is_member((uint64_t)&public_key_buf);
+  return JS_NewBool(ctx, result != 0);
+}
+
+// Wrapper: context_members
+static JSValue js_env_context_members(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  int64_t register_id = 0;
+  if (argc > 0) {
+    JS_ToInt64(ctx, &register_id, argv[0]);
+  }
+  context_members((uint64_t)register_id);
+  return JS_UNDEFINED;
+}
+
+// Wrapper: context_create
+static JSValue js_env_context_create(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 4) {
+    return JS_ThrowTypeError(ctx, "context_create expects protocol, applicationId, initArgs, and alias");
+  }
+  size_t protocol_len;
+  uint8_t *protocol_ptr = JSValueToUint8Array(ctx, argv[0], &protocol_len);
+  if (!protocol_ptr) {
+    return JS_ThrowTypeError(ctx, "protocol must be a Uint8Array");
+  }
+  size_t app_id_len;
+  uint8_t *app_id_ptr = JSValueToUint8Array(ctx, argv[1], &app_id_len);
+  if (!app_id_ptr || app_id_len != 32) {
+    return JS_ThrowRangeError(ctx, "applicationId must be 32 bytes");
+  }
+  size_t init_args_len;
+  uint8_t *init_args_ptr = JSValueToUint8Array(ctx, argv[2], &init_args_len);
+  if (!init_args_ptr) {
+    return JS_ThrowTypeError(ctx, "initArgs must be a Uint8Array");
+  }
+  size_t alias_len;
+  uint8_t *alias_ptr = JSValueToUint8Array(ctx, argv[3], &alias_len);
+  if (!alias_ptr) {
+    return JS_ThrowTypeError(ctx, "alias must be a Uint8Array");
+  }
+  // Alias length validation (check Rust implementation for max length)
+  if (alias_len > 64) {  // Adjust based on Rust Alias::MAX_LEN
+    return JS_ThrowRangeError(ctx, "alias too long (max 64 bytes)");
+  }
+  CalimeroBuffer protocol_buf = make_buffer(protocol_ptr, protocol_len);
+  CalimeroBuffer app_id_buf = make_buffer(app_id_ptr, app_id_len);
+  CalimeroBuffer init_args_buf = make_buffer(init_args_ptr, init_args_len);
+  CalimeroBuffer alias_buf = make_buffer(alias_ptr, alias_len);
+  context_create((uint64_t)&protocol_buf, (uint64_t)&app_id_buf, (uint64_t)&init_args_buf, (uint64_t)&alias_buf);
+  return JS_UNDEFINED;
+}
+
+// Wrapper: context_delete
+static JSValue js_env_context_delete(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 1) {
+    return JS_ThrowTypeError(ctx, "context_delete expects contextId");
+  }
+  size_t context_id_len;
+  uint8_t *context_id_ptr = JSValueToUint8Array(ctx, argv[0], &context_id_len);
+  if (!context_id_ptr || context_id_len != 32) {
+    return JS_ThrowRangeError(ctx, "contextId must be 32 bytes");
+  }
+  CalimeroBuffer context_id_buf = make_buffer(context_id_ptr, context_id_len);
+  context_delete((uint64_t)&context_id_buf);
+  return JS_UNDEFINED;
+}
+
+// Wrapper: context_resolve_alias
+static JSValue js_env_context_resolve_alias(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 1) {
+    return JS_ThrowTypeError(ctx, "context_resolve_alias expects alias");
+  }
+  size_t alias_len;
+  uint8_t *alias_ptr = JSValueToUint8Array(ctx, argv[0], &alias_len);
+  if (!alias_ptr) {
+    return JS_ThrowTypeError(ctx, "alias must be a Uint8Array");
+  }
+  int64_t register_id = 0;
+  if (argc > 1) {
+    JS_ToInt64(ctx, &register_id, argv[1]);
+  }
+  CalimeroBuffer alias_buf = make_buffer(alias_ptr, alias_len);
+  uint32_t result = context_resolve_alias((uint64_t)&alias_buf, (uint64_t)register_id);
+  return JS_NewUint32(ctx, result);
+}
+
 // Wrapper: input
 static JSValue js_input(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   int64_t register_id = 0;
@@ -1448,6 +1589,13 @@ void js_add_calimero_host_functions(JSContext *ctx) {
   // Context
   JS_SetPropertyStr(ctx, env, "context_id", JS_NewCFunction(ctx, js_context_id, "context_id", 1));
   JS_SetPropertyStr(ctx, env, "executor_id", JS_NewCFunction(ctx, js_executor_id, "executor_id", 1));
+  JS_SetPropertyStr(ctx, env, "context_add_member", JS_NewCFunction(ctx, js_env_context_add_member, "context_add_member", 1));
+  JS_SetPropertyStr(ctx, env, "context_remove_member", JS_NewCFunction(ctx, js_env_context_remove_member, "context_remove_member", 1));
+  JS_SetPropertyStr(ctx, env, "context_is_member", JS_NewCFunction(ctx, js_env_context_is_member, "context_is_member", 1));
+  JS_SetPropertyStr(ctx, env, "context_members", JS_NewCFunction(ctx, js_env_context_members, "context_members", 1));
+  JS_SetPropertyStr(ctx, env, "context_create", JS_NewCFunction(ctx, js_env_context_create, "context_create", 4));
+  JS_SetPropertyStr(ctx, env, "context_delete", JS_NewCFunction(ctx, js_env_context_delete, "context_delete", 1));
+  JS_SetPropertyStr(ctx, env, "context_resolve_alias", JS_NewCFunction(ctx, js_env_context_resolve_alias, "context_resolve_alias", 1));
   
   // Registers
   JS_SetPropertyStr(ctx, env, "input", JS_NewCFunction(ctx, js_input, "input", 1));
