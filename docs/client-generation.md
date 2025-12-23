@@ -6,7 +6,7 @@ This guide explains how to generate TypeScript client code from ABI.json files f
 
 When you build a Calimero service using `calimero-sdk build`, it generates an `abi.json` file that describes your service's API. You can use this ABI to generate a type-safe TypeScript client that other applications can use to interact with your service.
 
-This SDK includes a helper script (`generate-client.js`) that automatically handles the conversion from the SDK's ABI format to the client code generator format. The script uses  `@calimero-network/abi-codegen` to generate the client code.
+This SDK includes a helper script (`generate-client.js`) that automatically handles the conversion from the SDK's ABI format to the client code generator format. The script uses `@calimero-network/abi-codegen` to generate the client code.
 
 ## Quick Start
 
