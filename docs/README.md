@@ -15,6 +15,7 @@ Use this index to navigate the individual guides in `docs/`.
 
 ## Patterns & Troubleshooting
 
+- **[Client Generation](client-generation.md)** – generate TypeScript clients from ABI.json using mero-devtools-js.
 - **[Events](events.md)** – modelling event types, emit/handler conventions.
 - **[Migration](migration.md)** – legacy JSON state ↔ Borsh migration notes (if upgrading from SDK ≤ 0.1).
 - **[Troubleshooting](troubleshooting.md)** – build/runtime issues, common CLI/runtime errors, and diagnostics.
