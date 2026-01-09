@@ -593,7 +593,7 @@ describe('JSON serialization in valueReturn', () => {
 
     const returned = getReturnedValue();
     const parsed = JSON.parse(returned);
-    
+
     // Both references should be serialized correctly, NOT marked as [Circular]
     expect(parsed.a).toEqual({ value: 'shared' });
     expect(parsed.b).toEqual({ value: 'shared' });
