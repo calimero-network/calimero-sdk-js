@@ -78,33 +78,79 @@ function jsonStringifyReplacer(_key: string, val: unknown): unknown {
 
 /**
  * Safe JSON.stringify that handles circular references and all problematic types
- * Uses a WeakSet to track visited objects and prevent circular reference errors
+ * Uses a path stack to track the current traversal path and only flag actual cycles
+ * (not shared references). Properly removes objects from path when backtracking.
  */
 function safeJsonStringify(value: unknown): string {
-  const visited = new WeakSet<object>();
-
-  const circularReplacer = (key: string, val: unknown): unknown => {
-    // First apply the standard type conversions
-    const converted = jsonStringifyReplacer(key, val);
-
-    // Then handle circular references for objects
-    if (converted !== null && typeof converted === 'object') {
-      if (visited.has(converted)) {
-        // Circular reference detected - replace with a placeholder
-        return '[Circular]';
-      }
-      visited.add(converted);
-    }
-
-    return converted;
-  };
+  // This tracks the current path (ancestor chain) to detect only actual cycles
+  const path = new Set<object>();
 
   try {
-    return JSON.stringify(value, circularReplacer);
+    return serializeWithPathTracking(value, path);
   } catch (error) {
-    // Fallback: if JSON.stringify still fails, return error message as JSON string
+    // Fallback: if serialization fails, return error message as JSON string
     return JSON.stringify({ error: 'Failed to serialize value', message: String(error) });
   }
+}
+
+/**
+ * Custom serializer that properly tracks the traversal path to detect only actual cycles.
+ * Removes objects from path when backtracking, so shared (non-circular) references work correctly.
+ */
+function serializeWithPathTracking(value: unknown, path: Set<object>): string {
+  // Apply type conversions first
+  const converted = jsonStringifyReplacer('', value);
+
+  // Handle circular references for objects
+  if (converted !== null && typeof converted === 'object') {
+    // Check if object is in current path (ancestor chain) - this indicates a true cycle
+    if (path.has(converted)) {
+      return '"[Circular]"';
+    }
+    // Add to path before processing children
+    path.add(converted);
+  }
+
+  // Handle different types
+  if (converted === null) {
+    return 'null';
+  }
+
+  if (typeof converted === 'string') {
+    return JSON.stringify(converted);
+  }
+
+  if (typeof converted === 'number') {
+    return String(converted);
+  }
+
+  if (typeof converted === 'boolean') {
+    return String(converted);
+  }
+
+  if (Array.isArray(converted)) {
+    const items = converted.map(item => serializeWithPathTracking(item, path));
+    // Remove from path after processing array (backtrack)
+    if (converted !== null && typeof converted === 'object') {
+      path.delete(converted);
+    }
+    return '[' + items.join(',') + ']';
+  }
+
+  if (converted !== null && typeof converted === 'object') {
+    const entries: string[] = [];
+    for (const [key, val] of Object.entries(converted)) {
+      const jsonKey = JSON.stringify(key);
+      const jsonValue = serializeWithPathTracking(val, path);
+      entries.push(jsonKey + ':' + jsonValue);
+    }
+    // Remove from path after processing object (backtrack)
+    path.delete(converted);
+    return '{' + entries.join(',') + '}';
+  }
+
+  // Fallback to JSON.stringify for any other type
+  return JSON.stringify(converted);
 }
 
 export function registerLen(register: bigint = REGISTER_ID): bigint {
@@ -132,7 +178,7 @@ function convertToJsonCompatible(
   value: unknown,
   typeRef: TypeRef,
   abi: AbiManifest,
-  visited: WeakSet<object> = new WeakSet()
+  path: Set<object> = new Set()
 ): unknown {
   // Handle null/undefined
   if (value === null || value === undefined) {
@@ -140,11 +186,14 @@ function convertToJsonCompatible(
   }
 
   // Handle circular references for objects
+  // Only mark as circular if object is in current path (ancestor chain), not just visited
   if (value !== null && typeof value === 'object') {
-    if (visited.has(value)) {
+    if (path.has(value)) {
+      // Object is in current path - this is a true circular reference
       return '[Circular]';
     }
-    visited.add(value);
+    // Add to path before processing children
+    path.add(value);
   }
 
   // Handle scalar types (both formats: {kind: "scalar", scalar: "u64"} and {kind: "u64"})
@@ -206,7 +255,12 @@ function convertToJsonCompatible(
     if (value === null || value === undefined) {
       return null;
     }
-    return convertToJsonCompatible(value, typeRef.inner!, abi, visited);
+    const result = convertToJsonCompatible(value, typeRef.inner!, abi, path);
+    // Remove from path after processing (backtrack)
+    if (value !== null && typeof value === 'object') {
+      path.delete(value);
+    }
+    return result;
   }
 
   // Handle vector/list types
@@ -218,7 +272,12 @@ function convertToJsonCompatible(
     if (!innerType) {
       throw new Error(`Missing inner type for ${typeRef.kind}`);
     }
-    return value.map(item => convertToJsonCompatible(item, innerType, abi, visited));
+    const result = value.map(item => convertToJsonCompatible(item, innerType, abi, path));
+    // Remove from path after processing (backtrack)
+    if (value !== null && typeof value === 'object') {
+      path.delete(value);
+    }
+    return result;
   }
 
   // Handle map types
@@ -230,7 +289,11 @@ function convertToJsonCompatible(
     const result: Record<string, unknown> = {};
     for (const [key, val] of entries) {
       const jsonKey = typeof key === 'string' ? key : String(key);
-      result[jsonKey] = convertToJsonCompatible(val, typeRef.value!, abi, visited);
+      result[jsonKey] = convertToJsonCompatible(val, typeRef.value!, abi, path);
+    }
+    // Remove from path after processing (backtrack)
+    if (value !== null && typeof value === 'object') {
+      path.delete(value);
     }
     return result;
   }
@@ -245,7 +308,12 @@ function convertToJsonCompatible(
     if (!innerType) {
       throw new Error('Missing inner type for set');
     }
-    return items.map(item => convertToJsonCompatible(item, innerType, abi, visited));
+    const result = items.map(item => convertToJsonCompatible(item, innerType, abi, path));
+    // Remove from path after processing (backtrack)
+    if (value !== null && typeof value === 'object') {
+      path.delete(value);
+    }
+    return result;
   }
 
   // Handle reference types (records, variants, etc.)
@@ -270,7 +338,11 @@ function convertToJsonCompatible(
         if (fieldValue === undefined && !field.nullable) {
           continue; // Skip undefined fields
         }
-        result[field.name] = convertToJsonCompatible(fieldValue, field.type, abi, visited);
+        result[field.name] = convertToJsonCompatible(fieldValue, field.type, abi, path);
+      }
+      // Remove from path after processing (backtrack)
+      if (value !== null && typeof value === 'object') {
+        path.delete(value);
       }
       return result;
     }
@@ -312,11 +384,20 @@ function convertToJsonCompatible(
 
     // Handle alias types
     if (typeDef.kind === 'alias' && typeDef.target) {
-      return convertToJsonCompatible(value, typeDef.target, abi, visited);
+      const result = convertToJsonCompatible(value, typeDef.target, abi, path);
+      // Remove from path after processing (backtrack)
+      if (value !== null && typeof value === 'object') {
+        path.delete(value);
+      }
+      return result;
     }
   }
 
   // Fallback: return value as-is (JSON.stringify will handle it)
+  // Remove from path if it was added
+  if (value !== null && typeof value === 'object') {
+    path.delete(value);
+  }
   return value;
 }
 

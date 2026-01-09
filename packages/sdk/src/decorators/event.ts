@@ -58,33 +58,76 @@ function jsonStringifyReplacer(_key: string, val: unknown): unknown {
 
 /**
  * Safe JSON.stringify that handles circular references and all problematic types
- * Uses a WeakSet to track visited objects and prevent circular reference errors
+ * Uses a path stack to track the current traversal path and only flag actual cycles
  */
 function safeJsonStringify(value: unknown): string {
-  const visited = new WeakSet<object>();
-
-  const circularReplacer = (key: string, val: unknown): unknown => {
-    // First apply the standard type conversions
-    const converted = jsonStringifyReplacer(key, val);
-
-    // Then handle circular references for objects
-    if (converted !== null && typeof converted === 'object') {
-      if (visited.has(converted)) {
-        // Circular reference detected - replace with a placeholder
-        return '[Circular]';
-      }
-      visited.add(converted);
-    }
-
-    return converted;
-  };
+  // This tracks the current path (ancestor chain) to detect only actual cycles
+  const path = new Set<object>();
 
   try {
-    return JSON.stringify(value, circularReplacer);
+    return serializeWithPathTracking(value, path);
   } catch (error) {
-    // Fallback: if JSON.stringify still fails, return error message as JSON string
+    // Fallback: if serialization fails, return error message as JSON string
     return JSON.stringify({ error: 'Failed to serialize value', message: String(error) });
   }
+}
+
+/**
+ * Custom serializer that properly tracks the traversal path to detect only actual cycles.
+ * Removes objects from path when backtracking, so shared (non-circular) references work correctly.
+ */
+function serializeWithPathTracking(value: unknown, path: Set<object>): string {
+  // Apply type conversions first
+  const converted = jsonStringifyReplacer('', value);
+
+  // Handle circular references for objects
+  if (converted !== null && typeof converted === 'object') {
+    // Check if object is in current path (ancestor chain) - this indicates a true cycle
+    if (path.has(converted)) {
+      return '"[Circular]"';
+    }
+    // Add to path before processing children
+    path.add(converted);
+  }
+
+  // Handle different types
+  if (converted === null) {
+    return 'null';
+  }
+
+  if (typeof converted === 'string') {
+    return JSON.stringify(converted);
+  }
+
+  if (typeof converted === 'number') {
+    return String(converted);
+  }
+
+  if (typeof converted === 'boolean') {
+    return String(converted);
+  }
+
+  if (Array.isArray(converted)) {
+    const items = converted.map(item => serializeWithPathTracking(item, path));
+    // Remove from path after processing array (backtrack)
+    path.delete(converted);
+    return '[' + items.join(',') + ']';
+  }
+
+  if (converted !== null && typeof converted === 'object') {
+    const entries: string[] = [];
+    for (const [key, val] of Object.entries(converted)) {
+      const jsonKey = JSON.stringify(key);
+      const jsonValue = serializeWithPathTracking(val, path);
+      entries.push(jsonKey + ':' + jsonValue);
+    }
+    // Remove from path after processing object (backtrack)
+    path.delete(converted);
+    return '{' + entries.join(',') + '}';
+  }
+
+  // Fallback to JSON.stringify for any other type
+  return JSON.stringify(converted);
 }
 
 type Constructor<T = object> = new (...args: any[]) => T;
