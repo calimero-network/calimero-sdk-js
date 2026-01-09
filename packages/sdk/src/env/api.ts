@@ -18,6 +18,95 @@ declare const env: HostEnv;
 const REGISTER_ID = 0n;
 const textEncoder = new TextEncoder();
 
+/**
+ * Replacer function for JSON.stringify that handles all problematic types
+ * This ensures safe serialization of values that JSON.stringify can't handle natively
+ */
+function jsonStringifyReplacer(_key: string, val: unknown): unknown {
+  // Handle BigInt - convert to string
+  if (typeof val === 'bigint') {
+    return val.toString();
+  }
+
+  // Handle undefined - convert to null for consistency
+  if (val === undefined) {
+    return null;
+  }
+
+  // Handle other TypedArrays (Int8Array, Int16Array, Int32Array, Uint16Array, Uint32Array, Float32Array, Float64Array)
+  // Note: Uint8Array is already handled in convertToJsonCompatible, but this catches any that slip through
+  if (
+    val instanceof Int8Array ||
+    val instanceof Int16Array ||
+    val instanceof Int32Array ||
+    val instanceof Uint16Array ||
+    val instanceof Uint32Array ||
+    val instanceof Float32Array ||
+    val instanceof Float64Array
+  ) {
+    return Array.from(val);
+  }
+
+  // Handle Symbol - convert to string representation
+  if (typeof val === 'symbol') {
+    return val.toString();
+  }
+
+  // Handle functions - convert to null (functions can't be serialized)
+  if (typeof val === 'function') {
+    return null;
+  }
+
+  // Handle RegExp - convert to string representation
+  if (val instanceof RegExp) {
+    return val.toString();
+  }
+
+  // Handle NaN and Infinity - convert to null for JSON compatibility
+  if (typeof val === 'number' && (isNaN(val) || !isFinite(val))) {
+    return null;
+  }
+
+  // Handle Date - ensure consistent ISO string format
+  // (JSON.stringify already does this, but being explicit for clarity)
+  if (val instanceof Date) {
+    return val.toISOString();
+  }
+
+  return val;
+}
+
+/**
+ * Safe JSON.stringify that handles circular references and all problematic types
+ * Uses a WeakSet to track visited objects and prevent circular reference errors
+ */
+function safeJsonStringify(value: unknown): string {
+  const visited = new WeakSet<object>();
+
+  const circularReplacer = (key: string, val: unknown): unknown => {
+    // First apply the standard type conversions
+    const converted = jsonStringifyReplacer(key, val);
+
+    // Then handle circular references for objects
+    if (converted !== null && typeof converted === 'object') {
+      if (visited.has(converted)) {
+        // Circular reference detected - replace with a placeholder
+        return '[Circular]';
+      }
+      visited.add(converted);
+    }
+
+    return converted;
+  };
+
+  try {
+    return JSON.stringify(value, circularReplacer);
+  } catch (error) {
+    // Fallback: if JSON.stringify still fails, return error message as JSON string
+    return JSON.stringify({ error: 'Failed to serialize value', message: String(error) });
+  }
+}
+
 export function registerLen(register: bigint = REGISTER_ID): bigint {
   return env.register_len(register);
 }
@@ -37,11 +126,25 @@ export function panic(message: string): never {
 /**
  * Converts a value to JSON-compatible format based on ABI type
  * Handles bigint conversion and other type-specific conversions
+ * @param visited - WeakSet to track visited objects and prevent circular references
  */
-function convertToJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiManifest): unknown {
+function convertToJsonCompatible(
+  value: unknown,
+  typeRef: TypeRef,
+  abi: AbiManifest,
+  visited: WeakSet<object> = new WeakSet()
+): unknown {
   // Handle null/undefined
   if (value === null || value === undefined) {
     return null;
+  }
+
+  // Handle circular references for objects
+  if (value !== null && typeof value === 'object') {
+    if (visited.has(value)) {
+      return '[Circular]';
+    }
+    visited.add(value);
   }
 
   // Handle scalar types (both formats: {kind: "scalar", scalar: "u64"} and {kind: "u64"})
@@ -103,7 +206,7 @@ function convertToJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiManif
     if (value === null || value === undefined) {
       return null;
     }
-    return convertToJsonCompatible(value, typeRef.inner!, abi);
+    return convertToJsonCompatible(value, typeRef.inner!, abi, visited);
   }
 
   // Handle vector/list types
@@ -115,7 +218,7 @@ function convertToJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiManif
     if (!innerType) {
       throw new Error(`Missing inner type for ${typeRef.kind}`);
     }
-    return value.map(item => convertToJsonCompatible(item, innerType, abi));
+    return value.map(item => convertToJsonCompatible(item, innerType, abi, visited));
   }
 
   // Handle map types
@@ -127,7 +230,7 @@ function convertToJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiManif
     const result: Record<string, unknown> = {};
     for (const [key, val] of entries) {
       const jsonKey = typeof key === 'string' ? key : String(key);
-      result[jsonKey] = convertToJsonCompatible(val, typeRef.value!, abi);
+      result[jsonKey] = convertToJsonCompatible(val, typeRef.value!, abi, visited);
     }
     return result;
   }
@@ -142,7 +245,7 @@ function convertToJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiManif
     if (!innerType) {
       throw new Error('Missing inner type for set');
     }
-    return items.map(item => convertToJsonCompatible(item, innerType, abi));
+    return items.map(item => convertToJsonCompatible(item, innerType, abi, visited));
   }
 
   // Handle reference types (records, variants, etc.)
@@ -167,7 +270,7 @@ function convertToJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiManif
         if (fieldValue === undefined && !field.nullable) {
           continue; // Skip undefined fields
         }
-        result[field.name] = convertToJsonCompatible(fieldValue, field.type, abi);
+        result[field.name] = convertToJsonCompatible(fieldValue, field.type, abi, visited);
       }
       return result;
     }
@@ -209,7 +312,7 @@ function convertToJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiManif
 
     // Handle alias types
     if (typeDef.kind === 'alias' && typeDef.target) {
-      return convertToJsonCompatible(value, typeDef.target, abi);
+      return convertToJsonCompatible(value, typeDef.target, abi, visited);
     }
   }
 
@@ -265,7 +368,10 @@ export function valueReturn(value: unknown, methodName?: string): void {
 
   // Convert value to JSON-compatible format based on ABI type
   const jsonValue = convertToJsonCompatible(value, method.returns, abi);
-  const jsonString = JSON.stringify(jsonValue);
+  // Use safe JSON.stringify to handle all problematic types and circular references
+  // This handles cases where values appear in nested structures or aren't properly
+  // handled by convertToJsonCompatible
+  const jsonString = safeJsonStringify(jsonValue);
   env.value_return(textEncoder.encode(jsonString));
 }
 
