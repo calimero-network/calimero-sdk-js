@@ -10,7 +10,6 @@ import './setup';
 import { valueReturn, readRegister, registerLen } from '../env/api';
 import type { AbiManifest } from '../abi/types';
 import { Event as EventDecorator } from '../decorators/event';
-import type { AppEvent } from '../events/types';
 
 const REGISTER_ID = 0n;
 
@@ -507,6 +506,51 @@ describe('JSON serialization in valueReturn', () => {
     expect(parsed.data).toEqual([1, 2, 3, 4, 5]);
     expect(Array.isArray(parsed.data)).toBe(true);
     expect(parsed.data).not.toEqual({ '0': 1, '1': 2, '2': 3, '3': 4, '4': 5 });
+  });
+
+  it('should handle BigInt64Array and BigUint64Array', () => {
+    const abi = createAbi({
+      methods: [
+        {
+          name: 'getData',
+          params: [],
+          returns: {
+            kind: 'reference',
+            name: 'Data',
+          },
+        },
+      ],
+      types: {
+        Data: {
+          kind: 'record',
+          fields: [
+            { name: 'bigInt64Array', type: { kind: 'scalar', scalar: 'string' } },
+            { name: 'bigUint64Array', type: { kind: 'scalar', scalar: 'string' } },
+          ],
+        },
+      },
+    });
+
+    setupAbi(abi);
+    const data = {
+      bigInt64Array: new BigInt64Array([1n, -2n, 3n]),
+      bigUint64Array: new BigUint64Array([1n, 2n, 3n]),
+    };
+
+    expect(() => {
+      valueReturn(data, 'getData');
+    }).not.toThrow();
+
+    const returned = getReturnedValue();
+    const parsed = JSON.parse(returned);
+
+    // BigInt64Array and BigUint64Array should be converted to arrays of strings
+    expect(parsed.bigInt64Array).toEqual(['1', '-2', '3']);
+    expect(parsed.bigUint64Array).toEqual(['1', '2', '3']);
+    expect(Array.isArray(parsed.bigInt64Array)).toBe(true);
+    expect(Array.isArray(parsed.bigUint64Array)).toBe(true);
+    // Should NOT serialize as objects with numeric keys
+    expect(parsed.bigInt64Array).not.toEqual({ '0': '1', '1': '-2', '2': '3' });
   });
 
   it('should handle circular references', () => {

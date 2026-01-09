@@ -15,7 +15,7 @@ function jsonStringifyReplacer(_key: string, val: unknown): unknown {
     return null;
   }
 
-  // Handle all TypedArrays (Uint8Array, Int8Array, Int16Array, Int32Array, Uint16Array, Uint32Array, Float32Array, Float64Array)
+  // Handle all TypedArrays (Uint8Array, Int8Array, Int16Array, Int32Array, Uint16Array, Uint32Array, Float32Array, Float64Array, BigInt64Array, BigUint64Array)
   if (
     val instanceof Uint8Array ||
     val instanceof Int8Array ||
@@ -27,6 +27,11 @@ function jsonStringifyReplacer(_key: string, val: unknown): unknown {
     val instanceof Float64Array
   ) {
     return Array.from(val);
+  }
+
+  // Handle BigInt TypedArrays - convert to array of strings
+  if (val instanceof BigInt64Array || val instanceof BigUint64Array) {
+    return Array.from(val).map(item => item.toString());
   }
 
   // Handle Symbol - convert to string representation
