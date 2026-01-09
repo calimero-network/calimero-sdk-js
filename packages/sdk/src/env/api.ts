@@ -70,6 +70,9 @@ function jsonStringifyReplacer(_key: string, val: unknown): unknown {
   // Handle Date - ensure consistent ISO string format
   // (JSON.stringify already does this, but being explicit for clarity)
   if (val instanceof Date) {
+    if (isNaN(val.getTime())) {
+      return null;
+    }
     return val.toISOString();
   }
 

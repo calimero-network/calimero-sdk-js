@@ -51,6 +51,10 @@ function jsonStringifyReplacer(_key: string, val: unknown): unknown {
 
   // Handle Date - ensure consistent ISO string format
   if (val instanceof Date) {
+    // Check if date is valid before calling toISOString() to avoid RangeError
+    if (isNaN(val.getTime())) {
+      return null; // Invalid date - convert to null (consistent with NaN/Infinity handling)
+    }
     return val.toISOString();
   }
 
