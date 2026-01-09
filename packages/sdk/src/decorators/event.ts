@@ -15,8 +15,9 @@ function jsonStringifyReplacer(_key: string, val: unknown): unknown {
     return null;
   }
 
-  // Handle other TypedArrays (Int8Array, Int16Array, Int32Array, Uint16Array, Uint32Array, Float32Array, Float64Array)
+  // Handle all TypedArrays (Uint8Array, Int8Array, Int16Array, Int32Array, Uint16Array, Uint32Array, Float32Array, Float64Array)
   if (
+    val instanceof Uint8Array ||
     val instanceof Int8Array ||
     val instanceof Int16Array ||
     val instanceof Int32Array ||
