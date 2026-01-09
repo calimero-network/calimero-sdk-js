@@ -9,6 +9,8 @@
 import './setup';
 import { valueReturn, readRegister, registerLen } from '../env/api';
 import type { AbiManifest } from '../abi/types';
+import { Event as EventDecorator } from '../decorators/event';
+import type { AppEvent } from '../events/types';
 
 const REGISTER_ID = 0n;
 
@@ -416,6 +418,43 @@ describe('JSON serialization in valueReturn', () => {
     expect(parsed.timestamp).toBe(date.toISOString());
   });
 
+  it('should handle invalid Date objects gracefully', () => {
+    const abi = createAbi({
+      methods: [
+        {
+          name: 'getData',
+          params: [],
+          returns: {
+            kind: 'reference',
+            name: 'Data',
+          },
+        },
+      ],
+      types: {
+        Data: {
+          kind: 'record',
+          fields: [{ name: 'timestamp', type: { kind: 'scalar', scalar: 'string' } }],
+        },
+      },
+    });
+
+    setupAbi(abi);
+    const invalidDate = new Date('invalid');
+    const data = {
+      timestamp: invalidDate,
+    };
+
+    // Should not throw even with invalid date
+    expect(() => {
+      valueReturn(data, 'getData');
+    }).not.toThrow();
+
+    const returned = getReturnedValue();
+    const parsed = JSON.parse(returned);
+    // Invalid dates should be converted to null (consistent with NaN/Infinity handling)
+    expect(parsed.timestamp).toBe(null);
+  });
+
   it('should handle RegExp objects', () => {
     const abi = createAbi({
       methods: [
@@ -449,6 +488,25 @@ describe('JSON serialization in valueReturn', () => {
     const returned = getReturnedValue();
     const parsed = JSON.parse(returned);
     expect(parsed.pattern).toBe('/test-pattern/gi');
+  });
+
+  it('should handle Uint8Array in events (via jsonStringifyReplacer)', () => {
+    // Test that Uint8Array is handled by jsonStringifyReplacer
+    // This is important for event serialization which doesn't use convertToJsonCompatible
+    @EventDecorator
+    class TestEvent {
+      constructor(public data: Uint8Array) {}
+    }
+
+    const event: any = new TestEvent(new Uint8Array([1, 2, 3, 4, 5]));
+    expect(event.serialize).toBeDefined();
+    const serialized = event.serialize();
+    const parsed = JSON.parse(serialized);
+
+    // Uint8Array should be converted to array, not object with numeric keys
+    expect(parsed.data).toEqual([1, 2, 3, 4, 5]);
+    expect(Array.isArray(parsed.data)).toBe(true);
+    expect(parsed.data).not.toEqual({ '0': 1, '1': 2, '2': 3, '3': 4, '4': 5 });
   });
 
   it('should handle circular references', () => {
@@ -491,5 +549,55 @@ describe('JSON serialization in valueReturn', () => {
     expect(parsed.name).toBe('test');
     // Circular reference should be converted to '[Circular]'
     expect(parsed.self).toBe('[Circular]');
+  });
+
+  it('should NOT mark shared (non-circular) references as circular', () => {
+    const abi = createAbi({
+      methods: [
+        {
+          name: 'getData',
+          params: [],
+          returns: {
+            kind: 'reference',
+            name: 'Data',
+          },
+        },
+      ],
+      types: {
+        Data: {
+          kind: 'record',
+          fields: [
+            { name: 'a', type: { kind: 'reference', name: 'Shared' }, nullable: true },
+            { name: 'b', type: { kind: 'reference', name: 'Shared' }, nullable: true },
+          ],
+        },
+        Shared: {
+          kind: 'record',
+          fields: [{ name: 'value', type: { kind: 'scalar', scalar: 'string' } }],
+        },
+      },
+    });
+
+    setupAbi(abi);
+    // Create a shared object (not circular, just referenced multiple times)
+    const sharedObj = { value: 'shared' };
+    const data = {
+      a: sharedObj,
+      b: sharedObj, // Same object, but NOT circular
+    };
+
+    // Should not throw
+    expect(() => {
+      valueReturn(data, 'getData');
+    }).not.toThrow();
+
+    const returned = getReturnedValue();
+    const parsed = JSON.parse(returned);
+    
+    // Both references should be serialized correctly, NOT marked as [Circular]
+    expect(parsed.a).toEqual({ value: 'shared' });
+    expect(parsed.b).toEqual({ value: 'shared' });
+    expect(parsed.a).not.toBe('[Circular]');
+    expect(parsed.b).not.toBe('[Circular]');
   });
 });
