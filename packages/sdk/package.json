@@ -1,6 +1,6 @@
 {
   "name": "@calimero-network/calimero-sdk-js",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Core SDK for building Calimero P2P applications",
   "main": "./lib/index.js",
   "module": "./lib/index.js",
