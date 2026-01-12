@@ -644,4 +644,48 @@ describe('JSON serialization in valueReturn', () => {
     expect(parsed.a).not.toBe('[Circular]');
     expect(parsed.b).not.toBe('[Circular]');
   });
+
+  it('should handle shared Uint8Array (bytes) without marking as circular', () => {
+    const sharedBytes = new Uint8Array([1, 2, 3, 4, 5]);
+    const abi = createAbi({
+      methods: [
+        {
+          name: 'getData',
+          params: [],
+          returns: {
+            kind: 'reference',
+            name: 'Data',
+          },
+        },
+      ],
+      types: {
+        Data: {
+          kind: 'record',
+          fields: [
+            { name: 'field1', type: { kind: 'scalar', scalar: 'bytes' } },
+            { name: 'field2', type: { kind: 'scalar', scalar: 'bytes' } },
+          ],
+        },
+      },
+    });
+
+    setupAbi(abi);
+    const data = {
+      field1: sharedBytes,
+      field2: sharedBytes, // Same instance
+    };
+
+    expect(() => {
+      valueReturn(data, 'getData');
+    }).not.toThrow();
+
+    const returned = getReturnedValue();
+    const parsed = JSON.parse(returned);
+    
+    // Both fields should serialize correctly, not as '[Circular]'
+    expect(parsed.field1).toEqual([1, 2, 3, 4, 5]);
+    expect(parsed.field2).toEqual([1, 2, 3, 4, 5]);
+    expect(parsed.field1).not.toBe('[Circular]');
+    expect(parsed.field2).not.toBe('[Circular]');
+  });
 });

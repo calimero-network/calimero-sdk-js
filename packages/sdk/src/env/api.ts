@@ -250,11 +250,15 @@ function convertToJsonCompatible(
     if (scalarType === 'bytes') {
       if (value instanceof Uint8Array) {
         // Convert to array of numbers for JSON compatibility
+        path.delete(value);
         return Array.from(value);
       }
     }
 
     // For other scalars, return as-is (JSON.stringify handles them)
+    if (value !== null && typeof value === 'object') {
+      path.delete(value);
+    }
     return value;
   }
 
@@ -383,6 +387,8 @@ function convertToJsonCompatible(
       }
       // If it's an object, return as-is (variants are typically represented as objects with a discriminator)
       if (typeof value === 'object' && value !== null) {
+        // Remove from path before returning (was added at line 204)
+        path.delete(value);
         return value;
       }
       throw new Error(
