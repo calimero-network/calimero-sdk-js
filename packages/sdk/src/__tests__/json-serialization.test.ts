@@ -688,4 +688,94 @@ describe('JSON serialization in valueReturn', () => {
     expect(parsed.field1).not.toBe('[Circular]');
     expect(parsed.field2).not.toBe('[Circular]');
   });
+
+  it('should handle objects wrapped in option types without marking as circular', () => {
+    const abi = createAbi({
+      methods: [
+        {
+          name: 'getData',
+          params: [],
+          returns: {
+            kind: 'reference',
+            name: 'Data',
+          },
+        },
+      ],
+      types: {
+        Data: {
+          kind: 'record',
+          fields: [
+            { name: 'value', type: { kind: 'option', inner: { kind: 'reference', name: 'MyObject' } } },
+          ],
+        },
+        MyObject: {
+          kind: 'record',
+          fields: [{ name: 'name', type: { kind: 'scalar', scalar: 'string' } }],
+        },
+      },
+    });
+
+    setupAbi(abi);
+    const data = {
+      value: { name: 'test' },
+    };
+
+    expect(() => {
+      valueReturn(data, 'getData');
+    }).not.toThrow();
+
+    const returned = getReturnedValue();
+    const parsed = JSON.parse(returned);
+    
+    // Object wrapped in option should serialize correctly, not as '[Circular]'
+    expect(parsed.value).toEqual({ name: 'test' });
+    expect(parsed.value).not.toBe('[Circular]');
+  });
+
+  it('should handle objects wrapped in alias types without marking as circular', () => {
+    const abi = createAbi({
+      methods: [
+        {
+          name: 'getData',
+          params: [],
+          returns: {
+            kind: 'reference',
+            name: 'Data',
+          },
+        },
+      ],
+      types: {
+        Data: {
+          kind: 'record',
+          fields: [
+            { name: 'value', type: { kind: 'reference', name: 'MyAlias' } },
+          ],
+        },
+        MyAlias: {
+          kind: 'alias',
+          target: { kind: 'reference', name: 'MyObject' },
+        },
+        MyObject: {
+          kind: 'record',
+          fields: [{ name: 'name', type: { kind: 'scalar', scalar: 'string' } }],
+        },
+      },
+    });
+
+    setupAbi(abi);
+    const data = {
+      value: { name: 'test' },
+    };
+
+    expect(() => {
+      valueReturn(data, 'getData');
+    }).not.toThrow();
+
+    const returned = getReturnedValue();
+    const parsed = JSON.parse(returned);
+    
+    // Object wrapped in alias should serialize correctly, not as '[Circular]'
+    expect(parsed.value).toEqual({ name: 'test' });
+    expect(parsed.value).not.toBe('[Circular]');
+  });
 });

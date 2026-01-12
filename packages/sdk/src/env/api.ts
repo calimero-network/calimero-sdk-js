@@ -267,11 +267,10 @@ function convertToJsonCompatible(
     if (value === null || value === undefined) {
       return null;
     }
-    const result = convertToJsonCompatible(value, typeRef.inner!, abi, path);
-    // Remove from path after processing (backtrack)
     if (value !== null && typeof value === 'object') {
       path.delete(value);
     }
+    const result = convertToJsonCompatible(value, typeRef.inner!, abi, path);
     return result;
   }
 
@@ -398,11 +397,10 @@ function convertToJsonCompatible(
 
     // Handle alias types
     if (typeDef.kind === 'alias' && typeDef.target) {
-      const result = convertToJsonCompatible(value, typeDef.target, abi, path);
-      // Remove from path after processing (backtrack)
       if (value !== null && typeof value === 'object') {
         path.delete(value);
       }
+      const result = convertToJsonCompatible(value, typeDef.target, abi, path);
       return result;
     }
   }
