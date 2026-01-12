@@ -681,7 +681,7 @@ describe('JSON serialization in valueReturn', () => {
 
     const returned = getReturnedValue();
     const parsed = JSON.parse(returned);
-    
+
     // Both fields should serialize correctly, not as '[Circular]'
     expect(parsed.field1).toEqual([1, 2, 3, 4, 5]);
     expect(parsed.field2).toEqual([1, 2, 3, 4, 5]);
@@ -705,7 +705,10 @@ describe('JSON serialization in valueReturn', () => {
         Data: {
           kind: 'record',
           fields: [
-            { name: 'value', type: { kind: 'option', inner: { kind: 'reference', name: 'MyObject' } } },
+            {
+              name: 'value',
+              type: { kind: 'option', inner: { kind: 'reference', name: 'MyObject' } },
+            },
           ],
         },
         MyObject: {
@@ -726,7 +729,7 @@ describe('JSON serialization in valueReturn', () => {
 
     const returned = getReturnedValue();
     const parsed = JSON.parse(returned);
-    
+
     // Object wrapped in option should serialize correctly, not as '[Circular]'
     expect(parsed.value).toEqual({ name: 'test' });
     expect(parsed.value).not.toBe('[Circular]');
@@ -747,9 +750,7 @@ describe('JSON serialization in valueReturn', () => {
       types: {
         Data: {
           kind: 'record',
-          fields: [
-            { name: 'value', type: { kind: 'reference', name: 'MyAlias' } },
-          ],
+          fields: [{ name: 'value', type: { kind: 'reference', name: 'MyAlias' } }],
         },
         MyAlias: {
           kind: 'alias',
@@ -773,7 +774,7 @@ describe('JSON serialization in valueReturn', () => {
 
     const returned = getReturnedValue();
     const parsed = JSON.parse(returned);
-    
+
     // Object wrapped in alias should serialize correctly, not as '[Circular]'
     expect(parsed.value).toEqual({ name: 'test' });
     expect(parsed.value).not.toBe('[Circular]');
