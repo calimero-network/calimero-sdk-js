@@ -1,6 +1,6 @@
 {
   "name": "@calimero-network/calimero-cli-js",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "CLI build tools for Calimero applications",
   "type": "module",
   "main": "./lib/cli.js",
