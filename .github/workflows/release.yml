@@ -79,7 +79,7 @@ jobs:
     environment: env
     permissions:
       contents: write # Required to create releases and tags
-      id-token: write # Required for GitHub token
+      id-token: write # Required for OIDC/trusted publishers
 
     steps:
       - name: Checkout code
@@ -98,6 +98,8 @@ jobs:
           node-version: 18.x
           cache: "pnpm"
           registry-url: "https://registry.npmjs.org"
+          scope: "@calimero-network"
+          token: false # Disable NPM_AUTH_TOKEN to allow OIDC trusted publishing
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -233,15 +235,15 @@ jobs:
 
       - name: Publish @calimero-network/calimero-sdk-js to npm
         if: steps.check-npm.outputs.skip_publish != 'true' && steps.check-npm.outputs.sdk_exists != 'true'
-        run: cd packages/sdk && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          cd packages/sdk
+          npx npm publish --access public
 
       - name: Publish @calimero-network/calimero-cli-js to npm
         if: steps.check-npm.outputs.skip_publish != 'true' && steps.check-npm.outputs.cli_exists != 'true'
-        run: cd packages/cli && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          cd packages/cli
+          npx npm publish --access public
 
       - name: Skip publish notice
         if: steps.check-npm.outputs.skip_publish == 'true'
