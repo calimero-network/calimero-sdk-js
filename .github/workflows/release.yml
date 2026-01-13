@@ -17,8 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version-changed: ${{ steps.check.outputs.changed }}
-      version: ${{ steps.check.outputs.version }}
-      tag: ${{ steps.check.outputs.tag }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -28,47 +26,18 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18.x
+          node-version: '24'
 
-      - name: Check if version changed
+      - name: Check if package.json files changed
         id: check
         run: |
-          CURRENT_SDK=$(node -p "require('./packages/sdk/package.json').version")
-          CURRENT_CLI=$(node -p "require('./packages/cli/package.json').version")
-
-
-          if git checkout HEAD~1 packages/sdk/package.json packages/cli/package.json 2>/dev/null; then
-            PREV_SDK=$(node -p "require('./packages/sdk/package.json').version" 2>/dev/null || echo "")
-            PREV_CLI=$(node -p "require('./packages/cli/package.json').version" 2>/dev/null || echo "")
-            
-
-            git checkout HEAD packages/sdk/package.json packages/cli/package.json
-          else
-            PREV_SDK=""
-            PREV_CLI=""
-            echo "No previous commit or files not found in previous commit - treating as first release"
-          fi
-
-          echo "Previous SDK version: ${PREV_SDK:-none}"
-          echo "Current SDK version: $CURRENT_SDK"
-          echo "Previous CLI version: ${PREV_CLI:-none}"
-          echo "Current CLI version: $CURRENT_CLI"
-
-          if [ "$CURRENT_SDK" != "$CURRENT_CLI" ]; then
-            echo "Error: Package versions must match. SDK: $CURRENT_SDK, CLI: $CURRENT_CLI"
-            exit 1
-          fi
-
-          if [ -z "$PREV_SDK" ] || [ "$CURRENT_SDK" != "$PREV_SDK" ]; then
+          # Check if either package.json changed (semantic-release will handle versioning independently)
+          if git diff --name-only HEAD~1 HEAD | grep -q "packages/sdk/package.json\|packages/cli/package.json"; then
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "version=$CURRENT_SDK" >> $GITHUB_OUTPUT
-            echo "tag=v$CURRENT_SDK" >> $GITHUB_OUTPUT
-            echo "✓ Version changed to $CURRENT_SDK"
+            echo "✓ Package.json files changed - semantic-release will determine versions"
           else
             echo "changed=false" >> $GITHUB_OUTPUT
-            echo "version=" >> $GITHUB_OUTPUT
-            echo "tag=" >> $GITHUB_OUTPUT
-            echo "No version change detected"
+            echo "No package.json changes detected"
           fi
 
   release:
@@ -87,166 +56,41 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24' # Required for semantic-release@25.0.1 and project engines requirement
+          registry-url: 'https://registry.npmjs.org'
+          scope: '@calimero-network'
+          token: false # Disable NPM_AUTH_TOKEN to allow OIDC trusted publishing
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 9
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18.x
-          cache: "pnpm"
-          registry-url: "https://registry.npmjs.org"
-          scope: "@calimero-network"
-          token: false # Disable NPM_AUTH_TOKEN to allow OIDC trusted publishing
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Get version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            # For manual trigger, read from package.json
-            VERSION=$(node -p "require('./packages/sdk/package.json').version")
-          else
-            # Use version from previous job
-            VERSION="${{ needs.detect-version-change.outputs.version }}"
-          fi
-
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
-          echo "✓ Using version: $VERSION"
-
-      - name: Check if tag already exists
-        id: check-tag
-        run: |
-          TAG="${{ steps.version.outputs.tag }}"
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "Tag $TAG already exists - skipping tag creation"
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "Tag $TAG does not exist - will create"
-          fi
-
-      - name: Create git tag
-        if: steps.check-tag.outputs.exists == 'false'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.tag }}"
-          git push origin "${{ steps.version.outputs.tag }}"
 
       - name: Build packages
         run: pnpm build
 
-      - name: Check if version already published on npm
-        id: check-npm
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          SDK_NAME=$(node -p "require('./packages/sdk/package.json').name")
-          CLI_NAME=$(node -p "require('./packages/cli/package.json').name")
-
-          # Check if SDK version exists
-          if npm view "${SDK_NAME}@${VERSION}" version >/dev/null 2>&1; then
-            echo "SDK version ${VERSION} already exists on npm"
-            SDK_EXISTS="true"
-          else
-            echo "SDK version ${VERSION} does not exist on npm"
-            SDK_EXISTS="false"
-          fi
-
-          # Check if CLI version exists
-          if npm view "${CLI_NAME}@${VERSION}" version >/dev/null 2>&1; then
-            echo "CLI version ${VERSION} already exists on npm"
-            CLI_EXISTS="true"
-          else
-            echo "CLI version ${VERSION} does not exist on npm"
-            CLI_EXISTS="false"
-          fi
-
-          echo "sdk_exists=$SDK_EXISTS" >> $GITHUB_OUTPUT
-          echo "cli_exists=$CLI_EXISTS" >> $GITHUB_OUTPUT
-
-          # If both exist, skip publishing
-          if [ "$SDK_EXISTS" = "true" ] && [ "$CLI_EXISTS" = "true" ]; then
-            echo "⚠️  Both packages already published at version ${VERSION} - skipping npm publish"
-            echo "skip_publish=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip_publish=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Extract release notes from CHANGELOG
-        id: changelog
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          TAG="${{ steps.version.outputs.tag }}"
-
-          if [ -f CHANGELOG.md ]; then
-            # Extract content between version header and next version header
-            awk -v version="$VERSION" '
-              /^## \[/{ 
-                if (found) exit
-                if ($0 ~ "\\[" version "\\]") {
-                  found=1
-                  next
-                }
-              }
-              found { 
-                if (/^## \[/) exit
-                print
-              }
-            ' CHANGELOG.md > release_notes.txt || true
-            
-            if [ -s release_notes.txt ]; then
-              echo "## Release $TAG" > full_release_notes.txt
-              echo "" >> full_release_notes.txt
-              cat release_notes.txt >> full_release_notes.txt
-            else
-              echo "## Release $TAG" > full_release_notes.txt
-              echo "" >> full_release_notes.txt
-              echo "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/$TAG/CHANGELOG.md) for details." >> full_release_notes.txt
-            fi
-          else
-            echo "## Release $TAG" > full_release_notes.txt
-            echo "" >> full_release_notes.txt
-            echo "Automated release of Calimero SDK JS packages." >> full_release_notes.txt
-          fi
-
-          {
-            echo "notes<<EOF"
-            cat full_release_notes.txt
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: Release ${{ steps.version.outputs.tag }}
-          body: ${{ steps.changelog.outputs.notes }}
-          draft: false
-          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Publish @calimero-network/calimero-sdk-js to npm
-        if: steps.check-npm.outputs.skip_publish != 'true' && steps.check-npm.outputs.sdk_exists != 'true'
         run: |
           cd packages/sdk
-          npx npm publish --access public
+          echo "🚀 SDK Release"
+          echo "📦 Package: @calimero-network/calimero-sdk-js"
+          npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_ENV: production
 
       - name: Publish @calimero-network/calimero-cli-js to npm
-        if: steps.check-npm.outputs.skip_publish != 'true' && steps.check-npm.outputs.cli_exists != 'true'
         run: |
           cd packages/cli
-          npx npm publish --access public
-
-      - name: Skip publish notice
-        if: steps.check-npm.outputs.skip_publish == 'true'
-        run: |
-          echo "⚠️  Skipping npm publish - version ${{ steps.version.outputs.version }} already exists on npm"
-          echo "This is expected if packages were published manually or workflow was re-run"
+          echo "🚀 CLI Release"
+          echo "📦 Package: @calimero-network/calimero-cli-js"
+          npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_ENV: production
