@@ -236,13 +236,25 @@ jobs:
         if: steps.check-npm.outputs.skip_publish != 'true' && steps.check-npm.outputs.sdk_exists != 'true'
         run: |
           cd packages/sdk
-          npx npm publish --access public
+          echo "🚀 SDK Release"
+          echo "📦 Package: @calimero-network/calimero-sdk-js"
+          echo "🎯 Version: ${{ steps.version.outputs.version }}"
+          npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_ENV: production
 
       - name: Publish @calimero-network/calimero-cli-js to npm
         if: steps.check-npm.outputs.skip_publish != 'true' && steps.check-npm.outputs.cli_exists != 'true'
         run: |
           cd packages/cli
-          npx npm publish --access public
+          echo "🚀 CLI Release"
+          echo "📦 Package: @calimero-network/calimero-cli-js"
+          echo "🎯 Version: ${{ steps.version.outputs.version }}"
+          npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_ENV: production
 
       - name: Skip publish notice
         if: steps.check-npm.outputs.skip_publish == 'true'
