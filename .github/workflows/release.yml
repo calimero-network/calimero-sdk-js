@@ -121,68 +121,22 @@ jobs:
       - name: Build packages
         run: pnpm build
 
-      - name: Check if version already published on npm
-        id: check-npm
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          SDK_NAME=$(node -p "require('./packages/sdk/package.json').name")
-          CLI_NAME=$(node -p "require('./packages/cli/package.json').name")
-
-          # Check if SDK version exists
-          if npm view "${SDK_NAME}@${VERSION}" version >/dev/null 2>&1; then
-            echo "SDK version ${VERSION} already exists on npm"
-            SDK_EXISTS="true"
-          else
-            echo "SDK version ${VERSION} does not exist on npm"
-            SDK_EXISTS="false"
-          fi
-
-          # Check if CLI version exists
-          if npm view "${CLI_NAME}@${VERSION}" version >/dev/null 2>&1; then
-            echo "CLI version ${VERSION} already exists on npm"
-            CLI_EXISTS="true"
-          else
-            echo "CLI version ${VERSION} does not exist on npm"
-            CLI_EXISTS="false"
-          fi
-
-          echo "sdk_exists=$SDK_EXISTS" >> $GITHUB_OUTPUT
-          echo "cli_exists=$CLI_EXISTS" >> $GITHUB_OUTPUT
-
-          # If both exist, skip publishing
-          if [ "$SDK_EXISTS" = "true" ] && [ "$CLI_EXISTS" = "true" ]; then
-            echo "⚠️  Both packages already published at version ${VERSION} - skipping npm publish"
-            echo "skip_publish=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip_publish=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Publish @calimero-network/calimero-sdk-js to npm
-        if: steps.check-npm.outputs.skip_publish != 'true' && steps.check-npm.outputs.sdk_exists != 'true'
         run: |
           cd packages/sdk
           echo "🚀 SDK Release"
           echo "📦 Package: @calimero-network/calimero-sdk-js"
-          echo "🎯 Version: ${{ steps.version.outputs.version }}"
           npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_ENV: production
 
       - name: Publish @calimero-network/calimero-cli-js to npm
-        if: steps.check-npm.outputs.skip_publish != 'true' && steps.check-npm.outputs.cli_exists != 'true'
         run: |
           cd packages/cli
           echo "🚀 CLI Release"
           echo "📦 Package: @calimero-network/calimero-cli-js"
-          echo "🎯 Version: ${{ steps.version.outputs.version }}"
           npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_ENV: production
-
-      - name: Skip publish notice
-        if: steps.check-npm.outputs.skip_publish == 'true'
-        run: |
-          echo "⚠️  Skipping npm publish - version ${{ steps.version.outputs.version }} already exists on npm"
-          echo "This is expected if packages were published manually or workflow was re-run"
