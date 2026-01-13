@@ -1,6 +1,6 @@
 {
   "name": "@calimero-network/calimero-sdk-js",
-  "version": "0.0.0",
+  "version": "0.2.3",
   "description": "Core SDK for building Calimero P2P applications",
   "main": "./lib/index.js",
   "module": "./lib/index.js",
@@ -37,6 +37,9 @@
     "src/**/*",
     "README.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf lib",
