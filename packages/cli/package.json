@@ -8,6 +8,9 @@
   "bin": {
     "calimero-sdk": "./bin/calimero-sdk.js"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "lib/**/*",
     "bin/**/*",
