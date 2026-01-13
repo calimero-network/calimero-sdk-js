@@ -142,6 +142,15 @@ jobs:
       - name: Build packages
         run: pnpm build
 
+      - name: Verify npm OIDC configuration
+        run: |
+          echo "Checking npm configuration for OIDC..."
+          npm config get registry
+          npm config get @calimero-network:registry
+          echo "OIDC environment variables available:"
+          [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && echo "✓ ACTIONS_ID_TOKEN_REQUEST_URL is set" || echo "✗ ACTIONS_ID_TOKEN_REQUEST_URL is not set"
+          [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ] && echo "✓ ACTIONS_ID_TOKEN_REQUEST_TOKEN is set" || echo "✗ ACTIONS_ID_TOKEN_REQUEST_TOKEN is not set"
+
       - name: Check if version already published on npm
         id: check-npm
         run: |
