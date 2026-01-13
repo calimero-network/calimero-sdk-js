@@ -38,7 +38,12 @@
         "publishCmd": "npm publish"
       }
     ],
-    "@semantic-release/github"
+    [
+      "@semantic-release/github",
+      {
+        "successComment": false
+      }
+    ]
   ],
   "tagFormat": "sdk-v${version}"
 }
