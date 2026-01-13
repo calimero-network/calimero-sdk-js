@@ -38,6 +38,10 @@
     "url": "https://github.com/calimero-network/calimero-sdk-js.git",
     "directory": "packages/cli"
   },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "dependencies": {
     "@babel/core": "^7.23.6",
     "@babel/parser": "^7.23.6",

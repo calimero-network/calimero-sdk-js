@@ -40,19 +40,11 @@ jobs:
           if git checkout HEAD~1 packages/sdk/package.json packages/cli/package.json 2>/dev/null; then
             PREV_SDK=$(node -p "require('./packages/sdk/package.json').version" 2>/dev/null || echo "")
             PREV_CLI=$(node -p "require('./packages/cli/package.json').version" 2>/dev/null || echo "")
-            
-
             git checkout HEAD packages/sdk/package.json packages/cli/package.json
           else
             PREV_SDK=""
             PREV_CLI=""
-            echo "No previous commit or files not found in previous commit - treating as first release"
           fi
-
-          echo "Previous SDK version: ${PREV_SDK:-none}"
-          echo "Current SDK version: $CURRENT_SDK"
-          echo "Previous CLI version: ${PREV_CLI:-none}"
-          echo "Current CLI version: $CURRENT_CLI"
 
           if [ "$CURRENT_SDK" != "$CURRENT_CLI" ]; then
             echo "Error: Package versions must match. SDK: $CURRENT_SDK, CLI: $CURRENT_CLI"
@@ -63,12 +55,10 @@ jobs:
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "version=$CURRENT_SDK" >> $GITHUB_OUTPUT
             echo "tag=v$CURRENT_SDK" >> $GITHUB_OUTPUT
-            echo "✓ Version changed to $CURRENT_SDK"
           else
             echo "changed=false" >> $GITHUB_OUTPUT
             echo "version=" >> $GITHUB_OUTPUT
             echo "tag=" >> $GITHUB_OUTPUT
-            echo "No version change detected"
           fi
 
   release:
@@ -79,7 +69,7 @@ jobs:
     environment: env
     permissions:
       contents: write # Required to create releases and tags
-      id-token: write # Required for GitHub token
+      id-token: write
 
     steps:
       - name: Checkout code
@@ -98,6 +88,8 @@ jobs:
           node-version: 18.x
           cache: "pnpm"
           registry-url: "https://registry.npmjs.org"
+          scope: "@calimero-network"
+          token: false
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -115,7 +107,6 @@ jobs:
 
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
-          echo "✓ Using version: $VERSION"
 
       - name: Check if tag already exists
         id: check-tag
@@ -123,10 +114,8 @@ jobs:
           TAG="${{ steps.version.outputs.tag }}"
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "exists=true" >> $GITHUB_OUTPUT
-            echo "Tag $TAG already exists - skipping tag creation"
           else
             echo "exists=false" >> $GITHUB_OUTPUT
-            echo "Tag $TAG does not exist - will create"
           fi
 
       - name: Create git tag
@@ -149,19 +138,15 @@ jobs:
 
           # Check if SDK version exists
           if npm view "${SDK_NAME}@${VERSION}" version >/dev/null 2>&1; then
-            echo "SDK version ${VERSION} already exists on npm"
             SDK_EXISTS="true"
           else
-            echo "SDK version ${VERSION} does not exist on npm"
             SDK_EXISTS="false"
           fi
 
           # Check if CLI version exists
           if npm view "${CLI_NAME}@${VERSION}" version >/dev/null 2>&1; then
-            echo "CLI version ${VERSION} already exists on npm"
             CLI_EXISTS="true"
           else
-            echo "CLI version ${VERSION} does not exist on npm"
             CLI_EXISTS="false"
           fi
 
@@ -170,7 +155,6 @@ jobs:
 
           # If both exist, skip publishing
           if [ "$SDK_EXISTS" = "true" ] && [ "$CLI_EXISTS" = "true" ]; then
-            echo "⚠️  Both packages already published at version ${VERSION} - skipping npm publish"
             echo "skip_publish=true" >> $GITHUB_OUTPUT
           else
             echo "skip_publish=false" >> $GITHUB_OUTPUT
@@ -234,17 +218,12 @@ jobs:
       - name: Publish @calimero-network/calimero-sdk-js to npm
         if: steps.check-npm.outputs.skip_publish != 'true' && steps.check-npm.outputs.sdk_exists != 'true'
         run: cd packages/sdk && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @calimero-network/calimero-cli-js to npm
         if: steps.check-npm.outputs.skip_publish != 'true' && steps.check-npm.outputs.cli_exists != 'true'
         run: cd packages/cli && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Skip publish notice
         if: steps.check-npm.outputs.skip_publish == 'true'
         run: |
-          echo "⚠️  Skipping npm publish - version ${{ steps.version.outputs.version }} already exists on npm"
-          echo "This is expected if packages were published manually or workflow was re-run"
+          echo "Skipping npm publish - version ${{ steps.version.outputs.version }} already exists on npm"

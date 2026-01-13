@@ -59,6 +59,10 @@
     "url": "https://github.com/calimero-network/calimero-sdk-js.git",
     "directory": "packages/sdk"
   },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "dependencies": {
     "@noble/hashes": "^1.7.1",
     "borsh": "^1.0.0"
