@@ -1,0 +1,40 @@
+{
+  "branches": ["main", "master"],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    [
+      "@semantic-release/release-notes-generator",
+      {
+        "preset": "conventionalcommits"
+      }
+    ],
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "npm version ${nextRelease.version} --no-git-tag-version",
+        "publishCmd": "npm publish --access public"
+      }
+    ],
+    "@semantic-release/github"
+  ],
+  "preset": "conventionalcommits",
+  "tagFormat": "sdk-v${version}",
+  "releaseRules": [
+    {
+      "type": "fix",
+      "release": "patch"
+    },
+    {
+      "type": "feat",
+      "release": "minor"
+    },
+    {
+      "type": "chore",
+      "release": "patch"
+    },
+    {
+      "type": "docs",
+      "release": "patch"
+    }
+  ]
+}
