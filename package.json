@@ -3,10 +3,6 @@
   "version": "0.1.0",
   "description": "JavaScript SDK for building Calimero P2P applications",
   "private": true,
-  "workspaces": [
-    "packages/*",
-    "examples/*"
-  ],
   "scripts": {
     "build": "pnpm --filter '@calimero-network/calimero-sdk-js' --filter '@calimero-network/calimero-cli-js' build",
     "test": "pnpm -r --if-present test",
