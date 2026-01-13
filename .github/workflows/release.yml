@@ -17,8 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version-changed: ${{ steps.check.outputs.changed }}
-      version: ${{ steps.check.outputs.version }}
-      tag: ${{ steps.check.outputs.tag }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -30,45 +28,16 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Check if version changed
+      - name: Check if package.json files changed
         id: check
         run: |
-          CURRENT_SDK=$(node -p "require('./packages/sdk/package.json').version")
-          CURRENT_CLI=$(node -p "require('./packages/cli/package.json').version")
-
-
-          if git checkout HEAD~1 packages/sdk/package.json packages/cli/package.json 2>/dev/null; then
-            PREV_SDK=$(node -p "require('./packages/sdk/package.json').version" 2>/dev/null || echo "")
-            PREV_CLI=$(node -p "require('./packages/cli/package.json').version" 2>/dev/null || echo "")
-            
-
-            git checkout HEAD packages/sdk/package.json packages/cli/package.json
-          else
-            PREV_SDK=""
-            PREV_CLI=""
-            echo "No previous commit or files not found in previous commit - treating as first release"
-          fi
-
-          echo "Previous SDK version: ${PREV_SDK:-none}"
-          echo "Current SDK version: $CURRENT_SDK"
-          echo "Previous CLI version: ${PREV_CLI:-none}"
-          echo "Current CLI version: $CURRENT_CLI"
-
-          if [ "$CURRENT_SDK" != "$CURRENT_CLI" ]; then
-            echo "Error: Package versions must match. SDK: $CURRENT_SDK, CLI: $CURRENT_CLI"
-            exit 1
-          fi
-
-          if [ -z "$PREV_SDK" ] || [ "$CURRENT_SDK" != "$PREV_SDK" ]; then
+          # Check if either package.json changed (semantic-release will handle versioning independently)
+          if git diff --name-only HEAD~1 HEAD | grep -q "packages/sdk/package.json\|packages/cli/package.json"; then
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "version=$CURRENT_SDK" >> $GITHUB_OUTPUT
-            echo "tag=v$CURRENT_SDK" >> $GITHUB_OUTPUT
-            echo "✓ Version changed to $CURRENT_SDK"
+            echo "✓ Package.json files changed - semantic-release will determine versions"
           else
             echo "changed=false" >> $GITHUB_OUTPUT
-            echo "version=" >> $GITHUB_OUTPUT
-            echo "tag=" >> $GITHUB_OUTPUT
-            echo "No version change detected"
+            echo "No package.json changes detected"
           fi
 
   release:
@@ -102,21 +71,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Get version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            # For manual trigger, read from package.json
-            VERSION=$(node -p "require('./packages/sdk/package.json').version")
-          else
-            # Use version from previous job
-            VERSION="${{ needs.detect-version-change.outputs.version }}"
-          fi
-
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
-          echo "✓ Using version: $VERSION"
 
       - name: Build packages
         run: pnpm build
