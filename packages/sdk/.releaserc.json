@@ -1,7 +1,30 @@
 {
   "branches": ["master"],
   "plugins": [
-    "@semantic-release/commit-analyzer",
+    [
+      "@semantic-release/commit-analyzer",
+      {
+        "preset": "conventionalcommits",
+        "releaseRules": [
+          {
+            "type": "fix",
+            "release": "patch"
+          },
+          {
+            "type": "feat",
+            "release": "minor"
+          },
+          {
+            "type": "chore",
+            "release": "patch"
+          },
+          {
+            "type": "docs",
+            "release": "patch"
+          }
+        ]
+      }
+    ],
     [
       "@semantic-release/release-notes-generator",
       {
@@ -17,24 +40,5 @@
     ],
     "@semantic-release/github"
   ],
-  "preset": "conventionalcommits",
-  "tagFormat": "sdk-v${version}",
-  "releaseRules": [
-    {
-      "type": "fix",
-      "release": "patch"
-    },
-    {
-      "type": "feat",
-      "release": "minor"
-    },
-    {
-      "type": "chore",
-      "release": "patch"
-    },
-    {
-      "type": "docs",
-      "release": "patch"
-    }
-  ]
+  "tagFormat": "sdk-v${version}"
 }
