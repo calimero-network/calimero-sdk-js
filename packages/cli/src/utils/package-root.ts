@@ -38,14 +38,14 @@ export function findPackageRoot(): string {
 
   // Fallback: if we can't find it, assume we're in lib/compiler or lib/utils
   // and go up to package root
-  const __filename2 = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename2);
+  const __dirname = path.dirname(__filename);
 
-  // If we're in lib/, go up one level
-  if (__dirname.includes('/lib/')) {
+  // Check if we're in a lib/ subdirectory by checking path segments
+  const pathParts = __dirname.split(path.sep);
+  if (pathParts.includes('lib')) {
     return path.join(__dirname, '../..');
   }
 
-  // Otherwise, go up from lib to package root
+  // Last resort: go up 3 levels (shouldn't normally reach here)
   return path.join(__dirname, '../../..');
 }

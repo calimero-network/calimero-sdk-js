@@ -15,6 +15,7 @@
     "lib/**/*",
     "bin/**/*",
     "builder/**/*",
+    "deps/**/*",
     "scripts/**/*",
     "README.md"
   ],

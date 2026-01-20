@@ -8,6 +8,7 @@ import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { findPackageRoot } from '../utils/package-root.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,8 +26,9 @@ interface WasmOptions {
  * @returns Path to generated WASM file
  */
 export async function compileToWasm(cCodePath: string, options: WasmOptions): Promise<string> {
-  const wasiSdk = path.join(__dirname, '../../src/deps/wasi-sdk');
-  const quickjsDir = path.join(__dirname, '../../src/deps/quickjs');
+  const packageRoot = findPackageRoot();
+  const wasiSdk = path.join(packageRoot, 'deps/wasi-sdk');
+  const quickjsDir = path.join(packageRoot, 'deps/quickjs');
   const builderC = path.join(__dirname, '../../builder/builder.c');
   const outputFile = path.join(options.outputDir, 'service.wasm');
 

@@ -7,10 +7,7 @@
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { findPackageRoot } from '../utils/package-root.js';
 
 interface OptimizeOptions {
   verbose: boolean;
@@ -28,7 +25,8 @@ export async function optimizeWasm(
   output: string,
   options: OptimizeOptions
 ): Promise<void> {
-  const binaryenDir = path.join(__dirname, '../../src/deps/binaryen');
+  const packageRoot = findPackageRoot();
+  const binaryenDir = path.join(packageRoot, 'deps/binaryen');
   const wasiStubScript = path.join(binaryenDir, 'wasi-stub/run.sh');
   const wasiStubBinary = path.join(binaryenDir, 'wasi-stub/wasi-stub');
   const wasmOpt = path.join(binaryenDir, 'bin/wasm-opt'); // May not exist

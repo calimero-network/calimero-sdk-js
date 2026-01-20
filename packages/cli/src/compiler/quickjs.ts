@@ -7,10 +7,7 @@
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { findPackageRoot } from '../utils/package-root.js';
 
 interface QuickJSOptions {
   verbose: boolean;
@@ -25,7 +22,8 @@ interface QuickJSOptions {
  * @returns Path to generated C header file
  */
 export async function compileToC(jsFile: string, options: QuickJSOptions): Promise<string> {
-  const qjscPath = path.join(__dirname, '../../src/deps/qjsc');
+  const packageRoot = findPackageRoot();
+  const qjscPath = path.join(packageRoot, 'deps/qjsc');
   const outputFile = path.join(options.outputDir, 'code.h');
 
   // Check if qjsc exists
