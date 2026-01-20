@@ -6,7 +6,7 @@
  */
 
 import { hasRegisteredCollection, snapshotCollection } from './collections';
-import { flushDelta, executorId } from '../env/api';
+import { executorId } from '../env/api';
 
 interface CollectionTracker {
   id: string;
@@ -195,11 +195,6 @@ class NestedCollectionTracker {
         }
 
         if (currentValue) {
-          // CRITICAL: Flush nested collection's changes to storage before re-inserting
-          // This ensures the nested map's internal state (entries) is persisted
-          // before we serialize it as a collection reference for UserStorage
-          flushDelta();
-
           // Use insert() for current executor (we've already verified key matches executor)
           const originalInsert = Object.getPrototypeOf(parentCollection).insert;
           originalInsert.call(parentCollection, currentValue);
