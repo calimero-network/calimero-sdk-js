@@ -40,10 +40,13 @@ export function findPackageRoot(): string {
   // and go up to package root
   const __dirname = path.dirname(__filename);
 
-  // Check if we're in a lib/ subdirectory by checking path segments
+  // Check if we're in a lib/ subdirectory by finding the 'lib' component
   const pathParts = __dirname.split(path.sep);
-  if (pathParts.includes('lib')) {
-    return path.join(__dirname, '../..');
+  const libIndex = pathParts.indexOf('lib');
+
+  if (libIndex >= 0 && libIndex < pathParts.length - 1) {
+    const levelsUp = pathParts.length - libIndex;
+    return path.join(__dirname, ...Array(levelsUp).fill('..'));
   }
 
   // Last resort: go up 3 levels (shouldn't normally reach here)
