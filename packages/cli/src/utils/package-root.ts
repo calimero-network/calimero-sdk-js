@@ -42,7 +42,7 @@ export function findPackageRoot(): string {
 
   // Check if we're in a lib/ subdirectory by finding the 'lib' component
   const pathParts = __dirname.split(path.sep);
-  const libIndex = pathParts.indexOf('lib');
+  const libIndex = pathParts.lastIndexOf('lib');
 
   if (libIndex >= 0 && libIndex < pathParts.length - 1) {
     const levelsUp = pathParts.length - libIndex;
