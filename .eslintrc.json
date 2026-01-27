@@ -18,10 +18,7 @@
     "**/coverage/**",
     "**/*.wasm",
     "**/*.wat",
-    "packages/cli/src/deps/**",
-    "packages/cli/src/deps/quickjs/**",
-    "packages/cli/src/deps/wasi-sdk/**",
-    "packages/cli/src/deps/binaryen/**",
+    "packages/cli/deps/**",
     "examples/*/build/**",
     "examples/*/dist/**",
     "*.tsbuildinfo"

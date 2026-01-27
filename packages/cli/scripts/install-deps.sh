@@ -37,9 +37,9 @@ else
   exit 1
 fi
 
-# Create deps directory
+# Create deps directory at package root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEPS_DIR="$SCRIPT_DIR/../src/deps"
+DEPS_DIR="$SCRIPT_DIR/../deps"
 
 echo "📁 Creating deps directory: $DEPS_DIR"
 rm -rf "$DEPS_DIR"

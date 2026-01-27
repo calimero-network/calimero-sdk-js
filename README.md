@@ -45,6 +45,29 @@ pnpm add @calimero-network/calimero-sdk-js
 pnpm add -D @calimero-network/calimero-cli-js typescript
 ```
 
+#### Build Dependencies (QuickJS, WASI-SDK, Binaryen)
+
+The CLI package (`@calimero-network/calimero-cli-js`) includes a `postinstall` hook that automatically downloads the required build toolchain:
+
+- **QuickJS** – compiles JavaScript to C bytecode
+- **WASI-SDK** – compiles C to WebAssembly
+- **Binaryen** – optimizes and strips WASI imports from the final `.wasm`
+
+**Important caveats:**
+
+1. **Scripts must be enabled.** If you run `pnpm install --ignore-scripts` or have `ignore-scripts=true` in your `.npmrc`, the postinstall hook won't run. Re-run install with scripts enabled:
+
+   ```bash
+   pnpm install --ignore-scripts=false
+   ```
+
+2. **Platform support.** The build toolchain supports macOS and Linux (x64 and arm64). Windows users must use WSL.
+
+3. **Manual installation.** If the postinstall fails, you can manually trigger the dependency download:
+   ```bash
+   pnpm --filter @calimero-network/calimero-cli-js run install-deps
+   ```
+
 ### Minimal Service
 
 ```typescript
