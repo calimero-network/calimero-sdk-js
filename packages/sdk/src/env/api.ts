@@ -11,6 +11,14 @@ import type { HostEnv } from './bindings';
 import { getAbiManifest, getMethod } from '../abi/helpers';
 import type { TypeRef, AbiManifest, ScalarType, Variant } from '../abi/types';
 import { BorshReader } from '../borsh/decoder';
+import {
+  SerializationError,
+  ValidationError,
+  StorageError,
+  AbiError,
+  DispatcherError,
+  ErrorCode,
+} from '../errors';
 
 // This will be provided by QuickJS runtime via builder.c
 declare const env: HostEnv;
@@ -277,11 +285,13 @@ function convertToJsonCompatible(
   // Handle vector/list types
   if (typeRef.kind === 'vector' || typeRef.kind === 'list') {
     if (!Array.isArray(value)) {
-      throw new Error(`Expected array for ${typeRef.kind} type, got ${typeof value}`);
+      throw SerializationError.typeMismatch('array', typeof value, typeRef.kind);
     }
     const innerType = typeRef.inner || typeRef.items;
     if (!innerType) {
-      throw new Error(`Missing inner type for ${typeRef.kind}`);
+      throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, `Missing inner type for ${typeRef.kind}`, {
+        typeKind: typeRef.kind,
+      });
     }
     const result = value.map(item => convertToJsonCompatible(item, innerType, abi, path));
     // Remove from path after processing (backtrack)
@@ -294,7 +304,7 @@ function convertToJsonCompatible(
   // Handle map types
   if (typeRef.kind === 'map') {
     if (!(value instanceof Map) && typeof value !== 'object') {
-      throw new Error(`Expected Map or object for map type, got ${typeof value}`);
+      throw SerializationError.typeMismatch('Map or object', typeof value, 'map');
     }
     const entries = value instanceof Map ? Array.from(value.entries()) : Object.entries(value);
     const result: Record<string, unknown> = {};
@@ -312,12 +322,14 @@ function convertToJsonCompatible(
   // Handle set types
   if (typeRef.kind === 'set') {
     if (!(value instanceof Set) && !Array.isArray(value)) {
-      throw new Error(`Expected Set or array for set type, got ${typeof value}`);
+      throw SerializationError.typeMismatch('Set or array', typeof value, 'set');
     }
     const items = value instanceof Set ? Array.from(value) : value;
     const innerType = typeRef.inner || typeRef.items;
     if (!innerType) {
-      throw new Error('Missing inner type for set');
+      throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, 'Missing inner type for set', {
+        typeKind: 'set',
+      });
     }
     const result = items.map(item => convertToJsonCompatible(item, innerType, abi, path));
     // Remove from path after processing (backtrack)
@@ -331,17 +343,19 @@ function convertToJsonCompatible(
   if (typeRef.kind === 'reference' || typeRef.$ref) {
     const typeName = typeRef.name || typeRef.$ref;
     if (!typeName) {
-      throw new Error('Missing type name for reference');
+      throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, 'Missing type name for reference', {
+        typeRef,
+      });
     }
     const typeDef = abi.types[typeName];
     if (!typeDef) {
-      throw new Error(`Type ${typeName} not found in ABI`);
+      throw AbiError.typeNotFound(typeName);
     }
 
     // Handle record types
     if (typeDef.kind === 'record' && typeDef.fields) {
       if (typeof value !== 'object' || value === null) {
-        throw new Error(`Expected object for record type ${typeName}, got ${typeof value}`);
+        throw SerializationError.typeMismatch(`object (record ${typeName})`, typeof value);
       }
       const result: Record<string, unknown> = {};
       for (const field of typeDef.fields) {
@@ -372,16 +386,20 @@ function convertToJsonCompatible(
           // If variant has a payload, we can't convert from string alone
           if (matchingVariant.payload) {
             // Variant has payload - can't convert from string alone (consistent with abi-serialize.ts)
-            throw new Error(
-              `Cannot convert string enum value "${value}" for variant "${matchingVariant.name}" with payload. Variants with payload must be provided as objects.`
+            throw new SerializationError(
+              ErrorCode.SERIALIZATION_TYPE_MISMATCH,
+              `Cannot convert string enum value "${value}" for variant "${matchingVariant.name}" with payload. Variants with payload must be provided as objects.`,
+              { variantName: matchingVariant.name, value }
             );
           }
           // Unit variant - convert to object format
           return { type: matchingVariant.name };
         }
         // If no match found, throw an error for invalid enum values (consistent with dispatcher.ts)
-        throw new Error(
-          `Invalid variant value "${value}" for variant type ${typeName}. Valid variants: ${typeDef.variants.map(v => v.name).join(', ')}`
+        throw AbiError.variantMismatch(
+          typeName,
+          value,
+          typeDef.variants.map(v => v.name)
         );
       }
       // If it's an object, return as-is (variants are typically represented as objects with a discriminator)
@@ -390,9 +408,7 @@ function convertToJsonCompatible(
         path.delete(value);
         return value;
       }
-      throw new Error(
-        `Expected object or string for variant type ${typeName}, got ${typeof value}`
-      );
+      throw SerializationError.typeMismatch(`object or string (variant ${typeName})`, typeof value);
     }
 
     // Handle alias types
@@ -416,17 +432,21 @@ function convertToJsonCompatible(
 export function valueReturn(value: unknown, methodName?: string): void {
   // Return values should be JSON, not Borsh
   if (!methodName) {
-    throw new Error('Method name is required for return value serialization');
+    throw new DispatcherError(
+      ErrorCode.DISPATCHER_INVALID_PARAMS,
+      'Method name is required for return value serialization',
+      {}
+    );
   }
 
   const abi = getAbiManifest();
   if (!abi) {
-    throw new Error('ABI manifest is required but not available');
+    throw AbiError.notAvailable();
   }
 
   const method = getMethod(abi, methodName);
   if (!method) {
-    throw new Error(`Method ${methodName} not found in ABI`);
+    throw DispatcherError.methodNotFound(methodName);
   }
 
   if (!method.returns) {
@@ -526,10 +546,10 @@ export function executorId(): Uint8Array {
  */
 export function contextAddMember(publicKey: Uint8Array): void {
   if (!(publicKey instanceof Uint8Array)) {
-    throw new TypeError('contextAddMember: publicKey must be a Uint8Array');
+    throw ValidationError.invalidType('publicKey', 'Uint8Array', typeof publicKey);
   }
   if (publicKey.length !== 32) {
-    throw new RangeError('contextAddMember: publicKey must be exactly 32 bytes');
+    throw ValidationError.outOfRange('publicKey', 'must be exactly 32 bytes', publicKey.length);
   }
   env.context_add_member(publicKey);
 }
@@ -551,10 +571,10 @@ export function contextAddMember(publicKey: Uint8Array): void {
  */
 export function contextRemoveMember(publicKey: Uint8Array): void {
   if (!(publicKey instanceof Uint8Array)) {
-    throw new TypeError('contextRemoveMember: publicKey must be a Uint8Array');
+    throw ValidationError.invalidType('publicKey', 'Uint8Array', typeof publicKey);
   }
   if (publicKey.length !== 32) {
-    throw new RangeError('contextRemoveMember: publicKey must be exactly 32 bytes');
+    throw ValidationError.outOfRange('publicKey', 'must be exactly 32 bytes', publicKey.length);
   }
   env.context_remove_member(publicKey);
 }
@@ -580,10 +600,10 @@ export function contextRemoveMember(publicKey: Uint8Array): void {
  */
 export function contextIsMember(publicKey: Uint8Array): boolean {
   if (!(publicKey instanceof Uint8Array)) {
-    throw new TypeError('contextIsMember: publicKey must be a Uint8Array');
+    throw ValidationError.invalidType('publicKey', 'Uint8Array', typeof publicKey);
   }
   if (publicKey.length !== 32) {
-    throw new RangeError('contextIsMember: publicKey must be exactly 32 bytes');
+    throw ValidationError.outOfRange('publicKey', 'must be exactly 32 bytes', publicKey.length);
   }
   return Boolean(env.context_is_member(publicKey));
 }
@@ -660,22 +680,26 @@ export function contextCreate(
   alias: Uint8Array
 ): void {
   if (!(protocol instanceof Uint8Array)) {
-    throw new TypeError('contextCreate: protocol must be a Uint8Array');
+    throw ValidationError.invalidType('protocol', 'Uint8Array', typeof protocol);
   }
   if (!(applicationId instanceof Uint8Array)) {
-    throw new TypeError('contextCreate: applicationId must be a Uint8Array');
+    throw ValidationError.invalidType('applicationId', 'Uint8Array', typeof applicationId);
   }
   if (applicationId.length !== 32) {
-    throw new RangeError('contextCreate: applicationId must be exactly 32 bytes');
+    throw ValidationError.outOfRange(
+      'applicationId',
+      'must be exactly 32 bytes',
+      applicationId.length
+    );
   }
   if (!(initArgs instanceof Uint8Array)) {
-    throw new TypeError('contextCreate: initArgs must be a Uint8Array');
+    throw ValidationError.invalidType('initArgs', 'Uint8Array', typeof initArgs);
   }
   if (!(alias instanceof Uint8Array)) {
-    throw new TypeError('contextCreate: alias must be a Uint8Array');
+    throw ValidationError.invalidType('alias', 'Uint8Array', typeof alias);
   }
   if (alias.length > 64) {
-    throw new RangeError('contextCreate: alias must be at most 64 bytes');
+    throw ValidationError.outOfRange('alias', 'must be at most 64 bytes', alias.length);
   }
   env.context_create(protocol, applicationId, initArgs, alias);
 }
@@ -698,10 +722,10 @@ export function contextCreate(
  */
 export function contextDelete(contextId: Uint8Array): void {
   if (!(contextId instanceof Uint8Array)) {
-    throw new TypeError('contextDelete: contextId must be a Uint8Array');
+    throw ValidationError.invalidType('contextId', 'Uint8Array', typeof contextId);
   }
   if (contextId.length !== 32) {
-    throw new RangeError('contextDelete: contextId must be exactly 32 bytes');
+    throw ValidationError.outOfRange('contextId', 'must be exactly 32 bytes', contextId.length);
   }
   env.context_delete(contextId);
 }
@@ -726,7 +750,7 @@ export function contextDelete(contextId: Uint8Array): void {
  */
 export function contextResolveAlias(alias: Uint8Array): Uint8Array | null {
   if (!(alias instanceof Uint8Array)) {
-    throw new TypeError('contextResolveAlias: alias must be a Uint8Array');
+    throw ValidationError.invalidType('alias', 'Uint8Array', typeof alias);
   }
   const found = env.context_resolve_alias(alias, REGISTER_ID);
   if (found === 0) {
@@ -844,7 +868,7 @@ export function xcall(
   params: Uint8Array = new Uint8Array()
 ): void {
   if (contextId.length !== 32) {
-    throw new Error('contextId must be exactly 32 bytes');
+    throw ValidationError.outOfRange('contextId', 'must be exactly 32 bytes', contextId.length);
   }
 
   const fnBytes = textEncoder.encode(functionName);
@@ -870,7 +894,7 @@ export function readRootState(): Uint8Array | null {
     return buf;
   }
 
-  throw new Error('read_root_state host function unavailable');
+  throw StorageError.hostError('read_root_state', 'host function unavailable');
 }
 
 /**
@@ -890,7 +914,7 @@ export function persistRootState(doc: Uint8Array, createdAt: number, updatedAt: 
   };
 
   if (typeof host.persist_root_state !== 'function') {
-    throw new Error('persist_root_state host function unavailable');
+    throw StorageError.hostError('persist_root_state', 'host function unavailable');
   }
 
   host.persist_root_state(doc, createdAt, updatedAt);
@@ -900,7 +924,7 @@ export function applyStorageDelta(delta: Uint8Array): void {
   const host = env as unknown as { apply_storage_delta?: (delta: Uint8Array) => void };
 
   if (typeof host.apply_storage_delta !== 'function') {
-    throw new Error('apply_storage_delta host function unavailable');
+    throw StorageError.hostError('apply_storage_delta', 'host function unavailable');
   }
 
   host.apply_storage_delta(delta);
@@ -1169,7 +1193,7 @@ export function blobClose(fd: bigint): Uint8Array {
   const blobId = new Uint8Array(32);
   const success = env.blob_close(fd, blobId);
   if (!success) {
-    throw new Error('Failed to close blob');
+    throw StorageError.hostError('blob_close', 'failed to close blob');
   }
   return blobId;
 }
@@ -1183,14 +1207,18 @@ export function blobClose(fd: bigint): Uint8Array {
  */
 export function blobAnnounceToContext(blobId: Uint8Array, targetContextId: Uint8Array): boolean {
   if (blobId.length !== 32) {
-    throw new Error('blobId must be exactly 32 bytes');
+    throw ValidationError.outOfRange('blobId', 'must be exactly 32 bytes', blobId.length);
   }
   if (targetContextId.length !== 32) {
-    throw new Error('targetContextId must be exactly 32 bytes');
+    throw ValidationError.outOfRange(
+      'targetContextId',
+      'must be exactly 32 bytes',
+      targetContextId.length
+    );
   }
 
   if (typeof (env as HostEnv).blob_announce_to_context !== 'function') {
-    throw new Error('blob_announce_to_context host function unavailable');
+    throw StorageError.hostError('blob_announce_to_context', 'host function unavailable');
   }
 
   return Boolean(env.blob_announce_to_context(blobId, targetContextId));
@@ -1203,10 +1231,10 @@ export function blobAnnounceToContext(blobId: Uint8Array, targetContextId: Uint8
  */
 export function randomBytes(buffer: Uint8Array): void {
   if (!(buffer instanceof Uint8Array)) {
-    throw new TypeError('randomBytes expects a Uint8Array buffer');
+    throw ValidationError.invalidType('buffer', 'Uint8Array', typeof buffer);
   }
   if (typeof (env as HostEnv).random_bytes !== 'function') {
-    throw new Error('random_bytes host function unavailable');
+    throw StorageError.hostError('random_bytes', 'host function unavailable');
   }
   env.random_bytes(buffer);
 }
@@ -1239,22 +1267,22 @@ export function ed25519Verify(
   message: Uint8Array
 ): boolean {
   if (!(signature instanceof Uint8Array)) {
-    throw new TypeError('ed25519Verify: signature must be a Uint8Array');
+    throw ValidationError.invalidType('signature', 'Uint8Array', typeof signature);
   }
   if (signature.length !== 64) {
-    throw new RangeError('ed25519Verify: signature must be exactly 64 bytes');
+    throw ValidationError.outOfRange('signature', 'must be exactly 64 bytes', signature.length);
   }
   if (!(publicKey instanceof Uint8Array)) {
-    throw new TypeError('ed25519Verify: publicKey must be a Uint8Array');
+    throw ValidationError.invalidType('publicKey', 'Uint8Array', typeof publicKey);
   }
   if (publicKey.length !== 32) {
-    throw new RangeError('ed25519Verify: publicKey must be exactly 32 bytes');
+    throw ValidationError.outOfRange('publicKey', 'must be exactly 32 bytes', publicKey.length);
   }
   if (!(message instanceof Uint8Array)) {
-    throw new TypeError('ed25519Verify: message must be a Uint8Array');
+    throw ValidationError.invalidType('message', 'Uint8Array', typeof message);
   }
   if (typeof (env as HostEnv).ed25519_verify !== 'function') {
-    throw new Error('ed25519_verify host function unavailable');
+    throw StorageError.hostError('ed25519_verify', 'host function unavailable');
   }
 
   return Boolean(env.ed25519_verify(signature, publicKey, message));

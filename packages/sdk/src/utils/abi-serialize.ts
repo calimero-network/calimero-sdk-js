@@ -9,6 +9,7 @@ import { BorshWriter } from '../borsh/encoder.js';
 import { BorshReader } from '../borsh/decoder.js';
 import type { AbiManifest, TypeRef, TypeDef, ScalarType, Variant } from '../abi/types.js';
 import { getAbiManifest, resolveTypeRef, isNullable } from '../abi/helpers.js';
+import { SerializationError, ValidationError, AbiError, ErrorCode } from '../errors.js';
 
 /**
  * Serializes a value according to an ABI TypeRef
@@ -16,7 +17,7 @@ import { getAbiManifest, resolveTypeRef, isNullable } from '../abi/helpers.js';
 export function serializeWithAbi(value: unknown, typeRef: TypeRef, abi?: AbiManifest): Uint8Array {
   const manifest = abi || getAbiManifest();
   if (!manifest) {
-    throw new Error('ABI manifest not available');
+    throw AbiError.notAvailable();
   }
 
   const writer = new BorshWriter();
@@ -34,7 +35,7 @@ export function deserializeWithAbi<T = unknown>(
 ): T {
   const manifest = abi || getAbiManifest();
   if (!manifest) {
-    throw new Error('ABI manifest not available');
+    throw AbiError.notAvailable();
   }
 
   const reader = new BorshReader(bytes);
@@ -60,14 +61,20 @@ function serializeValue(
       writer.writeU8(0); // None
       return;
     }
-    throw new Error(`Cannot serialize null/undefined for non-nullable type: ${typeRef.kind}`);
+    throw new SerializationError(
+      ErrorCode.SERIALIZATION_TYPE_MISMATCH,
+      `Cannot serialize null/undefined for non-nullable type: ${typeRef.kind}`,
+      { typeKind: typeRef.kind }
+    );
   }
 
   // Handle option types
   if (typeRef.kind === 'option') {
     const innerType = typeRef.inner;
     if (!innerType) {
-      throw new Error('Option type missing inner type');
+      throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, 'Option type missing inner type', {
+        typeKind: 'option',
+      });
     }
     writer.writeU8(1); // Some
     serializeValue(writer, value, innerType, abi);
@@ -110,10 +117,12 @@ function serializeValue(
   if (typeRef.kind === 'vector' || typeRef.kind === 'list') {
     const innerType = typeRef.inner || (typeRef as any).items; // Rust uses "items" instead of "inner"
     if (!innerType) {
-      throw new Error('Vector/list type missing inner type');
+      throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, 'Vector/list type missing inner type', {
+        typeKind: typeRef.kind,
+      });
     }
     if (!Array.isArray(value)) {
-      throw new Error(`Expected array for vector/list type, got ${typeof value}`);
+      throw SerializationError.typeMismatch('array', typeof value, typeRef.kind);
     }
     writer.writeU32(value.length);
     for (const item of value) {
@@ -127,10 +136,12 @@ function serializeValue(
     const keyType = typeRef.key;
     const valueType = typeRef.value;
     if (!keyType || !valueType) {
-      throw new Error('Map type missing key or value type');
+      throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, 'Map type missing key or value type', {
+        typeKind: 'map',
+      });
     }
     if (!(value instanceof Map)) {
-      throw new Error(`Expected Map for map type, got ${typeof value}`);
+      throw SerializationError.typeMismatch('Map', typeof value, 'map');
     }
     writer.writeU32(value.size);
     for (const [key, val] of value.entries()) {
@@ -144,10 +155,12 @@ function serializeValue(
   if (typeRef.kind === 'set') {
     const innerType = typeRef.inner || typeRef.items;
     if (!innerType) {
-      throw new Error('Set type missing inner type');
+      throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, 'Set type missing inner type', {
+        typeKind: 'set',
+      });
     }
     if (!(value instanceof Set) && !Array.isArray(value)) {
-      throw new Error(`Expected Set or array for set type, got ${typeof value}`);
+      throw SerializationError.typeMismatch('Set or array', typeof value, 'set');
     }
     const items = value instanceof Set ? Array.from(value) : value;
     writer.writeU32(items.length);
@@ -162,17 +175,19 @@ function serializeValue(
   if (typeRef.kind === 'reference' || (typeRef as any).$ref) {
     const typeName = typeRef.name || (typeRef as any).$ref;
     if (!typeName) {
-      throw new Error('Reference type missing name');
+      throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, 'Reference type missing name', {
+        typeRef,
+      });
     }
     const typeDef = resolveTypeRef(abi, typeRef);
     if (!typeDef) {
-      throw new Error(`Type definition not found: ${typeName}`);
+      throw AbiError.typeNotFound(typeName);
     }
     serializeTypeDef(writer, value, typeDef, abi);
     return;
   }
 
-  throw new Error(`Unsupported type for ABI serialization: ${typeRef.kind}`);
+  throw AbiError.unsupportedType(typeRef.kind, 'ABI serialization');
 }
 
 /**
@@ -182,7 +197,7 @@ function serializeScalar(writer: BorshWriter, value: unknown, scalar: ScalarType
   switch (scalar) {
     case 'bool':
       if (typeof value !== 'boolean') {
-        throw new Error(`Expected boolean, got ${typeof value}`);
+        throw SerializationError.typeMismatch('boolean', typeof value, scalar);
       }
       writer.writeU8(value ? 1 : 0);
       break;
@@ -191,7 +206,7 @@ function serializeScalar(writer: BorshWriter, value: unknown, scalar: ScalarType
     case 'u16':
     case 'u32':
       if (typeof value !== 'number') {
-        throw new Error(`Expected number for ${scalar}, got ${typeof value}`);
+        throw SerializationError.typeMismatch('number', typeof value, scalar);
       }
       if (scalar === 'u8') {
         writer.writeU8(value);
@@ -204,7 +219,7 @@ function serializeScalar(writer: BorshWriter, value: unknown, scalar: ScalarType
 
     case 'u64': {
       if (typeof value !== 'bigint' && typeof value !== 'number') {
-        throw new Error(`Expected bigint or number for ${scalar}, got ${typeof value}`);
+        throw SerializationError.typeMismatch('bigint or number', typeof value, scalar);
       }
       const bigValue = typeof value === 'bigint' ? value : BigInt(value);
       writer.writeU64(bigValue);
@@ -212,7 +227,7 @@ function serializeScalar(writer: BorshWriter, value: unknown, scalar: ScalarType
     }
     case 'u128': {
       if (typeof value !== 'bigint' && typeof value !== 'number') {
-        throw new Error(`Expected bigint or number for ${scalar}, got ${typeof value}`);
+        throw SerializationError.typeMismatch('bigint or number', typeof value, scalar);
       }
       const bigValue = typeof value === 'bigint' ? value : BigInt(value);
       // u128 is two u64s in Borsh: low 64 bits, then high 64 bits
@@ -227,7 +242,7 @@ function serializeScalar(writer: BorshWriter, value: unknown, scalar: ScalarType
     case 'i16':
     case 'i32':
       if (typeof value !== 'number') {
-        throw new Error(`Expected number for ${scalar}, got ${typeof value}`);
+        throw SerializationError.typeMismatch('number', typeof value, scalar);
       }
       // Signed integers are written as unsigned in Borsh
       if (scalar === 'i8') {
@@ -243,7 +258,7 @@ function serializeScalar(writer: BorshWriter, value: unknown, scalar: ScalarType
     case 'i64':
     case 'i128': {
       if (typeof value !== 'bigint' && typeof value !== 'number') {
-        throw new Error(`Expected bigint or number for ${scalar}, got ${typeof value}`);
+        throw SerializationError.typeMismatch('bigint or number', typeof value, scalar);
       }
       const signedBigValue = typeof value === 'bigint' ? value : BigInt(value);
       if (scalar === 'i64') {
@@ -261,7 +276,7 @@ function serializeScalar(writer: BorshWriter, value: unknown, scalar: ScalarType
     case 'f32':
     case 'f64':
       if (typeof value !== 'number') {
-        throw new Error(`Expected number for ${scalar}, got ${typeof value}`);
+        throw SerializationError.typeMismatch('number', typeof value, scalar);
       }
       if (scalar === 'f32') {
         writer.writeF32(value);
@@ -272,14 +287,14 @@ function serializeScalar(writer: BorshWriter, value: unknown, scalar: ScalarType
 
     case 'string':
       if (typeof value !== 'string') {
-        throw new Error(`Expected string, got ${typeof value}`);
+        throw SerializationError.typeMismatch('string', typeof value);
       }
       writer.writeString(value);
       break;
 
     case 'bytes':
       if (!(value instanceof Uint8Array)) {
-        throw new Error(`Expected Uint8Array for bytes, got ${typeof value}`);
+        throw SerializationError.typeMismatch('Uint8Array', typeof value, 'bytes');
       }
       writer.writeBytes(value);
       break;
@@ -289,7 +304,7 @@ function serializeScalar(writer: BorshWriter, value: unknown, scalar: ScalarType
       break;
 
     default:
-      throw new Error(`Unsupported scalar type: ${scalar}`);
+      throw AbiError.unsupportedType(scalar, 'scalar serialization');
   }
 }
 
@@ -305,10 +320,12 @@ function serializeTypeDef(
   switch (typeDef.kind) {
     case 'record': {
       if (!typeDef.fields) {
-        throw new Error('Record type missing fields');
+        throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, 'Record type missing fields', {
+          typeKind: 'record',
+        });
       }
       if (typeof value !== 'object' || value === null) {
-        throw new Error(`Expected object for record, got ${typeof value}`);
+        throw SerializationError.typeMismatch('object', typeof value, 'record');
       }
       const obj = value as Record<string, unknown>;
       for (const field of typeDef.fields) {
@@ -354,7 +371,7 @@ function serializeTypeDef(
                 writer.writeBytes(new Uint8Array(0));
               } else {
                 // For other types, throw error as we can't provide a default
-                throw new Error(`Missing required field ${field.name} of type ${field.type.kind}`);
+                throw ValidationError.requiredField(field.name, field.type.kind);
               }
             }
           }
@@ -374,7 +391,9 @@ function serializeTypeDef(
 
     case 'variant': {
       if (!typeDef.variants) {
-        throw new Error('Variant type missing variants');
+        throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, 'Variant type missing variants', {
+          typeKind: 'variant',
+        });
       }
       // Variants are serialized as u8 discriminant + payload
       // Handle string enum values (TypeScript enums) by converting to object format
@@ -388,8 +407,10 @@ function serializeTypeDef(
           // Convert string enum to object format: { type: "VariantName" }
           // If variant has a payload, we can't convert from string alone
           if (matchingVariant.payload) {
-            throw new Error(
-              `Cannot serialize string enum value "${value}" for variant with payload`
+            throw new SerializationError(
+              ErrorCode.SERIALIZATION_TYPE_MISMATCH,
+              `Cannot serialize string enum value "${value}" for variant with payload`,
+              { variantName: matchingVariant.name, value }
             );
           }
           // Unit variant - convert to object format
@@ -401,13 +422,17 @@ function serializeTypeDef(
       } else if (typeof value === 'object' && value !== null) {
         variantObj = value as Record<string, unknown>;
       } else {
-        throw new Error(`Expected object or string for variant, got ${typeof value}`);
+        throw SerializationError.typeMismatch('object or string', typeof value, 'variant');
       }
       // Find which variant this is (check for discriminant or type field)
       const variantName = variantObj.type || variantObj.kind || Object.keys(variantObj)[0];
       const variant = typeDef.variants.find(v => v.name === variantName);
       if (!variant) {
-        throw new Error(`Variant not found: ${variantName}`);
+        throw AbiError.variantMismatch(
+          'unknown',
+          variantName,
+          typeDef.variants.map(v => v.name)
+        );
       }
       const variantIndex = typeDef.variants.indexOf(variant);
       writer.writeU8(variantIndex);
@@ -420,14 +445,16 @@ function serializeTypeDef(
 
     case 'alias':
       if (!typeDef.target) {
-        throw new Error('Alias type missing target');
+        throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, 'Alias type missing target', {
+          typeKind: 'alias',
+        });
       }
       serializeValue(writer, value, typeDef.target, abi);
       break;
 
     case 'bytes':
       if (!(value instanceof Uint8Array)) {
-        throw new Error(`Expected Uint8Array for bytes, got ${typeof value}`);
+        throw SerializationError.typeMismatch('Uint8Array', typeof value, 'bytes');
       }
       if (typeDef.size !== undefined) {
         // Fixed-size bytes
@@ -439,7 +466,7 @@ function serializeTypeDef(
       break;
 
     default:
-      throw new Error(`Unsupported TypeDef kind: ${typeDef.kind}`);
+      throw AbiError.unsupportedType(typeDef.kind, 'TypeDef serialization');
   }
 }
 
@@ -455,7 +482,9 @@ function deserializeValue(reader: BorshReader, typeRef: TypeRef, abi: AbiManifes
     }
     const innerType = typeRef.inner;
     if (!innerType) {
-      throw new Error('Option type missing inner type');
+      throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, 'Option type missing inner type', {
+        typeKind: 'option',
+      });
     }
     return deserializeValue(reader, innerType, abi);
   }
@@ -494,7 +523,9 @@ function deserializeValue(reader: BorshReader, typeRef: TypeRef, abi: AbiManifes
   if (typeRef.kind === 'vector' || typeRef.kind === 'list') {
     const innerType = typeRef.inner || (typeRef as any).items; // Rust uses "items" instead of "inner"
     if (!innerType) {
-      throw new Error('Vector/list type missing inner type');
+      throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, 'Vector/list type missing inner type', {
+        typeKind: typeRef.kind,
+      });
     }
     const length = reader.readU32();
     const array: unknown[] = [];
@@ -509,7 +540,9 @@ function deserializeValue(reader: BorshReader, typeRef: TypeRef, abi: AbiManifes
     const keyType = typeRef.key;
     const valueType = typeRef.value;
     if (!keyType || !valueType) {
-      throw new Error('Map type missing key or value type');
+      throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, 'Map type missing key or value type', {
+        typeKind: 'map',
+      });
     }
     const length = reader.readU32();
     const map = new Map();
@@ -526,16 +559,18 @@ function deserializeValue(reader: BorshReader, typeRef: TypeRef, abi: AbiManifes
   if (typeRef.kind === 'reference' || (typeRef as any).$ref) {
     const typeName = typeRef.name || (typeRef as any).$ref;
     if (!typeName) {
-      throw new Error('Reference type missing name');
+      throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, 'Reference type missing name', {
+        typeRef,
+      });
     }
     const typeDef = resolveTypeRef(abi, typeRef);
     if (!typeDef) {
-      throw new Error(`Type definition not found: ${typeName}`);
+      throw AbiError.typeNotFound(typeName);
     }
     return deserializeTypeDef(reader, typeDef, abi);
   }
 
-  throw new Error(`Unsupported type for ABI deserialization: ${typeRef.kind}`);
+  throw AbiError.unsupportedType(typeRef.kind, 'ABI deserialization');
 }
 
 /**
@@ -606,7 +641,7 @@ function deserializeScalar(reader: BorshReader, scalar: ScalarType): unknown {
       return undefined;
 
     default:
-      throw new Error(`Unsupported scalar type: ${scalar}`);
+      throw AbiError.unsupportedType(scalar, 'scalar deserialization');
   }
 }
 
@@ -617,7 +652,9 @@ function deserializeTypeDef(reader: BorshReader, typeDef: TypeDef, abi: AbiManif
   switch (typeDef.kind) {
     case 'record': {
       if (!typeDef.fields) {
-        throw new Error('Record type missing fields');
+        throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, 'Record type missing fields', {
+          typeKind: 'record',
+        });
       }
       const record: Record<string, unknown> = {};
       for (const field of typeDef.fields) {
@@ -635,12 +672,18 @@ function deserializeTypeDef(reader: BorshReader, typeDef: TypeDef, abi: AbiManif
 
     case 'variant': {
       if (!typeDef.variants) {
-        throw new Error('Variant type missing variants');
+        throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, 'Variant type missing variants', {
+          typeKind: 'variant',
+        });
       }
       const discriminant = reader.readU8();
       const variant = typeDef.variants[discriminant];
       if (!variant) {
-        throw new Error(`Invalid variant discriminant: ${discriminant}`);
+        throw new SerializationError(
+          ErrorCode.DESERIALIZATION_FAILED,
+          `Invalid variant discriminant: ${discriminant}`,
+          { discriminant, validRange: `0-${typeDef.variants.length - 1}` }
+        );
       }
       if (variant.payload) {
         const payload = deserializeValue(reader, variant.payload, abi);
@@ -656,7 +699,9 @@ function deserializeTypeDef(reader: BorshReader, typeDef: TypeDef, abi: AbiManif
 
     case 'alias':
       if (!typeDef.target) {
-        throw new Error('Alias type missing target');
+        throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, 'Alias type missing target', {
+          typeKind: 'alias',
+        });
       }
       return deserializeValue(reader, typeDef.target, abi);
 
@@ -667,6 +712,6 @@ function deserializeTypeDef(reader: BorshReader, typeDef: TypeDef, abi: AbiManif
       return reader.readBytes();
 
     default:
-      throw new Error(`Unsupported TypeDef kind: ${typeDef.kind}`);
+      throw AbiError.unsupportedType(typeDef.kind, 'TypeDef deserialization');
   }
 }

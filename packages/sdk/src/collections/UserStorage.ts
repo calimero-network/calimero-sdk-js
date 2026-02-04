@@ -36,6 +36,7 @@ import {
 import { mergeMergeableValues } from '../runtime/mergeable';
 import { getMergeableType } from '../runtime/mergeable-registry';
 import { nestedTracker } from '../runtime/nested-tracking';
+import { StorageError, ValidationError } from '../errors';
 
 const SENTINEL_KEY = '__calimeroCollection';
 const PUBLIC_KEY_LENGTH = 32;
@@ -265,7 +266,10 @@ export class UserStorage<V> {
     // Only allow setting for the current executor
     // The nested tracker's setForUser should only be called for the current executor
     if (key.length !== executorKey.length || !key.every((byte, i) => byte === executorKey[i])) {
-      throw new Error('UserStorage.setInternal: can only set data for the current executor');
+      throw StorageError.operationForbidden(
+        'UserStorage.setInternal',
+        'can only set data for the current executor'
+      );
     }
 
     let nextValue = value;
@@ -295,11 +299,17 @@ export class UserStorage<V> {
 
 function validatePublicKey(key: unknown, operation: string): asserts key is PublicKey {
   if (!(key instanceof Uint8Array)) {
-    throw new TypeError(`UserStorage.${operation}: key must be a Uint8Array (PublicKey)`);
+    throw ValidationError.invalidType(
+      `UserStorage.${operation} key`,
+      'Uint8Array (PublicKey)',
+      typeof key
+    );
   }
   if (key.length !== PUBLIC_KEY_LENGTH) {
-    throw new RangeError(
-      `UserStorage.${operation}: key must be exactly ${PUBLIC_KEY_LENGTH} bytes (got ${key.length})`
+    throw ValidationError.outOfRange(
+      `UserStorage.${operation} key`,
+      `must be exactly ${PUBLIC_KEY_LENGTH} bytes`,
+      key.length
     );
   }
 }
@@ -307,14 +317,21 @@ function validatePublicKey(key: unknown, operation: string): asserts key is Publ
 function normalizeMapId(id: Uint8Array | string): Uint8Array {
   if (id instanceof Uint8Array) {
     if (id.length !== 32) {
-      throw new TypeError('UserStorage id must be 32 bytes');
+      throw StorageError.invalidId('UserStorage', 'id must be 32 bytes', {
+        actualLength: id.length,
+        expectedLength: 32,
+      });
     }
     return new Uint8Array(id);
   }
 
   const cleaned = id.trim().toLowerCase();
   if (cleaned.length !== 64 || !/^[0-9a-f]+$/.test(cleaned)) {
-    throw new TypeError('UserStorage id hex string must be 64 hexadecimal characters');
+    throw ValidationError.invalidFormat(
+      'UserStorage id',
+      '64 hexadecimal characters',
+      `got ${cleaned.length} characters`
+    );
   }
   return hexToBytes(cleaned);
 }

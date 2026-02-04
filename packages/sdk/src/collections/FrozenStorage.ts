@@ -25,6 +25,7 @@ import {
   hasRegisteredCollection,
 } from '../runtime/collections';
 import { nestedTracker } from '../runtime/nested-tracking';
+import { StorageError, ValidationError, SerializationError, ErrorCode } from '../errors';
 
 const SENTINEL_KEY = '__calimeroCollection';
 
@@ -155,7 +156,11 @@ export class FrozenStorage<T> {
    */
   get(hash: Hash): T | null {
     if (!(hash instanceof Uint8Array) || hash.length !== 32) {
-      throw new TypeError('FrozenStorage hash must be a 32-byte Uint8Array');
+      throw ValidationError.invalidType(
+        'FrozenStorage hash',
+        '32-byte Uint8Array',
+        hash instanceof Uint8Array ? `Uint8Array(${hash.length})` : typeof hash
+      );
     }
 
     const raw = frozenStorageGet(this.mapId, hash);
@@ -174,7 +179,11 @@ export class FrozenStorage<T> {
    */
   has(hash: Hash): boolean {
     if (!(hash instanceof Uint8Array) || hash.length !== 32) {
-      throw new TypeError('FrozenStorage hash must be a 32-byte Uint8Array');
+      throw ValidationError.invalidType(
+        'FrozenStorage hash',
+        '32-byte Uint8Array',
+        hash instanceof Uint8Array ? `Uint8Array(${hash.length})` : typeof hash
+      );
     }
 
     return frozenStorageContains(this.mapId, hash);
@@ -184,10 +193,10 @@ export class FrozenStorage<T> {
    * FrozenStorage does not support remove operations.
    * Calling this method will throw an error.
    *
-   * @throws Error always - frozen storage is immutable
+   * @throws StorageError always - frozen storage is immutable
    */
   remove(_hash: Hash): never {
-    throw new Error('FrozenStorage does not support remove operations - data is immutable');
+    throw StorageError.operationForbidden('FrozenStorage.remove', 'data is immutable');
   }
 
   /**
@@ -273,7 +282,11 @@ function serializeBorshForHash<T>(value: T): Uint8Array {
     return writer.toBytes();
   }
   if (value === null || value === undefined) {
-    throw new Error('Cannot serialize null/undefined for hash computation');
+    throw new SerializationError(
+      ErrorCode.SERIALIZATION_TYPE_MISMATCH,
+      'Cannot serialize null/undefined for hash computation',
+      { value }
+    );
   }
 
   // For complex types, fall back to regular serialize (with ValueKind)
@@ -283,14 +296,21 @@ function serializeBorshForHash<T>(value: T): Uint8Array {
 function normalizeMapId(id: Uint8Array | string): Uint8Array {
   if (id instanceof Uint8Array) {
     if (id.length !== 32) {
-      throw new TypeError('Storage id must be 32 bytes');
+      throw StorageError.invalidId('FrozenStorage', 'id must be 32 bytes', {
+        actualLength: id.length,
+        expectedLength: 32,
+      });
     }
     return new Uint8Array(id);
   }
 
   const cleaned = id.trim().toLowerCase();
   if (cleaned.length !== 64 || !/^[0-9a-f]+$/.test(cleaned)) {
-    throw new TypeError('Storage id hex string must be 64 hexadecimal characters');
+    throw ValidationError.invalidFormat(
+      'FrozenStorage id',
+      '64 hexadecimal characters',
+      `got ${cleaned.length} characters`
+    );
   }
   return hexToBytes(cleaned);
 }
