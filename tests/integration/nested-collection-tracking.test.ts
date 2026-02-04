@@ -171,7 +171,7 @@ class MockUnorderedSet<T> {
   }
 
   toArray(): T[] {
-    return Array.from(this.store).map((v) => JSON.parse(v));
+    return Array.from(this.store).map(v => JSON.parse(v));
   }
 
   toJSON(): Record<string, unknown> {
@@ -294,10 +294,10 @@ describe('Nested Collection Change Propagation', () => {
 
       // Verify modifications were tracked
       const setModifications = modificationLog.filter(
-        (m) => m.type === 'UnorderedSet' && m.id === innerSet.id()
+        m => m.type === 'UnorderedSet' && m.id === innerSet.id()
       );
       expect(setModifications.length).toBe(2);
-      expect(setModifications.every((m) => m.operation === 'add')).toBe(true);
+      expect(setModifications.every(m => m.operation === 'add')).toBe(true);
     });
 
     it('should handle multiple nested sets', () => {
@@ -313,7 +313,7 @@ describe('Nested Collection Change Propagation', () => {
       set2.add('bob');
 
       // Both should be tracked
-      expect(modificationLog.filter((m) => m.type === 'UnorderedSet').length).toBe(2);
+      expect(modificationLog.filter(m => m.type === 'UnorderedSet').length).toBe(2);
     });
 
     it('should track set deletion operations', () => {
@@ -327,7 +327,7 @@ describe('Nested Collection Change Propagation', () => {
       innerSet.delete('member1');
 
       const deleteOps = modificationLog.filter(
-        (m) => m.type === 'UnorderedSet' && m.operation === 'delete'
+        m => m.type === 'UnorderedSet' && m.operation === 'delete'
       );
       expect(deleteOps.length).toBe(1);
     });
@@ -343,7 +343,7 @@ describe('Nested Collection Change Propagation', () => {
       innerSet.clear();
 
       const clearOps = modificationLog.filter(
-        (m) => m.type === 'UnorderedSet' && m.operation === 'clear'
+        m => m.type === 'UnorderedSet' && m.operation === 'clear'
       );
       expect(clearOps.length).toBe(1);
       expect(innerSet.size()).toBe(0);
@@ -363,10 +363,10 @@ describe('Nested Collection Change Propagation', () => {
 
       // Verify modifications
       const vectorMods = modificationLog.filter(
-        (m) => m.type === 'Vector' && m.id === innerVector.id()
+        m => m.type === 'Vector' && m.id === innerVector.id()
       );
       expect(vectorMods.length).toBe(3);
-      expect(vectorMods.every((m) => m.operation === 'push')).toBe(true);
+      expect(vectorMods.every(m => m.operation === 'push')).toBe(true);
     });
 
     it('should track vector pop operations', () => {
@@ -382,9 +382,7 @@ describe('Nested Collection Change Propagation', () => {
       expect(popped).toBe('item2');
       expect(innerVector.len()).toBe(1);
 
-      const popOps = modificationLog.filter(
-        (m) => m.type === 'Vector' && m.operation === 'pop'
-      );
+      const popOps = modificationLog.filter(m => m.type === 'Vector' && m.operation === 'pop');
       expect(popOps.length).toBe(1);
     });
   });
@@ -404,7 +402,7 @@ describe('Nested Collection Change Propagation', () => {
 
       // Verify map modifications were tracked
       const mapMods = modificationLog.filter(
-        (m) => m.type === 'UnorderedMap' && m.id === innerMap.id()
+        m => m.type === 'UnorderedMap' && m.id === innerMap.id()
       );
       expect(mapMods.length).toBe(2);
     });
@@ -438,7 +436,7 @@ describe('Nested Collection Change Propagation', () => {
       expect(outerSet.size()).toBe(1);
 
       // Verify modifications
-      const setMods = modificationLog.filter((m) => m.type === 'UnorderedSet');
+      const setMods = modificationLog.filter(m => m.type === 'UnorderedSet');
       expect(setMods.length).toBe(1);
     });
   });
@@ -467,7 +465,7 @@ describe('Nested Collection Change Propagation', () => {
 
       // Verify all modifications were tracked
       const level3Mods = modificationLog.filter(
-        (m) => m.type === 'UnorderedSet' && m.id === level3Set.id()
+        m => m.type === 'UnorderedSet' && m.id === level3Set.id()
       );
       expect(level3Mods.length).toBe(2);
     });
