@@ -620,11 +620,8 @@ function checkAntiPatterns(ctx: ValidationContext, _options: ValidateOptions): v
 /**
  * Report validation results
  */
-function reportResults(
-  ctx: ValidationContext,
-  logger: ReturnType<typeof Signale>,
-  options: ValidateOptions
-): void {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function reportResults(ctx: ValidationContext, logger: any, options: ValidateOptions): void {
   const errors = ctx.issues.filter(i => i.type === 'error');
   const warnings = ctx.issues.filter(i => i.type === 'warning');
 
