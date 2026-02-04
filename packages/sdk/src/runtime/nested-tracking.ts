@@ -26,6 +26,15 @@ class NestedCollectionTracker {
   private updateScheduled = false;
 
   /**
+   * Reset internal tracking state (useful for tests).
+   */
+  reset(): void {
+    this.trackers.clear();
+    this.pendingUpdates.clear();
+    this.updateScheduled = false;
+  }
+
+  /**
    * Register a collection and its nested relationships
    */
   registerCollection(collection: any, parentCollection?: any, parentKey?: any): void {

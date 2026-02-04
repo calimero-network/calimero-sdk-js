@@ -41,6 +41,7 @@ function clearTestState(): void {
   mockVectorStorage.clear();
   mockSetStorage.clear();
   modificationLog.length = 0;
+  nestedTracker.reset();
 }
 
 // Mock UnorderedMap class for testing
