@@ -10,6 +10,7 @@ import {
   hasRegisteredCollection,
 } from '../runtime/collections';
 import { nestedTracker } from '../runtime/nested-tracking';
+import { COLLECTION_ID_LENGTH, REGISTER_ID } from '../constants';
 
 export interface VectorOptions {
   id?: Uint8Array | string;
@@ -73,7 +74,7 @@ export class Vector<T> {
    * Gets the value at the given index.
    */
   get(index: number): T | null {
-    const raw = vectorGet(this.vectorId, index, 0n);
+    const raw = vectorGet(this.vectorId, index, REGISTER_ID);
     return raw ? deserialize<T>(raw) : null;
   }
 
@@ -103,7 +104,7 @@ export class Vector<T> {
     const length = vectorLen(this.vectorId);
     const values: T[] = [];
     for (let index = 0; index < length; index++) {
-      const raw = vectorGet(this.vectorId, index, 0n);
+      const raw = vectorGet(this.vectorId, index, REGISTER_ID);
       if (raw) {
         values.push(deserialize<T>(raw));
       }
@@ -142,8 +143,8 @@ function hexToBytes(hex: string): Uint8Array {
 
 function normalizeId(id: Uint8Array | string): Uint8Array {
   if (id instanceof Uint8Array) {
-    if (id.length !== 32) {
-      throw new TypeError('Vector id must be 32 bytes');
+    if (id.length !== COLLECTION_ID_LENGTH) {
+      throw new TypeError(`Vector id must be ${COLLECTION_ID_LENGTH} bytes`);
     }
     return new Uint8Array(id);
   }

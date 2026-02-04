@@ -36,9 +36,9 @@ import {
 import { mergeMergeableValues } from '../runtime/mergeable';
 import { getMergeableType } from '../runtime/mergeable-registry';
 import { nestedTracker } from '../runtime/nested-tracking';
+import { COLLECTION_ID_LENGTH, PUBLIC_KEY_LENGTH } from '../constants';
 
 const SENTINEL_KEY = '__calimeroCollection';
-const PUBLIC_KEY_LENGTH = 32;
 
 /**
  * Type alias for a PublicKey - a 32-byte Uint8Array representing a user's identity.
@@ -306,8 +306,8 @@ function validatePublicKey(key: unknown, operation: string): asserts key is Publ
 
 function normalizeMapId(id: Uint8Array | string): Uint8Array {
   if (id instanceof Uint8Array) {
-    if (id.length !== 32) {
-      throw new TypeError('UserStorage id must be 32 bytes');
+    if (id.length !== COLLECTION_ID_LENGTH) {
+      throw new TypeError(`UserStorage id must be ${COLLECTION_ID_LENGTH} bytes`);
     }
     return new Uint8Array(id);
   }

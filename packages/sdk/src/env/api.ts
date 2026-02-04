@@ -11,11 +11,19 @@ import type { HostEnv } from './bindings';
 import { getAbiManifest, getMethod } from '../abi/helpers';
 import type { TypeRef, AbiManifest, ScalarType, Variant } from '../abi/types';
 import { BorshReader } from '../borsh/decoder';
+import {
+  REGISTER_ID,
+  PUBLIC_KEY_LENGTH,
+  CONTEXT_ID_LENGTH,
+  APPLICATION_ID_LENGTH,
+  BLOB_ID_LENGTH,
+  MAX_ALIAS_LENGTH,
+  ED25519_SIGNATURE_LENGTH,
+} from '../constants';
 
 // This will be provided by QuickJS runtime via builder.c
 declare const env: HostEnv;
 
-const REGISTER_ID = 0n;
 const textEncoder = new TextEncoder();
 
 /**
@@ -528,8 +536,8 @@ export function contextAddMember(publicKey: Uint8Array): void {
   if (!(publicKey instanceof Uint8Array)) {
     throw new TypeError('contextAddMember: publicKey must be a Uint8Array');
   }
-  if (publicKey.length !== 32) {
-    throw new RangeError('contextAddMember: publicKey must be exactly 32 bytes');
+  if (publicKey.length !== PUBLIC_KEY_LENGTH) {
+    throw new RangeError(`contextAddMember: publicKey must be exactly ${PUBLIC_KEY_LENGTH} bytes`);
   }
   env.context_add_member(publicKey);
 }
@@ -553,8 +561,8 @@ export function contextRemoveMember(publicKey: Uint8Array): void {
   if (!(publicKey instanceof Uint8Array)) {
     throw new TypeError('contextRemoveMember: publicKey must be a Uint8Array');
   }
-  if (publicKey.length !== 32) {
-    throw new RangeError('contextRemoveMember: publicKey must be exactly 32 bytes');
+  if (publicKey.length !== PUBLIC_KEY_LENGTH) {
+    throw new RangeError(`contextRemoveMember: publicKey must be exactly ${PUBLIC_KEY_LENGTH} bytes`);
   }
   env.context_remove_member(publicKey);
 }
@@ -582,8 +590,8 @@ export function contextIsMember(publicKey: Uint8Array): boolean {
   if (!(publicKey instanceof Uint8Array)) {
     throw new TypeError('contextIsMember: publicKey must be a Uint8Array');
   }
-  if (publicKey.length !== 32) {
-    throw new RangeError('contextIsMember: publicKey must be exactly 32 bytes');
+  if (publicKey.length !== PUBLIC_KEY_LENGTH) {
+    throw new RangeError(`contextIsMember: publicKey must be exactly ${PUBLIC_KEY_LENGTH} bytes`);
   }
   return Boolean(env.context_is_member(publicKey));
 }
@@ -624,7 +632,7 @@ export function contextMembers(): Uint8Array[] {
 
   for (let i = 0; i < count; i++) {
     // PublicKey is [u8; 32] in Rust, which is serialized as 32 bytes directly (no length prefix)
-    const keyBytes = reader.readFixedArray(32);
+    const keyBytes = reader.readFixedArray(PUBLIC_KEY_LENGTH);
     members.push(keyBytes);
   }
 
@@ -665,8 +673,8 @@ export function contextCreate(
   if (!(applicationId instanceof Uint8Array)) {
     throw new TypeError('contextCreate: applicationId must be a Uint8Array');
   }
-  if (applicationId.length !== 32) {
-    throw new RangeError('contextCreate: applicationId must be exactly 32 bytes');
+  if (applicationId.length !== APPLICATION_ID_LENGTH) {
+    throw new RangeError(`contextCreate: applicationId must be exactly ${APPLICATION_ID_LENGTH} bytes`);
   }
   if (!(initArgs instanceof Uint8Array)) {
     throw new TypeError('contextCreate: initArgs must be a Uint8Array');
@@ -674,8 +682,8 @@ export function contextCreate(
   if (!(alias instanceof Uint8Array)) {
     throw new TypeError('contextCreate: alias must be a Uint8Array');
   }
-  if (alias.length > 64) {
-    throw new RangeError('contextCreate: alias must be at most 64 bytes');
+  if (alias.length > MAX_ALIAS_LENGTH) {
+    throw new RangeError(`contextCreate: alias must be at most ${MAX_ALIAS_LENGTH} bytes`);
   }
   env.context_create(protocol, applicationId, initArgs, alias);
 }
@@ -700,8 +708,8 @@ export function contextDelete(contextId: Uint8Array): void {
   if (!(contextId instanceof Uint8Array)) {
     throw new TypeError('contextDelete: contextId must be a Uint8Array');
   }
-  if (contextId.length !== 32) {
-    throw new RangeError('contextDelete: contextId must be exactly 32 bytes');
+  if (contextId.length !== CONTEXT_ID_LENGTH) {
+    throw new RangeError(`contextDelete: contextId must be exactly ${CONTEXT_ID_LENGTH} bytes`);
   }
   env.context_delete(contextId);
 }
@@ -738,8 +746,8 @@ export function contextResolveAlias(alias: Uint8Array): Uint8Array | null {
   }
   const buf = new Uint8Array(len);
   env.read_register(REGISTER_ID, buf);
-  // Context ID is 32 bytes
-  if (buf.length === 32) {
+  // Context ID is CONTEXT_ID_LENGTH bytes
+  if (buf.length === CONTEXT_ID_LENGTH) {
     return buf;
   }
   return null;
@@ -843,8 +851,8 @@ export function xcall(
   functionName: string,
   params: Uint8Array = new Uint8Array()
 ): void {
-  if (contextId.length !== 32) {
-    throw new Error('contextId must be exactly 32 bytes');
+  if (contextId.length !== CONTEXT_ID_LENGTH) {
+    throw new Error(`contextId must be exactly ${CONTEXT_ID_LENGTH} bytes`);
   }
 
   const fnBytes = textEncoder.encode(functionName);
@@ -1100,7 +1108,7 @@ export function flushDelta(): boolean {
     env.log_utf8(
       textEncoder.encode('[env] flush_delta missing on host, falling back to legacy commit')
     );
-    env.commit(new Uint8Array(32), new Uint8Array(0));
+    env.commit(new Uint8Array(CONTEXT_ID_LENGTH), new Uint8Array(0));
     return true;
   }
 
@@ -1166,7 +1174,7 @@ export function blobWrite(fd: bigint, data: Uint8Array): bigint {
  * @returns Blob ID (32 bytes)
  */
 export function blobClose(fd: bigint): Uint8Array {
-  const blobId = new Uint8Array(32);
+  const blobId = new Uint8Array(BLOB_ID_LENGTH);
   const success = env.blob_close(fd, blobId);
   if (!success) {
     throw new Error('Failed to close blob');
@@ -1182,11 +1190,11 @@ export function blobClose(fd: bigint): Uint8Array {
  * @returns true if the runtime accepted the announcement
  */
 export function blobAnnounceToContext(blobId: Uint8Array, targetContextId: Uint8Array): boolean {
-  if (blobId.length !== 32) {
-    throw new Error('blobId must be exactly 32 bytes');
+  if (blobId.length !== BLOB_ID_LENGTH) {
+    throw new Error(`blobId must be exactly ${BLOB_ID_LENGTH} bytes`);
   }
-  if (targetContextId.length !== 32) {
-    throw new Error('targetContextId must be exactly 32 bytes');
+  if (targetContextId.length !== CONTEXT_ID_LENGTH) {
+    throw new Error(`targetContextId must be exactly ${CONTEXT_ID_LENGTH} bytes`);
   }
 
   if (typeof (env as HostEnv).blob_announce_to_context !== 'function') {
@@ -1241,14 +1249,14 @@ export function ed25519Verify(
   if (!(signature instanceof Uint8Array)) {
     throw new TypeError('ed25519Verify: signature must be a Uint8Array');
   }
-  if (signature.length !== 64) {
-    throw new RangeError('ed25519Verify: signature must be exactly 64 bytes');
+  if (signature.length !== ED25519_SIGNATURE_LENGTH) {
+    throw new RangeError(`ed25519Verify: signature must be exactly ${ED25519_SIGNATURE_LENGTH} bytes`);
   }
   if (!(publicKey instanceof Uint8Array)) {
     throw new TypeError('ed25519Verify: publicKey must be a Uint8Array');
   }
-  if (publicKey.length !== 32) {
-    throw new RangeError('ed25519Verify: publicKey must be exactly 32 bytes');
+  if (publicKey.length !== PUBLIC_KEY_LENGTH) {
+    throw new RangeError(`ed25519Verify: publicKey must be exactly ${PUBLIC_KEY_LENGTH} bytes`);
   }
   if (!(message instanceof Uint8Array)) {
     throw new TypeError('ed25519Verify: message must be a Uint8Array');

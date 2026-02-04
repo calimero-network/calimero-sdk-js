@@ -18,6 +18,7 @@ import {
   setClear,
 } from '../runtime/storage-wasm';
 import { nestedTracker } from '../runtime/nested-tracking';
+import { COLLECTION_ID_LENGTH } from '../constants';
 
 export interface UnorderedSetOptions<T> {
   id?: Uint8Array | string;
@@ -129,8 +130,8 @@ function hexToBytes(hex: string): Uint8Array {
 
 function normalizeId(id: Uint8Array | string): Uint8Array {
   if (id instanceof Uint8Array) {
-    if (id.length !== 32) {
-      throw new TypeError('UnorderedSet id must be 32 bytes');
+    if (id.length !== COLLECTION_ID_LENGTH) {
+      throw new TypeError(`UnorderedSet id must be ${COLLECTION_ID_LENGTH} bytes`);
     }
     return new Uint8Array(id);
   }

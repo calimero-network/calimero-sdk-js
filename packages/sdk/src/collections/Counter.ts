@@ -9,6 +9,7 @@ import {
   counterGetExecutorCount,
 } from '../runtime/storage-wasm';
 import { registerCollectionType, CollectionSnapshot } from '../runtime/collections';
+import { COLLECTION_ID_LENGTH } from '../constants';
 
 export interface CounterOptions {
   id?: Uint8Array | string;
@@ -105,8 +106,8 @@ function hexToBytes(hex: string): Uint8Array {
 
 function normalizeId(id: Uint8Array | string): Uint8Array {
   if (id instanceof Uint8Array) {
-    if (id.length !== 32) {
-      throw new TypeError('Counter id must be 32 bytes');
+    if (id.length !== COLLECTION_ID_LENGTH) {
+      throw new TypeError(`Counter id must be ${COLLECTION_ID_LENGTH} bytes`);
     }
     return new Uint8Array(id);
   }

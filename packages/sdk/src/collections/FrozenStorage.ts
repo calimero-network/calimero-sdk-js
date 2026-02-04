@@ -25,6 +25,7 @@ import {
   hasRegisteredCollection,
 } from '../runtime/collections';
 import { nestedTracker } from '../runtime/nested-tracking';
+import { COLLECTION_ID_LENGTH, SHA256_HASH_LENGTH } from '../constants';
 
 const SENTINEL_KEY = '__calimeroCollection';
 
@@ -154,8 +155,8 @@ export class FrozenStorage<T> {
    * @returns The stored value, or null if not found
    */
   get(hash: Hash): T | null {
-    if (!(hash instanceof Uint8Array) || hash.length !== 32) {
-      throw new TypeError('FrozenStorage hash must be a 32-byte Uint8Array');
+    if (!(hash instanceof Uint8Array) || hash.length !== SHA256_HASH_LENGTH) {
+      throw new TypeError(`FrozenStorage hash must be a ${SHA256_HASH_LENGTH}-byte Uint8Array`);
     }
 
     const raw = frozenStorageGet(this.mapId, hash);
@@ -173,8 +174,8 @@ export class FrozenStorage<T> {
    * @returns true if the hash exists, false otherwise
    */
   has(hash: Hash): boolean {
-    if (!(hash instanceof Uint8Array) || hash.length !== 32) {
-      throw new TypeError('FrozenStorage hash must be a 32-byte Uint8Array');
+    if (!(hash instanceof Uint8Array) || hash.length !== SHA256_HASH_LENGTH) {
+      throw new TypeError(`FrozenStorage hash must be a ${SHA256_HASH_LENGTH}-byte Uint8Array`);
     }
 
     return frozenStorageContains(this.mapId, hash);
@@ -282,8 +283,8 @@ function serializeBorshForHash<T>(value: T): Uint8Array {
 
 function normalizeMapId(id: Uint8Array | string): Uint8Array {
   if (id instanceof Uint8Array) {
-    if (id.length !== 32) {
-      throw new TypeError('Storage id must be 32 bytes');
+    if (id.length !== COLLECTION_ID_LENGTH) {
+      throw new TypeError(`Storage id must be ${COLLECTION_ID_LENGTH} bytes`);
     }
     return new Uint8Array(id);
   }

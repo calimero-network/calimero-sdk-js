@@ -5,6 +5,7 @@
 import { serialize, deserialize } from '../utils/serialize';
 import { lwwNew, lwwSet, lwwGet, lwwTimestamp } from '../runtime/storage-wasm';
 import { registerCollectionType, CollectionSnapshot } from '../runtime/collections';
+import { COLLECTION_ID_LENGTH } from '../constants';
 
 export interface LwwRegisterOptions<T> {
   id?: Uint8Array | string;
@@ -93,8 +94,8 @@ function hexToBytes(hex: string): Uint8Array {
 
 function normalizeId(id: Uint8Array | string): Uint8Array {
   if (id instanceof Uint8Array) {
-    if (id.length !== 32) {
-      throw new TypeError('LwwRegister id must be 32 bytes');
+    if (id.length !== COLLECTION_ID_LENGTH) {
+      throw new TypeError(`LwwRegister id must be ${COLLECTION_ID_LENGTH} bytes`);
     }
     return new Uint8Array(id);
   }
