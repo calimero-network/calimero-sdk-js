@@ -562,7 +562,9 @@ export function contextRemoveMember(publicKey: Uint8Array): void {
     throw new TypeError('contextRemoveMember: publicKey must be a Uint8Array');
   }
   if (publicKey.length !== PUBLIC_KEY_LENGTH) {
-    throw new RangeError(`contextRemoveMember: publicKey must be exactly ${PUBLIC_KEY_LENGTH} bytes`);
+    throw new RangeError(
+      `contextRemoveMember: publicKey must be exactly ${PUBLIC_KEY_LENGTH} bytes`
+    );
   }
   env.context_remove_member(publicKey);
 }
@@ -674,7 +676,9 @@ export function contextCreate(
     throw new TypeError('contextCreate: applicationId must be a Uint8Array');
   }
   if (applicationId.length !== APPLICATION_ID_LENGTH) {
-    throw new RangeError(`contextCreate: applicationId must be exactly ${APPLICATION_ID_LENGTH} bytes`);
+    throw new RangeError(
+      `contextCreate: applicationId must be exactly ${APPLICATION_ID_LENGTH} bytes`
+    );
   }
   if (!(initArgs instanceof Uint8Array)) {
     throw new TypeError('contextCreate: initArgs must be a Uint8Array');
@@ -1250,7 +1254,9 @@ export function ed25519Verify(
     throw new TypeError('ed25519Verify: signature must be a Uint8Array');
   }
   if (signature.length !== ED25519_SIGNATURE_LENGTH) {
-    throw new RangeError(`ed25519Verify: signature must be exactly ${ED25519_SIGNATURE_LENGTH} bytes`);
+    throw new RangeError(
+      `ed25519Verify: signature must be exactly ${ED25519_SIGNATURE_LENGTH} bytes`
+    );
   }
   if (!(publicKey instanceof Uint8Array)) {
     throw new TypeError('ed25519Verify: publicKey must be a Uint8Array');
