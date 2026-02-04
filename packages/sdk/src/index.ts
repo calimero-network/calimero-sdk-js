@@ -31,3 +31,16 @@ export { createPrivateEntry, PrivateEntryHandle } from './state/private';
 
 // Types
 export type { SerializeOptions, DeserializeOptions } from './utils/types';
+
+// Errors
+export {
+  CalimeroError,
+  SerializationError,
+  StorageError,
+  ValidationError,
+  DispatcherError,
+  AbiError,
+  ErrorCode,
+  isCalimeroError,
+  hasErrorCode,
+} from './errors';

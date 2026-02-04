@@ -4,6 +4,8 @@
  * Mirrors the writer to parse primitive types from byte slices.
  */
 
+import { SerializationError } from '../errors';
+
 export class BorshReader {
   private readonly view: DataView;
   private offset = 0;
@@ -82,7 +84,7 @@ export class BorshReader {
 
   private ensureAvailable(length: number): void {
     if (this.offset + length > this.bytes.length) {
-      throw new RangeError('BorshReader: unexpected end of buffer');
+      throw SerializationError.bufferUnderflow(length, this.bytes.length - this.offset);
     }
   }
 }

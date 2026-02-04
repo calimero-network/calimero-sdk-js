@@ -3,6 +3,12 @@ import { StateManager } from './state-manager';
 import { runtimeLogicEntries } from './method-registry';
 import { getAbiManifest, getMethod } from '../abi/helpers';
 import type { TypeRef, AbiManifest, ScalarType, Variant } from '../abi/types';
+import {
+  SerializationError,
+  DispatcherError,
+  AbiError,
+  ErrorCode,
+} from '../errors';
 import './sync';
 
 type JsonObject = Record<string, unknown>;
@@ -86,11 +92,15 @@ function convertFromJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiMan
   // Handle vector/list types
   if (typeRef.kind === 'vector' || typeRef.kind === 'list') {
     if (!Array.isArray(value)) {
-      throw new Error(`Expected array for ${typeRef.kind} type, got ${typeof value}`);
+      throw SerializationError.typeMismatch('array', typeof value, typeRef.kind);
     }
     const innerType = typeRef.inner || typeRef.items;
     if (!innerType) {
-      throw new Error(`Missing inner type for ${typeRef.kind}`);
+      throw new AbiError(
+        ErrorCode.ABI_INVALID_TYPE_REF,
+        `Missing inner type for ${typeRef.kind}`,
+        { typeKind: typeRef.kind }
+      );
     }
     return value.map(item => convertFromJsonCompatible(item, innerType, abi));
   }
@@ -98,7 +108,7 @@ function convertFromJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiMan
   // Handle map types
   if (typeRef.kind === 'map') {
     if (typeof value !== 'object' || value === null) {
-      throw new Error(`Expected object for map type, got ${typeof value}`);
+      throw SerializationError.typeMismatch('object', typeof value, 'map');
     }
     // Convert to Map instance for compatibility with serializeWithAbi
     const map = new Map();
@@ -114,11 +124,15 @@ function convertFromJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiMan
   // Handle set types
   if (typeRef.kind === 'set') {
     if (!Array.isArray(value)) {
-      throw new Error(`Expected array for set type, got ${typeof value}`);
+      throw SerializationError.typeMismatch('array', typeof value, 'set');
     }
     const innerType = typeRef.inner || typeRef.items;
     if (!innerType) {
-      throw new Error('Missing inner type for set');
+      throw new AbiError(
+        ErrorCode.ABI_INVALID_TYPE_REF,
+        'Missing inner type for set',
+        { typeKind: 'set' }
+      );
     }
     return value.map(item => convertFromJsonCompatible(item, innerType, abi));
   }
@@ -127,17 +141,21 @@ function convertFromJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiMan
   if (typeRef.kind === 'reference' || typeRef.$ref) {
     const typeName = typeRef.name || typeRef.$ref;
     if (!typeName) {
-      throw new Error('Missing type name for reference');
+      throw new AbiError(
+        ErrorCode.ABI_INVALID_TYPE_REF,
+        'Missing type name for reference',
+        { typeRef }
+      );
     }
     const typeDef = abi.types[typeName];
     if (!typeDef) {
-      throw new Error(`Type ${typeName} not found in ABI`);
+      throw AbiError.typeNotFound(typeName);
     }
 
     // Handle record types
     if (typeDef.kind === 'record' && typeDef.fields) {
       if (typeof value !== 'object' || value === null) {
-        throw new Error(`Expected object for record type ${typeName}, got ${typeof value}`);
+        throw SerializationError.typeMismatch(`object (record ${typeName})`, typeof value);
       }
       const result: Record<string, unknown> = {};
       for (const field of typeDef.fields) {
@@ -162,16 +180,20 @@ function convertFromJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiMan
         if (matchingVariant) {
           // If variant has a payload, we can't convert from string alone
           if (matchingVariant.payload) {
-            throw new Error(
-              `Cannot convert string enum value "${value}" for variant "${matchingVariant.name}" with payload. Variants with payload must be provided as objects.`
+            throw new SerializationError(
+              ErrorCode.SERIALIZATION_TYPE_MISMATCH,
+              `Cannot convert string enum value "${value}" for variant "${matchingVariant.name}" with payload. Variants with payload must be provided as objects.`,
+              { variantName: matchingVariant.name, value }
             );
           }
           // Return the normalized variant name (correct casing) for consistency
           return matchingVariant.name;
         }
         // If no match found, throw an error for invalid enum values
-        throw new Error(
-          `Invalid variant value "${value}" for variant type ${typeName}. Valid variants: ${typeDef.variants.map(v => v.name).join(', ')}`
+        throw AbiError.variantMismatch(
+          typeName,
+          value,
+          typeDef.variants.map(v => v.name)
         );
       }
       // If it's an object, return as-is (variants are typically represented as objects with a discriminator)
@@ -179,9 +201,7 @@ function convertFromJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiMan
         return value;
       }
       // For other types, throw an error (consistent with api.ts)
-      throw new Error(
-        `Expected object or string for variant type ${typeName}, got ${typeof value}`
-      );
+      throw SerializationError.typeMismatch(`object or string (variant ${typeName})`, typeof value);
     }
 
     // Handle alias types
@@ -221,22 +241,30 @@ function readPayload(methodName?: string): unknown {
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     log(`[dispatcher] readPayload: failed to parse JSON for ${methodName}: ${errorMsg}`);
-    throw new Error(`Failed to parse JSON parameters: ${errorMsg}`);
+    throw DispatcherError.jsonParseError(
+      methodName ?? 'unknown',
+      errorMsg,
+      error instanceof Error ? error : undefined
+    );
   }
 
   // ABI-aware conversion is required
   if (!methodName) {
-    throw new Error('Method name is required for parameter conversion');
+    throw new DispatcherError(
+      ErrorCode.DISPATCHER_INVALID_PARAMS,
+      'Method name is required for parameter conversion',
+      {}
+    );
   }
 
   const abi = getAbiManifest();
   if (!abi) {
-    throw new Error('ABI manifest is required but not available');
+    throw AbiError.notAvailable();
   }
 
   const method = getMethod(abi, methodName);
   if (!method) {
-    throw new Error(`Method ${methodName} not found in ABI`);
+    throw DispatcherError.methodNotFound(methodName);
   }
 
   if (method.params.length === 0) {
@@ -334,7 +362,11 @@ function readPayload(methodName?: string): unknown {
       // Multiple parameters - deserialize each parameter individually
       // JSON payload should be an object with keys matching parameter names
       if (typeof jsonValue !== 'object' || jsonValue === null || Array.isArray(jsonValue)) {
-        throw new Error(`Expected object for multiple parameters, got ${typeof jsonValue}`);
+        throw DispatcherError.invalidParams(
+          methodName,
+          `expected object for multiple parameters, got ${typeof jsonValue}`,
+          { actualType: typeof jsonValue }
+        );
       }
       const jsonObj = jsonValue as Record<string, unknown>;
 

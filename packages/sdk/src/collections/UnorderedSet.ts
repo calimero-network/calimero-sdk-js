@@ -18,6 +18,7 @@ import {
   setClear,
 } from '../runtime/storage-wasm';
 import { nestedTracker } from '../runtime/nested-tracking';
+import { StorageError, ValidationError } from '../errors';
 
 export interface UnorderedSetOptions<T> {
   id?: Uint8Array | string;
@@ -117,7 +118,11 @@ function bytesToHex(bytes: Uint8Array): string {
 function hexToBytes(hex: string): Uint8Array {
   const normalized = hex.trim().toLowerCase();
   if (normalized.length !== 64 || !/^[0-9a-f]+$/.test(normalized)) {
-    throw new TypeError('UnorderedSet id hex string must be 64 hexadecimal characters');
+    throw ValidationError.invalidFormat(
+      'UnorderedSet id',
+      '64 hexadecimal characters',
+      `got ${normalized.length} characters`
+    );
   }
 
   const bytes = new Uint8Array(normalized.length / 2);
@@ -130,7 +135,10 @@ function hexToBytes(hex: string): Uint8Array {
 function normalizeId(id: Uint8Array | string): Uint8Array {
   if (id instanceof Uint8Array) {
     if (id.length !== 32) {
-      throw new TypeError('UnorderedSet id must be 32 bytes');
+      throw StorageError.invalidId('UnorderedSet', 'id must be 32 bytes', {
+        actualLength: id.length,
+        expectedLength: 32,
+      });
     }
     return new Uint8Array(id);
   }

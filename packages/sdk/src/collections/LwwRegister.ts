@@ -5,6 +5,7 @@
 import { serialize, deserialize } from '../utils/serialize';
 import { lwwNew, lwwSet, lwwGet, lwwTimestamp } from '../runtime/storage-wasm';
 import { registerCollectionType, CollectionSnapshot } from '../runtime/collections';
+import { StorageError, ValidationError } from '../errors';
 
 export interface LwwRegisterOptions<T> {
   id?: Uint8Array | string;
@@ -81,7 +82,11 @@ function bytesToHex(bytes: Uint8Array): string {
 function hexToBytes(hex: string): Uint8Array {
   const normalized = hex.trim().toLowerCase();
   if (normalized.length !== 64 || !/^[0-9a-f]+$/.test(normalized)) {
-    throw new TypeError('LwwRegister id hex string must be 64 hexadecimal characters');
+    throw ValidationError.invalidFormat(
+      'LwwRegister id',
+      '64 hexadecimal characters',
+      `got ${normalized.length} characters`
+    );
   }
 
   const bytes = new Uint8Array(normalized.length / 2);
@@ -94,7 +99,10 @@ function hexToBytes(hex: string): Uint8Array {
 function normalizeId(id: Uint8Array | string): Uint8Array {
   if (id instanceof Uint8Array) {
     if (id.length !== 32) {
-      throw new TypeError('LwwRegister id must be 32 bytes');
+      throw StorageError.invalidId('LwwRegister', 'id must be 32 bytes', {
+        actualLength: id.length,
+        expectedLength: 32,
+      });
     }
     return new Uint8Array(id);
   }

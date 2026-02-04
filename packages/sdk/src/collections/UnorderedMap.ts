@@ -21,6 +21,7 @@ import {
 import { mergeMergeableValues } from '../runtime/mergeable';
 import { getMergeableType } from '../runtime/mergeable-registry';
 import { nestedTracker } from '../runtime/nested-tracking';
+import { StorageError, ValidationError } from '../errors';
 
 const SENTINEL_KEY = '__calimeroCollection';
 
@@ -145,14 +146,21 @@ export class UnorderedMap<K, V> {
 function normalizeMapId(id: Uint8Array | string): Uint8Array {
   if (id instanceof Uint8Array) {
     if (id.length !== 32) {
-      throw new TypeError('Map id must be 32 bytes');
+      throw StorageError.invalidId('UnorderedMap', 'id must be 32 bytes', {
+        actualLength: id.length,
+        expectedLength: 32,
+      });
     }
     return new Uint8Array(id);
   }
 
   const cleaned = id.trim().toLowerCase();
   if (cleaned.length !== 64 || !/^[0-9a-f]+$/.test(cleaned)) {
-    throw new TypeError('Map id hex string must be 64 hexadecimal characters');
+    throw ValidationError.invalidFormat(
+      'UnorderedMap id',
+      '64 hexadecimal characters',
+      `got ${cleaned.length} characters`
+    );
   }
   return hexToBytes(cleaned);
 }
