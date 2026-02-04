@@ -145,12 +145,7 @@ export class CalimeroError extends Error {
  * ```
  */
 export class SerializationError extends CalimeroError {
-  constructor(
-    code: ErrorCode,
-    message: string,
-    context?: Record<string, unknown>,
-    cause?: Error
-  ) {
+  constructor(code: ErrorCode, message: string, context?: Record<string, unknown>, cause?: Error) {
     super(code, message, { context, cause });
     this.name = 'SerializationError';
   }
@@ -209,12 +204,7 @@ export class SerializationError extends CalimeroError {
  * ```
  */
 export class StorageError extends CalimeroError {
-  constructor(
-    code: ErrorCode,
-    message: string,
-    context?: Record<string, unknown>,
-    cause?: Error
-  ) {
+  constructor(code: ErrorCode, message: string, context?: Record<string, unknown>, cause?: Error) {
     super(code, message, { context, cause });
     this.name = 'StorageError';
   }
@@ -222,12 +212,15 @@ export class StorageError extends CalimeroError {
   /**
    * Creates an error for invalid collection ID
    */
-  static invalidId(collectionType: string, reason: string, details?: Record<string, unknown>): StorageError {
-    return new StorageError(
-      ErrorCode.STORAGE_INVALID_ID,
-      `${collectionType}: ${reason}`,
-      { collectionType, ...details }
-    );
+  static invalidId(
+    collectionType: string,
+    reason: string,
+    details?: Record<string, unknown>
+  ): StorageError {
+    return new StorageError(ErrorCode.STORAGE_INVALID_ID, `${collectionType}: ${reason}`, {
+      collectionType,
+      ...details,
+    });
   }
 
   /**
@@ -274,12 +267,7 @@ export class StorageError extends CalimeroError {
  * ```
  */
 export class ValidationError extends CalimeroError {
-  constructor(
-    code: ErrorCode,
-    message: string,
-    context?: Record<string, unknown>,
-    cause?: Error
-  ) {
+  constructor(code: ErrorCode, message: string, context?: Record<string, unknown>, cause?: Error) {
     super(code, message, { context, cause });
     this.name = 'ValidationError';
   }
@@ -299,11 +287,11 @@ export class ValidationError extends CalimeroError {
    * Creates an error for range validation failure
    */
   static outOfRange(paramName: string, constraint: string, actual?: unknown): ValidationError {
-    return new ValidationError(
-      ErrorCode.VALIDATION_RANGE_ERROR,
-      `${paramName} ${constraint}`,
-      { paramName, constraint, actual }
-    );
+    return new ValidationError(ErrorCode.VALIDATION_RANGE_ERROR, `${paramName} ${constraint}`, {
+      paramName,
+      constraint,
+      actual,
+    });
   }
 
   /**
@@ -321,7 +309,11 @@ export class ValidationError extends CalimeroError {
   /**
    * Creates an error for invalid format
    */
-  static invalidFormat(paramName: string, expectedFormat: string, details?: string): ValidationError {
+  static invalidFormat(
+    paramName: string,
+    expectedFormat: string,
+    details?: string
+  ): ValidationError {
     const detailsInfo = details ? `: ${details}` : '';
     return new ValidationError(
       ErrorCode.VALIDATION_INVALID_FORMAT,
@@ -350,12 +342,7 @@ export class ValidationError extends CalimeroError {
  * ```
  */
 export class DispatcherError extends CalimeroError {
-  constructor(
-    code: ErrorCode,
-    message: string,
-    context?: Record<string, unknown>,
-    cause?: Error
-  ) {
+  constructor(code: ErrorCode, message: string, context?: Record<string, unknown>, cause?: Error) {
     super(code, message, { context, cause });
     this.name = 'DispatcherError';
   }
@@ -374,7 +361,11 @@ export class DispatcherError extends CalimeroError {
   /**
    * Creates an error for invalid parameters
    */
-  static invalidParams(methodName: string, reason: string, details?: Record<string, unknown>): DispatcherError {
+  static invalidParams(
+    methodName: string,
+    reason: string,
+    details?: Record<string, unknown>
+  ): DispatcherError {
     return new DispatcherError(
       ErrorCode.DISPATCHER_INVALID_PARAMS,
       `Invalid parameters for method '${methodName}': ${reason}`,
@@ -386,11 +377,7 @@ export class DispatcherError extends CalimeroError {
    * Creates an error for state-related issues
    */
   static stateError(reason: string): DispatcherError {
-    return new DispatcherError(
-      ErrorCode.DISPATCHER_STATE_ERROR,
-      reason,
-      {}
-    );
+    return new DispatcherError(ErrorCode.DISPATCHER_STATE_ERROR, reason, {});
   }
 
   /**
@@ -424,12 +411,7 @@ export class DispatcherError extends CalimeroError {
  * ```
  */
 export class AbiError extends CalimeroError {
-  constructor(
-    code: ErrorCode,
-    message: string,
-    context?: Record<string, unknown>,
-    cause?: Error
-  ) {
+  constructor(code: ErrorCode, message: string, context?: Record<string, unknown>, cause?: Error) {
     super(code, message, { context, cause });
     this.name = 'AbiError';
   }
@@ -449,22 +431,19 @@ export class AbiError extends CalimeroError {
    * Creates an error for type not found in ABI
    */
   static typeNotFound(typeName: string): AbiError {
-    return new AbiError(
-      ErrorCode.ABI_TYPE_NOT_FOUND,
-      `Type '${typeName}' not found in ABI`,
-      { typeName }
-    );
+    return new AbiError(ErrorCode.ABI_TYPE_NOT_FOUND, `Type '${typeName}' not found in ABI`, {
+      typeName,
+    });
   }
 
   /**
    * Creates an error for invalid type reference
    */
   static invalidTypeRef(reason: string, typeRef?: unknown): AbiError {
-    return new AbiError(
-      ErrorCode.ABI_INVALID_TYPE_REF,
-      `Invalid type reference: ${reason}`,
-      { reason, typeRef }
-    );
+    return new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, `Invalid type reference: ${reason}`, {
+      reason,
+      typeRef,
+    });
   }
 
   /**

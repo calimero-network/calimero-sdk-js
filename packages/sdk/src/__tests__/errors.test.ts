@@ -58,11 +58,10 @@ describe('CalimeroError', () => {
 
 describe('SerializationError', () => {
   it('should create via constructor', () => {
-    const error = new SerializationError(
-      ErrorCode.SERIALIZATION_TYPE_MISMATCH,
-      'Type mismatch',
-      { expectedType: 'number', actualType: 'string' }
-    );
+    const error = new SerializationError(ErrorCode.SERIALIZATION_TYPE_MISMATCH, 'Type mismatch', {
+      expectedType: 'number',
+      actualType: 'string',
+    });
 
     expect(error).toBeInstanceOf(CalimeroError);
     expect(error).toBeInstanceOf(SerializationError);
@@ -226,7 +225,9 @@ describe('DispatcherError', () => {
     const error = DispatcherError.jsonParseError('updateUser', 'invalid JSON', cause);
 
     expect(error.code).toBe(ErrorCode.DISPATCHER_JSON_PARSE_ERROR);
-    expect(error.message).toBe("Failed to parse JSON parameters for method 'updateUser': invalid JSON");
+    expect(error.message).toBe(
+      "Failed to parse JSON parameters for method 'updateUser': invalid JSON"
+    );
     expect(error.cause).toBe(cause);
   });
 });
@@ -294,9 +295,9 @@ describe('isCalimeroError', () => {
     expect(isCalimeroError(new ValidationError(ErrorCode.VALIDATION_TYPE_ERROR, 'test'))).toBe(
       true
     );
-    expect(isCalimeroError(new DispatcherError(ErrorCode.DISPATCHER_METHOD_NOT_FOUND, 'test'))).toBe(
-      true
-    );
+    expect(
+      isCalimeroError(new DispatcherError(ErrorCode.DISPATCHER_METHOD_NOT_FOUND, 'test'))
+    ).toBe(true);
     expect(isCalimeroError(new AbiError(ErrorCode.ABI_NOT_AVAILABLE, 'test'))).toBe(true);
   });
 

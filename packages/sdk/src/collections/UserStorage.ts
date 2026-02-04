@@ -36,7 +36,7 @@ import {
 import { mergeMergeableValues } from '../runtime/mergeable';
 import { getMergeableType } from '../runtime/mergeable-registry';
 import { nestedTracker } from '../runtime/nested-tracking';
-import { StorageError, ValidationError, ErrorCode } from '../errors';
+import { StorageError, ValidationError } from '../errors';
 
 const SENTINEL_KEY = '__calimeroCollection';
 const PUBLIC_KEY_LENGTH = 32;

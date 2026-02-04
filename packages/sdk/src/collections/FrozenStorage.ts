@@ -196,10 +196,7 @@ export class FrozenStorage<T> {
    * @throws StorageError always - frozen storage is immutable
    */
   remove(_hash: Hash): never {
-    throw StorageError.operationForbidden(
-      'FrozenStorage.remove',
-      'data is immutable'
-    );
+    throw StorageError.operationForbidden('FrozenStorage.remove', 'data is immutable');
   }
 
   /**

@@ -289,11 +289,9 @@ function convertToJsonCompatible(
     }
     const innerType = typeRef.inner || typeRef.items;
     if (!innerType) {
-      throw new AbiError(
-        ErrorCode.ABI_INVALID_TYPE_REF,
-        `Missing inner type for ${typeRef.kind}`,
-        { typeKind: typeRef.kind }
-      );
+      throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, `Missing inner type for ${typeRef.kind}`, {
+        typeKind: typeRef.kind,
+      });
     }
     const result = value.map(item => convertToJsonCompatible(item, innerType, abi, path));
     // Remove from path after processing (backtrack)
@@ -329,11 +327,9 @@ function convertToJsonCompatible(
     const items = value instanceof Set ? Array.from(value) : value;
     const innerType = typeRef.inner || typeRef.items;
     if (!innerType) {
-      throw new AbiError(
-        ErrorCode.ABI_INVALID_TYPE_REF,
-        'Missing inner type for set',
-        { typeKind: 'set' }
-      );
+      throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, 'Missing inner type for set', {
+        typeKind: 'set',
+      });
     }
     const result = items.map(item => convertToJsonCompatible(item, innerType, abi, path));
     // Remove from path after processing (backtrack)
@@ -347,11 +343,9 @@ function convertToJsonCompatible(
   if (typeRef.kind === 'reference' || typeRef.$ref) {
     const typeName = typeRef.name || typeRef.$ref;
     if (!typeName) {
-      throw new AbiError(
-        ErrorCode.ABI_INVALID_TYPE_REF,
-        'Missing type name for reference',
-        { typeRef }
-      );
+      throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, 'Missing type name for reference', {
+        typeRef,
+      });
     }
     const typeDef = abi.types[typeName];
     if (!typeDef) {
@@ -692,7 +686,11 @@ export function contextCreate(
     throw ValidationError.invalidType('applicationId', 'Uint8Array', typeof applicationId);
   }
   if (applicationId.length !== 32) {
-    throw ValidationError.outOfRange('applicationId', 'must be exactly 32 bytes', applicationId.length);
+    throw ValidationError.outOfRange(
+      'applicationId',
+      'must be exactly 32 bytes',
+      applicationId.length
+    );
   }
   if (!(initArgs instanceof Uint8Array)) {
     throw ValidationError.invalidType('initArgs', 'Uint8Array', typeof initArgs);
@@ -1212,7 +1210,11 @@ export function blobAnnounceToContext(blobId: Uint8Array, targetContextId: Uint8
     throw ValidationError.outOfRange('blobId', 'must be exactly 32 bytes', blobId.length);
   }
   if (targetContextId.length !== 32) {
-    throw ValidationError.outOfRange('targetContextId', 'must be exactly 32 bytes', targetContextId.length);
+    throw ValidationError.outOfRange(
+      'targetContextId',
+      'must be exactly 32 bytes',
+      targetContextId.length
+    );
   }
 
   if (typeof (env as HostEnv).blob_announce_to_context !== 'function') {

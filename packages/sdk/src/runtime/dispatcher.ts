@@ -3,12 +3,7 @@ import { StateManager } from './state-manager';
 import { runtimeLogicEntries } from './method-registry';
 import { getAbiManifest, getMethod } from '../abi/helpers';
 import type { TypeRef, AbiManifest, ScalarType, Variant } from '../abi/types';
-import {
-  SerializationError,
-  DispatcherError,
-  AbiError,
-  ErrorCode,
-} from '../errors';
+import { SerializationError, DispatcherError, AbiError, ErrorCode } from '../errors';
 import './sync';
 
 type JsonObject = Record<string, unknown>;
@@ -96,11 +91,9 @@ function convertFromJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiMan
     }
     const innerType = typeRef.inner || typeRef.items;
     if (!innerType) {
-      throw new AbiError(
-        ErrorCode.ABI_INVALID_TYPE_REF,
-        `Missing inner type for ${typeRef.kind}`,
-        { typeKind: typeRef.kind }
-      );
+      throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, `Missing inner type for ${typeRef.kind}`, {
+        typeKind: typeRef.kind,
+      });
     }
     return value.map(item => convertFromJsonCompatible(item, innerType, abi));
   }
@@ -128,11 +121,9 @@ function convertFromJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiMan
     }
     const innerType = typeRef.inner || typeRef.items;
     if (!innerType) {
-      throw new AbiError(
-        ErrorCode.ABI_INVALID_TYPE_REF,
-        'Missing inner type for set',
-        { typeKind: 'set' }
-      );
+      throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, 'Missing inner type for set', {
+        typeKind: 'set',
+      });
     }
     return value.map(item => convertFromJsonCompatible(item, innerType, abi));
   }
@@ -141,11 +132,9 @@ function convertFromJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiMan
   if (typeRef.kind === 'reference' || typeRef.$ref) {
     const typeName = typeRef.name || typeRef.$ref;
     if (!typeName) {
-      throw new AbiError(
-        ErrorCode.ABI_INVALID_TYPE_REF,
-        'Missing type name for reference',
-        { typeRef }
-      );
+      throw new AbiError(ErrorCode.ABI_INVALID_TYPE_REF, 'Missing type name for reference', {
+        typeRef,
+      });
     }
     const typeDef = abi.types[typeName];
     if (!typeDef) {
