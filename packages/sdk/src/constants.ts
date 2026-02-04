@@ -29,11 +29,6 @@ export const PUBLIC_KEY_LENGTH = 32;
 export const CONTEXT_ID_LENGTH = 32;
 
 /**
- * Length of executor identifiers in bytes.
- */
-export const EXECUTOR_ID_LENGTH = 32;
-
-/**
  * Length of application identifiers in bytes.
  */
 export const APPLICATION_ID_LENGTH = 32;
