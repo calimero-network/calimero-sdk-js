@@ -1,0 +1,532 @@
+{
+  "bounties": [
+    {
+      "title": "Add size limits to Borsh deserialization to prevent DoS attacks",
+      "description": "The BorshReader in `packages/sdk/src/borsh/decoder.ts` and `deserializeJsValue` in `packages/sdk/src/utils/borsh-value.ts` do not enforce size or depth limits when deserializing. A malicious payload with deeply nested structures or extremely large arrays could exhaust memory or cause stack overflows. Add configurable limits for recursion depth, array length, and total bytes read.",
+      "pathHint": "packages/sdk/src/borsh/decoder.ts",
+      "estimatedMinutes": 60,
+      "category": "security",
+      "severity": "critical"
+    },
+    {
+      "title": "Validate ABI manifest integrity before execution",
+      "description": "The ABI manifest embedded in WASM (`builder.c`) and read at runtime (`abi/helpers.ts`) is used for serialization without cryptographic verification. An attacker who can modify the WASM could alter the ABI to cause type confusion. Add integrity verification (hash check) of the embedded ABI against expected values before trusting it for serialization.",
+      "pathHint": "packages/sdk/src/abi/helpers.ts",
+      "estimatedMinutes": 75,
+      "category": "security",
+      "severity": "critical"
+    },
+    {
+      "title": "Implement input validation for JSON parameter conversion in dispatcher",
+      "description": "In `packages/sdk/src/runtime/dispatcher.ts`, the `convertFromJsonCompatible` function performs type conversions from JSON to ABI-compatible types but lacks bounds checking. For example, string-to-bigint conversion doesn't validate that the string represents a valid number within the type's range (u64 max, i64 bounds). Add validation to prevent overflow/underflow vulnerabilities.",
+      "pathHint": "packages/sdk/src/runtime/dispatcher.ts",
+      "estimatedMinutes": 60,
+      "category": "security",
+      "severity": "high"
+    },
+    {
+      "title": "Add rate limiting or execution timeouts for method dispatching",
+      "description": "The dispatcher in `packages/sdk/src/runtime/dispatcher.ts` executes JavaScript methods without any timeout mechanism. A malicious or buggy method could run indefinitely, causing DoS. Implement configurable execution timeouts using QuickJS runtime limits or host-side timeouts via `builder.c`.",
+      "pathHint": "packages/sdk/src/runtime/dispatcher.ts",
+      "estimatedMinutes": 90,
+      "category": "security",
+      "severity": "high"
+    },
+    {
+      "title": "Sanitize error messages before logging to prevent sensitive data leaks",
+      "description": "Error handling in `handleError` (`dispatcher.ts`) and `calimero_log_exception` (`builder.c`) logs full exception messages and stack traces. These could contain sensitive data from state or parameters. Implement error sanitization that strips potentially sensitive information before logging while preserving debugging context.",
+      "pathHint": "packages/sdk/src/runtime/dispatcher.ts",
+      "estimatedMinutes": 45,
+      "category": "security",
+      "severity": "high"
+    },
+    {
+      "title": "Implement proper typed error system across SDK",
+      "description": "The SDK uses string errors (throw new Error(message)) throughout. This makes error handling inconsistent and difficult to programmatically handle. Create a typed error hierarchy (e.g., SerializationError, StorageError, ValidationError) with error codes, and update all throw sites. This affects `dispatcher.ts`, `api.ts`, `abi-serialize.ts`, and collections.",
+      "pathHint": "packages/sdk/src",
+      "estimatedMinutes": 90,
+      "category": "design-flaw",
+      "severity": "high"
+    },
+    {
+      "title": "Fix state serialization race condition between save and flushDelta",
+      "description": "In `createLogicDispatcher` (`dispatcher.ts`), state is saved twice: once before `flushDelta()` and once after. This creates a potential race condition where the delta might not include all state changes. Refactor to use a single atomic save operation that ensures consistency between state snapshot and delta.",
+      "pathHint": "packages/sdk/src/runtime/dispatcher.ts",
+      "estimatedMinutes": 60,
+      "category": "concurrency",
+      "severity": "high"
+    },
+    {
+      "title": "Add validation for collection IDs to prevent ID collision attacks",
+      "description": "Collection classes (UnorderedMap, Vector, etc.) accept arbitrary 32-byte IDs via `fromId()`. There's no validation that IDs are unique or properly derived. A malicious actor could craft an ID that collides with existing collections. Implement ID derivation from deterministic hashes and validate uniqueness.",
+      "pathHint": "packages/sdk/src/collections/UnorderedMap.ts",
+      "estimatedMinutes": 75,
+      "category": "security",
+      "severity": "high"
+    },
+    {
+      "title": "Implement consistent StateManager initialization across decorator paths",
+      "description": "StateManager (`state-manager.ts`) uses both `setStateClass()` from `@State` decorator and implicit state creation in dispatcher. The initialization order depends on decorator execution timing which varies. Consolidate initialization to a single, explicit path to prevent undefined behavior.",
+      "pathHint": "packages/sdk/src/runtime/state-manager.ts",
+      "estimatedMinutes": 60,
+      "category": "design-flaw",
+      "severity": "high"
+    },
+    {
+      "title": "Add missing unit tests for CRDT collection operations",
+      "description": "The test file `tests/unit/collections.test.ts` contains only placeholder tests (\"should be implemented in Phase 2\"). Implement comprehensive unit tests for UnorderedMap, Vector, Counter, UnorderedSet, and LwwRegister covering edge cases: empty collections, large values, concurrent operations simulation, and error conditions.",
+      "pathHint": "tests/unit/collections.test.ts",
+      "estimatedMinutes": 90,
+      "category": "tests",
+      "severity": "high"
+    },
+    {
+      "title": "Fix potential memory leak in nested collection tracking",
+      "description": "The `nestedTracker` in `packages/sdk/src/runtime/nested-tracking.ts` registers collections but doesn't clearly define cleanup lifecycle. When collections are removed from parent maps, the tracker might retain references. Implement proper cleanup using WeakRef or explicit deregistration.",
+      "pathHint": "packages/sdk/src/runtime/nested-tracking.ts",
+      "estimatedMinutes": 60,
+      "category": "bug",
+      "severity": "high"
+    },
+    {
+      "title": "Implement graceful shutdown handling in CLI build process",
+      "description": "The build command in `packages/cli/src/commands/build.ts` uses synchronous execSync for compilers. If interrupted (SIGINT/SIGTERM), temporary files in outputDir may be left in inconsistent state. Implement signal handlers to clean up build artifacts on termination and use proper async process management.",
+      "pathHint": "packages/cli/src/commands/build.ts",
+      "estimatedMinutes": 45,
+      "category": "bug",
+      "severity": "medium"
+    },
+    {
+      "title": "Add bounds checking for vector index access",
+      "description": "The Vector class `get(index)` in `packages/sdk/src/collections/Vector.ts` passes the index directly to host without validating if it's within bounds. While the host may handle this, negative indices or very large indices should be caught early with clear error messages. Add client-side validation.",
+      "pathHint": "packages/sdk/src/collections/Vector.ts",
+      "estimatedMinutes": 30,
+      "category": "bug",
+      "severity": "medium"
+    },
+    {
+      "title": "Consolidate duplicate bytesToHex/hexToBytes implementations",
+      "description": "The utility functions `bytesToHex` and `hexToBytes` are duplicated across multiple files: UnorderedMap.ts, Vector.ts, Counter.ts, api.ts. Extract these to a shared utility module in `packages/sdk/src/utils/` and update all imports. This reduces code duplication and ensures consistent behavior.",
+      "pathHint": "packages/sdk/src/utils",
+      "estimatedMinutes": 45,
+      "category": "code-quality",
+      "severity": "medium"
+    },
+    {
+      "title": "Add missing .cursorrules file for AI-assisted development",
+      "description": "The repository lacks a `.cursorrules` or `.cursor/rules` file that would help AI assistants understand project conventions. Create a rules file covering: TypeScript conventions, SDK structure, decorator patterns, test requirements, commit message format, and where key modules live.",
+      "pathHint": ".cursorrules",
+      "estimatedMinutes": 45,
+      "category": "docs",
+      "severity": "medium"
+    },
+    {
+      "title": "Implement proper async/await error boundaries in CLI",
+      "description": "The CLI commands use async functions but lack proper error boundaries. In `packages/cli/src/commands/build.ts`, errors thrown during async operations may not be caught by the top-level try/catch. Add proper async error handling with finally blocks for cleanup.",
+      "pathHint": "packages/cli/src/commands/build.ts",
+      "estimatedMinutes": 45,
+      "category": "bug",
+      "severity": "medium"
+    },
+    {
+      "title": "Add validation for ABI type references to prevent undefined type errors",
+      "description": "The `resolveTypeRef` function in `packages/sdk/src/abi/helpers.ts` can return undefined if a type reference points to a non-existent type. Many call sites don't check for this. Add consistent validation and throw descriptive errors when types are missing from the ABI manifest.",
+      "pathHint": "packages/sdk/src/abi/helpers.ts",
+      "estimatedMinutes": 45,
+      "category": "bug",
+      "severity": "medium"
+    },
+    {
+      "title": "Fix incorrect i16 signed conversion in Borsh deserializer",
+      "description": "In `packages/sdk/src/utils/abi-serialize.ts`, the i16 deserialization uses `u16 > 32767` check which is correct, but the serialization uses `value & 0xffff` without checking if the value is within i16 range (-32768 to 32767). Add range validation to prevent silent truncation.",
+      "pathHint": "packages/sdk/src/utils/abi-serialize.ts",
+      "estimatedMinutes": 30,
+      "category": "bug",
+      "severity": "medium"
+    },
+    {
+      "title": "Implement retry logic for WASI-SDK download failures",
+      "description": "The CLI's postinstall script downloads build dependencies (QuickJS, WASI-SDK, Binaryen) but has no retry logic for transient network failures. In `packages/cli/src/utils/download.ts`, implement exponential backoff retry (3 attempts) for download operations.",
+      "pathHint": "packages/cli/src/utils/download.ts",
+      "estimatedMinutes": 45,
+      "category": "bug",
+      "severity": "medium"
+    },
+    {
+      "title": "Add clear documentation for View vs Mutation method semantics",
+      "description": "The `@View()` decorator in `packages/sdk/src/decorators/view.ts` lacks JSDoc explaining the semantic difference from mutations. View methods skip state persistence but this isn't clear from the decorator definition. Add comprehensive JSDoc and update the docs/collections.md with examples.",
+      "pathHint": "packages/sdk/src/decorators/view.ts",
+      "estimatedMinutes": 30,
+      "category": "docs",
+      "severity": "medium"
+    },
+    {
+      "title": "Implement CLI validate command functionality",
+      "description": "The `validate` command in `packages/cli/src/commands/validate.ts` exists but likely has incomplete implementation (TODO status in cli.ts init command suggests incomplete features). Complete the validation to check: decorator usage, state structure, ABI compatibility, and known anti-patterns.",
+      "pathHint": "packages/cli/src/commands/validate.ts",
+      "estimatedMinutes": 75,
+      "category": "improvement",
+      "severity": "medium"
+    },
+    {
+      "title": "Fix inconsistent null handling in LwwRegister",
+      "description": "The LwwRegister in `packages/sdk/src/collections/LwwRegister.ts` handles null differently between `set()` (accepts null to clear) and `get()` (returns null for unset). The null semantics should be explicitly documented and tested. Add explicit null handling tests and JSDoc.",
+      "pathHint": "packages/sdk/src/collections/LwwRegister.ts",
+      "estimatedMinutes": 45,
+      "category": "bug",
+      "severity": "medium"
+    },
+    {
+      "title": "Add property-based tests for serialization round-trips",
+      "description": "The Borsh serialization code in `packages/sdk/src/borsh/` and `packages/sdk/src/utils/abi-serialize.ts` lacks property-based testing. Add fast-check or similar library to generate random valid values and verify serialize(deserialize(x)) == x for all types.",
+      "pathHint": "packages/sdk/src/__tests__/serialization.test.ts",
+      "estimatedMinutes": 75,
+      "category": "tests",
+      "severity": "medium"
+    },
+    {
+      "title": "Extract magic numbers and constants to named values",
+      "description": "Multiple files use magic numbers: COLLECTION_ID_LENGTH = 32 (storage-wasm.ts), alias max length = 64 (api.ts), register ID = 0n (multiple files). Create a constants file in `packages/sdk/src/constants.ts` and replace all magic numbers with named exports.",
+      "pathHint": "packages/sdk/src/constants.ts",
+      "estimatedMinutes": 45,
+      "category": "code-quality",
+      "severity": "medium"
+    },
+    {
+      "title": "Add integration tests for nested collection change propagation",
+      "description": "The nested collection tracking system in `packages/sdk/src/runtime/nested-tracking.ts` claims to handle automatic change propagation for Map<K, Set<V>> patterns. There are no tests verifying this behavior. Add integration tests covering: nested map/set/vector combinations, modification detection, and state persistence.",
+      "pathHint": "tests/integration",
+      "estimatedMinutes": 75,
+      "category": "tests",
+      "severity": "medium"
+    },
+    {
+      "title": "Implement init command to scaffold new Calimero projects",
+      "description": "The CLI `init` command in `packages/cli/src/cli.ts` has a TODO placeholder. Implement the scaffolding to create: package.json with dependencies, tsconfig.json, src/index.ts with template based on --template flag (counter, kv-store), and build scripts.",
+      "pathHint": "packages/cli/src/cli.ts",
+      "estimatedMinutes": 75,
+      "category": "improvement",
+      "severity": "medium"
+    },
+    {
+      "title": "Add event payload size limits to prevent DoS",
+      "description": "The `emit` and `emitWithHandler` functions in `packages/sdk/src/events/emitter.ts` serialize event payloads without size limits. Very large payloads could exhaust memory or network bandwidth. Add configurable max payload size with clear error messages when exceeded.",
+      "pathHint": "packages/sdk/src/events/emitter.ts",
+      "estimatedMinutes": 45,
+      "category": "security",
+      "severity": "medium"
+    },
+    {
+      "title": "Fix potential undefined behavior in xcall parameter serialization",
+      "description": "The `xcall` function in `packages/sdk/src/env/api.ts` accepts arbitrary Uint8Array params without validation. If params contain malformed data, the target context will fail. Add optional schema validation parameter and clearer error messages for xcall failures.",
+      "pathHint": "packages/sdk/src/env/api.ts",
+      "estimatedMinutes": 45,
+      "category": "bug",
+      "severity": "medium"
+    },
+    {
+      "title": "Consolidate JSON stringification logic between api.ts and dispatcher.ts",
+      "description": "Both `safeJsonStringify` in api.ts and JSON handling in dispatcher.ts implement circular reference detection with slight differences. Extract to a shared utility to ensure consistent behavior and reduce code duplication.",
+      "pathHint": "packages/sdk/src/utils",
+      "estimatedMinutes": 45,
+      "category": "code-quality",
+      "severity": "medium"
+    },
+    {
+      "title": "Add explicit cleanup for QuickJS runtime in builder.c",
+      "description": "In `packages/cli/builder/builder.c`, the DEFINE_CALIMERO_METHOD macro creates and frees QuickJS runtime per method call. However, if JS_Call throws and panics, cleanup may be skipped. Ensure cleanup runs even on panic paths using atexit or restructured error handling.",
+      "pathHint": "packages/cli/builder/builder.c",
+      "estimatedMinutes": 60,
+      "category": "bug",
+      "severity": "medium"
+    },
+    {
+      "title": "Implement version compatibility checking for state format",
+      "description": "The state format in `packages/sdk/src/runtime/root.ts` uses a version byte (currently 1). However, there's no forward compatibility handling - newer versions would cause cryptic errors. Add explicit version mismatch detection with migration suggestions.",
+      "pathHint": "packages/sdk/src/runtime/root.ts",
+      "estimatedMinutes": 45,
+      "category": "bug",
+      "severity": "medium"
+    },
+    {
+      "title": "Add schema validation for workflow YAML files",
+      "description": "Example workflow files in `examples/*/workflows/*.yml` are validated by merobox at runtime but have no schema file. Create a JSON schema for workflow files and add validation to CI. This helps catch errors early and enables IDE autocomplete.",
+      "pathHint": "examples",
+      "estimatedMinutes": 60,
+      "category": "improvement",
+      "severity": "low"
+    },
+    {
+      "title": "Fix inconsistent error handling in storage-wasm.ts",
+      "description": "The `decodeError` function in `packages/sdk/src/runtime/storage-wasm.ts` always throws but some call sites check status codes before calling it while others don't. Standardize the pattern: either always check status first, or make decodeError check internally.",
+      "pathHint": "packages/sdk/src/runtime/storage-wasm.ts",
+      "estimatedMinutes": 30,
+      "category": "code-quality",
+      "severity": "low"
+    },
+    {
+      "title": "Add JSDoc documentation for all public API exports",
+      "description": "The main entry point `packages/sdk/src/index.ts` re-exports many symbols without JSDoc. Add comprehensive JSDoc comments with @example tags for all public exports: decorators, env functions, event helpers, and StateManager.",
+      "pathHint": "packages/sdk/src/index.ts",
+      "estimatedMinutes": 60,
+      "category": "docs",
+      "severity": "low"
+    },
+    {
+      "title": "Implement Counter decrement operation",
+      "description": "The Counter CRDT in `packages/sdk/src/collections/Counter.ts` only supports `increment()` and `incrementBy()`. While G-Counters are grow-only by design, document this clearly and consider adding a PN-Counter variant that supports decrement for use cases that need it.",
+      "pathHint": "packages/sdk/src/collections/Counter.ts",
+      "estimatedMinutes": 75,
+      "category": "improvement",
+      "severity": "low"
+    },
+    {
+      "title": "Add telemetry hooks for debugging CRDT operations",
+      "description": "CRDT collection operations in `packages/sdk/src/collections/` go directly to host functions with minimal logging. Add optional debug/telemetry hooks that can be enabled to trace all collection operations for debugging complex state issues.",
+      "pathHint": "packages/sdk/src/collections",
+      "estimatedMinutes": 60,
+      "category": "improvement",
+      "severity": "low"
+    },
+    {
+      "title": "Fix UnorderedSet missing clear method documentation",
+      "description": "The UnorderedSet collection has a `clear()` method (via storage-wasm setClear) but it's not documented. Add JSDoc explaining the behavior and potential CRDT implications (tombstones, sync behavior) when clearing a set.",
+      "pathHint": "packages/sdk/src/collections/UnorderedSet.ts",
+      "estimatedMinutes": 30,
+      "category": "docs",
+      "severity": "low"
+    },
+    {
+      "title": "Implement caching for ABI manifest parsing",
+      "description": "The `getAbiManifest()` function in `packages/sdk/src/abi/helpers.ts` may re-parse the JSON manifest on each call. Add caching to parse once and reuse, improving performance for methods that access ABI frequently.",
+      "pathHint": "packages/sdk/src/abi/helpers.ts",
+      "estimatedMinutes": 30,
+      "category": "improvement",
+      "severity": "low"
+    },
+    {
+      "title": "Add Windows/WSL setup verification script",
+      "description": "The README mentions Windows requires WSL but there's no verification script. Create a script in `scripts/` that checks: WSL version, Node.js availability, pnpm setup, and required build tools. Run it from postinstall on Windows.",
+      "pathHint": "scripts",
+      "estimatedMinutes": 45,
+      "category": "improvement",
+      "severity": "low"
+    },
+    {
+      "title": "Consolidate test configuration files",
+      "description": "Jest configuration is duplicated across `packages/sdk/jest.config.js`, `tests/unit/jest.config.js`, and `tests/integration/jest.config.js` with slight variations. Create a shared base config and extend it in each location to reduce duplication.",
+      "pathHint": "jest.config.js",
+      "estimatedMinutes": 30,
+      "category": "code-quality",
+      "severity": "low"
+    },
+    {
+      "title": "Add example for private storage with encryption",
+      "description": "The `createPrivateEntry` function in `packages/sdk/src/state/private.ts` stores data locally but doesn't encrypt it. Add documentation and an example showing how to combine private storage with encryption for sensitive data.",
+      "pathHint": "examples/private-data",
+      "estimatedMinutes": 60,
+      "category": "docs",
+      "severity": "low"
+    },
+    {
+      "title": "Implement FrozenStorage iteration support",
+      "description": "FrozenStorage in `packages/sdk/src/collections/FrozenStorage.ts` supports `add()`, `get()`, `contains()` but lacks iteration. Add `entries()` or `values()` methods to iterate over all stored values, similar to other collection types.",
+      "pathHint": "packages/sdk/src/collections/FrozenStorage.ts",
+      "estimatedMinutes": 45,
+      "category": "improvement",
+      "severity": "low"
+    },
+    {
+      "title": "Add source maps support for debugging WASM builds",
+      "description": "The build pipeline in `packages/cli/src/compiler/` doesn't generate source maps for debugging the compiled WASM. Investigate adding DWARF debug info or source maps to enable debugging TypeScript in the QuickJS/WASM environment.",
+      "pathHint": "packages/cli/src/compiler/wasm.ts",
+      "estimatedMinutes": 90,
+      "category": "improvement",
+      "severity": "low"
+    },
+    {
+      "title": "Fix eslint warnings in codebase",
+      "description": "The ESLint configuration exists but some files may have suppressed warnings. Run `pnpm lint` and fix or properly document any remaining warnings. Update `.eslintrc.json` rules if needed to match project conventions.",
+      "pathHint": ".eslintrc.json",
+      "estimatedMinutes": 45,
+      "category": "code-quality",
+      "severity": "low"
+    },
+    {
+      "title": "Add example demonstrating cross-context calls (xcall)",
+      "description": "The `examples/xcall/` directory exists but the example may be incomplete. Ensure it demonstrates: creating multiple contexts, setting up xcall handlers, passing parameters, and handling responses. Add workflow tests.",
+      "pathHint": "examples/xcall",
+      "estimatedMinutes": 60,
+      "category": "docs",
+      "severity": "low"
+    },
+    {
+      "title": "Implement blob streaming for large file handling",
+      "description": "The blob API functions in `packages/sdk/src/env/api.ts` (blobCreate, blobWrite, blobRead, blobClose) exist but lack high-level streaming helpers. Add utility functions for streaming large files in chunks rather than loading entirely in memory.",
+      "pathHint": "packages/sdk/src/env/api.ts",
+      "estimatedMinutes": 60,
+      "category": "improvement",
+      "severity": "low"
+    },
+    {
+      "title": "Add changelog and release notes automation",
+      "description": "The repository uses semantic-release (`.releaserc.json` files) but lacks documented changelog. Configure conventional-changelog-conventionalcommits to generate CHANGELOG.md automatically from commits and add release notes template.",
+      "pathHint": "CHANGELOG.md",
+      "estimatedMinutes": 45,
+      "category": "config",
+      "severity": "low"
+    },
+    {
+      "title": "Implement batch operations for collections",
+      "description": "Collection operations (set, get, remove) are single-item. For performance, add batch methods like `setMany()`, `getMany()`, `removeMany()` that minimize host call overhead when operating on multiple items.",
+      "pathHint": "packages/sdk/src/collections/UnorderedMap.ts",
+      "estimatedMinutes": 75,
+      "category": "improvement",
+      "severity": "low"
+    },
+    {
+      "title": "Add collection size limits to prevent memory exhaustion",
+      "description": "Collections like UnorderedMap and Vector have no size limits. A malicious or buggy service could create unbounded collections. Add optional configurable limits with clear error messages when exceeded.",
+      "pathHint": "packages/sdk/src/collections",
+      "estimatedMinutes": 60,
+      "category": "security",
+      "severity": "medium"
+    },
+    {
+      "title": "Fix sha256 implementation potential timing side channel",
+      "description": "The sha256 implementation in `packages/sdk/src/utils/sha256.ts` is used for FrozenStorage hashing. Pure JS crypto implementations may have timing side channels. Document the security implications or consider using host-provided hashing if available.",
+      "pathHint": "packages/sdk/src/utils/sha256.ts",
+      "estimatedMinutes": 45,
+      "category": "security",
+      "severity": "low"
+    },
+    {
+      "title": "Add documentation for Mergeable decorator and merge semantics",
+      "description": "The `@Mergeable()` decorator in `packages/sdk/src/decorators/mergeable.ts` is marked experimental with minimal documentation. Add comprehensive docs explaining: when to use it, merge semantics, limitations, and interaction with CRDT collections.",
+      "pathHint": "docs/mergeable-js.md",
+      "estimatedMinutes": 60,
+      "category": "docs",
+      "severity": "low"
+    },
+    {
+      "title": "Implement collection lazy loading for large datasets",
+      "description": "Collection `entries()` methods load all data into memory. For large collections, add lazy iteration support that fetches items in batches using cursors or pagination.",
+      "pathHint": "packages/sdk/src/collections",
+      "estimatedMinutes": 90,
+      "category": "improvement",
+      "severity": "medium"
+    },
+    {
+      "title": "Add CI job to verify example WASM sizes stay reasonable",
+      "description": "WASM output size affects deployment and cold start. Add a CI check in `.github/workflows/ci.yml` that verifies built examples stay under size thresholds (e.g., 1MB) with warnings for size regressions.",
+      "pathHint": ".github/workflows/ci.yml",
+      "estimatedMinutes": 45,
+      "category": "ci",
+      "severity": "low"
+    },
+    {
+      "title": "Fix method registry not extracting parameter types for overloaded methods",
+      "description": "The method registry in `packages/sdk/src/runtime/method-registry.ts` and ABI emitter may not handle TypeScript function overloads correctly. Verify and fix parameter extraction for methods with multiple signatures.",
+      "pathHint": "packages/sdk/src/runtime/method-registry.ts",
+      "estimatedMinutes": 60,
+      "category": "bug",
+      "severity": "medium"
+    },
+    {
+      "title": "Add support for custom serialization hooks",
+      "description": "The serialization system (`abi-serialize.ts`, `borsh-value.ts`) doesn't allow custom type serializers. Add a registration mechanism for custom types so users can serialize complex types not covered by built-in support.",
+      "pathHint": "packages/sdk/src/utils/abi-serialize.ts",
+      "estimatedMinutes": 75,
+      "category": "improvement",
+      "severity": "low"
+    },
+    {
+      "title": "Implement API versioning for host function compatibility",
+      "description": "Host functions in `packages/sdk/src/env/bindings.ts` assume a specific host version. Add version detection and compatibility checks so SDKs can gracefully handle missing or changed host functions.",
+      "pathHint": "packages/sdk/src/env/bindings.ts",
+      "estimatedMinutes": 60,
+      "category": "design-flaw",
+      "severity": "medium"
+    },
+    {
+      "title": "Add structured logging with levels instead of console.log/env.log",
+      "description": "Logging throughout the SDK uses `env.log()` directly without log levels or structured data. Implement a logger with levels (debug, info, warn, error) and structured JSON output for better observability.",
+      "pathHint": "packages/sdk/src",
+      "estimatedMinutes": 60,
+      "category": "improvement",
+      "severity": "low"
+    },
+    {
+      "title": "Fix polyfill text-encoding imported but may not work in all QuickJS builds",
+      "description": "The polyfill in `packages/sdk/src/polyfills/text-encoding.ts` is imported in api.ts but QuickJS may have native TextEncoder/TextDecoder. Verify polyfill necessity and add conditional loading to avoid overhead.",
+      "pathHint": "packages/sdk/src/polyfills/text-encoding.ts",
+      "estimatedMinutes": 30,
+      "category": "code-quality",
+      "severity": "low"
+    },
+    {
+      "title": "Add CI matrix for different pnpm and Node.js versions",
+      "description": "CI in `.github/workflows/ci.yml` tests Node 18.x and 20.x but doesn't test different pnpm versions. Add pnpm version matrix to catch compatibility issues early, especially for lockfile format changes.",
+      "pathHint": ".github/workflows/ci.yml",
+      "estimatedMinutes": 30,
+      "category": "ci",
+      "severity": "low"
+    },
+    {
+      "title": "Implement dependency update automation with Renovate or Dependabot",
+      "description": "The repository lacks automated dependency updates. Configure Renovate or Dependabot to automatically create PRs for dependency updates with appropriate grouping and auto-merge for patch versions.",
+      "pathHint": ".github",
+      "estimatedMinutes": 45,
+      "category": "config",
+      "severity": "low"
+    },
+    {
+      "title": "Add performance benchmarks for serialization and collection operations",
+      "description": "The codebase lacks performance benchmarks. Add benchmark tests using `benny` or similar to track serialization speed, collection operation latency, and WASM execution overhead across versions.",
+      "pathHint": "tests/benchmarks",
+      "estimatedMinutes": 75,
+      "category": "tests",
+      "severity": "low"
+    },
+    {
+      "title": "Fix state-schema-conformance example verification script",
+      "description": "The `examples/state-schema-conformance/verify-state-schema.sh` script exists but may have incomplete implementation. Verify it correctly validates generated state schemas against expected format.",
+      "pathHint": "examples/state-schema-conformance/verify-state-schema.sh",
+      "estimatedMinutes": 30,
+      "category": "bug",
+      "severity": "low"
+    },
+    {
+      "title": "Add TypeScript strict mode and fix resulting type errors",
+      "description": "The tsconfig.json may not enable all strict mode options. Enable `strict: true` and fix any resulting type errors to improve type safety throughout the codebase.",
+      "pathHint": "tsconfig.json",
+      "estimatedMinutes": 60,
+      "category": "code-quality",
+      "severity": "low"
+    },
+    {
+      "title": "Implement context isolation for parallel method executions",
+      "description": "The StateManager uses static class methods which could cause issues if methods execute in parallel (unlikely in WASM but possible in tests). Consider instance-based state management for better isolation.",
+      "pathHint": "packages/sdk/src/runtime/state-manager.ts",
+      "estimatedMinutes": 60,
+      "category": "design-flaw",
+      "severity": "low"
+    },
+    {
+      "title": "Add API reference documentation generation",
+      "description": "The docs/api-reference.md is mentioned in README but may be manually maintained. Set up TypeDoc or similar to auto-generate API documentation from JSDoc comments and integrate with docs build.",
+      "pathHint": "docs/api-reference.md",
+      "estimatedMinutes": 60,
+      "category": "docs",
+      "severity": "low"
+    },
+    {
+      "title": "Fix inconsistent return types between collections",
+      "description": "Different collections return inconsistent types: UnorderedMap.get returns `V | null`, Vector.get returns `T | null`, but entries() returns arrays. Standardize on consistent patterns (Option type, iterator protocol).",
+      "pathHint": "packages/sdk/src/collections",
+      "estimatedMinutes": 60,
+      "category": "design-flaw",
+      "severity": "low"
+    }
+  ]
+}

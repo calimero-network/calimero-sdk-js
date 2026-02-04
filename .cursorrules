@@ -1,0 +1,121 @@
+# Calimero JavaScript SDK - Cursor Rules
+
+## Project Overview
+
+This is the JavaScript/TypeScript SDK for building Calimero P2P applications. The SDK compiles TypeScript services to WebAssembly via QuickJS, enabling decentralized stateful applications with CRDT-based state synchronization.
+
+## Architecture
+
+```
+TypeScript Service → Rollup Bundle → QuickJS Bytecode → WASM Binary
+                                                      ↓
+                                        Calimero Runtime (CRDT sync, P2P)
+```
+
+Key components:
+- **packages/sdk/** - Core SDK with decorators, collections, and runtime
+- **packages/cli/** - Build toolchain (TypeScript → WASM)
+- **examples/** - Reference implementations
+- **tests/** - Unit and integration tests
+
+## Coding Conventions
+
+### TypeScript
+- Use explicit types for public API methods and exports
+- Prefer `unknown` over `any` for unsafe values
+- Use strict null checks (`value ?? default`)
+- Document public APIs with JSDoc including @example
+
+### Decorators
+- `@State` marks the root state class
+- `@Logic(StateClass)` links logic to state
+- `@Init` marks the initialization method (static)
+- `@View()` marks read-only methods (no state persistence)
+- `@Event` marks event payload classes
+
+### Collections (CRDTs)
+- Collections are host-backed via `storage-wasm.ts`
+- Never construct collections with `new` in user code, use factory functions
+- Collections have 32-byte IDs, validated by `ensureCollectionId`
+- Changes are tracked via `nestedTracker` for automatic propagation
+
+### Serialization
+- Method parameters: JSON from host → ABI-aware conversion
+- Return values: ABI-aware → JSON to host
+- State persistence: Borsh format with ABI types
+- Use `serializeWithAbi` for Rust-compatible serialization
+
+### Error Handling
+- Throw `Error` with descriptive messages
+- Include context: function name, parameter values, expected vs actual
+- Log errors with `env.log()` before throwing for debugging
+
+## File Patterns
+
+### Adding a new collection type
+1. Create `packages/sdk/src/collections/NewType.ts`
+2. Add host bindings in `packages/sdk/src/runtime/storage-wasm.ts`
+3. Add TypeScript types in `packages/sdk/src/env/bindings.ts`
+4. Add C wrappers in `packages/cli/builder/builder.c`
+5. Register with `registerCollectionType()`
+6. Export from `packages/sdk/src/collections/index.ts`
+7. Add tests in `packages/sdk/src/__tests__/collections/`
+
+### Adding a new decorator
+1. Create `packages/sdk/src/decorators/newdecorator.ts`
+2. Register metadata that the dispatcher can read
+3. Export from `packages/sdk/src/index.ts`
+4. Add tests in `packages/sdk/src/__tests__/decorators.test.ts`
+5. Document usage in JSDoc and docs/
+
+### Fixing serialization bugs
+1. Identify the layer: borsh/, utils/abi-serialize.ts, utils/borsh-value.ts
+2. Write a failing test first
+3. Fix the issue
+4. Verify round-trip: serialize(deserialize(x)) === x
+5. Check edge cases: null, undefined, empty, max values
+
+## Testing
+
+```bash
+# Run all tests
+pnpm test
+
+# Run specific test file
+pnpm --filter @calimero-network/calimero-sdk-js exec jest <path>
+
+# Run with coverage
+pnpm --filter @calimero-network/calimero-sdk-js exec jest --coverage
+```
+
+- Unit tests: Pure TypeScript logic, mock host functions
+- Integration tests: Full ABI/serialization chains
+- E2E tests: Require merobox and Calimero runtime
+
+## Commits
+
+Use conventional commit format:
+- `feat(scope):` New features
+- `fix(scope):` Bug fixes
+- `docs:` Documentation only
+- `refactor(scope):` Code changes without behavior change
+- `test:` Adding or updating tests
+- `chore:` Build, CI, dependencies
+
+## Common Issues
+
+### "ABI manifest is required"
+The ABI must be embedded during build. Rebuild with `npx calimero-sdk build`.
+
+### "env is not defined"
+Running SDK code outside WASM context. Use mocks for unit tests.
+
+### Host function signature mismatch
+Check `packages/sdk/src/env/bindings.ts` matches `builder.c` extern declarations.
+
+## Reference
+
+- Borsh spec: https://borsh.io/
+- QuickJS: https://bellard.org/quickjs/
+- CRDT theory: https://crdt.tech/
+- Calimero docs: https://docs.calimero.network
