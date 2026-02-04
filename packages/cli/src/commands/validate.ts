@@ -10,7 +10,6 @@
 
 import signale from 'signale';
 import * as fs from 'fs';
-import * as path from 'path';
 import { parse } from '@babel/parser';
 import traverseModule from '@babel/traverse';
 
@@ -387,7 +386,7 @@ function isCalimeroDecorator(decorator: any, name: string): boolean {
 /**
  * Validate decorator usage
  */
-function validateDecoratorUsage(ctx: ValidationContext, options: ValidateOptions): void {
+function validateDecoratorUsage(ctx: ValidationContext, _options: ValidateOptions): void {
   // Check for at least one @State class
   if (ctx.stateClasses.size === 0) {
     ctx.issues.push({
@@ -467,7 +466,7 @@ function validateDecoratorUsage(ctx: ValidationContext, options: ValidateOptions
 /**
  * Validate state structure
  */
-function validateStateStructure(ctx: ValidationContext, options: ValidateOptions): void {
+function validateStateStructure(ctx: ValidationContext, _options: ValidateOptions): void {
   for (const [stateName, stateInfo] of ctx.stateClasses) {
     // Check that state fields use CRDT types
     for (const field of stateInfo.fields) {
@@ -524,7 +523,7 @@ function validateStateStructure(ctx: ValidationContext, options: ValidateOptions
 /**
  * Validate ABI compatibility
  */
-function validateAbiCompatibility(ctx: ValidationContext, options: ValidateOptions): void {
+function validateAbiCompatibility(ctx: ValidationContext, _options: ValidateOptions): void {
   for (const [, logicInfo] of ctx.logicClasses) {
     for (const method of logicInfo.methods) {
       // Skip private methods and constructor
@@ -569,7 +568,7 @@ function validateAbiCompatibility(ctx: ValidationContext, options: ValidateOptio
 /**
  * Check for known anti-patterns
  */
-function checkAntiPatterns(ctx: ValidationContext, options: ValidateOptions): void {
+function checkAntiPatterns(ctx: ValidationContext, _options: ValidateOptions): void {
   for (const [logicName, logicInfo] of ctx.logicClasses) {
     // Check that logic class extends state class
     if (logicInfo.stateClass && logicInfo.extendsClass !== logicInfo.stateClass) {

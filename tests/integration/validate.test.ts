@@ -4,9 +4,11 @@
  * Tests the validation functionality for Calimero service contracts
  */
 
-import * as path from 'path';
-import * as fs from 'fs';
 import { parse } from '@babel/parser';
+import traverseModule from '@babel/traverse';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const traverse = (traverseModule as any).default || traverseModule;
 
 // Import validation helper types
 interface ValidationIssue {
@@ -53,8 +55,6 @@ function validateSource(source: string): ValidationContext {
   };
 
   // Traverse and collect decorated classes
-  const traverse = require('@babel/traverse').default || require('@babel/traverse');
-
   traverse(ast, {
     ClassDeclaration(nodePath: any) {
       analyzeClass(nodePath.node, ctx);
