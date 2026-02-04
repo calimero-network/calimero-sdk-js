@@ -2,6 +2,7 @@
  * Counter - G-Counter (Grow-only Counter) CRDT backed by the Rust host implementation.
  */
 
+import { bytesToHex, hexToBytes } from '../utils/hex';
 import {
   counterNew,
   counterIncrement,
@@ -84,25 +85,6 @@ registerCollectionType(
   (snapshot: CollectionSnapshot) => new Counter({ id: snapshot.id })
 );
 
-function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes)
-    .map(byte => byte.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  const normalized = hex.trim().toLowerCase();
-  if (normalized.length !== 64 || !/^[0-9a-f]+$/.test(normalized)) {
-    throw new TypeError('Counter id hex string must be 64 hexadecimal characters');
-  }
-
-  const bytes = new Uint8Array(normalized.length / 2);
-  for (let i = 0; i < normalized.length; i += 2) {
-    bytes[i / 2] = parseInt(normalized.slice(i, i + 2), 16);
-  }
-  return bytes;
-}
-
 function normalizeId(id: Uint8Array | string): Uint8Array {
   if (id instanceof Uint8Array) {
     if (id.length !== 32) {
@@ -111,7 +93,11 @@ function normalizeId(id: Uint8Array | string): Uint8Array {
     return new Uint8Array(id);
   }
 
-  return hexToBytes(id);
+  const cleaned = id.trim().toLowerCase();
+  if (cleaned.length !== 64) {
+    throw new TypeError('Counter id hex string must be 64 hexadecimal characters');
+  }
+  return hexToBytes(cleaned);
 }
 
 function normalizeAmount(amount: number | bigint): number {

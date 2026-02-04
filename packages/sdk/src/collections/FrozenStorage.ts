@@ -9,6 +9,7 @@
  */
 
 import { serialize } from '../utils/serialize';
+import { bytesToHex, hexToBytes } from '../utils/hex';
 import { sha256 } from '../utils/sha256';
 import { BorshWriter } from '../borsh/encoder';
 import { deserializeBorshWithFallback } from '../utils/borsh-value';
@@ -293,22 +294,6 @@ function normalizeMapId(id: Uint8Array | string): Uint8Array {
     throw new TypeError('Storage id hex string must be 64 hexadecimal characters');
   }
   return hexToBytes(cleaned);
-}
-
-function bytesToHex(bytes: Uint8Array): string {
-  let out = '';
-  for (let i = 0; i < bytes.length; i += 1) {
-    out += bytes[i].toString(16).padStart(2, '0');
-  }
-  return out;
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
-  }
-  return bytes;
 }
 
 registerCollectionType('FrozenStorage', (snapshot: CollectionSnapshot) =>

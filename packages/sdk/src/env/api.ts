@@ -7,6 +7,7 @@
 
 import '../polyfills/text-encoding';
 
+import { bytesToHex } from '../utils/hex';
 import type { HostEnv } from './bindings';
 import { getAbiManifest, getMethod } from '../abi/helpers';
 import type { TypeRef, AbiManifest, ScalarType, Variant } from '../abi/types';
@@ -763,14 +764,6 @@ export function executorIdHex(): string {
 export function executorIdBase58(): string {
   const id = executorId();
   return bytesToBase58(id);
-}
-
-function bytesToHex(bytes: Uint8Array): string {
-  let out = '';
-  for (let i = 0; i < bytes.length; i += 1) {
-    out += bytes[i].toString(16).padStart(2, '0');
-  }
-  return out;
 }
 
 function bytesToBase58(bytes: Uint8Array): string {
