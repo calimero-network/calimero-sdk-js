@@ -536,7 +536,9 @@ function createLogicDispatcher(
 
     let logicInstance: any;
     try {
-      let state = StateManager.load();
+      // Pass explicit state class to ensure consistent initialization
+      // regardless of decorator execution order
+      let state = StateManager.load(stateCtor);
 
       if (!state && stateCtor) {
         state = new stateCtor();
@@ -611,7 +613,9 @@ function createInitDispatcher(
 
     let state: any;
     try {
-      const existing = StateManager.load();
+      // Pass explicit state class to ensure consistent initialization
+      // regardless of decorator execution order
+      const existing = StateManager.load(stateCtor);
       if (existing) {
         panic('Contract state already initialized');
       }
