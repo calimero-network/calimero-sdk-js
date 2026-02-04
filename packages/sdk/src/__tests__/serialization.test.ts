@@ -329,11 +329,14 @@ describe('Property-based serialization round-trips', () => {
 
     it('round-trips arrays of primitives', () => {
       fc.assert(
-        fc.property(fc.array(fc.oneof(fc.string(), fc.double({ noNaN: true }), fc.boolean())), value => {
-          const bytes = serialize(value);
-          const decoded = deserialize<unknown[]>(bytes);
-          expect(decoded).toEqual(value);
-        })
+        fc.property(
+          fc.array(fc.oneof(fc.string(), fc.double({ noNaN: true }), fc.boolean())),
+          value => {
+            const bytes = serialize(value);
+            const decoded = deserialize<unknown[]>(bytes);
+            expect(decoded).toEqual(value);
+          }
+        )
       );
     });
 
@@ -593,7 +596,11 @@ describe('Property-based serialization round-trips', () => {
     it('handles Date objects by converting to ISO string', () => {
       fc.assert(
         fc.property(
-          fc.date({ min: new Date('1970-01-01'), max: new Date('2100-12-31'), noInvalidDate: true }),
+          fc.date({
+            min: new Date('1970-01-01'),
+            max: new Date('2100-12-31'),
+            noInvalidDate: true,
+          }),
           value => {
             // Skip invalid dates
             if (isNaN(value.getTime())) {
@@ -611,20 +618,23 @@ describe('Property-based serialization round-trips', () => {
   describe('BorshWriter/BorshReader vector operations', () => {
     it('round-trips vectors of u32', () => {
       fc.assert(
-        fc.property(fc.array(fc.integer({ min: 0, max: 4294967295 }), { maxLength: 100 }), items => {
-          const writer = new BorshWriter();
-          writer.writeVec(items, item => writer.writeU32(item));
-          const bytes = writer.toBytes();
+        fc.property(
+          fc.array(fc.integer({ min: 0, max: 4294967295 }), { maxLength: 100 }),
+          items => {
+            const writer = new BorshWriter();
+            writer.writeVec(items, item => writer.writeU32(item));
+            const bytes = writer.toBytes();
 
-          const reader = new BorshReader(bytes);
-          const length = reader.readU32();
-          const decoded: number[] = [];
-          for (let i = 0; i < length; i++) {
-            decoded.push(reader.readU32());
+            const reader = new BorshReader(bytes);
+            const length = reader.readU32();
+            const decoded: number[] = [];
+            for (let i = 0; i < length; i++) {
+              decoded.push(reader.readU32());
+            }
+
+            expect(decoded).toEqual(items);
           }
-
-          expect(decoded).toEqual(items);
-        })
+        )
       );
     });
 
