@@ -10,4 +10,12 @@ module.exports = {
     '^@calimero-network/calimero-sdk-js/(.*)$': '<rootDir>/../../packages/sdk/src/$1',
     '^@calimero-network/calimero-cli-js$': '<rootDir>/../../packages/cli/src/cli.ts',
   },
+  transform: {
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        tsconfig: '<rootDir>/tsconfig.json',
+      },
+    ],
+  },
 };
