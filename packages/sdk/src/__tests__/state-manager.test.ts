@@ -86,7 +86,7 @@ describe('StateManager', () => {
 
       // But load is called with explicit class (from dispatcher)
       // This should initialize with the explicit class if not already initialized
-      const result = StateManager.load(AnotherState);
+      const _result = StateManager.load(AnotherState);
 
       // In this case, TestState was already set via decorator
       // So load should still use TestState (since it was initialized first)
