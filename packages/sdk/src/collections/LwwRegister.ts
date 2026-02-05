@@ -3,7 +3,7 @@
  */
 
 import { serialize, deserialize } from '../utils/serialize';
-import { bytesToHex, hexToBytes } from '../utils/hex';
+import { bytesToHex, normalizeCollectionId } from '../utils/hex';
 import { lwwNew, lwwSet, lwwGet, lwwTimestamp } from '../runtime/storage-wasm';
 import { registerCollectionType, CollectionSnapshot } from '../runtime/collections';
 
@@ -17,7 +17,7 @@ export class LwwRegister<T> {
 
   constructor(options: LwwRegisterOptions<T> = {}) {
     if (options.id) {
-      this.registerId = normalizeId(options.id);
+      this.registerId = normalizeCollectionId(options.id, 'LwwRegister');
     } else {
       this.registerId = lwwNew();
     }
@@ -72,18 +72,3 @@ registerCollectionType(
   'LwwRegister',
   (snapshot: CollectionSnapshot) => new LwwRegister({ id: snapshot.id })
 );
-
-function normalizeId(id: Uint8Array | string): Uint8Array {
-  if (id instanceof Uint8Array) {
-    if (id.length !== 32) {
-      throw new TypeError('LwwRegister id must be 32 bytes');
-    }
-    return new Uint8Array(id);
-  }
-
-  const cleaned = id.trim().toLowerCase();
-  if (cleaned.length !== 64) {
-    throw new TypeError('LwwRegister id hex string must be 64 hexadecimal characters');
-  }
-  return hexToBytes(cleaned);
-}

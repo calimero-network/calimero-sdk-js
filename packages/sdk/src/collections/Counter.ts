@@ -2,7 +2,7 @@
  * Counter - G-Counter (Grow-only Counter) CRDT backed by the Rust host implementation.
  */
 
-import { bytesToHex, hexToBytes } from '../utils/hex';
+import { bytesToHex, hexToBytes, normalizeCollectionId } from '../utils/hex';
 import {
   counterNew,
   counterIncrement,
@@ -20,7 +20,7 @@ export class Counter {
 
   constructor(options: CounterOptions = {}) {
     if (options.id) {
-      this.counterId = normalizeId(options.id);
+      this.counterId = normalizeCollectionId(options.id, 'Counter');
     } else {
       this.counterId = counterNew();
     }
@@ -65,10 +65,15 @@ export class Counter {
    * If no executor ID is provided, the current executor is used.
    */
   getExecutorCount(executorId?: string): number {
-    const value = counterGetExecutorCount(
-      this.counterId,
-      executorId ? hexToBytes(executorId) : undefined
-    );
+    let executorIdBytes: Uint8Array | undefined;
+    if (executorId) {
+      const cleaned = executorId.trim().toLowerCase();
+      if (cleaned.length !== 64 || !/^[0-9a-f]+$/.test(cleaned)) {
+        throw new TypeError('Executor id hex string must be 64 hexadecimal characters');
+      }
+      executorIdBytes = hexToBytes(cleaned);
+    }
+    const value = counterGetExecutorCount(this.counterId, executorIdBytes);
     return Number(value);
   }
 
@@ -84,21 +89,6 @@ registerCollectionType(
   'Counter',
   (snapshot: CollectionSnapshot) => new Counter({ id: snapshot.id })
 );
-
-function normalizeId(id: Uint8Array | string): Uint8Array {
-  if (id instanceof Uint8Array) {
-    if (id.length !== 32) {
-      throw new TypeError('Counter id must be 32 bytes');
-    }
-    return new Uint8Array(id);
-  }
-
-  const cleaned = id.trim().toLowerCase();
-  if (cleaned.length !== 64) {
-    throw new TypeError('Counter id hex string must be 64 hexadecimal characters');
-  }
-  return hexToBytes(cleaned);
-}
 
 function normalizeAmount(amount: number | bigint): number {
   if (typeof amount === 'bigint') {

@@ -53,3 +53,38 @@ export function hexToBytes(hex: string): Uint8Array {
   }
   return bytes;
 }
+
+/**
+ * Normalizes a collection ID from either a Uint8Array or hex string to a Uint8Array.
+ *
+ * Collection IDs are 32 bytes (256 bits), represented as 64 hexadecimal characters
+ * when in string form.
+ *
+ * @param id - The collection ID as either a 32-byte Uint8Array or 64-character hex string
+ * @param collectionName - The name of the collection type for error messages
+ * @returns A new Uint8Array containing the normalized ID bytes
+ * @throws TypeError if the ID is not exactly 32 bytes or 64 hex characters
+ *
+ * @example
+ * ```typescript
+ * // From hex string
+ * const id1 = normalizeCollectionId("ab".repeat(32), "Counter");
+ *
+ * // From Uint8Array
+ * const id2 = normalizeCollectionId(new Uint8Array(32), "Vector");
+ * ```
+ */
+export function normalizeCollectionId(id: Uint8Array | string, collectionName: string): Uint8Array {
+  if (id instanceof Uint8Array) {
+    if (id.length !== 32) {
+      throw new TypeError(`${collectionName} id must be 32 bytes`);
+    }
+    return new Uint8Array(id);
+  }
+
+  const cleaned = id.trim().toLowerCase();
+  if (cleaned.length !== 64 || !/^[0-9a-f]+$/.test(cleaned)) {
+    throw new TypeError(`${collectionName} id hex string must be 64 hexadecimal characters`);
+  }
+  return hexToBytes(cleaned);
+}

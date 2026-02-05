@@ -3,7 +3,7 @@
  */
 
 import { serialize, deserialize } from '../utils/serialize';
-import { bytesToHex, hexToBytes } from '../utils/hex';
+import { bytesToHex, normalizeCollectionId } from '../utils/hex';
 import { vectorNew, vectorLen, vectorPush, vectorGet, vectorPop } from '../runtime/storage-wasm';
 import {
   registerCollectionType,
@@ -21,7 +21,7 @@ export class Vector<T> {
 
   constructor(options: VectorOptions = {}) {
     if (options.id) {
-      this.vectorId = normalizeId(options.id);
+      this.vectorId = normalizeCollectionId(options.id, 'Vector');
     } else {
       this.vectorId = vectorNew();
     }
@@ -121,18 +121,3 @@ export class Vector<T> {
 }
 
 registerCollectionType('Vector', (snapshot: CollectionSnapshot) => new Vector({ id: snapshot.id }));
-
-function normalizeId(id: Uint8Array | string): Uint8Array {
-  if (id instanceof Uint8Array) {
-    if (id.length !== 32) {
-      throw new TypeError('Vector id must be 32 bytes');
-    }
-    return new Uint8Array(id);
-  }
-
-  const cleaned = id.trim().toLowerCase();
-  if (cleaned.length !== 64) {
-    throw new TypeError('Vector id hex string must be 64 hexadecimal characters');
-  }
-  return hexToBytes(cleaned);
-}

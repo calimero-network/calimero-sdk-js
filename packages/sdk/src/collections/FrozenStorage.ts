@@ -9,7 +9,7 @@
  */
 
 import { serialize } from '../utils/serialize';
-import { bytesToHex, hexToBytes } from '../utils/hex';
+import { bytesToHex, normalizeCollectionId } from '../utils/hex';
 import { sha256 } from '../utils/sha256';
 import { BorshWriter } from '../borsh/encoder';
 import { deserializeBorshWithFallback } from '../utils/borsh-value';
@@ -96,7 +96,7 @@ export class FrozenStorage<T> {
 
   constructor(options: FrozenStorageOptions = {}) {
     if (options.id) {
-      this.mapId = normalizeMapId(options.id);
+      this.mapId = normalizeCollectionId(options.id, 'Storage');
     } else {
       // frozenStorageNew() will throw an error if it fails (via decodeError)
       // No need for try-catch - let the error propagate naturally
@@ -279,21 +279,6 @@ function serializeBorshForHash<T>(value: T): Uint8Array {
 
   // For complex types, fall back to regular serialize (with ValueKind)
   return serialize(value);
-}
-
-function normalizeMapId(id: Uint8Array | string): Uint8Array {
-  if (id instanceof Uint8Array) {
-    if (id.length !== 32) {
-      throw new TypeError('Storage id must be 32 bytes');
-    }
-    return new Uint8Array(id);
-  }
-
-  const cleaned = id.trim().toLowerCase();
-  if (cleaned.length !== 64 || !/^[0-9a-f]+$/.test(cleaned)) {
-    throw new TypeError('Storage id hex string must be 64 hexadecimal characters');
-  }
-  return hexToBytes(cleaned);
 }
 
 registerCollectionType('FrozenStorage', (snapshot: CollectionSnapshot) =>
