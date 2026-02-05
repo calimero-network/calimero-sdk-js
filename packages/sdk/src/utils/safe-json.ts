@@ -1,7 +1,8 @@
 /**
  * Safe JSON Stringification Utilities
  *
- * Provides functions for safe JSON serialization that handles:
+ * Consolidated from api.ts and event.ts to provide a single source of truth
+ * for JSON serialization that handles:
  * - BigInt values (converted to strings)
  * - TypedArrays (converted to regular arrays)
  * - Symbols and functions (converted to null/string)
