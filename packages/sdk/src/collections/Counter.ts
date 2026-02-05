@@ -65,9 +65,7 @@ export class Counter {
    * If no executor ID is provided, the current executor is used.
    */
   getExecutorCount(executorId?: string): number {
-    const executorIdBytes = executorId
-      ? normalizeCollectionId(executorId, 'Executor')
-      : undefined;
+    const executorIdBytes = executorId ? normalizeCollectionId(executorId, 'Executor') : undefined;
     const value = counterGetExecutorCount(this.counterId, executorIdBytes);
     return Number(value);
   }
