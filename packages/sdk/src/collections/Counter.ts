@@ -2,7 +2,7 @@
  * Counter - G-Counter (Grow-only Counter) CRDT backed by the Rust host implementation.
  */
 
-import { bytesToHex, hexToBytes, normalizeCollectionId } from '../utils/hex';
+import { bytesToHex, normalizeCollectionId } from '../utils/hex';
 import {
   counterNew,
   counterIncrement,
@@ -65,14 +65,9 @@ export class Counter {
    * If no executor ID is provided, the current executor is used.
    */
   getExecutorCount(executorId?: string): number {
-    let executorIdBytes: Uint8Array | undefined;
-    if (executorId) {
-      const cleaned = executorId.trim().toLowerCase();
-      if (cleaned.length !== 64 || !/^[0-9a-f]+$/.test(cleaned)) {
-        throw new TypeError('Executor id hex string must be 64 hexadecimal characters');
-      }
-      executorIdBytes = hexToBytes(cleaned);
-    }
+    const executorIdBytes = executorId
+      ? normalizeCollectionId(executorId, 'Executor')
+      : undefined;
     const value = counterGetExecutorCount(this.counterId, executorIdBytes);
     return Number(value);
   }
