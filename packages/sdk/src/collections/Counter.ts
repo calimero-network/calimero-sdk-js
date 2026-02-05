@@ -2,6 +2,7 @@
  * Counter - G-Counter (Grow-only Counter) CRDT backed by the Rust host implementation.
  */
 
+import { bytesToHex, normalizeCollectionId } from '../utils/hex';
 import {
   counterNew,
   counterIncrement,
@@ -19,7 +20,7 @@ export class Counter {
 
   constructor(options: CounterOptions = {}) {
     if (options.id) {
-      this.counterId = normalizeId(options.id);
+      this.counterId = normalizeCollectionId(options.id, 'Counter');
     } else {
       this.counterId = counterNew();
     }
@@ -64,10 +65,8 @@ export class Counter {
    * If no executor ID is provided, the current executor is used.
    */
   getExecutorCount(executorId?: string): number {
-    const value = counterGetExecutorCount(
-      this.counterId,
-      executorId ? hexToBytes(executorId) : undefined
-    );
+    const executorIdBytes = executorId ? normalizeCollectionId(executorId, 'Executor') : undefined;
+    const value = counterGetExecutorCount(this.counterId, executorIdBytes);
     return Number(value);
   }
 
@@ -83,36 +82,6 @@ registerCollectionType(
   'Counter',
   (snapshot: CollectionSnapshot) => new Counter({ id: snapshot.id })
 );
-
-function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes)
-    .map(byte => byte.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  const normalized = hex.trim().toLowerCase();
-  if (normalized.length !== 64 || !/^[0-9a-f]+$/.test(normalized)) {
-    throw new TypeError('Counter id hex string must be 64 hexadecimal characters');
-  }
-
-  const bytes = new Uint8Array(normalized.length / 2);
-  for (let i = 0; i < normalized.length; i += 2) {
-    bytes[i / 2] = parseInt(normalized.slice(i, i + 2), 16);
-  }
-  return bytes;
-}
-
-function normalizeId(id: Uint8Array | string): Uint8Array {
-  if (id instanceof Uint8Array) {
-    if (id.length !== 32) {
-      throw new TypeError('Counter id must be 32 bytes');
-    }
-    return new Uint8Array(id);
-  }
-
-  return hexToBytes(id);
-}
 
 function normalizeAmount(amount: number | bigint): number {
   if (typeof amount === 'bigint') {
