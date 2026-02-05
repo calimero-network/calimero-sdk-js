@@ -17,7 +17,9 @@ import {
   snapshotCollection,
 } from '../../packages/sdk/src/runtime/collections';
 
-// Mock collection ID counter
+// Mock collection ID counter - use random prefix to ensure unique IDs across test runs
+// This avoids cross-test pollution in the global nestedTracker without modifying production code
+let testRunId = '';
 let mockIdCounter = 0;
 
 // In-memory storage for mock collections
@@ -28,20 +30,22 @@ const mockSetStorage = new Map<string, Set<string>>();
 // Track modifications for testing propagation
 const modificationLog: Array<{ type: string; id: string; operation: string }> = [];
 
-// Helper to generate unique IDs
+// Helper to generate unique IDs - uses test run ID to ensure uniqueness across tests
 function generateId(): string {
   mockIdCounter += 1;
-  return `mock-collection-${mockIdCounter}`;
+  return `mock-${testRunId}-${mockIdCounter}`;
 }
 
 // Helper to clear test state
 function clearTestState(): void {
+  // Generate a new test run ID to ensure all collections in this test have unique IDs
+  // This avoids conflicts with any lingering state in the global nestedTracker
+  testRunId = Math.random().toString(36).substring(2, 10);
   mockIdCounter = 0;
   mockStorage.clear();
   mockVectorStorage.clear();
   mockSetStorage.clear();
   modificationLog.length = 0;
-  nestedTracker.reset();
 }
 
 // Mock UnorderedMap class for testing
