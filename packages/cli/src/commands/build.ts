@@ -15,6 +15,7 @@ import {
   generateStateSchema,
 } from '../compiler/abi.js';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 
 const { Signale } = signale;
@@ -141,13 +142,14 @@ function cleanupBuildArtifacts(reason: 'signal' | 'error'): void {
     }
     const displayName = path.relative(outputDir, filePath) || path.basename(filePath);
     try {
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-        signaleInstance?.info(`Removed: ${displayName}`);
+      // Directly attempt deletion - let the catch handle ENOENT for missing files
+      fs.unlinkSync(filePath);
+      signaleInstance?.info(`Removed: ${displayName}`);
+    } catch (e: unknown) {
+      // Ignore ENOENT (file doesn't exist), log other errors at debug level
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
+        signaleInstance?.debug?.(`Failed to remove ${displayName}: ${e}`);
       }
-    } catch (e) {
-      // Best-effort cleanup - log failures at debug level for diagnostics
-      signaleInstance?.debug?.(`Failed to remove ${displayName}: ${e}`);
     }
   }
 
@@ -157,12 +159,14 @@ function cleanupBuildArtifacts(reason: 'signal' | 'error'): void {
 /**
  * Signal handler for graceful shutdown.
  * Cleans up build artifacts and exits with appropriate code.
+ * Exit code is 128 + signal number per POSIX convention.
  */
 function createSignalHandler(signal: NodeJS.Signals): () => void {
   return () => {
     cleanupBuildArtifacts('signal');
-    // Exit codes: 128 + signal number (SIGINT=2 -> 130, SIGTERM=15 -> 143)
-    const exitCode = signal === 'SIGINT' ? 130 : 143;
+    // Calculate exit code using signal number (128 + signal number per POSIX convention)
+    const signalNumber = os.constants.signals[signal] ?? 0;
+    const exitCode = 128 + signalNumber;
     process.exit(exitCode);
   };
 }
@@ -309,10 +313,11 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
       fs.copyFileSync(wasmPath, options.output);
     }
 
-    // Build output is now complete - mark as not building immediately after writing output
-    // This prevents cleanup from deleting successfully built artifacts if post-build
-    // operations (like size calculation or logging) fail
+    // Build output is now complete - mark as not building and remove signal handlers
+    // immediately to prevent the race window where a signal could arrive after
+    // isBuilding=false but before handlers are removed
     buildCleanupState.isBuilding = false;
+    removeSignalHandlers();
 
     // Get final size (informational only - build is already complete)
     const stats = fs.statSync(options.output);
@@ -323,9 +328,12 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
     // Build failed - clean up artifacts on error to avoid inconsistent state
     signale.error('Build failed:', error);
     cleanupBuildArtifacts('error');
+    // Ensure cleanup runs before exiting (process.exit would skip the finally block)
+    removeSignalHandlers();
+    resetBuildCleanupState();
     process.exit(1);
   } finally {
-    // Always remove signal handlers when build completes
+    // Cleanup for normal completion path (handlers may already be removed on success/error)
     removeSignalHandlers();
     resetBuildCleanupState();
   }
