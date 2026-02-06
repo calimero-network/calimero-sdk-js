@@ -74,6 +74,17 @@ export class Vector<T> {
    * Gets the value at the given index.
    */
   get(index: number): T | null {
+    // Validate index is a non-negative integer
+    if (!Number.isInteger(index) || index < 0) {
+      throw new RangeError(`Vector index must be a non-negative integer, got ${index}`);
+    }
+
+    // Validate index is within bounds
+    const length = this.len();
+    if (index >= length) {
+      throw new RangeError(`Vector index ${index} is out of bounds (length: ${length})`);
+    }
+
     const raw = vectorGet(this.vectorId, index, 0n);
     return raw ? deserialize<T>(raw) : null;
   }
