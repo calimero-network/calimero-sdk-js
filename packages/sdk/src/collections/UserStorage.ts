@@ -17,6 +17,7 @@
  */
 
 import { serialize, deserialize } from '../utils/serialize';
+import { bytesToHex, normalizeCollectionId } from '../utils/hex';
 import * as env from '../env/api';
 import {
   userStorageNew,
@@ -36,7 +37,7 @@ import {
 import { mergeMergeableValues } from '../runtime/mergeable';
 import { getMergeableType } from '../runtime/mergeable-registry';
 import { nestedTracker } from '../runtime/nested-tracking';
-import { COLLECTION_ID_LENGTH, PUBLIC_KEY_LENGTH } from '../constants';
+import { PUBLIC_KEY_LENGTH } from '../constants';
 
 const SENTINEL_KEY = '__calimeroCollection';
 
@@ -85,7 +86,7 @@ export class UserStorage<V> {
 
   constructor(options: UserStorageOptions = {}) {
     if (options.id) {
-      this.mapId = normalizeMapId(options.id);
+      this.mapId = normalizeCollectionId(options.id, 'UserStorage');
     } else {
       // userStorageNew() will throw an error if it fails (via decodeError)
       // No need for try-catch - let the error propagate naturally
@@ -302,37 +303,6 @@ function validatePublicKey(key: unknown, operation: string): asserts key is Publ
       `UserStorage.${operation}: key must be exactly ${PUBLIC_KEY_LENGTH} bytes (got ${key.length})`
     );
   }
-}
-
-function normalizeMapId(id: Uint8Array | string): Uint8Array {
-  if (id instanceof Uint8Array) {
-    if (id.length !== COLLECTION_ID_LENGTH) {
-      throw new TypeError(`UserStorage id must be ${COLLECTION_ID_LENGTH} bytes`);
-    }
-    return new Uint8Array(id);
-  }
-
-  const cleaned = id.trim().toLowerCase();
-  if (cleaned.length !== 64 || !/^[0-9a-f]+$/.test(cleaned)) {
-    throw new TypeError('UserStorage id hex string must be 64 hexadecimal characters');
-  }
-  return hexToBytes(cleaned);
-}
-
-function bytesToHex(bytes: Uint8Array): string {
-  let out = '';
-  for (let i = 0; i < bytes.length; i += 1) {
-    out += bytes[i].toString(16).padStart(2, '0');
-  }
-  return out;
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
-  }
-  return bytes;
 }
 
 registerCollectionType('UserStorage', (snapshot: CollectionSnapshot) =>

@@ -9,6 +9,7 @@
  */
 
 import { serialize } from '../utils/serialize';
+import { bytesToHex, normalizeCollectionId } from '../utils/hex';
 import { sha256 } from '../utils/sha256';
 import { BorshWriter } from '../borsh/encoder';
 import { deserializeBorshWithFallback } from '../utils/borsh-value';
@@ -25,7 +26,7 @@ import {
   hasRegisteredCollection,
 } from '../runtime/collections';
 import { nestedTracker } from '../runtime/nested-tracking';
-import { COLLECTION_ID_LENGTH, SHA256_HASH_LENGTH } from '../constants';
+import { SHA256_HASH_LENGTH } from '../constants';
 
 const SENTINEL_KEY = '__calimeroCollection';
 
@@ -96,7 +97,7 @@ export class FrozenStorage<T> {
 
   constructor(options: FrozenStorageOptions = {}) {
     if (options.id) {
-      this.mapId = normalizeMapId(options.id);
+      this.mapId = normalizeCollectionId(options.id, 'Storage');
     } else {
       // frozenStorageNew() will throw an error if it fails (via decodeError)
       // No need for try-catch - let the error propagate naturally
@@ -279,37 +280,6 @@ function serializeBorshForHash<T>(value: T): Uint8Array {
 
   // For complex types, fall back to regular serialize (with ValueKind)
   return serialize(value);
-}
-
-function normalizeMapId(id: Uint8Array | string): Uint8Array {
-  if (id instanceof Uint8Array) {
-    if (id.length !== COLLECTION_ID_LENGTH) {
-      throw new TypeError(`Storage id must be ${COLLECTION_ID_LENGTH} bytes`);
-    }
-    return new Uint8Array(id);
-  }
-
-  const cleaned = id.trim().toLowerCase();
-  if (cleaned.length !== 64 || !/^[0-9a-f]+$/.test(cleaned)) {
-    throw new TypeError('Storage id hex string must be 64 hexadecimal characters');
-  }
-  return hexToBytes(cleaned);
-}
-
-function bytesToHex(bytes: Uint8Array): string {
-  let out = '';
-  for (let i = 0; i < bytes.length; i += 1) {
-    out += bytes[i].toString(16).padStart(2, '0');
-  }
-  return out;
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
-  }
-  return bytes;
 }
 
 registerCollectionType('FrozenStorage', (snapshot: CollectionSnapshot) =>

@@ -4,6 +4,7 @@
  */
 
 import { serialize, deserialize } from '../utils/serialize';
+import { bytesToHex, normalizeCollectionId } from '../utils/hex';
 import * as env from '../env/api';
 import {
   mapNew,
@@ -21,7 +22,6 @@ import {
 import { mergeMergeableValues } from '../runtime/mergeable';
 import { getMergeableType } from '../runtime/mergeable-registry';
 import { nestedTracker } from '../runtime/nested-tracking';
-import { COLLECTION_ID_LENGTH } from '../constants';
 
 const SENTINEL_KEY = '__calimeroCollection';
 
@@ -37,7 +37,7 @@ export class UnorderedMap<K, V> {
 
   constructor(options: UnorderedMapOptions = {}) {
     if (options.id) {
-      this.mapId = normalizeMapId(options.id);
+      this.mapId = normalizeCollectionId(options.id, 'Map');
     } else {
       try {
         this.mapId = mapNew();
@@ -141,37 +141,6 @@ export class UnorderedMap<K, V> {
       id: this.id(),
     };
   }
-}
-
-function normalizeMapId(id: Uint8Array | string): Uint8Array {
-  if (id instanceof Uint8Array) {
-    if (id.length !== COLLECTION_ID_LENGTH) {
-      throw new TypeError(`Map id must be ${COLLECTION_ID_LENGTH} bytes`);
-    }
-    return new Uint8Array(id);
-  }
-
-  const cleaned = id.trim().toLowerCase();
-  if (cleaned.length !== 64 || !/^[0-9a-f]+$/.test(cleaned)) {
-    throw new TypeError('Map id hex string must be 64 hexadecimal characters');
-  }
-  return hexToBytes(cleaned);
-}
-
-function bytesToHex(bytes: Uint8Array): string {
-  let out = '';
-  for (let i = 0; i < bytes.length; i += 1) {
-    out += bytes[i].toString(16).padStart(2, '0');
-  }
-  return out;
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
-  }
-  return bytes;
 }
 
 registerCollectionType('UnorderedMap', (snapshot: CollectionSnapshot) =>

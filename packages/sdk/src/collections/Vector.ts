@@ -3,6 +3,7 @@
  */
 
 import { serialize, deserialize } from '../utils/serialize';
+import { bytesToHex, normalizeCollectionId } from '../utils/hex';
 import { vectorNew, vectorLen, vectorPush, vectorGet, vectorPop } from '../runtime/storage-wasm';
 import {
   registerCollectionType,
@@ -10,7 +11,7 @@ import {
   hasRegisteredCollection,
 } from '../runtime/collections';
 import { nestedTracker } from '../runtime/nested-tracking';
-import { COLLECTION_ID_LENGTH, REGISTER_ID } from '../constants';
+import { REGISTER_ID } from '../constants';
 
 export interface VectorOptions {
   id?: Uint8Array | string;
@@ -21,7 +22,7 @@ export class Vector<T> {
 
   constructor(options: VectorOptions = {}) {
     if (options.id) {
-      this.vectorId = normalizeId(options.id);
+      this.vectorId = normalizeCollectionId(options.id, 'Vector');
     } else {
       this.vectorId = vectorNew();
     }
@@ -121,33 +122,3 @@ export class Vector<T> {
 }
 
 registerCollectionType('Vector', (snapshot: CollectionSnapshot) => new Vector({ id: snapshot.id }));
-
-function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes)
-    .map(byte => byte.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  const normalized = hex.trim().toLowerCase();
-  if (normalized.length !== 64 || !/^[0-9a-f]+$/.test(normalized)) {
-    throw new TypeError('Vector id hex string must be 64 hexadecimal characters');
-  }
-
-  const bytes = new Uint8Array(normalized.length / 2);
-  for (let i = 0; i < normalized.length; i += 2) {
-    bytes[i / 2] = parseInt(normalized.slice(i, i + 2), 16);
-  }
-  return bytes;
-}
-
-function normalizeId(id: Uint8Array | string): Uint8Array {
-  if (id instanceof Uint8Array) {
-    if (id.length !== COLLECTION_ID_LENGTH) {
-      throw new TypeError(`Vector id must be ${COLLECTION_ID_LENGTH} bytes`);
-    }
-    return new Uint8Array(id);
-  }
-
-  return hexToBytes(id);
-}
