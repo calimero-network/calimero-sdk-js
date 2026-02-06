@@ -50,7 +50,7 @@ interface BuildCleanupState {
   outputDir: string | null;
   outputPath: string | null;
   preexistingArtifacts: Set<string>;
-  // Using any type for signale instance to avoid complex generic type constraints
+  // Signale instance for build logging, null when not building
   signaleInstance: ReturnType<typeof createSignaleInstance> | null;
   isBuilding: boolean;
 }
@@ -137,16 +137,15 @@ function cleanupBuildArtifacts(reason: 'signal' | 'error'): void {
     if (preexistingArtifacts.has(filePath)) {
       continue;
     }
+    const displayName = path.relative(outputDir, filePath) || path.basename(filePath);
     try {
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
-        if (signaleInstance) {
-          const displayName = path.relative(outputDir, filePath) || path.basename(filePath);
-          signaleInstance.info(`Removed: ${displayName}`);
-        }
+        signaleInstance?.info(`Removed: ${displayName}`);
       }
-    } catch {
-      // Ignore cleanup errors - best effort cleanup
+    } catch (e) {
+      // Best-effort cleanup - log failures at debug level for diagnostics
+      signaleInstance?.debug?.(`Failed to remove ${displayName}: ${e}`);
     }
   }
 
@@ -308,12 +307,14 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
       fs.copyFileSync(wasmPath, options.output);
     }
 
-    // Get final size
+    // Build output is now complete - mark as not building immediately after writing output
+    // This prevents cleanup from deleting successfully built artifacts if post-build
+    // operations (like size calculation or logging) fail
+    buildCleanupState.isBuilding = false;
+
+    // Get final size (informational only - build is already complete)
     const stats = fs.statSync(options.output);
     const sizeKB = (stats.size / 1024).toFixed(2);
-
-    // Build completed successfully - mark as not building before removing handlers
-    buildCleanupState.isBuilding = false;
 
     signale.success(`Contract built successfully: ${options.output} (${sizeKB} KB)`);
   } catch (error) {
