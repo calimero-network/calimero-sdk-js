@@ -29,19 +29,20 @@ interface BuildOptions {
 /**
  * Known build artifacts that may be created during the build process.
  * Only artifacts created during the current build are eligible for cleanup.
+ * Note: Some artifacts are conditionally created depending on build options.
  */
 const BUILD_ARTIFACTS = [
   'abi.json',
   'abi.h',
-  'state-schema.json',
-  'schema.json',
+  'state-schema.json', // May not exist if state schema generation fails (non-fatal)
+  'schema.json', // May not exist if ABI schema generation fails (non-fatal)
   'bundle.js',
   '__calimero_entry.ts',
   'methods.c',
   'methods.h',
   'code.h',
   'service.wasm',
-  'service.unoptimized.wasm',
+  'service.unoptimized.wasm', // Created during WASM compilation step
 ];
 
 /**
@@ -101,13 +102,19 @@ function recordPreexistingArtifacts(): void {
   }
 }
 
+/**
+ * Resets all build cleanup state to initial values.
+ * Should only be called after cleanup has completed or build succeeded.
+ * Note: This function should not be called while cleanup is in progress.
+ */
 function resetBuildCleanupState(): void {
   buildCleanupState.isBuilding = false;
   buildCleanupState.outputDir = null;
   buildCleanupState.outputPath = null;
   buildCleanupState.signaleInstance = null;
   buildCleanupState.preexistingArtifacts.clear();
-  // Also reset reentrancy flag to ensure subsequent builds can run cleanup
+  // Reset reentrancy flag to ensure subsequent builds can run cleanup.
+  // Safe to reset here since this function is only called after cleanup completes.
   cleanupInProgress = false;
 }
 
@@ -164,6 +171,8 @@ function cleanupBuildArtifacts(reason: 'signal' | 'error'): void {
 function createSignalHandler(signal: NodeJS.Signals): () => void {
   return () => {
     cleanupBuildArtifacts('signal');
+    // Remove handlers before exit for defensive programming
+    removeSignalHandlers();
     // Calculate exit code using signal number (128 + signal number per POSIX convention)
     const signalNumber = os.constants.signals[signal] ?? 0;
     const exitCode = 128 + signalNumber;
@@ -319,21 +328,27 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
     buildCleanupState.isBuilding = false;
     removeSignalHandlers();
 
-    // Get final size (informational only - build is already complete)
-    const stats = fs.statSync(options.output);
-    const sizeKB = (stats.size / 1024).toFixed(2);
-
-    signale.success(`Contract built successfully: ${options.output} (${sizeKB} KB)`);
+    // Post-build informational operations - wrapped in try-catch since build is already
+    // complete and we don't want to report failure if only the size calculation fails
+    try {
+      const stats = fs.statSync(options.output);
+      const sizeKB = (stats.size / 1024).toFixed(2);
+      signale.success(`Contract built successfully: ${options.output} (${sizeKB} KB)`);
+    } catch {
+      // Size calculation failed but build succeeded - report success without size
+      signale.success(`Contract built successfully: ${options.output}`);
+    }
   } catch (error) {
     // Build failed - clean up artifacts on error to avoid inconsistent state
     signale.error('Build failed:', error);
     cleanupBuildArtifacts('error');
-    // Ensure cleanup runs before exiting (process.exit would skip the finally block)
+    // Cleanup before exit - process.exit() below skips the finally block, so we must
+    // explicitly clean up here. The finally block only runs on successful completion.
     removeSignalHandlers();
     resetBuildCleanupState();
     process.exit(1);
   } finally {
-    // Cleanup for normal completion path (handlers may already be removed on success/error)
+    // Cleanup for successful completion path only (error path exits via process.exit above)
     removeSignalHandlers();
     resetBuildCleanupState();
   }
