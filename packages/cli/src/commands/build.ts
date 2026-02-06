@@ -27,7 +27,7 @@ interface BuildOptions {
 
 /**
  * Known build artifacts that may be created during the build process.
- * These files will be cleaned up if the build is interrupted.
+ * Only artifacts created during the current build are eligible for cleanup.
  */
 const BUILD_ARTIFACTS = [
   'abi.json',
@@ -48,6 +48,8 @@ const BUILD_ARTIFACTS = [
  */
 interface BuildCleanupState {
   outputDir: string | null;
+  outputPath: string | null;
+  preexistingArtifacts: Set<string>;
   // Using any type for signale instance to avoid complex generic type constraints
   signaleInstance: ReturnType<typeof createSignaleInstance> | null;
   isBuilding: boolean;
@@ -62,30 +64,74 @@ function createSignaleInstance(verbose: boolean) {
 
 const buildCleanupState: BuildCleanupState = {
   outputDir: null,
+  outputPath: null,
+  preexistingArtifacts: new Set(),
   signaleInstance: null,
   isBuilding: false,
 };
 
+function getCleanupCandidates(): string[] {
+  const { outputDir, outputPath } = buildCleanupState;
+
+  if (!outputDir) {
+    return [];
+  }
+
+  const candidates = new Set<string>();
+  for (const artifact of BUILD_ARTIFACTS) {
+    candidates.add(path.join(outputDir, artifact));
+  }
+  if (outputPath) {
+    candidates.add(outputPath);
+  }
+
+  return Array.from(candidates);
+}
+
+function recordPreexistingArtifacts(): void {
+  buildCleanupState.preexistingArtifacts.clear();
+  for (const candidate of getCleanupCandidates()) {
+    if (fs.existsSync(candidate)) {
+      buildCleanupState.preexistingArtifacts.add(candidate);
+    }
+  }
+}
+
+function resetBuildCleanupState(): void {
+  buildCleanupState.isBuilding = false;
+  buildCleanupState.outputDir = null;
+  buildCleanupState.outputPath = null;
+  buildCleanupState.signaleInstance = null;
+  buildCleanupState.preexistingArtifacts.clear();
+}
+
 /**
  * Cleans up build artifacts from the output directory.
- * Called when the build process is interrupted by a signal.
+ * Called when the build process is interrupted or fails.
  */
-function cleanupBuildArtifacts(): void {
-  const { outputDir, signaleInstance, isBuilding } = buildCleanupState;
+function cleanupBuildArtifacts(reason: 'signal' | 'error'): void {
+  const { outputDir, signaleInstance, isBuilding, preexistingArtifacts } = buildCleanupState;
 
   if (!isBuilding || !outputDir) {
     return;
   }
 
-  signaleInstance?.warn('\nBuild interrupted, cleaning up artifacts...');
+  const warningMessage =
+    reason === 'signal'
+      ? '\nBuild interrupted, cleaning up artifacts...'
+      : 'Build failed, cleaning up artifacts...';
+  signaleInstance?.warn(warningMessage);
 
-  for (const artifact of BUILD_ARTIFACTS) {
-    const filePath = path.join(outputDir, artifact);
+  for (const filePath of getCleanupCandidates()) {
+    if (preexistingArtifacts.has(filePath)) {
+      continue;
+    }
     try {
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
         if (signaleInstance) {
-          signaleInstance.info(`Removed: ${artifact}`);
+          const displayName = path.relative(outputDir, filePath) || path.basename(filePath);
+          signaleInstance.info(`Removed: ${displayName}`);
         }
       }
     } catch {
@@ -94,8 +140,7 @@ function cleanupBuildArtifacts(): void {
   }
 
   // Reset state after cleanup
-  buildCleanupState.isBuilding = false;
-  buildCleanupState.outputDir = null;
+  resetBuildCleanupState();
 }
 
 /**
@@ -104,7 +149,7 @@ function cleanupBuildArtifacts(): void {
  */
 function createSignalHandler(signal: NodeJS.Signals): () => void {
   return () => {
-    cleanupBuildArtifacts();
+    cleanupBuildArtifacts('signal');
     // Exit codes: 128 + signal number (SIGINT=2 -> 130, SIGTERM=15 -> 143)
     const exitCode = signal === 'SIGINT' ? 130 : 143;
     process.exit(exitCode);
@@ -145,12 +190,15 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
   const signale = createSignaleInstance(options.verbose);
 
   // Setup output directory path
-  const outputDir = path.dirname(options.output);
+  const outputPath = options.output;
+  const outputDir = path.dirname(outputPath);
 
   // Initialize cleanup state and install signal handlers
   buildCleanupState.outputDir = outputDir;
+  buildCleanupState.outputPath = outputPath;
   buildCleanupState.signaleInstance = signale;
   buildCleanupState.isBuilding = true;
+  recordPreexistingArtifacts();
   installSignalHandlers();
 
   try {
@@ -261,12 +309,11 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
   } catch (error) {
     // Build failed - clean up artifacts on error to avoid inconsistent state
     signale.error('Build failed:', error);
-    cleanupBuildArtifacts();
+    cleanupBuildArtifacts('error');
     process.exit(1);
   } finally {
     // Always remove signal handlers when build completes
     removeSignalHandlers();
-    buildCleanupState.outputDir = null;
-    buildCleanupState.signaleInstance = null;
+    resetBuildCleanupState();
   }
 }
