@@ -30,6 +30,10 @@ interface BuildOptions {
  * Known build artifacts that may be created during the build process.
  * Only artifacts created during the current build are eligible for cleanup.
  * Note: Some artifacts are conditionally created depending on build options.
+ *
+ * IMPORTANT: If you add new intermediate files in any compiler module
+ * (rollup.ts, quickjs.ts, wasm.ts, etc.), you MUST update this list
+ * to ensure proper cleanup on build interruption or failure.
  */
 const BUILD_ARTIFACTS = [
   'abi.json',
@@ -47,6 +51,11 @@ const BUILD_ARTIFACTS = [
 
 /**
  * State for tracking active build for cleanup on signal interruption.
+ *
+ * NOTE: This module uses shared mutable state at the module level. This design
+ * is intentional for a CLI command but means concurrent builds in the same process
+ * are NOT supported. If buildCommand is called programmatically multiple times
+ * concurrently, builds will interfere with each other's cleanup state.
  */
 interface BuildCleanupState {
   outputDir: string | null;
@@ -153,9 +162,10 @@ function cleanupBuildArtifacts(reason: 'signal' | 'error'): void {
       fs.unlinkSync(filePath);
       signaleInstance?.info(`Removed: ${displayName}`);
     } catch (e: unknown) {
-      // Ignore ENOENT (file doesn't exist), log other errors at debug level
+      // Ignore ENOENT (file doesn't exist), warn about other errors so users
+      // are aware of cleanup failures (e.g., permission denied, file locked)
       if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
-        signaleInstance?.debug?.(`Failed to remove ${displayName}: ${e}`);
+        signaleInstance?.warn(`Failed to remove ${displayName}: ${e}`);
       }
     }
   }
@@ -174,6 +184,7 @@ function createSignalHandler(signal: NodeJS.Signals): () => void {
     // Remove handlers before exit for defensive programming
     removeSignalHandlers();
     // Calculate exit code using signal number (128 + signal number per POSIX convention)
+    // SIGINT=2 -> 130, SIGTERM=15 -> 143. Fallback to 128 for unknown signals.
     const signalNumber = os.constants.signals[signal] ?? 0;
     const exitCode = 128 + signalNumber;
     process.exit(exitCode);
@@ -324,7 +335,10 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
 
     // Build output is now complete - mark as not building and remove signal handlers
     // immediately to prevent the race window where a signal could arrive after
-    // isBuilding=false but before handlers are removed
+    // isBuilding=false but before handlers are removed.
+    // Note: removeSignalHandlers() is called here and also in the finally block.
+    // This redundancy is intentional - it ensures handlers are removed as early as
+    // possible on success, while the finally block provides a safety net.
     buildCleanupState.isBuilding = false;
     removeSignalHandlers();
 
