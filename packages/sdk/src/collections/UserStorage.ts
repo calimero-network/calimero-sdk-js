@@ -37,9 +37,9 @@ import {
 import { mergeMergeableValues } from '../runtime/mergeable';
 import { getMergeableType } from '../runtime/mergeable-registry';
 import { nestedTracker } from '../runtime/nested-tracking';
+import { PUBLIC_KEY_LENGTH } from '../constants';
 
 const SENTINEL_KEY = '__calimeroCollection';
-const PUBLIC_KEY_LENGTH = 32;
 
 /**
  * Type alias for a PublicKey - a 32-byte Uint8Array representing a user's identity.

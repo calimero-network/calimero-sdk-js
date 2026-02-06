@@ -11,6 +11,7 @@ import {
   hasRegisteredCollection,
 } from '../runtime/collections';
 import { nestedTracker } from '../runtime/nested-tracking';
+import { REGISTER_ID } from '../constants';
 
 export interface VectorOptions {
   id?: Uint8Array | string;
@@ -74,7 +75,7 @@ export class Vector<T> {
    * Gets the value at the given index.
    */
   get(index: number): T | null {
-    const raw = vectorGet(this.vectorId, index, 0n);
+    const raw = vectorGet(this.vectorId, index, REGISTER_ID);
     return raw ? deserialize<T>(raw) : null;
   }
 
@@ -104,7 +105,7 @@ export class Vector<T> {
     const length = vectorLen(this.vectorId);
     const values: T[] = [];
     for (let index = 0; index < length; index++) {
-      const raw = vectorGet(this.vectorId, index, 0n);
+      const raw = vectorGet(this.vectorId, index, REGISTER_ID);
       if (raw) {
         values.push(deserialize<T>(raw));
       }

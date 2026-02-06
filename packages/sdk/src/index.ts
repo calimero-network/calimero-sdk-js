@@ -29,5 +29,8 @@ export { StateManager } from './runtime/state-manager';
 export * from './state/helpers';
 export { createPrivateEntry, PrivateEntryHandle } from './state/private';
 
+// Constants
+export * from './constants';
+
 // Types
 export type { SerializeOptions, DeserializeOptions } from './utils/types';
