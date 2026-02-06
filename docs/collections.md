@@ -343,6 +343,149 @@ const other = new FrozenValue({ data: 'different' });
 const result = frozen.merge(other); // Returns original frozen value
 ```
 
+## View vs Mutation Methods
+
+Understanding the difference between view and mutation methods is crucial for building efficient Calimero applications.
+
+### What Are View Methods?
+
+View methods are read-only operations decorated with `@View()`. They query state without modifying it, and the runtime **skips state persistence** after they execute.
+
+```typescript
+import { View } from '@calimero-network/calimero-sdk-js';
+
+@Logic(MyApp)
+export class MyAppLogic {
+  // ✅ View method - only reads data
+  @View()
+  getUser(userId: string): User | null {
+    return this.users.get(userId) ?? null;
+  }
+
+  // ✅ View method - computes value from state
+  @View()
+  getUserCount(): number {
+    return this.users.size();
+  }
+
+  // ✅ View method - checks existence
+  @View()
+  hasUser(userId: string): boolean {
+    return this.users.has(userId);
+  }
+}
+```
+
+### What Are Mutation Methods?
+
+Mutation methods (the default, without `@View()`) modify state. After execution, the runtime automatically persists changes and synchronizes them across all nodes.
+
+```typescript
+@Logic(MyApp)
+export class MyAppLogic {
+  // Mutation method - modifies state (no decorator needed)
+  addUser(userId: string, name: string): void {
+    this.users.set(userId, { name, createdAt: Date.now() });
+    // Changes are automatically persisted and synced
+  }
+
+  // Mutation method - modifies state
+  removeUser(userId: string): boolean {
+    return this.users.remove(userId);
+    // Removal is automatically persisted and synced
+  }
+
+  // Mutation method - modifies multiple collections
+  transferItem(fromUser: string, toUser: string, itemId: string): void {
+    const item = this.inventory.get(fromUser)?.get(itemId);
+    if (item) {
+      this.inventory.get(fromUser)?.remove(itemId);
+      this.inventory.get(toUser)?.set(itemId, item);
+      // All changes are persisted together
+    }
+  }
+}
+```
+
+### Key Differences
+
+| Aspect         | View Methods (`@View()`) | Mutation Methods (default) |
+| -------------- | ------------------------ | -------------------------- |
+| State changes  | NOT persisted            | Automatically persisted    |
+| Network sync   | No gossip traffic        | Changes broadcast to nodes |
+| Storage impact | No DAG growth            | Updates storage DAG        |
+| Use case       | Queries, getters, checks | Creates, updates, deletes  |
+
+### Benefits of Using `@View()`
+
+1. **Performance**: Skips serialization and persistence overhead
+2. **Reduced Storage**: Keeps the storage DAG compact
+3. **Lower Network Traffic**: No unnecessary state updates broadcast
+4. **Semantic Clarity**: Code intent is immediately clear
+
+### Common Patterns
+
+```typescript
+@Logic(TaskManager)
+export class TaskManagerLogic {
+  // === VIEW METHODS ===
+
+  @View()
+  getTask(id: string): Task | null {
+    return this.tasks.get(id) ?? null;
+  }
+
+  @View()
+  listTasks(): Task[] {
+    return this.tasks.values();
+  }
+
+  @View()
+  getTasksByStatus(status: string): Task[] {
+    return this.tasks.values().filter(t => t.status === status);
+  }
+
+  @View()
+  countCompletedTasks(): number {
+    return this.tasks.values().filter(t => t.status === 'completed').length;
+  }
+
+  // === MUTATION METHODS ===
+
+  createTask(title: string): string {
+    const id = generateId();
+    this.tasks.set(id, { id, title, status: 'pending', createdAt: Date.now() });
+    return id;
+  }
+
+  updateTaskStatus(id: string, status: string): boolean {
+    const task = this.tasks.get(id);
+    if (!task) return false;
+    this.tasks.set(id, { ...task, status });
+    return true;
+  }
+
+  deleteTask(id: string): boolean {
+    return this.tasks.remove(id);
+  }
+}
+```
+
+### Warning: Accidental Mutations in View Methods
+
+If you modify state inside a `@View()` method, changes are visible during that call but are **NOT persisted**:
+
+```typescript
+@View()
+getAndIncrement(): number {
+  const current = this.counter.value();
+  this.counter.increment(); // ⚠️ This change is LOST after the method returns!
+  return current;
+}
+```
+
+This can lead to subtle bugs. Always ensure view methods only read data.
+
 ## Best Practices
 
 ### Use the Right Collection
@@ -391,7 +534,7 @@ class GoodApp {
 ### Combine with View Decorators
 
 - Initialize CRDT fields inline using the helper factories exposed from `@calimero-network/calimero-sdk-js` (`createUnorderedMap`, `createVector`, etc.). Constructors run on every invocation, so inline defaults guarantee the runtime reuses the persisted collection IDs.
-- Mark selectors (`get`, `list`, `len`, etc.) with `@View()` so the dispatcher skips persistence when you only read data. This keeps the storage DAG compact and reduces gossip traffic.
+- Mark read-only methods (`get`, `list`, `count`, `has`, etc.) with `@View()` so the dispatcher skips persistence when you only read data. This keeps the storage DAG compact and reduces gossip traffic. See the [View vs Mutation Methods](#view-vs-mutation-methods) section above for detailed guidance.
 
 ### Handles, Not Deep Copies
 
