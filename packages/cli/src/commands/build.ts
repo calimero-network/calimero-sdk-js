@@ -15,6 +15,7 @@ import {
   generateStateSchema,
 } from '../compiler/abi.js';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 
 const { Signale } = signale;
@@ -25,14 +26,220 @@ interface BuildOptions {
   optimize: boolean;
 }
 
+/**
+ * Known build artifacts that may be created during the build process.
+ * Only artifacts created during the current build are eligible for cleanup.
+ * Note: Some artifacts are conditionally created depending on build options.
+ *
+ * IMPORTANT: If you add new intermediate files in any compiler module
+ * (rollup.ts, quickjs.ts, wasm.ts, etc.), you MUST update this list
+ * to ensure proper cleanup on build interruption or failure.
+ */
+const BUILD_ARTIFACTS = [
+  'abi.json',
+  'abi.h',
+  'state-schema.json', // May not exist if state schema generation fails (non-fatal)
+  'schema.json', // May not exist if ABI schema generation fails (non-fatal)
+  'bundle.js',
+  '__calimero_entry.ts',
+  'methods.c',
+  'methods.h',
+  'code.h',
+  'service.wasm',
+  'service.unoptimized.wasm', // Created during WASM compilation step
+];
+
+/**
+ * State for tracking active build for cleanup on signal interruption.
+ *
+ * NOTE: This module uses shared mutable state at the module level. This design
+ * is intentional for a CLI command but means concurrent builds in the same process
+ * are NOT supported. If buildCommand is called programmatically multiple times
+ * concurrently, builds will interfere with each other's cleanup state.
+ */
+interface BuildCleanupState {
+  outputDir: string | null;
+  outputPath: string | null;
+  preexistingArtifacts: Set<string>;
+  // Signale instance for build logging, null when not building
+  signaleInstance: ReturnType<typeof createSignaleInstance> | null;
+  isBuilding: boolean;
+}
+
+/**
+ * Creates a Signale instance for build logging.
+ */
+function createSignaleInstance(verbose: boolean) {
+  return new Signale({ scope: 'build', interactive: !verbose });
+}
+
+const buildCleanupState: BuildCleanupState = {
+  outputDir: null,
+  outputPath: null,
+  preexistingArtifacts: new Set(),
+  signaleInstance: null,
+  isBuilding: false,
+};
+
+// Flag to prevent reentrancy during cleanup (e.g., if user presses Ctrl+C twice)
+let cleanupInProgress = false;
+
+function getCleanupCandidates(): string[] {
+  const { outputDir, outputPath } = buildCleanupState;
+
+  if (!outputDir) {
+    return [];
+  }
+
+  const candidates = new Set<string>();
+  for (const artifact of BUILD_ARTIFACTS) {
+    candidates.add(path.join(outputDir, artifact));
+  }
+  if (outputPath) {
+    candidates.add(outputPath);
+  }
+
+  return Array.from(candidates);
+}
+
+function recordPreexistingArtifacts(): void {
+  buildCleanupState.preexistingArtifacts.clear();
+  for (const candidate of getCleanupCandidates()) {
+    if (fs.existsSync(candidate)) {
+      buildCleanupState.preexistingArtifacts.add(candidate);
+    }
+  }
+}
+
+/**
+ * Resets all build cleanup state to initial values.
+ * Should only be called after cleanup has completed or build succeeded.
+ * Note: This function should not be called while cleanup is in progress.
+ */
+function resetBuildCleanupState(): void {
+  buildCleanupState.isBuilding = false;
+  buildCleanupState.outputDir = null;
+  buildCleanupState.outputPath = null;
+  buildCleanupState.signaleInstance = null;
+  buildCleanupState.preexistingArtifacts.clear();
+  // Reset reentrancy flag to ensure subsequent builds can run cleanup.
+  // Safe to reset here since this function is only called after cleanup completes.
+  cleanupInProgress = false;
+}
+
+/**
+ * Cleans up build artifacts from the output directory.
+ * Called when the build process is interrupted or fails.
+ * Note: Cleanup must remain synchronous to work correctly with signal handlers.
+ */
+function cleanupBuildArtifacts(reason: 'signal' | 'error'): void {
+  // Prevent reentrancy (e.g., if user presses Ctrl+C twice quickly)
+  if (cleanupInProgress) {
+    return;
+  }
+
+  const { outputDir, signaleInstance, isBuilding, preexistingArtifacts } = buildCleanupState;
+
+  if (!isBuilding || !outputDir) {
+    return;
+  }
+
+  cleanupInProgress = true;
+
+  const warningMessage =
+    reason === 'signal'
+      ? '\nBuild interrupted, cleaning up artifacts...'
+      : 'Build failed, cleaning up artifacts...';
+  signaleInstance?.warn(warningMessage);
+
+  for (const filePath of getCleanupCandidates()) {
+    if (preexistingArtifacts.has(filePath)) {
+      continue;
+    }
+    const displayName = path.relative(outputDir, filePath) || path.basename(filePath);
+    try {
+      // Directly attempt deletion - let the catch handle ENOENT for missing files
+      fs.unlinkSync(filePath);
+      signaleInstance?.info(`Removed: ${displayName}`);
+    } catch (e: unknown) {
+      // Ignore ENOENT (file doesn't exist), warn about other errors so users
+      // are aware of cleanup failures (e.g., permission denied, file locked)
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
+        signaleInstance?.warn(`Failed to remove ${displayName}: ${e}`);
+      }
+    }
+  }
+
+  cleanupInProgress = false;
+}
+
+/**
+ * Signal handler for graceful shutdown.
+ * Cleans up build artifacts and exits with appropriate code.
+ * Exit code is 128 + signal number per POSIX convention.
+ */
+function createSignalHandler(signal: NodeJS.Signals): () => void {
+  return () => {
+    cleanupBuildArtifacts('signal');
+    // Remove handlers before exit for defensive programming
+    removeSignalHandlers();
+    // Calculate exit code using signal number (128 + signal number per POSIX convention)
+    // SIGINT=2 -> 130, SIGTERM=15 -> 143. Fallback to 128 for unknown signals.
+    const signalNumber = os.constants.signals[signal] ?? 0;
+    const exitCode = 128 + signalNumber;
+    process.exit(exitCode);
+  };
+}
+
+// Store signal handlers for cleanup
+let sigintHandler: (() => void) | null = null;
+let sigtermHandler: (() => void) | null = null;
+
+/**
+ * Installs signal handlers for graceful shutdown.
+ * Should be called at the start of the build process.
+ */
+function installSignalHandlers(): void {
+  sigintHandler = createSignalHandler('SIGINT');
+  sigtermHandler = createSignalHandler('SIGTERM');
+  process.on('SIGINT', sigintHandler);
+  process.on('SIGTERM', sigtermHandler);
+}
+
+/**
+ * Removes signal handlers after build completes.
+ * Should be called when the build finishes (success or failure).
+ */
+function removeSignalHandlers(): void {
+  if (sigintHandler) {
+    process.removeListener('SIGINT', sigintHandler);
+    sigintHandler = null;
+  }
+  if (sigtermHandler) {
+    process.removeListener('SIGTERM', sigtermHandler);
+    sigtermHandler = null;
+  }
+}
+
 export async function buildCommand(source: string, options: BuildOptions): Promise<void> {
-  const signale = new Signale({ scope: 'build', interactive: !options.verbose });
+  const signale = createSignaleInstance(options.verbose);
+
+  // Setup output directory path
+  const outputPath = options.output;
+  const outputDir = path.dirname(outputPath);
+
+  // Initialize cleanup state and install signal handlers
+  buildCleanupState.outputDir = outputDir;
+  buildCleanupState.outputPath = outputPath;
+  buildCleanupState.signaleInstance = signale;
+  buildCleanupState.isBuilding = true;
+  recordPreexistingArtifacts();
+  installSignalHandlers();
 
   try {
     signale.await(`Building ${source}...`);
 
     // Ensure output directory exists
-    const outputDir = path.dirname(options.output);
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
@@ -126,13 +333,37 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
       fs.copyFileSync(wasmPath, options.output);
     }
 
-    // Get final size
-    const stats = fs.statSync(options.output);
-    const sizeKB = (stats.size / 1024).toFixed(2);
+    // Build output is now complete - mark as not building and remove signal handlers
+    // immediately to prevent the race window where a signal could arrive after
+    // isBuilding=false but before handlers are removed.
+    // Note: removeSignalHandlers() is called here and also in the finally block.
+    // This redundancy is intentional - it ensures handlers are removed as early as
+    // possible on success, while the finally block provides a safety net.
+    buildCleanupState.isBuilding = false;
+    removeSignalHandlers();
 
-    signale.success(`Contract built successfully: ${options.output} (${sizeKB} KB)`);
+    // Post-build informational operations - wrapped in try-catch since build is already
+    // complete and we don't want to report failure if only the size calculation fails
+    try {
+      const stats = fs.statSync(options.output);
+      const sizeKB = (stats.size / 1024).toFixed(2);
+      signale.success(`Contract built successfully: ${options.output} (${sizeKB} KB)`);
+    } catch {
+      // Size calculation failed but build succeeded - report success without size
+      signale.success(`Contract built successfully: ${options.output}`);
+    }
   } catch (error) {
+    // Build failed - clean up artifacts on error to avoid inconsistent state
     signale.error('Build failed:', error);
+    cleanupBuildArtifacts('error');
+    // Cleanup before exit - process.exit() below skips the finally block, so we must
+    // explicitly clean up here. The finally block only runs on successful completion.
+    removeSignalHandlers();
+    resetBuildCleanupState();
     process.exit(1);
+  } finally {
+    // Cleanup for successful completion path only (error path exits via process.exit above)
+    removeSignalHandlers();
+    resetBuildCleanupState();
   }
 }
