@@ -70,6 +70,9 @@ const buildCleanupState: BuildCleanupState = {
   isBuilding: false,
 };
 
+// Flag to prevent reentrancy during cleanup (e.g., if user presses Ctrl+C twice)
+let cleanupInProgress = false;
+
 function getCleanupCandidates(): string[] {
   const { outputDir, outputPath } = buildCleanupState;
 
@@ -108,13 +111,21 @@ function resetBuildCleanupState(): void {
 /**
  * Cleans up build artifacts from the output directory.
  * Called when the build process is interrupted or fails.
+ * Note: Cleanup must remain synchronous to work correctly with signal handlers.
  */
 function cleanupBuildArtifacts(reason: 'signal' | 'error'): void {
+  // Prevent reentrancy (e.g., if user presses Ctrl+C twice quickly)
+  if (cleanupInProgress) {
+    return;
+  }
+
   const { outputDir, signaleInstance, isBuilding, preexistingArtifacts } = buildCleanupState;
 
   if (!isBuilding || !outputDir) {
     return;
   }
+
+  cleanupInProgress = true;
 
   const warningMessage =
     reason === 'signal'
@@ -139,8 +150,7 @@ function cleanupBuildArtifacts(reason: 'signal' | 'error'): void {
     }
   }
 
-  // Reset state after cleanup
-  resetBuildCleanupState();
+  cleanupInProgress = false;
 }
 
 /**
