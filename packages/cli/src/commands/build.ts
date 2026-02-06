@@ -106,6 +106,8 @@ function resetBuildCleanupState(): void {
   buildCleanupState.outputPath = null;
   buildCleanupState.signaleInstance = null;
   buildCleanupState.preexistingArtifacts.clear();
+  // Also reset reentrancy flag to ensure subsequent builds can run cleanup
+  cleanupInProgress = false;
 }
 
 /**
