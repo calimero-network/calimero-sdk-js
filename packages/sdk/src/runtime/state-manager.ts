@@ -33,7 +33,7 @@ export class StateManager {
    */
   static initialize(stateClass: any): boolean {
     if (!stateClass) {
-      env.log('[state-manager] initialize called with null/undefined stateClass');
+      env.log('[state-manager] initialize called without valid stateClass');
       return false;
     }
 
@@ -150,10 +150,11 @@ export class StateManager {
   /**
    * Resets the StateManager to its initial state.
    *
-   * This is primarily for testing purposes to ensure clean state between tests.
+   * WARNING: This clears all state and should only be used for testing.
    * In production, state should persist across the lifetime of the contract.
    */
   static reset(): void {
+    env.log('[state-manager] WARNING: reset() called - all state cleared');
     this.currentState = null;
     this.stateClass = null;
     this.initialized = false;

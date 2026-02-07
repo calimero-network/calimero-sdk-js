@@ -80,16 +80,15 @@ describe('StateManager', () => {
       expect(result).toBe(cachedState);
     });
 
-    it('should use explicit state class parameter over decorator-set class', () => {
+    it('should preserve decorator-set class when explicit class differs (first class wins)', () => {
       // Simulate decorator setting state class first
       StateManager.setStateClass(TestState);
 
-      // But load is called with explicit class (from dispatcher)
-      // This should initialize with the explicit class if not already initialized
-      const _result = StateManager.load(AnotherState);
+      // Dispatcher calls load with a different explicit class
+      // The first-initialized class should win (TestState)
+      StateManager.load(AnotherState);
 
-      // In this case, TestState was already set via decorator
-      // So load should still use TestState (since it was initialized first)
+      // TestState was already set via decorator, so it should be preserved
       expect(StateManager.getStateClass()).toBe(TestState);
     });
 
