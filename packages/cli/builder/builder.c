@@ -1931,6 +1931,38 @@ void js_add_calimero_host_functions(JSContext *ctx) {
 // This prevents WASI runtime initialization which causes imports
 void _start() {}
 
+// ===========================
+// QuickJS Runtime Cleanup
+// ===========================
+// Static globals for cleanup tracking to ensure cleanup runs even on panic paths.
+//
+// Thread Safety: WASM execution in the Calimero runtime is single-threaded,
+// so no synchronization is needed for these globals. Each method invocation
+// runs sequentially within the same WASM instance.
+//
+// Note: This atexit-based cleanup relies on panic_utf8 eventually triggering
+// process exit (not abort). In WASM environments, the host runtime manages
+// cleanup, but this provides defense-in-depth for scenarios where exit()
+// is called normally or through host panic handling.
+static JSRuntime *g_runtime_for_cleanup = NULL;
+static JSContext *g_context_for_cleanup = NULL;
+static int g_cleanup_registered = 0;
+
+static void cleanup_quickjs_on_exit(void) {
+  JSContext *ctx = g_context_for_cleanup;
+  JSRuntime *rt = g_runtime_for_cleanup;
+
+  g_context_for_cleanup = NULL;
+  g_runtime_for_cleanup = NULL;
+
+  if (ctx) {
+    JS_FreeContext(ctx);
+  }
+  if (rt) {
+    JS_FreeRuntime(rt);
+  }
+}
+
 #define DEFINE_CALIMERO_METHOD(name) \
 __attribute__((used)) \
 __attribute__((visibility("default"))) \
@@ -1939,19 +1971,31 @@ void calimero_method_##name() { \
   char log_buf[256]; \
   snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: start", #name); \
   log_c_string(log_buf); \
+  /* Register cleanup handler once to ensure cleanup on panic paths */ \
+  if (!g_cleanup_registered) { \
+    atexit(cleanup_quickjs_on_exit); \
+    g_cleanup_registered = 1; \
+  } \
   JSRuntime *rt = JS_NewRuntime(); \
   if (!rt) { \
+    /* No cleanup needed - g_runtime_for_cleanup not yet set */ \
     snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: JS_NewRuntime failed", #name); \
     log_c_string(log_buf); \
     return; \
   } \
+  /* Store runtime in global for cleanup on panic */ \
+  g_runtime_for_cleanup = rt; \
   JSContext *ctx = JS_NewCustomContext(rt); \
   if (!ctx) { \
     snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: JS_NewCustomContext failed", #name); \
     log_c_string(log_buf); \
+    /* Clear global before freeing to prevent atexit double-free */ \
+    g_runtime_for_cleanup = NULL; \
     JS_FreeRuntime(rt); \
     return; \
   } \
+  /* Store context in global for cleanup on panic */ \
+  g_context_for_cleanup = ctx; \
 \
   js_add_calimero_host_functions(ctx); \
   snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: host functions wired", #name); \
@@ -1966,11 +2010,8 @@ void calimero_method_##name() { \
     log_c_string(log_buf); \
     JSValue buf_exception = JS_GetException(ctx); \
     calimero_log_exception(ctx, buf_exception, "storage buffer"); \
+    /* Panic is noreturn - atexit handler will cleanup via globals */ \
     calimero_panic_with_exception(ctx, buf_exception); \
-    JS_FreeValue(ctx, buf_exception); \
-    JS_FreeContext(ctx); \
-    JS_FreeRuntime(rt); \
-    __builtin_unreachable(); \
   } \
   JSValue global_obj = JS_GetGlobalObject(ctx); \
   JS_SetPropertyStr(ctx, global_obj, "__CALIMERO_STORAGE_WASM__", storage_bytes); \
@@ -1988,11 +2029,8 @@ void calimero_method_##name() { \
     log_c_string(log_buf); \
     JSValue abi_exception = JS_GetException(ctx); \
     calimero_log_exception(ctx, abi_exception, "ABI string creation"); \
+    /* Panic is noreturn - atexit handler will cleanup via globals */ \
     calimero_panic_with_exception(ctx, abi_exception); \
-    JS_FreeValue(ctx, abi_exception); \
-    JS_FreeContext(ctx); \
-    JS_FreeRuntime(rt); \
-    __builtin_unreachable(); \
   } \
   /* Set as string - JavaScript code will parse it if needed */ \
   /* Note: JS_SetPropertyStr consumes the value reference, so we don't free abi_string */ \
@@ -2007,11 +2045,8 @@ void calimero_method_##name() { \
     log_c_string(log_buf); \
     JSValue load_exception = JS_GetException(ctx); \
     calimero_log_exception(ctx, load_exception, "module load"); \
+    /* Panic is noreturn - atexit handler will cleanup via globals */ \
     calimero_panic_with_exception(ctx, load_exception); \
-    JS_FreeValue(ctx, load_exception); \
-    JS_FreeContext(ctx); \
-    JS_FreeRuntime(rt); \
-    __builtin_unreachable(); \
   } \
   snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: module loaded", #name); \
   log_c_string(log_buf); \
@@ -2032,10 +2067,8 @@ void calimero_method_##name() { \
     log_c_string(log_buf); \
     JSValue prop_exception = JS_GetException(ctx); \
     calimero_log_exception(ctx, prop_exception, "method lookup"); \
+    /* Panic is noreturn - atexit handler will cleanup via globals */ \
     calimero_panic_with_exception(ctx, prop_exception); \
-    JS_FreeValue(ctx, prop_exception); \
-    JS_FreeValue(ctx, mod_obj); \
-    __builtin_unreachable(); \
   } \
 \
   if (!JS_IsFunction(ctx, fun_obj)) { \
@@ -2055,13 +2088,8 @@ void calimero_method_##name() { \
     log_c_string(log_buf); \
     JSValue call_exception = JS_GetException(ctx); \
     calimero_log_exception(ctx, call_exception, "method call"); \
+    /* Panic is noreturn - atexit handler will cleanup via globals */ \
     calimero_panic_with_exception(ctx, call_exception); \
-    JS_FreeValue(ctx, result); \
-    JS_FreeValue(ctx, fun_obj); \
-    JS_FreeValue(ctx, mod_obj); \
-    JS_FreeContext(ctx); \
-    JS_FreeRuntime(rt); \
-    __builtin_unreachable(); \
   } \
 \
   fprintf(stderr, "[dispatcher][builder] completed %s\n", #name); \
@@ -2079,6 +2107,9 @@ void calimero_method_##name() { \
   snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: cleanup", #name); \
   log_c_string(log_buf); \
 \
+  /* Clear globals before cleanup to prevent atexit double-free */ \
+  g_context_for_cleanup = NULL; \
+  g_runtime_for_cleanup = NULL; \
   JS_FreeContext(ctx); \
   JS_FreeRuntime(rt); \
   snprintf(log_buf, sizeof(log_buf), "[wrapper] %s: done", #name); \
