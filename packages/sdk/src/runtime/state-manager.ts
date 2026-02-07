@@ -9,7 +9,7 @@
  * Usage:
  * - `@State` decorator calls `setStateClass()` (which delegates to `initialize()`)
  * - Dispatcher calls `load(explicitStateClass)` with the state class from method registry
- * - The explicit state class parameter takes precedence, ensuring consistency
+ * - Explicit state class is used to initialize; once set, the first class wins
  */
 
 import * as env from '../env/api';
@@ -83,9 +83,9 @@ export class StateManager {
   /**
    * Loads state from storage.
    *
-   * @param explicitStateClass - Optional explicit state class to use. This takes
-   *                             precedence over the decorator-set class, ensuring
-   *                             consistent behavior regardless of decorator timing.
+   * @param explicitStateClass - Optional explicit state class to initialize with.
+   *                             The registered class remains the source of truth
+   *                             after initialization.
    * @returns The loaded state instance, or null if no state is available
    */
   static load(explicitStateClass?: any): any | null {
@@ -94,14 +94,13 @@ export class StateManager {
       return this.currentState;
     }
 
-    // Use explicit state class if provided, otherwise fall back to decorator-set class
-    // This ensures consistent behavior when dispatcher passes the state class from registry
-    const effectiveStateClass = explicitStateClass || this.stateClass;
-
-    // If explicit class provided and different from current, initialize with it
-    if (explicitStateClass && !this.initialized) {
+    // If explicit class provided, attempt initialization (first class wins)
+    if (explicitStateClass) {
       this.initialize(explicitStateClass);
     }
+
+    // Always use the registered state class after initialization attempt
+    const effectiveStateClass = this.stateClass;
 
     if (effectiveStateClass) {
       try {
