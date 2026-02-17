@@ -46,14 +46,42 @@ export interface HostEnv {
   js_crdt_lww_set(registerId: Uint8Array, value: Uint8Array | null): number;
   js_crdt_lww_get(registerId: Uint8Array, register_id: bigint): number;
   js_crdt_lww_timestamp(registerId: Uint8Array, register_id: bigint): number;
-  js_crdt_counter_new(register_id: bigint): number;
-  js_crdt_counter_increment(counterId: Uint8Array): number;
-  js_crdt_counter_value(counterId: Uint8Array, register_id: bigint): number;
-  js_crdt_counter_get_executor_count(
+  // GCounter (grow-only counter)
+  js_crdt_g_counter_new(register_id: bigint): number;
+  js_crdt_g_counter_increment(counterId: Uint8Array): number;
+  js_crdt_g_counter_value(counterId: Uint8Array, register_id: bigint): number;
+  js_crdt_g_counter_get_executor_count(
     counterId: Uint8Array,
     register_id: bigint,
     executorId?: Uint8Array
   ): number;
+  js_crdt_g_counter_serialize(counterId: Uint8Array, register_id: bigint): number;
+  js_crdt_g_counter_deserialize(data: Uint8Array, register_id: bigint): number;
+  // PNCounter (positive-negative counter, supports decrement)
+  js_crdt_pn_counter_new(register_id: bigint): number;
+  js_crdt_pn_counter_increment(counterId: Uint8Array): number;
+  js_crdt_pn_counter_decrement(counterId: Uint8Array): number;
+  js_crdt_pn_counter_value(counterId: Uint8Array, register_id: bigint): number;
+  js_crdt_pn_counter_get_positive_count(
+    counterId: Uint8Array,
+    register_id: bigint,
+    executorId?: Uint8Array
+  ): number;
+  js_crdt_pn_counter_get_negative_count(
+    counterId: Uint8Array,
+    register_id: bigint,
+    executorId?: Uint8Array
+  ): number;
+  js_crdt_pn_counter_serialize(counterId: Uint8Array, register_id: bigint): number;
+  js_crdt_pn_counter_deserialize(data: Uint8Array, register_id: bigint): number;
+  // RGA (Replicated Growable Array - text editing CRDT)
+  js_crdt_rga_new(register_id: bigint): number;
+  js_crdt_rga_insert(rgaId: Uint8Array, pos: bigint, text: Uint8Array): number;
+  js_crdt_rga_delete(rgaId: Uint8Array, pos: bigint): number;
+  js_crdt_rga_get_text(rgaId: Uint8Array, register_id: bigint): number;
+  js_crdt_rga_len(rgaId: Uint8Array, register_id: bigint): number;
+  js_crdt_rga_serialize(rgaId: Uint8Array, register_id: bigint): number;
+  js_crdt_rga_deserialize(data: Uint8Array, register_id: bigint): number;
   js_user_storage_new(register_id: bigint): number;
   js_user_storage_insert(storageId: Uint8Array, value: Uint8Array, register_id: bigint): number;
   js_user_storage_get(storageId: Uint8Array, register_id: bigint): number;

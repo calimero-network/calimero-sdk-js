@@ -143,10 +143,10 @@ extern int32_t js_crdt_lww_new(uint64_t register_id);
 extern int32_t js_crdt_lww_set(uint64_t register_id_buffer_ptr, uint64_t value_buffer_ptr, uint32_t has_value);
 extern int32_t js_crdt_lww_get(uint64_t register_id_buffer_ptr, uint64_t register_id);
 extern int32_t js_crdt_lww_timestamp(uint64_t register_id_buffer_ptr, uint64_t register_id);
-extern int32_t js_crdt_counter_new(uint64_t register_id);
-extern int32_t js_crdt_counter_increment(uint64_t counter_id_buffer_ptr);
-extern int32_t js_crdt_counter_value(uint64_t counter_id_buffer_ptr, uint64_t register_id);
-extern int32_t js_crdt_counter_get_executor_count(uint64_t counter_id_buffer_ptr, uint64_t executor_buffer_ptr, uint32_t has_executor, uint64_t register_id);
+extern int32_t js_crdt_g_counter_new(uint64_t register_id);
+extern int32_t js_crdt_g_counter_increment(uint64_t counter_id_buffer_ptr);
+extern int32_t js_crdt_g_counter_value(uint64_t counter_id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_g_counter_get_executor_count(uint64_t counter_id_buffer_ptr, uint64_t executor_buffer_ptr, uint32_t has_executor, uint64_t register_id);
 extern int32_t js_user_storage_new(uint64_t register_id);
 extern int32_t js_user_storage_insert(uint64_t storage_id_buffer_ptr, uint64_t value_buffer_ptr, uint64_t register_id);
 extern int32_t js_user_storage_get(uint64_t storage_id_buffer_ptr, uint64_t register_id);
@@ -1023,44 +1023,44 @@ static JSValue js_env_crdt_lww_timestamp(JSContext *ctx, JSValueConst this_val, 
   return JS_NewInt32(ctx, status);
 }
 
-static JSValue js_env_crdt_counter_new(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_env_crdt_g_counter_new(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   if (argc < 1) {
-    JS_ThrowTypeError(ctx, "js_crdt_counter_new expects register id");
+    JS_ThrowTypeError(ctx, "js_crdt_g_counter_new expects register id");
     return JS_EXCEPTION;
   }
   int64_t register_id;
   if (js_to_i64(ctx, argv[0], &register_id)) {
     return JS_EXCEPTION;
   }
-  int32_t status = js_crdt_counter_new((uint64_t)register_id);
+  int32_t status = js_crdt_g_counter_new((uint64_t)register_id);
   return JS_NewInt32(ctx, status);
 }
 
-static JSValue js_env_crdt_counter_increment(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_env_crdt_g_counter_increment(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   if (argc < 1) {
-    JS_ThrowTypeError(ctx, "js_crdt_counter_increment expects counter id");
+    JS_ThrowTypeError(ctx, "js_crdt_g_counter_increment expects counter id");
     return JS_EXCEPTION;
   }
   size_t counter_id_len;
   uint8_t *counter_id_ptr = JSValueToUint8Array(ctx, argv[0], &counter_id_len);
   if (!counter_id_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_counter_increment: counterId must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_g_counter_increment: counterId must be Uint8Array");
     return JS_EXCEPTION;
   }
   CalimeroBuffer counter_id_buf = make_buffer(counter_id_ptr, counter_id_len);
-  int32_t status = js_crdt_counter_increment((uint64_t)&counter_id_buf);
+  int32_t status = js_crdt_g_counter_increment((uint64_t)&counter_id_buf);
   return JS_NewInt32(ctx, status);
 }
 
-static JSValue js_env_crdt_counter_value(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_env_crdt_g_counter_value(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   if (argc < 2) {
-    JS_ThrowTypeError(ctx, "js_crdt_counter_value expects counterId and register id");
+    JS_ThrowTypeError(ctx, "js_crdt_g_counter_value expects counterId and register id");
     return JS_EXCEPTION;
   }
   size_t counter_id_len;
   uint8_t *counter_id_ptr = JSValueToUint8Array(ctx, argv[0], &counter_id_len);
   if (!counter_id_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_counter_value: counterId must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_g_counter_value: counterId must be Uint8Array");
     return JS_EXCEPTION;
   }
   int64_t register_id;
@@ -1068,19 +1068,19 @@ static JSValue js_env_crdt_counter_value(JSContext *ctx, JSValueConst this_val, 
     return JS_EXCEPTION;
   }
   CalimeroBuffer counter_id_buf = make_buffer(counter_id_ptr, counter_id_len);
-  int32_t status = js_crdt_counter_value((uint64_t)&counter_id_buf, (uint64_t)register_id);
+  int32_t status = js_crdt_g_counter_value((uint64_t)&counter_id_buf, (uint64_t)register_id);
   return JS_NewInt32(ctx, status);
 }
 
-static JSValue js_env_crdt_counter_get_executor_count(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+static JSValue js_env_crdt_g_counter_get_executor_count(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   if (argc < 2) {
-    JS_ThrowTypeError(ctx, "js_crdt_counter_get_executor_count expects counterId and register id");
+    JS_ThrowTypeError(ctx, "js_crdt_g_counter_get_executor_count expects counterId and register id");
     return JS_EXCEPTION;
   }
   size_t counter_id_len;
   uint8_t *counter_id_ptr = JSValueToUint8Array(ctx, argv[0], &counter_id_len);
   if (!counter_id_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_counter_get_executor_count: counterId must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_g_counter_get_executor_count: counterId must be Uint8Array");
     return JS_EXCEPTION;
   }
   int64_t register_id;
@@ -1093,14 +1093,14 @@ static JSValue js_env_crdt_counter_get_executor_count(JSContext *ctx, JSValueCon
     size_t executor_len;
     uint8_t *executor_ptr = JSValueToUint8Array(ctx, argv[2], &executor_len);
     if (!executor_ptr) {
-      JS_ThrowTypeError(ctx, "js_crdt_counter_get_executor_count: executorId must be Uint8Array");
+      JS_ThrowTypeError(ctx, "js_crdt_g_counter_get_executor_count: executorId must be Uint8Array");
       return JS_EXCEPTION;
     }
     executor_buf = make_buffer(executor_ptr, executor_len);
     has_executor = 1;
   }
   CalimeroBuffer counter_id_buf = make_buffer(counter_id_ptr, counter_id_len);
-  int32_t status = js_crdt_counter_get_executor_count(
+  int32_t status = js_crdt_g_counter_get_executor_count(
     (uint64_t)&counter_id_buf,
     (uint64_t)&executor_buf,
     has_executor,
@@ -1863,10 +1863,10 @@ void js_add_calimero_host_functions(JSContext *ctx) {
   JS_SetPropertyStr(ctx, env, "js_crdt_lww_set", JS_NewCFunction(ctx, js_env_crdt_lww_set, "js_crdt_lww_set", 2));
   JS_SetPropertyStr(ctx, env, "js_crdt_lww_get", JS_NewCFunction(ctx, js_env_crdt_lww_get, "js_crdt_lww_get", 2));
   JS_SetPropertyStr(ctx, env, "js_crdt_lww_timestamp", JS_NewCFunction(ctx, js_env_crdt_lww_timestamp, "js_crdt_lww_timestamp", 2));
-  JS_SetPropertyStr(ctx, env, "js_crdt_counter_new", JS_NewCFunction(ctx, js_env_crdt_counter_new, "js_crdt_counter_new", 1));
-  JS_SetPropertyStr(ctx, env, "js_crdt_counter_increment", JS_NewCFunction(ctx, js_env_crdt_counter_increment, "js_crdt_counter_increment", 1));
-  JS_SetPropertyStr(ctx, env, "js_crdt_counter_value", JS_NewCFunction(ctx, js_env_crdt_counter_value, "js_crdt_counter_value", 2));
-  JS_SetPropertyStr(ctx, env, "js_crdt_counter_get_executor_count", JS_NewCFunction(ctx, js_env_crdt_counter_get_executor_count, "js_crdt_counter_get_executor_count", 3));
+  JS_SetPropertyStr(ctx, env, "js_crdt_g_counter_new", JS_NewCFunction(ctx, js_env_crdt_g_counter_new, "js_crdt_g_counter_new", 1));
+  JS_SetPropertyStr(ctx, env, "js_crdt_g_counter_increment", JS_NewCFunction(ctx, js_env_crdt_g_counter_increment, "js_crdt_g_counter_increment", 1));
+  JS_SetPropertyStr(ctx, env, "js_crdt_g_counter_value", JS_NewCFunction(ctx, js_env_crdt_g_counter_value, "js_crdt_g_counter_value", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_g_counter_get_executor_count", JS_NewCFunction(ctx, js_env_crdt_g_counter_get_executor_count, "js_crdt_g_counter_get_executor_count", 3));
   JS_SetPropertyStr(ctx, env, "js_user_storage_new", JS_NewCFunction(ctx, js_env_user_storage_new, "js_user_storage_new", 1));
   JS_SetPropertyStr(ctx, env, "js_user_storage_insert", JS_NewCFunction(ctx, js_env_user_storage_insert, "js_user_storage_insert", 3));
   JS_SetPropertyStr(ctx, env, "js_user_storage_get", JS_NewCFunction(ctx, js_env_user_storage_get, "js_user_storage_get", 2));

@@ -85,7 +85,7 @@ export async function compileToWasm(cCodePath: string, options: WasmOptions): Pr
     '--target=wasm32-wasi',
     `--sysroot=${wasiSdk}/share/wasi-sysroot`,
     '-nostartfiles',
-    '-Og',
+    '-O1',
     '-g',
     '-fno-exceptions',
     '-DCONFIG_VERSION="2021-03-27"',
