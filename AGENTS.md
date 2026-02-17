@@ -128,12 +128,12 @@ JSON-RPC Call → Calimero Node → QuickJS Runtime → Your TypeScript Code
 
 ## Sub-Package Documentation
 
-| Directory            | Purpose                     | Documentation                                      |
-| -------------------- | --------------------------- | -------------------------------------------------- |
-| `packages/sdk/`      | Core SDK (decorators, CRDTs)| [packages/sdk/README.md](packages/sdk/README.md)   |
-| `packages/cli/`      | Build toolchain             | [packages/cli/README.md](packages/cli/README.md)   |
-| `docs/`              | Human documentation         | [docs/README.md](docs/README.md)                   |
-| `examples/`          | Reference implementations   | Each example has its own README                    |
+| Directory       | Purpose                      | Documentation                                    |
+| --------------- | ---------------------------- | ------------------------------------------------ |
+| `packages/sdk/` | Core SDK (decorators, CRDTs) | [packages/sdk/README.md](packages/sdk/README.md) |
+| `packages/cli/` | Build toolchain              | [packages/cli/README.md](packages/cli/README.md) |
+| `docs/`         | Human documentation          | [docs/README.md](docs/README.md)                 |
+| `examples/`     | Reference implementations    | Each example has its own README                  |
 
 ## File Organization
 
@@ -428,15 +428,15 @@ getItem(key: string): string | null {
 
 ## Key Files
 
-| File                                  | Purpose                     |
-| ------------------------------------- | --------------------------- |
-| `packages/sdk/src/index.ts`           | Public API exports          |
-| `packages/sdk/src/decorators/*.ts`    | Decorator implementations   |
-| `packages/sdk/src/collections/*.ts`   | CRDT collection types       |
-| `packages/sdk/src/env/api.ts`         | Environment functions       |
-| `packages/cli/src/cli.ts`             | CLI entry point             |
-| `packages/cli/src/commands/build.ts`  | Build command               |
-| `examples/counter/src/index.ts`       | Example app (best reference)|
+| File                                 | Purpose                      |
+| ------------------------------------ | ---------------------------- |
+| `packages/sdk/src/index.ts`          | Public API exports           |
+| `packages/sdk/src/decorators/*.ts`   | Decorator implementations    |
+| `packages/sdk/src/collections/*.ts`  | CRDT collection types        |
+| `packages/sdk/src/env/api.ts`        | Environment functions        |
+| `packages/cli/src/cli.ts`            | CLI entry point              |
+| `packages/cli/src/commands/build.ts` | Build command                |
+| `examples/counter/src/index.ts`      | Example app (best reference) |
 
 ## JIT Index
 
@@ -553,14 +553,14 @@ merobox bootstrap run examples/counter/workflows/counter-js.yml --log-level=trac
 
 ### Human Documentation (docs/)
 
-| Document                                           | Purpose                           |
-| -------------------------------------------------- | --------------------------------- |
-| [docs/getting-started.md](docs/getting-started.md) | Setup guide, first app           |
-| [docs/collections.md](docs/collections.md)         | CRDT collection details          |
-| [docs/architecture.md](docs/architecture.md)       | Build pipeline & data flow       |
-| [docs/events.md](docs/events.md)                   | Event patterns                   |
-| [docs/troubleshooting.md](docs/troubleshooting.md) | Common issues & solutions        |
-| [docs/api-reference.md](docs/api-reference.md)     | API listings                     |
+| Document                                           | Purpose                    |
+| -------------------------------------------------- | -------------------------- |
+| [docs/getting-started.md](docs/getting-started.md) | Setup guide, first app     |
+| [docs/collections.md](docs/collections.md)         | CRDT collection details    |
+| [docs/architecture.md](docs/architecture.md)       | Build pipeline & data flow |
+| [docs/events.md](docs/events.md)                   | Event patterns             |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | Common issues & solutions  |
+| [docs/api-reference.md](docs/api-reference.md)     | API listings               |
 
 ### External References
 
@@ -570,17 +570,17 @@ merobox bootstrap run examples/counter/workflows/counter-js.yml --log-level=trac
 
 ## Rust SDK Equivalents
 
-| TypeScript                           | Rust                                       |
-| ------------------------------------ | ------------------------------------------ |
-| `@State`                             | `#[app::state]`                            |
-| `@Logic(StateClass)`                 | `#[app::logic]`                            |
-| `@Init`                              | `#[app::init]`                             |
-| `@View()`                            | Method without `&mut self`                 |
-| `Counter`                            | `Counter`                                  |
-| `UnorderedMap<K, V>`                 | `UnorderedMap<K, LwwRegister<V>>`          |
-| `UnorderedSet<T>`                    | `UnorderedSet<T>`                          |
-| `Vector<T>`                          | `Vector<T>`                                |
-| `LwwRegister<T>`                     | `LwwRegister<T>`                           |
-| `env.log()`                          | `app::log!()`                              |
-| `emit(event)`                        | `app::emit!(event)`                        |
-| `createPrivateEntry<T>()`            | Private storage API                        |
+| TypeScript                | Rust                              |
+| ------------------------- | --------------------------------- |
+| `@State`                  | `#[app::state]`                   |
+| `@Logic(StateClass)`      | `#[app::logic]`                   |
+| `@Init`                   | `#[app::init]`                    |
+| `@View()`                 | Method without `&mut self`        |
+| `Counter`                 | `Counter`                         |
+| `UnorderedMap<K, V>`      | `UnorderedMap<K, LwwRegister<V>>` |
+| `UnorderedSet<T>`         | `UnorderedSet<T>`                 |
+| `Vector<T>`               | `Vector<T>`                       |
+| `LwwRegister<T>`          | `LwwRegister<T>`                  |
+| `env.log()`               | `app::log!()`                     |
+| `emit(event)`             | `app::emit!(event)`               |
+| `createPrivateEntry<T>()` | Private storage API               |

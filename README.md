@@ -36,24 +36,24 @@ flowchart TB
     subgraph "Your Code"
         TS[TypeScript Service]
     end
-    
+
     subgraph "Build Pipeline"
         TS --> Rollup[Rollup Bundle]
         Rollup --> QJS[QuickJS Compile]
         QJS --> WASM[WASM Binary]
     end
-    
+
     subgraph "Calimero Runtime"
         WASM --> Runtime[Wasmer Runtime]
         Runtime --> Storage[CRDT Storage]
         Runtime --> Network[P2P Network]
     end
-    
+
     subgraph "Other Nodes"
         Network <--> Node2[Node 2]
         Network <--> Node3[Node 3]
     end
-    
+
     Storage --> DAG[Merkle DAG]
     DAG --> Network
 ```
@@ -67,25 +67,25 @@ sequenceDiagram
     participant WASM as QuickJS + Your Code
     participant Storage as CRDT Storage
     participant Network as P2P Network
-    
+
     Client->>Node: call("increment", {})
     Node->>WASM: Execute method
-    
+
     rect rgb(220, 237, 255)
         Note over WASM,Storage: Transaction Execution
         WASM->>Storage: counter.increment()
         Storage->>Storage: Generate CRDT delta
         Storage->>Storage: Update Merkle root
     end
-    
+
     WASM-->>Node: ExecutionOutcome
-    
+
     rect rgb(255, 237, 220)
         Note over Node,Network: Delta Propagation
         Node->>Network: Broadcast StateDelta
         Network->>Node: Propagate to peers
     end
-    
+
     Node-->>Client: Result
 ```
 
@@ -188,15 +188,15 @@ meroctl --node-name <NODE> call \
 
 All state in Calimero apps uses **CRDTs** (Conflict-free Replicated Data Types) for automatic conflict resolution:
 
-| Collection       | Use Case                          | Conflict Resolution          |
-| ---------------- | --------------------------------- | ---------------------------- |
-| `Counter`        | Distributed counting              | Sum across all nodes         |
-| `UnorderedMap`   | Key-value storage                 | Last-Write-Wins per key      |
-| `UnorderedSet`   | Unique membership                 | Last-Write-Wins per element  |
-| `Vector`         | Ordered lists                     | Position-based merge         |
-| `LwwRegister`    | Single values                     | Timestamp-based LWW          |
-| `UserStorage`    | User-owned signed data            | Signature-verified writes    |
-| `FrozenStorage`  | Immutable content-addressed data  | Content-addressable (no conflict) |
+| Collection      | Use Case                         | Conflict Resolution               |
+| --------------- | -------------------------------- | --------------------------------- |
+| `Counter`       | Distributed counting             | Sum across all nodes              |
+| `UnorderedMap`  | Key-value storage                | Last-Write-Wins per key           |
+| `UnorderedSet`  | Unique membership                | Last-Write-Wins per element       |
+| `Vector`        | Ordered lists                    | Position-based merge              |
+| `LwwRegister`   | Single values                    | Timestamp-based LWW               |
+| `UserStorage`   | User-owned signed data           | Signature-verified writes         |
+| `FrozenStorage` | Immutable content-addressed data | Content-addressable (no conflict) |
 
 ### CRDT Conflict Resolution
 
@@ -204,21 +204,21 @@ All state in Calimero apps uses **CRDTs** (Conflict-free Replicated Data Types) 
 flowchart TB
     Fork([Two nodes update concurrently]) --> A1
     Fork --> B1
-    
+
     subgraph "Node A"
         A1[map.set 'key', 'A'<br/>timestamp: 1000]
     end
-    
+
     subgraph "Node B"
         B1[map.set 'key', 'B'<br/>timestamp: 1001]
     end
-    
+
     A1 --> Merge{Both receive<br/>both deltas}
     B1 --> Merge
-    
+
     Merge --> LWW[Last-Write-Wins:<br/>timestamp 1001 > 1000]
     LWW --> Converge([Both nodes: key = 'B'])
-    
+
     style Fork fill:#FF6B6B,stroke:#333,color:#000
     style Merge fill:#FFB84D,stroke:#333,color:#000
     style Converge fill:#51CF66,stroke:#333,color:#000
@@ -239,13 +239,13 @@ flowchart TB
 
 ## Examples & Workflows
 
-| Example                                    | Highlights                                          | Workflow                                              |
-| ------------------------------------------ | --------------------------------------------------- | ----------------------------------------------------- |
-| `examples/counter`                         | Basic `Counter` CRDT                                | `examples/counter/workflows/counter-js.yml`           |
-| `examples/kv-store`                        | KV store with `UnorderedMap`                        | `examples/kv-store/workflows/kv-store-js.yml`         |
-| `examples/team-metrics`                    | Nested CRDTs, events, mergeable structs             | `examples/team-metrics/workflows/team-metrics-js.yml` |
-| `examples/private-data`                    | Public vs node-local storage (`createPrivateEntry`) | `examples/private-data/workflows/private-data-js.yml` |
-| `examples/kv-store-with-user-and-frozen-storage` | `UserStorage` and `FrozenStorage` examples    | See workflows in example directory                    |
+| Example                                          | Highlights                                          | Workflow                                              |
+| ------------------------------------------------ | --------------------------------------------------- | ----------------------------------------------------- |
+| `examples/counter`                               | Basic `Counter` CRDT                                | `examples/counter/workflows/counter-js.yml`           |
+| `examples/kv-store`                              | KV store with `UnorderedMap`                        | `examples/kv-store/workflows/kv-store-js.yml`         |
+| `examples/team-metrics`                          | Nested CRDTs, events, mergeable structs             | `examples/team-metrics/workflows/team-metrics-js.yml` |
+| `examples/private-data`                          | Public vs node-local storage (`createPrivateEntry`) | `examples/private-data/workflows/private-data-js.yml` |
+| `examples/kv-store-with-user-and-frozen-storage` | `UserStorage` and `FrozenStorage` examples          | See workflows in example directory                    |
 
 Run a workflow:
 
@@ -283,18 +283,19 @@ Useful docs:
 
 The JavaScript SDK provides equivalent functionality to the [Rust SDK](https://github.com/calimero-network/calimero/tree/main/crates/sdk):
 
-| TypeScript                           | Rust                                       |
-| ------------------------------------ | ------------------------------------------ |
-| `@State`                             | `#[app::state]`                            |
-| `@Logic(StateClass)`                 | `#[app::logic]`                            |
-| `@Init`                              | `#[app::init]`                             |
-| `@View()`                            | Method without `&mut self`                 |
-| `Counter`                            | `Counter`                                  |
-| `UnorderedMap<K, V>`                 | `UnorderedMap<K, LwwRegister<V>>`          |
-| `env.log()`                          | `app::log!()`                              |
-| `emit(event)`                        | `app::emit!(event)`                        |
+| TypeScript           | Rust                              |
+| -------------------- | --------------------------------- |
+| `@State`             | `#[app::state]`                   |
+| `@Logic(StateClass)` | `#[app::logic]`                   |
+| `@Init`              | `#[app::init]`                    |
+| `@View()`            | Method without `&mut self`        |
+| `Counter`            | `Counter`                         |
+| `UnorderedMap<K, V>` | `UnorderedMap<K, LwwRegister<V>>` |
+| `env.log()`          | `app::log!()`                     |
+| `emit(event)`        | `app::emit!(event)`               |
 
 Both SDKs:
+
 - ✅ Run on the same network
 - ✅ Sync state via CRDTs
 - ✅ Emit/receive events
