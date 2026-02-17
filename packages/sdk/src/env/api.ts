@@ -881,6 +881,14 @@ export function jsCrdtGCounterGetExecutorCount(
   return env.js_crdt_g_counter_get_executor_count(counterId, register, executorId);
 }
 
+export function jsCrdtGCounterSerialize(counterId: Uint8Array, register: bigint): number {
+  return env.js_crdt_g_counter_serialize(counterId, register);
+}
+
+export function jsCrdtGCounterDeserialize(data: Uint8Array, register: bigint): number {
+  return env.js_crdt_g_counter_deserialize(data, register);
+}
+
 // =============================================================================
 // PNCounter (Positive-Negative Counter) - supports decrement
 // =============================================================================
@@ -917,6 +925,14 @@ export function jsCrdtPnCounterGetNegativeCount(
   return env.js_crdt_pn_counter_get_negative_count(counterId, register, executorId);
 }
 
+export function jsCrdtPnCounterSerialize(counterId: Uint8Array, register: bigint): number {
+  return env.js_crdt_pn_counter_serialize(counterId, register);
+}
+
+export function jsCrdtPnCounterDeserialize(data: Uint8Array, register: bigint): number {
+  return env.js_crdt_pn_counter_deserialize(data, register);
+}
+
 // =============================================================================
 // RGA (Replicated Growable Array) - text editing CRDT
 // =============================================================================
@@ -939,6 +955,14 @@ export function jsCrdtRgaGetText(rgaId: Uint8Array, register: bigint): number {
 
 export function jsCrdtRgaLen(rgaId: Uint8Array, register: bigint): number {
   return env.js_crdt_rga_len(rgaId, register);
+}
+
+export function jsCrdtRgaSerialize(rgaId: Uint8Array, register: bigint): number {
+  return env.js_crdt_rga_serialize(rgaId, register);
+}
+
+export function jsCrdtRgaDeserialize(data: Uint8Array, register: bigint): number {
+  return env.js_crdt_rga_deserialize(data, register);
 }
 
 export function jsUserStorageNew(register: bigint): number {

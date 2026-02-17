@@ -38,17 +38,23 @@ import {
   jsCrdtGCounterIncrement,
   jsCrdtGCounterValue,
   jsCrdtGCounterGetExecutorCount,
+  jsCrdtGCounterSerialize,
+  jsCrdtGCounterDeserialize,
   jsCrdtPnCounterNew,
   jsCrdtPnCounterIncrement,
   jsCrdtPnCounterDecrement,
   jsCrdtPnCounterValue,
   jsCrdtPnCounterGetPositiveCount,
   jsCrdtPnCounterGetNegativeCount,
+  jsCrdtPnCounterSerialize,
+  jsCrdtPnCounterDeserialize,
   jsCrdtRgaNew,
   jsCrdtRgaInsert,
   jsCrdtRgaDelete,
   jsCrdtRgaGetText,
   jsCrdtRgaLen,
+  jsCrdtRgaSerialize,
+  jsCrdtRgaDeserialize,
   jsUserStorageNew,
   jsUserStorageInsert,
   jsUserStorageGet,
@@ -545,6 +551,32 @@ export function gCounterGetExecutorCount(counterId: Uint8Array, executorId?: Uin
   return value;
 }
 
+export function gCounterSerialize(counterId: Uint8Array): Uint8Array {
+  ensureCollectionId(counterId, 'counterId');
+
+  const status = Number(jsCrdtGCounterSerialize(counterId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('gCounterSerialize');
+  }
+
+  return readRegisterBytes();
+}
+
+export function gCounterDeserialize(data: Uint8Array): Uint8Array {
+  ensureUint8Array(data, 'data');
+
+  const status = Number(jsCrdtGCounterDeserialize(data, REGISTER_ID));
+  if (status < 0) {
+    decodeError('gCounterDeserialize');
+  }
+
+  const id = readRegisterBytes();
+  if (id.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] gCounterDeserialize returned invalid counter id length (${id.length})`);
+  }
+  return id;
+}
+
 // =============================================================================
 // PNCounter - Positive-Negative Counter (supports both increment and decrement)
 // Corresponds to Rust CrdtType::PnCounter
@@ -628,6 +660,32 @@ export function pnCounterGetNegativeCount(counterId: Uint8Array, executorId?: Ui
   return value;
 }
 
+export function pnCounterSerialize(counterId: Uint8Array): Uint8Array {
+  ensureCollectionId(counterId, 'counterId');
+
+  const status = Number(jsCrdtPnCounterSerialize(counterId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('pnCounterSerialize');
+  }
+
+  return readRegisterBytes();
+}
+
+export function pnCounterDeserialize(data: Uint8Array): Uint8Array {
+  ensureUint8Array(data, 'data');
+
+  const status = Number(jsCrdtPnCounterDeserialize(data, REGISTER_ID));
+  if (status < 0) {
+    decodeError('pnCounterDeserialize');
+  }
+
+  const id = readRegisterBytes();
+  if (id.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] pnCounterDeserialize returned invalid counter id length (${id.length})`);
+  }
+  return id;
+}
+
 // Helper to read signed 64-bit integer from register
 function readBigInt64(): bigint {
   const bytes = readRegisterBytes();
@@ -697,6 +755,32 @@ export function rgaLen(rgaId: Uint8Array): number {
 
   const value = readBigUint64();
   return Number(value);
+}
+
+export function rgaSerialize(rgaId: Uint8Array): Uint8Array {
+  ensureCollectionId(rgaId, 'rgaId');
+
+  const status = Number(jsCrdtRgaSerialize(rgaId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('rgaSerialize');
+  }
+
+  return readRegisterBytes();
+}
+
+export function rgaDeserialize(data: Uint8Array): Uint8Array {
+  ensureUint8Array(data, 'data');
+
+  const status = Number(jsCrdtRgaDeserialize(data, REGISTER_ID));
+  if (status < 0) {
+    decodeError('rgaDeserialize');
+  }
+
+  const id = readRegisterBytes();
+  if (id.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] rgaDeserialize returned invalid rga id length (${id.length})`);
+  }
+  return id;
 }
 
 // UserStorage functions
