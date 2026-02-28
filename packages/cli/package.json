@@ -52,7 +52,7 @@
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-typescript": "^11.1.6",
     "commander": "^11.1.0",
-    "rollup": "^4.9.1",
+    "rollup": "^4.59.0",
     "signale": "^1.4.0"
   },
   "devDependencies": {
