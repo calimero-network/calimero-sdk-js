@@ -37,13 +37,12 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    // Step 1: Generate ABI manifest
+    // Step 1: Generate ABI manifest (basic version for compatibility)
     signale.await('Generating ABI manifest...');
     const abiJsonPath = await generateAbiJson(source, {
       verbose: options.verbose,
       outputDir,
     });
-    const abiManifest = JSON.parse(fs.readFileSync(abiJsonPath, 'utf-8'));
     signale.success('ABI manifest generated');
 
     // Step 2: Generate state schema (state_root + types with CRDT metadata)
@@ -61,20 +60,27 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
       }
     }
 
-    // Step 3: Generate ABI header for WASM embedding
+    // Step 3: Generate ABI header for WASM embedding (with CRDT metadata)
+    // This also generates the CRDT-enhanced ABI that will be used by the bundle
     signale.await('Generating ABI header...');
-    await generateAbiHeader(abiJsonPath, {
+    const abiHeaderPath = await generateAbiHeader(abiJsonPath, source, {
       verbose: options.verbose,
       outputDir,
     });
     signale.success('ABI header generated');
 
-    // Step 4: Bundle with Rollup (with ABI injection)
+    // Step 4: Bundle with Rollup (with CRDT-enhanced ABI injection)
+    // Use the CRDT-enhanced ABI for the bundle so dispatcher can detect CRDT types
     signale.await('Bundling JavaScript with Rollup...');
+    const { generateAbiWithCrdtTypes } = await import('../compiler/abi.js');
+    const abiManifestWithCrdt = generateAbiWithCrdtTypes(source, {
+      verbose: options.verbose,
+      outputDir,
+    });
     const jsBundle = await bundleWithRollup(source, {
       verbose: options.verbose,
       outputDir,
-      abiManifest,
+      abiManifest: abiManifestWithCrdt,
     });
     signale.success('JavaScript bundled');
 

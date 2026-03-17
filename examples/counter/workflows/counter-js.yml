@@ -13,7 +13,7 @@ steps:
   - name: Install Counter Application
     type: install_application
     node: counter-node-1
-    path: "examples/counter/build/service.wasm"
+    path: "build/service.wasm"
     dev: true
     outputs:
       app_id: applicationId

@@ -10,7 +10,7 @@
 
 import { serialize } from '../utils/serialize';
 import { bytesToHex, normalizeCollectionId } from '../utils/hex';
-import { sha256 } from '../utils/sha256';
+import { sha256 } from '../utils/deterministic-id';
 import { BorshWriter } from '../borsh/encoder';
 import { deserializeBorshWithFallback } from '../utils/borsh-value';
 import {

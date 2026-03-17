@@ -50,6 +50,13 @@ export class PNCounter {
     }
   }
 
+  /**
+   * Create a PNCounter from an existing ID.
+   */
+  static fromId(id: Uint8Array | string): PNCounter {
+    return new PNCounter({ id });
+  }
+
   id(): string {
     return bytesToHex(this.counterId);
   }

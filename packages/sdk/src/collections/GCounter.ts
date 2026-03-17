@@ -47,6 +47,13 @@ export class GCounter {
     }
   }
 
+  /**
+   * Create a GCounter from an existing ID.
+   */
+  static fromId(id: Uint8Array | string): GCounter {
+    return new GCounter({ id });
+  }
+
   id(): string {
     return bytesToHex(this.counterId);
   }

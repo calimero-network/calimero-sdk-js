@@ -42,6 +42,13 @@ export class Vector<T> {
   }
 
   /**
+   * Create a vector from an existing ID.
+   */
+  static fromId<U>(id: Uint8Array | string): Vector<U> {
+    return new Vector<U>({ id });
+  }
+
+  /**
    * Returns the identifier of this vector as a hex string.
    */
   id(): string {

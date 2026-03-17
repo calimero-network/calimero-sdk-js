@@ -49,6 +49,13 @@ export class Rga {
     }
   }
 
+  /**
+   * Create an Rga from an existing ID.
+   */
+  static fromId(id: Uint8Array | string): Rga {
+    return new Rga({ id });
+  }
+
   id(): string {
     return bytesToHex(this.rgaId);
   }

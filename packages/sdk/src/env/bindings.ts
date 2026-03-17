@@ -20,6 +20,7 @@ export interface HostEnv {
   storage_remove(key: Uint8Array, register_id: bigint): bigint;
   xcall(context_id: Uint8Array, function_name: Uint8Array, params: Uint8Array): void;
   js_crdt_map_new(register_id: bigint): number;
+  js_crdt_map_new_with_id(id: Uint8Array, register_id: bigint): number;
   js_crdt_map_get(mapId: Uint8Array, key: Uint8Array, register_id: bigint): number;
   js_crdt_map_insert(
     mapId: Uint8Array,
@@ -31,11 +32,13 @@ export interface HostEnv {
   js_crdt_map_contains(mapId: Uint8Array, key: Uint8Array): number;
   js_crdt_map_iter(mapId: Uint8Array, register_id: bigint): number;
   js_crdt_vector_new(register_id: bigint): number;
+  js_crdt_vector_new_with_id(id: Uint8Array, register_id: bigint): number;
   js_crdt_vector_len(vectorId: Uint8Array, register_id: bigint): number;
   js_crdt_vector_push(vectorId: Uint8Array, value: Uint8Array): number;
   js_crdt_vector_get(vectorId: Uint8Array, index: number, register_id: bigint): number;
   js_crdt_vector_pop(vectorId: Uint8Array, register_id: bigint): number;
   js_crdt_set_new(register_id: bigint): number;
+  js_crdt_set_new_with_id(id: Uint8Array, register_id: bigint): number;
   js_crdt_set_insert(setId: Uint8Array, value: Uint8Array): number;
   js_crdt_set_contains(setId: Uint8Array, value: Uint8Array): number;
   js_crdt_set_remove(setId: Uint8Array, value: Uint8Array): number;
@@ -43,11 +46,13 @@ export interface HostEnv {
   js_crdt_set_iter(setId: Uint8Array, register_id: bigint): number;
   js_crdt_set_clear(setId: Uint8Array): number;
   js_crdt_lww_new(register_id: bigint): number;
+  js_crdt_lww_new_with_id(id: Uint8Array, register_id: bigint): number;
   js_crdt_lww_set(registerId: Uint8Array, value: Uint8Array | null): number;
   js_crdt_lww_get(registerId: Uint8Array, register_id: bigint): number;
   js_crdt_lww_timestamp(registerId: Uint8Array, register_id: bigint): number;
   // GCounter (grow-only counter)
   js_crdt_g_counter_new(register_id: bigint): number;
+  js_crdt_g_counter_new_with_id(id: Uint8Array, register_id: bigint): number;
   js_crdt_g_counter_increment(counterId: Uint8Array): number;
   js_crdt_g_counter_value(counterId: Uint8Array, register_id: bigint): number;
   js_crdt_g_counter_get_executor_count(
@@ -59,6 +64,7 @@ export interface HostEnv {
   js_crdt_g_counter_deserialize(data: Uint8Array, register_id: bigint): number;
   // PNCounter (positive-negative counter, supports decrement)
   js_crdt_pn_counter_new(register_id: bigint): number;
+  js_crdt_pn_counter_new_with_id(id: Uint8Array, register_id: bigint): number;
   js_crdt_pn_counter_increment(counterId: Uint8Array): number;
   js_crdt_pn_counter_decrement(counterId: Uint8Array): number;
   js_crdt_pn_counter_value(counterId: Uint8Array, register_id: bigint): number;
@@ -76,6 +82,7 @@ export interface HostEnv {
   js_crdt_pn_counter_deserialize(data: Uint8Array, register_id: bigint): number;
   // RGA (Replicated Growable Array - text editing CRDT)
   js_crdt_rga_new(register_id: bigint): number;
+  js_crdt_rga_new_with_id(id: Uint8Array, register_id: bigint): number;
   js_crdt_rga_insert(rgaId: Uint8Array, pos: bigint, text: Uint8Array): number;
   js_crdt_rga_delete(rgaId: Uint8Array, pos: bigint): number;
   js_crdt_rga_get_text(rgaId: Uint8Array, register_id: bigint): number;
@@ -130,6 +137,12 @@ export interface HostEnv {
   read_root_state(register: bigint): number;
   apply_storage_delta(delta: Uint8Array): void;
   flush_delta(): number;
+  register_js_sdk_root_merge(): void;
+
+  // State initialization
+  // Creates all CRDT collections with deterministic IDs based on schema.
+  // Returns 0 on success, -1 on error (error message in register).
+  init_state(schema: Uint8Array, register_id: bigint): number;
 
   // Time
   time_now(buf: Uint8Array): void;

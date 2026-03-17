@@ -1,8 +1,26 @@
-import { log, valueReturn, flushDelta, registerLen, readRegister, input, panic } from '../env/api';
+import {
+  log,
+  valueReturn,
+  flushDelta,
+  registerLen,
+  readRegister,
+  input,
+  panic,
+  registerJsSdkRootMerge,
+} from '../env/api';
 import { StateManager } from './state-manager';
 import { runtimeLogicEntries } from './method-registry';
 import { getAbiManifest, getMethod } from '../abi/helpers';
 import type { TypeRef, AbiManifest, ScalarType, Variant } from '../abi/types';
+import { buildSchemaFromAbi, callInitState, type StateInitResult } from './state-schema';
+// Static imports for collection classes - no require() in QuickJS
+import { UnorderedMap } from '../collections/UnorderedMap';
+import { Vector } from '../collections/Vector';
+import { UnorderedSet } from '../collections/UnorderedSet';
+import { LwwRegister } from '../collections/LwwRegister';
+import { GCounter } from '../collections/GCounter';
+import { PNCounter } from '../collections/PNCounter';
+import { Rga } from '../collections/Rga';
 import './sync';
 
 type JsonObject = Record<string, unknown>;
@@ -10,7 +28,13 @@ type JsonObject = Record<string, unknown>;
 const REGISTER_ID = 0n;
 
 if (typeof (globalThis as any).__calimero_register_merge !== 'function') {
-  (globalThis as any).__calimero_register_merge = function __calimero_register_merge(): void {};
+  (globalThis as any).__calimero_register_merge = function __calimero_register_merge(): void {
+    // Register JS SDK root merge function.
+    // JS SDK CRDTs are stored as separate entities with crdt_type in metadata.
+    // They are already merged via try_merge_non_root → merge_by_crdt_type.
+    // The root just stores collection IDs (deterministic) and timestamps.
+    registerJsSdkRootMerge();
+  };
 }
 
 /**
@@ -573,6 +597,68 @@ function createLogicDispatcher(
   };
 }
 
+/**
+ * Creates collection wrappers using IDs from init_state.
+ *
+ * This function takes the StateInitResult (map of field_name → collection_id)
+ * and creates the appropriate collection wrappers for each field.
+ */
+function createCollectionsFromInitResult(
+  state: any,
+  initResult: StateInitResult,
+  abi: AbiManifest
+): void {
+  // Get state type from ABI
+  const stateTypeName = abi.state_root;
+  if (!stateTypeName) return;
+
+  const stateType = abi.types[stateTypeName];
+  if (!stateType || stateType.kind !== 'record' || !stateType.fields) return;
+
+  for (const field of stateType.fields) {
+    const fieldName = field.name;
+    const crdtType = field.type?.crdt_type;
+    const collectionId = initResult.get(fieldName);
+
+    if (!collectionId || !crdtType) {
+      continue;
+    }
+
+    log(`[dispatcher] Creating ${crdtType} for field '${fieldName}' with ID from init_state`);
+
+    let collection: any;
+    switch (crdtType) {
+      case 'unordered_map':
+        collection = UnorderedMap.fromId(collectionId);
+        break;
+      case 'unordered_set':
+        collection = UnorderedSet.fromId(collectionId);
+        break;
+      case 'vector':
+        collection = Vector.fromId(collectionId);
+        break;
+      case 'lww_register':
+        collection = LwwRegister.fromId(collectionId);
+        break;
+      case 'g_counter':
+        collection = GCounter.fromId(collectionId);
+        break;
+      case 'pn_counter':
+        collection = PNCounter.fromId(collectionId);
+        break;
+      case 'rga':
+        collection = Rga.fromId(collectionId);
+        break;
+      default:
+        log(`[dispatcher] Unknown CRDT type '${crdtType}' for field '${fieldName}'`);
+        continue;
+    }
+
+    // Assign to state object
+    state[fieldName] = collection;
+  }
+}
+
 function createInitDispatcher(
   logicCtor: any,
   stateCtor: any,
@@ -614,6 +700,21 @@ function createInitDispatcher(
         panic('Contract state already initialized');
       }
 
+      // CRITICAL: Initialize state collections via init_state host function.
+      // This creates all CRDT collections with deterministic IDs from the start,
+      // ensuring all nodes use the same IDs for the same fields (Invariant I9).
+      const abi = getAbiManifest();
+      let initResult: StateInitResult | null = null;
+
+      if (abi) {
+        const schema = buildSchemaFromAbi(abi);
+        if (schema && schema.fields.length > 0) {
+          log(`[dispatcher] initDispatch: calling init_state for ${schema.fields.length} fields`);
+          initResult = callInitState(schema);
+        }
+      }
+
+      // Call the init method
       const result = logicCtor[methodName](...args);
       // Init methods typically return void or state, so we don't serialize the return value
       state = result ?? (stateCtor ? new stateCtor() : undefined);
@@ -623,6 +724,11 @@ function createInitDispatcher(
 
       if (logicCtor && state instanceof logicCtor === false) {
         Object.setPrototypeOf(state, logicCtor.prototype);
+      }
+
+      // Replace any existing collections with ones using deterministic IDs from init_state
+      if (initResult && abi) {
+        createCollectionsFromInitResult(state, initResult, abi);
       }
 
       StateManager.save(state);

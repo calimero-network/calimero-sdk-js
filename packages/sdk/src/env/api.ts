@@ -20,6 +20,60 @@ declare const env: HostEnv;
 const REGISTER_ID = 0n;
 const textEncoder = new TextEncoder();
 
+/**
+ * Registers the JS SDK root merge function.
+ *
+ * JS SDK CRDTs are stored as separate entities with crdt_type in metadata.
+ * They are already merged via try_merge_non_root → merge_by_crdt_type.
+ * The root just stores collection IDs (deterministic) and timestamps.
+ */
+export function registerJsSdkRootMerge(): void {
+  env.register_js_sdk_root_merge();
+}
+
+/**
+ * Initializes the application state by creating all CRDT collections with deterministic IDs.
+ *
+ * This function is called once during `@Init` to set up all state fields based on the schema.
+ * Collections are created with IDs computed from field names, ensuring all nodes generate
+ * the same IDs for the same logical entities.
+ *
+ * @param schema - Borsh-encoded StateSchema describing the state structure
+ * @returns Borsh-encoded StateInitResult with field_name → collection_id mapping
+ * @throws Error if state initialization fails
+ *
+ * @example
+ * ```typescript
+ * const schema = borshSerialize(StateSchema, {
+ *   fields: [
+ *     { name: 'counters', crdt_type: { UnorderedMap: { key_type: 'String', value_type: 'GCounter' } } },
+ *     { name: 'visits', crdt_type: 'GCounter' },
+ *   ],
+ * });
+ * const result = initState(schema);
+ * ```
+ */
+export function initState(schema: Uint8Array): Uint8Array {
+  const status = env.init_state(schema, REGISTER_ID);
+  if (status !== 0) {
+    // Error occurred - read error message from register
+    const len = Number(env.register_len(REGISTER_ID));
+    if (len > 0) {
+      const buf = new Uint8Array(len);
+      env.read_register(REGISTER_ID, buf);
+      const errorMsg = new TextDecoder().decode(buf);
+      throw new Error(`init_state failed: ${errorMsg}`);
+    }
+    throw new Error('init_state failed with unknown error');
+  }
+
+  // Read result from register
+  const len = Number(env.register_len(REGISTER_ID));
+  const result = new Uint8Array(len);
+  env.read_register(REGISTER_ID, result);
+  return result;
+}
+
 export function registerLen(register: bigint = REGISTER_ID): bigint {
   return env.register_len(register);
 }
@@ -772,6 +826,10 @@ export function jsCrdtMapNew(register: bigint): number {
   return env.js_crdt_map_new(register);
 }
 
+export function jsCrdtMapNewWithId(id: Uint8Array, register: bigint): number {
+  return env.js_crdt_map_new_with_id(id, register);
+}
+
 export function jsCrdtMapGet(mapId: Uint8Array, key: Uint8Array, register: bigint): number {
   return env.js_crdt_map_get(mapId, key, register);
 }
@@ -801,6 +859,10 @@ export function jsCrdtVectorNew(register: bigint): number {
   return env.js_crdt_vector_new(register);
 }
 
+export function jsCrdtVectorNewWithId(id: Uint8Array, register: bigint): number {
+  return env.js_crdt_vector_new_with_id(id, register);
+}
+
 export function jsCrdtVectorLen(vectorId: Uint8Array, register: bigint): number {
   return env.js_crdt_vector_len(vectorId, register);
 }
@@ -819,6 +881,10 @@ export function jsCrdtVectorPop(vectorId: Uint8Array, register: bigint): number 
 
 export function jsCrdtSetNew(register: bigint): number {
   return env.js_crdt_set_new(register);
+}
+
+export function jsCrdtSetNewWithId(id: Uint8Array, register: bigint): number {
+  return env.js_crdt_set_new_with_id(id, register);
 }
 
 export function jsCrdtSetInsert(setId: Uint8Array, value: Uint8Array): number {
@@ -849,6 +915,10 @@ export function jsCrdtLwwNew(register: bigint): number {
   return env.js_crdt_lww_new(register);
 }
 
+export function jsCrdtLwwNewWithId(id: Uint8Array, register: bigint): number {
+  return env.js_crdt_lww_new_with_id(id, register);
+}
+
 export function jsCrdtLwwSet(registerId: Uint8Array, value: Uint8Array | null): number {
   return env.js_crdt_lww_set(registerId, value);
 }
@@ -863,6 +933,10 @@ export function jsCrdtLwwTimestamp(registerId: Uint8Array, register: bigint): nu
 
 export function jsCrdtGCounterNew(register: bigint): number {
   return env.js_crdt_g_counter_new(register);
+}
+
+export function jsCrdtGCounterNewWithId(id: Uint8Array, register: bigint): number {
+  return env.js_crdt_g_counter_new_with_id(id, register);
 }
 
 export function jsCrdtGCounterIncrement(counterId: Uint8Array): number {
@@ -895,6 +969,10 @@ export function jsCrdtGCounterDeserialize(data: Uint8Array, register: bigint): n
 
 export function jsCrdtPnCounterNew(register: bigint): number {
   return env.js_crdt_pn_counter_new(register);
+}
+
+export function jsCrdtPnCounterNewWithId(id: Uint8Array, register: bigint): number {
+  return env.js_crdt_pn_counter_new_with_id(id, register);
 }
 
 export function jsCrdtPnCounterIncrement(counterId: Uint8Array): number {
@@ -939,6 +1017,10 @@ export function jsCrdtPnCounterDeserialize(data: Uint8Array, register: bigint): 
 
 export function jsCrdtRgaNew(register: bigint): number {
   return env.js_crdt_rga_new(register);
+}
+
+export function jsCrdtRgaNewWithId(id: Uint8Array, register: bigint): number {
+  return env.js_crdt_rga_new_with_id(id, register);
 }
 
 export function jsCrdtRgaInsert(rgaId: Uint8Array, pos: bigint, text: Uint8Array): number {

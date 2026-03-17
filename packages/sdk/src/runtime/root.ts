@@ -65,6 +65,16 @@ export function saveRootState(state: any): Uint8Array {
   // Only include fields defined in the ABI state_root type
   const stateValues: Record<string, unknown> = {};
   for (const field of stateRootType.fields) {
+    // Check if this field is a CRDT type (has crdt_type metadata)
+    // CRDT fields are handled separately via init_state and don't need Borsh serialization
+    const fieldType = field.type as any;
+    if (fieldType.crdt_type) {
+      // CRDT fields are stored as separate entities with their own IDs
+      // They're already handled in doc.collections - skip Borsh serialization
+      env.log(`[root] skipping CRDT field '${field.name}' (crdt_type: ${fieldType.crdt_type})`);
+      continue;
+    }
+
     // Collection fields are handled separately in doc.collections
     // But if ABI requires them as scalar types (e.g., Counter -> u64), provide default value
     if (field.name in doc.collections) {
@@ -90,7 +100,7 @@ export function saveRootState(state: any): Uint8Array {
       ) {
         stateValues[field.name] = 0;
       } else {
-        // For non-scalar collection types, skip (shouldn't happen)
+        // For non-scalar collection types, skip (they're handled as collections)
         continue;
       }
       continue;
@@ -159,19 +169,21 @@ export function saveRootState(state: any): Uint8Array {
   writer.writeU8(1); // Version 1 = ABI format
   writer.writeBytes(statePayload);
 
-  // Append collections and metadata using legacy format
-  // Collections are JS-specific CRDT snapshots, not part of Rust state
-  const collectionsAndMetadata = serialize({
+  // Append collections using legacy format (for JS SDK to restore state)
+  // DO NOT include metadata (timestamps) in the payload - they would cause hash divergence!
+  // Timestamps are handled separately via persist_root_state parameters and Rust Metadata.
+  const collectionsOnly = serialize({
     collections: doc.collections,
-    metadata: doc.metadata,
+    // metadata is intentionally excluded - stored in Rust Metadata, not in payload hash
   });
-  writer.writeBytes(collectionsAndMetadata);
+  writer.writeBytes(collectionsOnly);
 
   const payload = writer.toBytes();
-  env.log('[root] writing state using ABI-aware serialization (Rust-compatible)');
+  env.log('[root] writing state using ABI-aware serialization (Rust-compatible, no timestamps in payload)');
 
   env.log('[root] writing state document to host');
-  env.persistRootState(payload, metadata.createdAt, metadata.updatedAt);
+  // Pass 0 for timestamps - let host use HLC for consistent timing
+  env.persistRootState(payload, 0, 0);
   return payload;
 }
 

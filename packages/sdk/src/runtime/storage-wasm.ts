@@ -13,17 +13,20 @@ import {
   registerLen,
   readRegister,
   jsCrdtMapNew,
+  jsCrdtMapNewWithId,
   jsCrdtMapGet,
   jsCrdtMapInsert,
   jsCrdtMapRemove,
   jsCrdtMapContains,
   jsCrdtMapIter,
   jsCrdtVectorNew,
+  jsCrdtVectorNewWithId,
   jsCrdtVectorLen,
   jsCrdtVectorPush,
   jsCrdtVectorGet,
   jsCrdtVectorPop,
   jsCrdtSetNew,
+  jsCrdtSetNewWithId,
   jsCrdtSetInsert,
   jsCrdtSetContains,
   jsCrdtSetRemove,
@@ -31,16 +34,19 @@ import {
   jsCrdtSetIter,
   jsCrdtSetClear,
   jsCrdtLwwNew,
+  jsCrdtLwwNewWithId,
   jsCrdtLwwSet,
   jsCrdtLwwGet,
   jsCrdtLwwTimestamp,
   jsCrdtGCounterNew,
+  jsCrdtGCounterNewWithId,
   jsCrdtGCounterIncrement,
   jsCrdtGCounterValue,
   jsCrdtGCounterGetExecutorCount,
   jsCrdtGCounterSerialize,
   jsCrdtGCounterDeserialize,
   jsCrdtPnCounterNew,
+  jsCrdtPnCounterNewWithId,
   jsCrdtPnCounterIncrement,
   jsCrdtPnCounterDecrement,
   jsCrdtPnCounterValue,
@@ -49,6 +55,7 @@ import {
   jsCrdtPnCounterSerialize,
   jsCrdtPnCounterDeserialize,
   jsCrdtRgaNew,
+  jsCrdtRgaNewWithId,
   jsCrdtRgaInsert,
   jsCrdtRgaDelete,
   jsCrdtRgaGetText,
@@ -117,6 +124,24 @@ export function mapNew(): Uint8Array {
     throw new Error(`[storage] mapNew returned invalid map id length (${id.length})`);
   }
   return id;
+}
+
+/**
+ * Creates a new map with a deterministic ID.
+ * The ID should be computed using computeCollectionId(parentId, fieldName).
+ */
+export function mapNewWithId(id: Uint8Array): Uint8Array {
+  ensureCollectionId(id, 'id');
+  const status = Number(jsCrdtMapNewWithId(id, REGISTER_ID));
+  if (status < 0) {
+    decodeError('mapNewWithId');
+  }
+
+  const returnedId = readRegisterBytes();
+  if (returnedId.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] mapNewWithId returned invalid map id length (${returnedId.length})`);
+  }
+  return returnedId;
 }
 
 export function mapGet(mapId: Uint8Array, key: Uint8Array): Uint8Array | null {
@@ -275,6 +300,23 @@ export function vectorNew(): Uint8Array {
   return id;
 }
 
+/**
+ * Creates a new vector with a deterministic ID.
+ */
+export function vectorNewWithId(id: Uint8Array): Uint8Array {
+  ensureCollectionId(id, 'id');
+  const status = Number(jsCrdtVectorNewWithId(id, REGISTER_ID));
+  if (status < 0) {
+    decodeError('vectorNewWithId');
+  }
+
+  const returnedId = readRegisterBytes();
+  if (returnedId.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] vectorNewWithId returned invalid id length (${returnedId.length})`);
+  }
+  return returnedId;
+}
+
 export function vectorLen(vectorId: Uint8Array): number {
   ensureCollectionId(vectorId, 'vectorId');
 
@@ -342,6 +384,23 @@ export function setNew(): Uint8Array {
     throw new Error(`[storage] setNew returned invalid id length (${id.length})`);
   }
   return id;
+}
+
+/**
+ * Creates a new set with a deterministic ID.
+ */
+export function setNewWithId(id: Uint8Array): Uint8Array {
+  ensureCollectionId(id, 'id');
+  const status = Number(jsCrdtSetNewWithId(id, REGISTER_ID));
+  if (status < 0) {
+    decodeError('setNewWithId');
+  }
+
+  const returnedId = readRegisterBytes();
+  if (returnedId.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] setNewWithId returned invalid id length (${returnedId.length})`);
+  }
+  return returnedId;
 }
 
 export function setInsert(setId: Uint8Array, value: Uint8Array): boolean {
@@ -455,6 +514,23 @@ export function lwwNew(): Uint8Array {
   return id;
 }
 
+/**
+ * Creates a new LWW register with a deterministic ID.
+ */
+export function lwwNewWithId(id: Uint8Array): Uint8Array {
+  ensureCollectionId(id, 'id');
+  const status = Number(jsCrdtLwwNewWithId(id, REGISTER_ID));
+  if (status < 0) {
+    decodeError('lwwNewWithId');
+  }
+
+  const returnedId = readRegisterBytes();
+  if (returnedId.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] lwwNewWithId returned invalid id length (${returnedId.length})`);
+  }
+  return returnedId;
+}
+
 export function lwwSet(registerId: Uint8Array, value: Uint8Array | null): void {
   ensureCollectionId(registerId, 'registerId');
   if (value !== null) {
@@ -511,6 +587,23 @@ export function gCounterNew(): Uint8Array {
     throw new Error(`[storage] gCounterNew returned invalid id length (${id.length})`);
   }
   return id;
+}
+
+/**
+ * Creates a new G-Counter with a deterministic ID.
+ */
+export function gCounterNewWithId(id: Uint8Array): Uint8Array {
+  ensureCollectionId(id, 'id');
+  const status = Number(jsCrdtGCounterNewWithId(id, REGISTER_ID));
+  if (status < 0) {
+    decodeError('gCounterNewWithId');
+  }
+
+  const returnedId = readRegisterBytes();
+  if (returnedId.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] gCounterNewWithId returned invalid id length (${returnedId.length})`);
+  }
+  return returnedId;
 }
 
 export function gCounterIncrement(counterId: Uint8Array): void {
@@ -593,6 +686,23 @@ export function pnCounterNew(): Uint8Array {
     throw new Error(`[storage] pnCounterNew returned invalid id length (${id.length})`);
   }
   return id;
+}
+
+/**
+ * Creates a new PN-Counter with a deterministic ID.
+ */
+export function pnCounterNewWithId(id: Uint8Array): Uint8Array {
+  ensureCollectionId(id, 'id');
+  const status = Number(jsCrdtPnCounterNewWithId(id, REGISTER_ID));
+  if (status < 0) {
+    decodeError('pnCounterNewWithId');
+  }
+
+  const returnedId = readRegisterBytes();
+  if (returnedId.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] pnCounterNewWithId returned invalid id length (${returnedId.length})`);
+  }
+  return returnedId;
 }
 
 export function pnCounterIncrement(counterId: Uint8Array): void {
@@ -712,6 +822,20 @@ export function rgaNew(): Uint8Array {
     throw new Error(`[storage] rgaNew returned invalid id length (${id.length})`);
   }
   return id;
+}
+
+export function rgaNewWithId(id: Uint8Array): Uint8Array {
+  ensureCollectionId(id, 'id');
+  const status = Number(jsCrdtRgaNewWithId(id, REGISTER_ID));
+  if (status < 0) {
+    decodeError('rgaNewWithId');
+  }
+
+  const returnedId = readRegisterBytes();
+  if (returnedId.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] rgaNewWithId returned invalid id length (${returnedId.length})`);
+  }
+  return returnedId;
 }
 
 export function rgaInsert(rgaId: Uint8Array, pos: number, text: string): void {

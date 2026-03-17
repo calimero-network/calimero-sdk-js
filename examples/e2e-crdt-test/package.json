@@ -1,0 +1,17 @@
+{
+  "name": "e2e-crdt-test",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Comprehensive E2E CRDT test app for Calimero JS SDK",
+  "scripts": {
+    "build:manual": "calimero-sdk build src/index.ts -o build/service.wasm",
+    "clean": "rm -rf build"
+  },
+  "dependencies": {
+    "@calimero-network/calimero-sdk-js": "workspace:*"
+  },
+  "devDependencies": {
+    "@calimero-network/calimero-cli-js": "workspace:*",
+    "typescript": "^5.3.3"
+  }
+}
