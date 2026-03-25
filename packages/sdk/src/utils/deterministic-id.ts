@@ -33,10 +33,7 @@ export function sha256(data: Uint8Array): Uint8Array {
   // Read 4 bytes as big-endian uint32
   function readU32BE(arr: Uint8Array, offset: number): number {
     return (
-      ((arr[offset] << 24) |
-        (arr[offset + 1] << 16) |
-        (arr[offset + 2] << 8) |
-        arr[offset + 3]) >>>
+      ((arr[offset] << 24) | (arr[offset + 1] << 16) | (arr[offset + 2] << 8) | arr[offset + 3]) >>>
       0
     );
   }

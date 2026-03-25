@@ -13,7 +13,7 @@ import {
   UnorderedMap,
   UnorderedSet,
   Vector,
-  GGCounter,
+  GCounter,
   LwwRegister,
 } from '@calimero-network/calimero-sdk-js/collections';
 

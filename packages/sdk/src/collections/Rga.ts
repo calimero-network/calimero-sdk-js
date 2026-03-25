@@ -9,13 +9,7 @@
  */
 
 import { bytesToHex, normalizeCollectionId } from '../utils/hex';
-import {
-  rgaNew,
-  rgaInsert,
-  rgaDelete,
-  rgaGetText,
-  rgaLen,
-} from '../runtime/storage-wasm';
+import { rgaNew, rgaInsert, rgaDelete, rgaGetText, rgaLen } from '../runtime/storage-wasm';
 import { registerCollectionType, CollectionSnapshot } from '../runtime/collections';
 
 export interface RgaOptions {
@@ -166,10 +160,7 @@ export class Rga {
   }
 }
 
-registerCollectionType(
-  'Rga',
-  (snapshot: CollectionSnapshot) => new Rga({ id: snapshot.id })
-);
+registerCollectionType('Rga', (snapshot: CollectionSnapshot) => new Rga({ id: snapshot.id }));
 
 function validatePosition(pos: number): void {
   if (!Number.isInteger(pos) || pos < 0) {

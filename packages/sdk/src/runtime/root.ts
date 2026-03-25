@@ -179,7 +179,9 @@ export function saveRootState(state: any): Uint8Array {
   writer.writeBytes(collectionsOnly);
 
   const payload = writer.toBytes();
-  env.log('[root] writing state using ABI-aware serialization (Rust-compatible, no timestamps in payload)');
+  env.log(
+    '[root] writing state using ABI-aware serialization (Rust-compatible, no timestamps in payload)'
+  );
 
   env.log('[root] writing state document to host');
   // Pass 0 for timestamps - let host use HLC for consistent timing

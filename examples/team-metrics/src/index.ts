@@ -35,7 +35,7 @@ export type MemberProfile = {
 
 @State
 export class TeamMetrics {
-  memberContributions: UnorderedMap<string, Counter>;
+  memberContributions: UnorderedMap<string, GCounter>;
   totalContributions: GCounter;
   memberProfiles: UnorderedMap<string, MemberProfileRecord>;
 

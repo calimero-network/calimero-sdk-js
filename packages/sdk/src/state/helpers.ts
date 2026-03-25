@@ -115,9 +115,7 @@ export function createPNCounter(
  * console.log(doc.getText()); // "Hello"
  * ```
  */
-export function createRga(
-  options?: RgaOptions & { initialText?: string }
-): Rga {
+export function createRga(options?: RgaOptions & { initialText?: string }): Rga {
   const { initialText, ...rest } = options ?? {};
   const rga = new Rga(rest);
   if (initialText && initialText.length > 0) {

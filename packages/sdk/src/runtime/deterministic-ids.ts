@@ -76,10 +76,7 @@ function getCollectionType(value: CollectionLike): CollectionType {
  * Creates a collection with a deterministic ID.
  * This is called internally - the collection class constructors don't need modification.
  */
-function createCollectionWithDeterministicId(
-  type: CollectionType,
-  fieldName: string
-): Uint8Array {
+function createCollectionWithDeterministicId(type: CollectionType, fieldName: string): Uint8Array {
   const deterministicId = computeCollectionId(ROOT_ID, fieldName);
 
   switch (type) {
@@ -172,9 +169,7 @@ export function assignDeterministicIds(state: any): void {
  * Gets the collection class for creating instances with fromId.
  * Uses static imports to work in QuickJS environment (no require()).
  */
-function getCollectionModule(
-  type: CollectionType
-): { fromId: (id: Uint8Array) => any } | null {
+function getCollectionModule(type: CollectionType): { fromId: (id: Uint8Array) => any } | null {
   switch (type) {
     case 'UnorderedMap':
       return UnorderedMap;

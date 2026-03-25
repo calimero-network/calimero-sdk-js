@@ -199,10 +199,10 @@ Total = local_count_A + local_count_B = 2
 
 ### Counter Types in Rust vs JS SDK
 
-| Rust Type | JS SDK Type | CrdtType | Supports Decrement |
-|-----------|-------------|----------|-------------------|
-| `Counter<false>` / `GCounter` | `GCounter` | `CrdtType::GCounter` | ❌ No |
-| `Counter<true>` / `PNCounter` | `PNCounter` | `CrdtType::PnCounter` | ✅ Yes |
+| Rust Type                     | JS SDK Type | CrdtType              | Supports Decrement |
+| ----------------------------- | ----------- | --------------------- | ------------------ |
+| `Counter<false>` / `GCounter` | `GCounter`  | `CrdtType::GCounter`  | ❌ No              |
+| `Counter<true>` / `PNCounter` | `PNCounter` | `CrdtType::PnCounter` | ✅ Yes             |
 
 ## LwwRegister<T>
 

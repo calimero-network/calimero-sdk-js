@@ -41,7 +41,9 @@ export async function generateMethodsHeader(jsFile: string, outputDir: string): 
             }
           }
         }
-      } catch { /* ignore parse errors */ }
+      } catch {
+        /* ignore parse errors */
+      }
     }
   }
 

@@ -601,7 +601,9 @@ export function gCounterNewWithId(id: Uint8Array): Uint8Array {
 
   const returnedId = readRegisterBytes();
   if (returnedId.length !== COLLECTION_ID_LENGTH) {
-    throw new Error(`[storage] gCounterNewWithId returned invalid id length (${returnedId.length})`);
+    throw new Error(
+      `[storage] gCounterNewWithId returned invalid id length (${returnedId.length})`
+    );
   }
   return returnedId;
 }
@@ -665,7 +667,9 @@ export function gCounterDeserialize(data: Uint8Array): Uint8Array {
 
   const id = readRegisterBytes();
   if (id.length !== COLLECTION_ID_LENGTH) {
-    throw new Error(`[storage] gCounterDeserialize returned invalid counter id length (${id.length})`);
+    throw new Error(
+      `[storage] gCounterDeserialize returned invalid counter id length (${id.length})`
+    );
   }
   return id;
 }
@@ -700,7 +704,9 @@ export function pnCounterNewWithId(id: Uint8Array): Uint8Array {
 
   const returnedId = readRegisterBytes();
   if (returnedId.length !== COLLECTION_ID_LENGTH) {
-    throw new Error(`[storage] pnCounterNewWithId returned invalid id length (${returnedId.length})`);
+    throw new Error(
+      `[storage] pnCounterNewWithId returned invalid id length (${returnedId.length})`
+    );
   }
   return returnedId;
 }
@@ -791,7 +797,9 @@ export function pnCounterDeserialize(data: Uint8Array): Uint8Array {
 
   const id = readRegisterBytes();
   if (id.length !== COLLECTION_ID_LENGTH) {
-    throw new Error(`[storage] pnCounterDeserialize returned invalid counter id length (${id.length})`);
+    throw new Error(
+      `[storage] pnCounterDeserialize returned invalid counter id length (${id.length})`
+    );
   }
   return id;
 }

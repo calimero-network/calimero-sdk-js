@@ -311,8 +311,8 @@ import {
   createUnorderedMap,
   createUnorderedSet,
   createVector,
-  createGCounter,     // Grow-only counter (increment only)
-  createPNCounter,    // Positive-negative counter (supports decrement)
+  createGCounter, // Grow-only counter (increment only)
+  createPNCounter, // Positive-negative counter (supports decrement)
   createLwwRegister,
   createUserStorage,
   createFrozenStorage,
@@ -322,8 +322,8 @@ import {
 const map = createUnorderedMap<string, number>();
 const set = createUnorderedSet<string>();
 const vec = createVector<string>();
-const counter = createGCounter();      // GCounter: increment-only
-const pnCounter = createPNCounter();   // PNCounter: supports decrement
+const counter = createGCounter(); // GCounter: increment-only
+const pnCounter = createPNCounter(); // PNCounter: supports decrement
 const register = createLwwRegister<string>();
 
 // Specialized storage
