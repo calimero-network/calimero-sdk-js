@@ -33,7 +33,7 @@
     <p style="margin-bottom:10px;">Links a logic class to its state class. Methods in this class become callable service endpoints.</p>
     <div class="typedef">
 <span class="kw">@Logic</span>(<span class="ty">MyApp</span>)<br>
-<span class="kw">export class</span> <span class="ty">MyAppLogic</span> {<br>
+<span class="kw">export class</span> <span class="ty">MyAppLogic</span> <span class="kw">extends</span> <span class="ty">MyApp</span> {<br>
 &nbsp;&nbsp;<span class="comment">// methods become RPC endpoints</span><br>
 }
     </div>

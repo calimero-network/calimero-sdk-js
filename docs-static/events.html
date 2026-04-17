@@ -76,7 +76,7 @@
 <p style="margin-bottom:10px;">Handler methods live in the <span class="code">@Logic</span> class. They are called by name when the event arrives at a peer:</p>
 <div class="typedef">
 <span class="kw">@Logic</span>(<span class="ty">MyApp</span>)<br>
-<span class="kw">export class</span> <span class="ty">MyAppLogic</span> {<br>
+<span class="kw">export class</span> <span class="ty">MyAppLogic</span> <span class="kw">extends</span> <span class="ty">MyApp</span> {<br>
 &nbsp;&nbsp;<span class="field">addItem</span>(key: <span class="ty">string</span>, value: <span class="ty">string</span>): <span class="kw">void</span> {<br>
 &nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">this</span>.items.<span class="field">set</span>(key, value);<br>
 &nbsp;&nbsp;&nbsp;&nbsp;<span class="field">emitWithHandler</span>(<span class="kw">new</span> <span class="ty">ItemAdded</span>(key, value, <span class="ty">Date</span>.<span class="field">now</span>()), <span class="ty">'onItemAdded'</span>);<br>

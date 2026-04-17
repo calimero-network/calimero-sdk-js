@@ -61,7 +61,7 @@ pnpm add -D <span class="field">@calimero-network/calimero-cli-js</span> typescr
 &nbsp;&nbsp;count: <span class="ty">Counter</span> = <span class="field">createCounter</span>();<br>
 }<br><br>
 <span class="kw">@Logic</span>(<span class="ty">CounterApp</span>)<br>
-<span class="kw">export class</span> <span class="ty">CounterLogic</span> {<br>
+<span class="kw">export class</span> <span class="ty">CounterLogic</span> <span class="kw">extends</span> <span class="ty">CounterApp</span> {<br>
 &nbsp;&nbsp;<span class="kw">@Init</span><br>
 &nbsp;&nbsp;<span class="kw">static</span> <span class="field">initialize</span>(): <span class="ty">CounterApp</span> {<br>
 &nbsp;&nbsp;&nbsp;&nbsp;<span class="field">env</span>.<span class="field">log</span>(<span class="ty">'Initializing counter'</span>);<br>

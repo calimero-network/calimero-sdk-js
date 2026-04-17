@@ -117,7 +117,7 @@ npm install -D <span class="field">@calimero-network/calimero-cli-js</span>
 &nbsp;&nbsp;count = <span class="field">createCounter</span>();<br>
 }<br><br>
 <span class="kw">@Logic</span>(<span class="ty">CounterApp</span>)<br>
-<span class="kw">export class</span> <span class="ty">CounterLogic</span> {<br>
+<span class="kw">export class</span> <span class="ty">CounterLogic</span> <span class="kw">extends</span> <span class="ty">CounterApp</span> {<br>
 &nbsp;&nbsp;<span class="kw">@Init</span><br>
 &nbsp;&nbsp;<span class="kw">static</span> <span class="field">initialize</span>(): <span class="ty">CounterApp</span> { <span class="kw">return new</span> <span class="ty">CounterApp</span>(); }<br><br>
 &nbsp;&nbsp;<span class="field">increment</span>(): <span class="kw">void</span> { <span class="kw">this</span>.count.<span class="field">increment</span>(); }<br>

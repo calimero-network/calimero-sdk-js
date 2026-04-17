@@ -58,7 +58,7 @@
 }<br><br>
 <span class="comment">// Logic</span><br>
 <span class="kw">@Logic</span>(<span class="ty">KvStore</span>)<br>
-<span class="kw">export class</span> <span class="ty">KvStoreLogic</span> {<br>
+<span class="kw">export class</span> <span class="ty">KvStoreLogic</span> <span class="kw">extends</span> <span class="ty">KvStore</span> {<br>
 &nbsp;&nbsp;<span class="kw">@Init</span><br>
 &nbsp;&nbsp;<span class="kw">static</span> <span class="field">initialize</span>(): <span class="ty">KvStore</span> {<br>
 &nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return new</span> <span class="ty">KvStore</span>();<br>
@@ -206,7 +206,7 @@
 &nbsp;&nbsp;items = <span class="field">createUnorderedMap</span>();<br>
 }<br><br>
 <span class="kw">@Logic</span>(<span class="ty">MyApp</span>)<br>
-<span class="kw">export class</span> <span class="ty">MyAppLogic</span> {<br>
+<span class="kw">export class</span> <span class="ty">MyAppLogic</span> <span class="kw">extends</span> <span class="ty">MyApp</span> {<br>
 &nbsp;&nbsp;<span class="field">set</span>(key: <span class="ty">string</span>) { <span class="comment">// ✅ in @Logic</span><br>
 &nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">this</span>.items.<span class="field">set</span>(key, <span class="ty">'v'</span>);<br>
 &nbsp;&nbsp;}<br>

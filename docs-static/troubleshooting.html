@@ -94,7 +94,7 @@
     <div class="typedef">
 <span class="comment">// ✅ Correct — method in @Logic</span><br>
 <span class="kw">@Logic</span>(<span class="ty">MyApp</span>)<br>
-<span class="kw">export class</span> <span class="ty">MyAppLogic</span> {<br>
+<span class="kw">export class</span> <span class="ty">MyAppLogic</span> <span class="kw">extends</span> <span class="ty">MyApp</span> {<br>
 &nbsp;&nbsp;<span class="field">myMethod</span>(): <span class="kw">void</span> { <span class="comment">/* … */</span> } <span class="comment">// exported</span><br>
 }<br><br>
 <span class="comment">// ❌ Wrong — method in @State</span><br>
