@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Migration Guide — Calimero SDK JS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+<meta name="description" content="Migrate from the Calimero Rust SDK to the JavaScript SDK — side-by-side comparisons, decorator mapping, and collection equivalents.">
+<meta name="theme-color" content="#0d1117">
+</head>
+<body>
+<div class="main">
+<div class="content">
+
+<div class="breadcrumb"></div>
+<h1><em>Migration</em> Guide</h1>
+<p class="page-subtitle">calimero-sdk-js / migration — Rust → JavaScript</p>
+
+<div class="card ga">
+<h2>Side-by-Side Comparison</h2>
+<div class="g2">
+  <div>
+    <h3>Rust SDK</h3>
+    <div class="typedef">
+<span class="kw">use</span> calimero_sdk::app;<br>
+<span class="kw">use</span> calimero_storage::collections::UnorderedMap;<br><br>
+<span class="comment">// State</span><br>
+#[app::state]<br>
+#[derive(BorshSerialize, BorshDeserialize)]<br>
+<span class="kw">pub struct</span> <span class="ty">KvStore</span> {<br>
+&nbsp;&nbsp;items: <span class="ty">UnorderedMap</span>&lt;<span class="ty">String</span>, <span class="ty">String</span>&gt;,<br>
+}<br><br>
+<span class="comment">// Logic</span><br>
+#[app::logic]<br>
+<span class="kw">impl</span> <span class="ty">KvStore</span> {<br>
+&nbsp;&nbsp;#[app::init]<br>
+&nbsp;&nbsp;<span class="kw">pub fn</span> <span class="field">init</span>() -&gt; <span class="ty">KvStore</span> {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="ty">KvStore</span> { items: <span class="ty">UnorderedMap</span>::new() }<br>
+&nbsp;&nbsp;}<br><br>
+&nbsp;&nbsp;<span class="kw">pub fn</span> <span class="field">set</span>(&amp;<span class="kw">mut self</span>, key: <span class="ty">String</span>, val: <span class="ty">String</span>) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">self</span>.items.<span class="field">insert</span>(key, val).<span class="field">unwrap</span>();<br>
+&nbsp;&nbsp;}<br><br>
+&nbsp;&nbsp;<span class="kw">pub fn</span> <span class="field">get</span>(&amp;<span class="kw">self</span>, key: &amp;<span class="ty">str</span>) -&gt; <span class="ty">Option</span>&lt;<span class="ty">String</span>&gt; {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">self</span>.items.<span class="field">get</span>(key).<span class="field">unwrap</span>()<br>
+&nbsp;&nbsp;}<br>
+}
+    </div>
+  </div>
+  <div>
+    <h3>JavaScript SDK</h3>
+    <div class="typedef">
+<span class="kw">import</span> { <span class="field">State</span>, <span class="field">Logic</span>, <span class="field">Init</span> } <span class="kw">from</span> <span class="ty">'@calimero-network/calimero-sdk-js'</span>;<br>
+<span class="kw">import</span> { <span class="ty">UnorderedMap</span> } <span class="kw">from</span> <span class="ty">'@calimero-network/calimero-sdk-js/collections'</span>;<br><br>
+<span class="comment">// State</span><br>
+<span class="kw">@State</span><br>
+<span class="kw">export class</span> <span class="ty">KvStore</span> {<br>
+&nbsp;&nbsp;items: <span class="ty">UnorderedMap</span>&lt;<span class="ty">string</span>, <span class="ty">string</span>&gt; = <span class="field">createUnorderedMap</span>();<br>
+}<br><br>
+<span class="comment">// Logic</span><br>
+<span class="kw">@Logic</span>(<span class="ty">KvStore</span>)<br>
+<span class="kw">export class</span> <span class="ty">KvStoreLogic</span> {<br>
+&nbsp;&nbsp;<span class="kw">@Init</span><br>
+&nbsp;&nbsp;<span class="kw">static</span> <span class="field">initialize</span>(): <span class="ty">KvStore</span> {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return new</span> <span class="ty">KvStore</span>();<br>
+&nbsp;&nbsp;}<br><br>
+&nbsp;&nbsp;<span class="field">set</span>(key: <span class="ty">string</span>, val: <span class="ty">string</span>): <span class="kw">void</span> {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">this</span>.items.<span class="field">set</span>(key, val);<br>
+&nbsp;&nbsp;}<br><br>
+&nbsp;&nbsp;<span class="field">get</span>(key: <span class="ty">string</span>): <span class="ty">string</span> | <span class="kw">null</span> {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return this</span>.items.<span class="field">get</span>(key);<br>
+&nbsp;&nbsp;}<br>
+}
+    </div>
+  </div>
+</div>
+</div>
+
+<h2>Key Differences</h2>
+
+<div class="card gb">
+<h3>1. Decorators vs Macros</h3>
+<div class="g4">
+  <div class="cb"><h4>Rust</h4><p><span class="code">#[app::state]</span></p></div>
+  <div class="cb" style="background:var(--accent-dim);border-color:var(--accent-border);"><h4>JavaScript</h4><p><span class="code">@State</span></p></div>
+  <div class="cb"><h4>Rust</h4><p><span class="code">#[app::logic]</span></p></div>
+  <div class="cb" style="background:var(--accent-dim);border-color:var(--accent-border);"><h4>JavaScript</h4><p><span class="code">@Logic(StateClass)</span></p></div>
+  <div class="cb"><h4>Rust</h4><p><span class="code">#[app::init]</span></p></div>
+  <div class="cb" style="background:var(--accent-dim);border-color:var(--accent-border);"><h4>JavaScript</h4><p><span class="code">@Init</span></p></div>
+  <div class="cb"><h4>Rust</h4><p><span class="code">#[app::event]</span></p></div>
+  <div class="cb" style="background:var(--accent-dim);border-color:var(--accent-border);"><h4>JavaScript</h4><p><span class="code">@Event</span></p></div>
+</div>
+</div>
+
+<div class="card gb">
+<h3>2. Error Handling</h3>
+<div class="g2">
+  <div>
+    <h4>Rust — explicit <span class="code">Result&lt;T, E&gt;</span></h4>
+    <div class="typedef">
+<span class="kw">pub fn</span> <span class="field">set</span>(&amp;<span class="kw">mut self</span>, key: <span class="ty">String</span>) -&gt; app::<span class="ty">Result</span>&lt;()&gt; {<br>
+&nbsp;&nbsp;<span class="kw">self</span>.items.<span class="field">insert</span>(key, val)?;<br>
+&nbsp;&nbsp;<span class="ty">Ok</span>(())<br>
+}
+    </div>
+  </div>
+  <div>
+    <h4>JavaScript — collections throw on error</h4>
+    <div class="typedef">
+<span class="field">set</span>(key: <span class="ty">string</span>): <span class="kw">void</span> {<br>
+&nbsp;&nbsp;<span class="kw">this</span>.items.<span class="field">set</span>(key, val); <span class="comment">// throws on error</span><br>
+}
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="card gb">
+<h3>3. Initialization</h3>
+<div class="g2">
+  <div>
+    <h4>Rust — struct literal</h4>
+    <div class="typedef">
+<span class="ty">KvStore</span> {<br>
+&nbsp;&nbsp;items: <span class="ty">UnorderedMap</span>::<span class="field">new</span>(),<br>
+}
+    </div>
+  </div>
+  <div>
+    <h4>JavaScript — inline field initializer</h4>
+    <div class="typedef">
+<span class="kw">@State</span><br>
+<span class="kw">export class</span> <span class="ty">KvStore</span> {<br>
+&nbsp;&nbsp;items = <span class="field">createUnorderedMap</span>(); <span class="comment">// ← inline!</span><br>
+}
+    </div>
+    <p style="margin-top:8px;">Always initialise inline so the runtime rehydrates persisted CRDT IDs. Constructor-based init runs on every invocation and would create fresh (empty) collections.</p>
+  </div>
+</div>
+</div>
+
+<div class="card gc">
+<h2>Collection Mapping</h2>
+<div class="g2">
+  <div>
+    <div class="fr"><div class="fp">UnorderedMap&lt;K, V&gt;</div><div class="fd">→ <span class="code">UnorderedMap&lt;K, V&gt;</span> — same API</div></div>
+    <div class="fr"><div class="fp">Vector&lt;T&gt;</div><div class="fd">→ <span class="code">Vector&lt;T&gt;</span> — same API</div></div>
+    <div class="fr"><div class="fp">Counter</div><div class="fd">→ <span class="code">Counter</span> — same behavior</div></div>
+    <div class="fr"><div class="fp">LwwRegister&lt;T&gt;</div><div class="fd">→ <span class="code">LwwRegister&lt;T&gt;</span> — same API</div></div>
+    <div class="fr"><div class="fp">UnorderedSet&lt;T&gt;</div><div class="fd">→ <span class="code">UnorderedSet&lt;T&gt;</span> — same API</div></div>
+  </div>
+  <div class="cb"><h4>Cross-SDK Compatibility</h4><p>JavaScript and Rust services can:<br>✅ Run on same network<br>✅ Sync state via CRDTs<br>✅ Emit / receive events<br>✅ Call each other (xcall)</p><p style="margin-top:8px;">Both SDKs use ABI-aware Borsh serialization — same wire format.</p></div>
+</div>
+</div>
+
+<div class="card gd">
+<h2>Common Pitfalls</h2>
+
+<details>
+<summary>Forgetting inline field initialization</summary>
+<div class="detail-body">
+<div class="g2">
+  <div>
+    <h4 style="color:var(--red);margin-bottom:6px;">❌ BAD</h4>
+    <div class="typedef">
+<span class="kw">@State</span><br>
+<span class="kw">export class</span> <span class="ty">MyApp</span> {<br>
+&nbsp;&nbsp;<span class="comment">// Not initialised! Breaks on hydration.</span><br>
+&nbsp;&nbsp;items: <span class="ty">UnorderedMap</span>&lt;<span class="ty">string</span>, <span class="ty">string</span>&gt;;<br>
+}
+    </div>
+  </div>
+  <div>
+    <h4 style="color:var(--green);margin-bottom:6px;">✅ GOOD</h4>
+    <div class="typedef">
+<span class="kw">@State</span><br>
+<span class="kw">export class</span> <span class="ty">MyApp</span> {<br>
+&nbsp;&nbsp;items = <span class="field">createUnorderedMap</span>&lt;<span class="ty">string</span>, <span class="ty">string</span>&gt;();<br>
+}
+    </div>
+  </div>
+</div>
+</div>
+</details>
+
+<details>
+<summary>Putting methods in the @State class</summary>
+<div class="detail-body">
+<div class="g2">
+  <div>
+    <h4 style="color:var(--red);margin-bottom:6px;">❌ BAD</h4>
+    <div class="typedef">
+<span class="kw">@State</span><br>
+<span class="kw">export class</span> <span class="ty">MyApp</span> {<br>
+&nbsp;&nbsp;items = <span class="field">createUnorderedMap</span>();<br>
+&nbsp;&nbsp;<span class="field">set</span>(key: <span class="ty">string</span>) { <span class="comment">// ❌ in @State</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">this</span>.items.<span class="field">set</span>(key, <span class="ty">'v'</span>);<br>
+&nbsp;&nbsp;}<br>
+}
+    </div>
+  </div>
+  <div>
+    <h4 style="color:var(--green);margin-bottom:6px;">✅ GOOD</h4>
+    <div class="typedef">
+<span class="kw">@State</span><br>
+<span class="kw">export class</span> <span class="ty">MyApp</span> {<br>
+&nbsp;&nbsp;items = <span class="field">createUnorderedMap</span>();<br>
+}<br><br>
+<span class="kw">@Logic</span>(<span class="ty">MyApp</span>)<br>
+<span class="kw">export class</span> <span class="ty">MyAppLogic</span> {<br>
+&nbsp;&nbsp;<span class="field">set</span>(key: <span class="ty">string</span>) { <span class="comment">// ✅ in @Logic</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">this</span>.items.<span class="field">set</span>(key, <span class="ty">'v'</span>);<br>
+&nbsp;&nbsp;}<br>
+}
+    </div>
+  </div>
+</div>
+</div>
+</details>
+</div>
+
+<div class="card ga" style="margin-top:20px;">
+<h2>Migration Checklist</h2>
+<div class="g2">
+  <div>
+    <div class="fr"><div class="fp">✅ Replace macros with decorators</div><div class="fd"><span class="code">#[app::state]</span> → <span class="code">@State</span>, etc.</div></div>
+    <div class="fr"><div class="fp">✅ Update initialization</div><div class="fd">Struct literals → inline field factories</div></div>
+    <div class="fr"><div class="fp">✅ Remove ? operator</div><div class="fd">JS collections throw directly</div></div>
+  </div>
+  <div>
+    <div class="fr"><div class="fp">✅ Update imports</div><div class="fd"><span class="code">@calimero-network/calimero-sdk-js</span></div></div>
+    <div class="fr"><div class="fp">✅ Test service</div><div class="fd">Verify all endpoints work correctly</div></div>
+    <div class="fr"><div class="fp">✅ Verify multi-node sync</div><div class="fd">CRDT deltas must match Rust SDK format</div></div>
+  </div>
+</div>
+</div>
+
+<div class="card gc" style="margin-top:20px;">
+<h2>When to Use Each SDK</h2>
+<div class="g2">
+  <div class="cb"><h4>Use Rust SDK when…</h4><ul style="margin-top:6px;"><li>Performance is critical</li><li>Building complex algorithms</li><li>Need smallest WASM size (~100 KB)</li><li>Team has Rust expertise</li></ul></div>
+  <div class="cb"><h4 style="color:var(--accent);">Use JavaScript SDK when…</h4><ul style="margin-top:6px;"><li>Rapid prototyping</li><li>Team knows TypeScript</li><li>npm ecosystem access needed</li><li>Developer experience is priority</li></ul></div>
+</div>
+<p style="margin-top:14px;">Both SDKs are fully compatible and can interact on the same network.</p>
+</div>
+
+</div>
+</div>
+<script src="nav.js"></script>
+<script>document.addEventListener('DOMContentLoaded',()=>{ window.sdk?.buildBreadcrumb([{label:'Home',href:'index.html'},{label:'Migration Guide',href:''}]); });</script>
+</body>
+</html>

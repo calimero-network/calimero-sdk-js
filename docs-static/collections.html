@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Collections — Calimero SDK JS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+<meta name="description" content="CRDT collections guide — UnorderedMap, Vector, Counter, LwwRegister, UserStorage, FrozenStorage with automatic nested tracking.">
+<meta name="theme-color" content="#0d1117">
+</head>
+<body>
+<div class="main">
+<div class="content">
+
+<div class="breadcrumb"></div>
+<h1>CRDT <em>Collections</em></h1>
+<p class="page-subtitle">calimero-sdk-js / collections</p>
+
+<div class="card ga">
+<h2>Overview</h2>
+<p style="margin-bottom:14px;">Calimero provides conflict-free replicated data types (CRDTs) for automatic state sync across all peers. Values are serialised with ABI-aware Borsh, so data written from JavaScript matches bytes produced by Rust services as long as both sides share the same schema.</p>
+<div class="g4">
+  <div class="stat"><div class="v" style="font-size:1.2rem;">O(1)</div><div class="l">get / set / remove</div></div>
+  <div class="stat"><div class="v" style="font-size:1.2rem;">Auto</div><div class="l">nested tracking</div></div>
+  <div class="stat"><div class="v" style="font-size:1.2rem;">Borsh</div><div class="l">Rust compatible</div></div>
+  <div class="stat"><div class="v" style="font-size:1.2rem;">Lazy</div><div class="l">handle rehydration</div></div>
+</div>
+</div>
+
+<h2>Collection Types</h2>
+
+<div class="card gb">
+<h3>UnorderedMap&lt;K, V&gt;</h3>
+<p style="margin-bottom:10px;">Last-Write-Wins map for key-value storage. Conflict resolution: higher timestamp wins.</p>
+<div class="g2">
+  <div>
+    <div class="typedef">
+<span class="kw">import</span> { <span class="ty">UnorderedMap</span> } <span class="kw">from</span> <span class="ty">'@calimero-network/calimero-sdk-js/collections'</span>;<br><br>
+<span class="kw">const</span> map = <span class="kw">new</span> <span class="ty">UnorderedMap</span>&lt;<span class="ty">string</span>, <span class="ty">string</span>&gt;();<br><br>
+map.<span class="field">set</span>(<span class="ty">'key'</span>, <span class="ty">'value'</span>);<br>
+<span class="kw">const</span> val = map.<span class="field">get</span>(<span class="ty">'key'</span>);   <span class="comment">// 'value'</span><br>
+<span class="kw">const</span> has = map.<span class="field">has</span>(<span class="ty">'key'</span>);   <span class="comment">// true</span><br>
+map.<span class="field">remove</span>(<span class="ty">'key'</span>);<br><br>
+map.<span class="field">entries</span>(); <span class="comment">// [['k', 'v'], …]</span><br>
+map.<span class="field">keys</span>();    <span class="comment">// ['k1', 'k2', …]</span><br>
+map.<span class="field">values</span>();  <span class="comment">// ['v1', 'v2', …]</span>
+    </div>
+  </div>
+  <div>
+    <div class="typedef">
+<span class="comment">// Nested collections work automatically!</span><br>
+<span class="kw">const</span> nested = <span class="kw">new</span> <span class="ty">UnorderedMap</span>&lt;<span class="ty">string</span>, <span class="ty">UnorderedSet</span>&lt;<span class="ty">string</span>&gt;&gt;();<br><br>
+<span class="kw">const</span> tags = <span class="kw">new</span> <span class="ty">UnorderedSet</span>&lt;<span class="ty">string</span>&gt;();<br>
+tags.<span class="field">add</span>(<span class="ty">'urgent'</span>);<br>
+nested.<span class="field">set</span>(<span class="ty">'task:123'</span>, tags);<br><br>
+<span class="comment">// Mutations propagate automatically</span><br>
+<span class="kw">const</span> existing = nested.<span class="field">get</span>(<span class="ty">'task:123'</span>);<br>
+existing?.<span class="field">add</span>(<span class="ty">'high-priority'</span>); <span class="comment">// ✅ just works</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="card gc">
+<h3>Automatic Nested Collection Tracking</h3>
+<p style="margin-bottom:14px;">The SDK automatically detects and propagates changes in nested collections. No manual re-serialization needed.</p>
+<div class="g2">
+  <div>
+    <h4 style="color:var(--red);margin-bottom:8px;">Before (manual)</h4>
+    <div class="typedef">
+<span class="comment">// ❌ Had to force re-serialization</span><br>
+<span class="kw">const</span> reactionMap = map.<span class="field">get</span>(msgId);<br>
+<span class="kw">if</span> (reactionMap) {<br>
+&nbsp;&nbsp;<span class="kw">const</span> users = reactionMap.<span class="field">get</span>(emoji)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;|| <span class="kw">new</span> <span class="ty">UnorderedSet</span>();<br>
+&nbsp;&nbsp;users.<span class="field">add</span>(userId);<br>
+&nbsp;&nbsp;reactionMap.<span class="field">set</span>(emoji, users); <span class="comment">// ⬅️ manual</span><br>
+&nbsp;&nbsp;map.<span class="field">set</span>(msgId, reactionMap); <span class="comment">// ⬅️ manual</span><br>
+}
+    </div>
+  </div>
+  <div>
+    <h4 style="color:var(--green);margin-bottom:8px;">Now (automatic)</h4>
+    <div class="typedef">
+<span class="comment">// ✅ Just write natural code</span><br>
+<span class="kw">function</span> <span class="field">addReaction</span>(msgId, emoji, userId) {<br>
+&nbsp;&nbsp;<span class="kw">let</span> reactions = map.<span class="field">get</span>(msgId)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;|| <span class="kw">new</span> <span class="ty">UnorderedMap</span>();<br>
+&nbsp;&nbsp;map.<span class="field">set</span>(msgId, reactions);<br><br>
+&nbsp;&nbsp;<span class="kw">let</span> users = reactions.<span class="field">get</span>(emoji)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;|| <span class="kw">new</span> <span class="ty">UnorderedSet</span>();<br>
+&nbsp;&nbsp;reactions.<span class="field">set</span>(emoji, users);<br><br>
+&nbsp;&nbsp;users.<span class="field">add</span>(userId); <span class="comment">// propagates!</span><br>
+}
+    </div>
+  </div>
+</div>
+<h4 style="margin-top:16px;">Supported Patterns</h4>
+<div class="g4" style="margin-top:8px;">
+  <div class="tag tag-lib" style="padding:6px 10px;font-size:.75rem;">Map&lt;K, Set&lt;V&gt;&gt;</div>
+  <div class="tag tag-actor" style="padding:6px 10px;font-size:.75rem;">Map&lt;K, Map&lt;K2,V&gt;&gt;</div>
+  <div class="tag tag-store" style="padding:6px 10px;font-size:.75rem;">Map&lt;K, Vec&lt;V&gt;&gt;</div>
+  <div class="tag tag-wasm" style="padding:6px 10px;font-size:.75rem;">Vec&lt;Map&lt;K,V&gt;&gt;</div>
+  <div class="tag tag-types" style="padding:6px 10px;font-size:.75rem;">Set&lt;Map&lt;K,V&gt;&gt;</div>
+  <div class="tag tag-cli" style="padding:6px 10px;font-size:.75rem;">any combination!</div>
+</div>
+</div>
+
+<div class="card gb">
+<h3>Vector&lt;T&gt;</h3>
+<p style="margin-bottom:10px;">Ordered list that maintains insertion order.</p>
+<div class="typedef">
+<span class="kw">import</span> { <span class="ty">Vector</span> } <span class="kw">from</span> <span class="ty">'@calimero-network/calimero-sdk-js/collections'</span>;<br><br>
+<span class="kw">const</span> vec = <span class="kw">new</span> <span class="ty">Vector</span>&lt;<span class="ty">string</span>&gt;();<br><br>
+vec.<span class="field">push</span>(<span class="ty">'first'</span>);<br>
+vec.<span class="field">push</span>(<span class="ty">'second'</span>);<br>
+<span class="kw">const</span> item = vec.<span class="field">get</span>(0);  <span class="comment">// 'first'</span><br>
+<span class="kw">const</span> len  = vec.<span class="field">len</span>();   <span class="comment">// 2</span><br>
+<span class="kw">const</span> last = vec.<span class="field">pop</span>();   <span class="comment">// 'second'</span>
+</div>
+</div>
+
+<div class="card gb">
+<h3>UnorderedSet&lt;T&gt;</h3>
+<p style="margin-bottom:10px;">Last-Write-Wins set for unique membership.</p>
+<div class="typedef">
+<span class="kw">import</span> { <span class="ty">UnorderedSet</span> } <span class="kw">from</span> <span class="ty">'@calimero-network/calimero-sdk-js/collections'</span>;<br><br>
+<span class="kw">const</span> set = <span class="kw">new</span> <span class="ty">UnorderedSet</span>&lt;<span class="ty">string</span>&gt;();<br><br>
+set.<span class="field">add</span>(<span class="ty">'alice'</span>);       <span class="comment">// true on first insert</span><br>
+set.<span class="field">add</span>(<span class="ty">'alice'</span>);       <span class="comment">// false when present</span><br>
+<span class="kw">const</span> has = set.<span class="field">has</span>(<span class="ty">'alice'</span>); <span class="comment">// true</span><br>
+set.<span class="field">delete</span>(<span class="ty">'alice'</span>);<br>
+<span class="kw">const</span> all = set.<span class="field">toArray</span>(); <span class="comment">// []</span><br>
+<span class="kw">const</span> sz  = set.<span class="field">size</span>();    <span class="comment">// 0</span>
+</div>
+</div>
+
+<div class="card gb">
+<h3>Counter</h3>
+<p style="margin-bottom:10px;">Grow-only G-Counter. Each node tracks its own count; total is the sum across all nodes.</p>
+<div class="g2">
+  <div>
+    <div class="typedef">
+<span class="kw">import</span> { <span class="ty">Counter</span> } <span class="kw">from</span> <span class="ty">'@calimero-network/calimero-sdk-js/collections'</span>;<br><br>
+<span class="kw">const</span> ctr = <span class="kw">new</span> <span class="ty">Counter</span>();<br><br>
+ctr.<span class="field">increment</span>();<br>
+ctr.<span class="field">increment</span>();<br>
+<span class="kw">const</span> total = ctr.<span class="field">value</span>(); <span class="comment">// 2n</span>
+    </div>
+  </div>
+  <div>
+    <div class="cb"><h4>Distributed Counting</h4><p>Node A increments: local_A = 1<br>Node B increments: local_B = 1<br>Total = local_A + local_B = 2<br>No conflict — each node owns its slice.</p></div>
+  </div>
+</div>
+</div>
+
+<div class="card gb">
+<h3>LwwRegister&lt;T&gt;</h3>
+<p style="margin-bottom:10px;">Last-Write-Wins register for single values. Higher timestamp wins on conflict.</p>
+<div class="typedef">
+<span class="kw">import</span> { <span class="ty">LwwRegister</span> } <span class="kw">from</span> <span class="ty">'@calimero-network/calimero-sdk-js/collections'</span>;<br><br>
+<span class="kw">const</span> reg = <span class="kw">new</span> <span class="ty">LwwRegister</span>&lt;<span class="ty">string</span>&gt;();<br><br>
+reg.<span class="field">set</span>(<span class="ty">'hello'</span>);<br>
+<span class="kw">const</span> val = reg.<span class="field">get</span>();       <span class="comment">// 'hello'</span><br>
+<span class="kw">const</span> ts  = reg.<span class="field">timestamp</span>(); <span class="comment">// nanoseconds</span>
+</div>
+</div>
+
+<div class="card gc">
+<h3>UserStorage&lt;T&gt;</h3>
+<p style="margin-bottom:10px;">User-owned, signed storage. Keys are 32-byte public keys. Writes are signed by the executor and verified on other nodes — prevents impersonation.</p>
+<div class="g2">
+  <div>
+    <div class="typedef">
+<span class="kw">import</span> { <span class="field">createUserStorage</span> } <span class="kw">from</span> <span class="ty">'@calimero-network/calimero-sdk-js'</span>;<br><br>
+<span class="kw">interface</span> <span class="ty">Profile</span> { name: <span class="ty">string</span>; score: <span class="ty">number</span>; }<br><br>
+<span class="kw">const</span> profiles = <span class="field">createUserStorage</span>&lt;<span class="ty">Profile</span>&gt;();<br><br>
+<span class="comment">// Insert for current executor (auto key)</span><br>
+profiles.<span class="field">insert</span>({ name: <span class="ty">'Alice'</span>, score: 100 });<br><br>
+<span class="comment">// Get own data</span><br>
+<span class="kw">const</span> mine = profiles.<span class="field">get</span>();<br><br>
+<span class="comment">// Get another user by public key</span><br>
+<span class="kw">const</span> pub = <span class="kw">new</span> <span class="ty">Uint8Array</span>(32);<br>
+<span class="kw">const</span> other = profiles.<span class="field">getForUser</span>(pub);<br><br>
+profiles.<span class="field">remove</span>();   <span class="comment">// remove own data</span><br>
+profiles.<span class="field">entries</span>(); <span class="comment">// [[pubKey, profile], …]</span><br>
+profiles.<span class="field">size</span>();    <span class="comment">// number of users</span>
+    </div>
+  </div>
+  <div>
+    <div class="cb"><h4>How It Works</h4><p>Writing creates a <span class="code">StorageType::User</span> action signed by the executor's identity key. Receiving nodes verify the signature and a strictly-increasing nonce to prevent replay attacks.</p></div>
+    <h4 style="margin-top:12px;">Use Cases</h4>
+    <ul style="margin-top:6px;">
+      <li>Per-user settings and preferences</li>
+      <li>User-owned game data (scores, inventory)</li>
+      <li>Personal documents with ownership proof</li>
+      <li>Any verifiably user-owned data</li>
+    </ul>
+  </div>
+</div>
+</div>
+
+<div class="card gd">
+<h3>FrozenStorage&lt;T&gt;</h3>
+<p style="margin-bottom:10px;">Immutable, content-addressable storage. Values are keyed by their SHA256 hash. Once inserted, values cannot be updated or deleted.</p>
+<div class="g2">
+  <div>
+    <div class="typedef">
+<span class="kw">import</span> { <span class="ty">FrozenStorage</span>, <span class="ty">FrozenValue</span> } <span class="kw">from</span> <span class="ty">'@calimero-network/calimero-sdk-js/collections'</span>;<br>
+<span class="kw">import</span> { <span class="field">createFrozenStorage</span> } <span class="kw">from</span> <span class="ty">'@calimero-network/calimero-sdk-js'</span>;<br><br>
+<span class="kw">const</span> docs = <span class="field">createFrozenStorage</span>&lt;<span class="ty">Document</span>&gt;();<br><br>
+<span class="comment">// Add returns SHA256 hash of content</span><br>
+<span class="kw">const</span> hash = docs.<span class="field">add</span>({ title: <span class="ty">'Spec'</span>, body: <span class="ty">'…'</span> });<br><br>
+<span class="kw">const</span> doc    = docs.<span class="field">get</span>(hash);    <span class="comment">// retrieve by hash</span><br>
+<span class="kw">const</span> exists = docs.<span class="field">has</span>(hash);    <span class="comment">// true</span><br>
+<span class="kw">const</span> all    = docs.<span class="field">entries</span>();   <span class="comment">// [[hash, doc], …]</span><br><br>
+<span class="comment">// Compute hash without storing</span><br>
+<span class="kw">const</span> h = <span class="ty">FrozenStorage</span>.<span class="field">computeHash</span>(myValue);
+    </div>
+  </div>
+  <div>
+    <div class="cb"><h4>Guarantees</h4><p>Content-addressing: same content always produces the same hash. The storage layer rejects updates and deletes — merge is a no-op.</p></div>
+    <h4 style="margin-top:12px;">Use Cases</h4>
+    <ul style="margin-top:6px;">
+      <li>Audit logs and immutable records</li>
+      <li>Document versioning</li>
+      <li>Certificates and attestations</li>
+      <li>Deduplication (same content = same hash)</li>
+    </ul>
+  </div>
+</div>
+</div>
+
+<h2 style="margin-top:36px;">Best Practices</h2>
+<div class="card ga">
+<div class="g2">
+  <div>
+    <h3>Use the Right Type</h3>
+    <div class="fr"><div class="fp">UnorderedMap</div><div class="fd">Key-value data, users, items, configs</div></div>
+    <div class="fr"><div class="fp">Vector</div><div class="fd">Ordered lists, logs, history, queues</div></div>
+    <div class="fr"><div class="fp">Counter</div><div class="fd">Metrics, totals, distributed counts</div></div>
+    <div class="fr"><div class="fp">LwwRegister</div><div class="fd">Single values, status, config flags</div></div>
+    <div class="fr"><div class="fp">UserStorage</div><div class="fd">Per-user data with ownership proof</div></div>
+    <div class="fr"><div class="fp">FrozenStorage</div><div class="fd">Immutable records, audit logs, certs</div></div>
+  </div>
+  <div>
+    <h3>Avoid Anti-Patterns</h3>
+    <div class="typedef">
+<span class="comment">// ❌ BAD — plain object loses concurrent updates</span><br>
+<span class="kw">class</span> <span class="ty">BadApp</span> { count: <span class="ty">number</span> = 0; }<br><br>
+<span class="comment">// ✅ GOOD — CRDT handles concurrent updates</span><br>
+<span class="kw">class</span> <span class="ty">GoodApp</span> { count = <span class="field">createCounter</span>(); }<br><br>
+<span class="comment">// ❌ BAD — replacing the CRDT instance loses the ID</span><br>
+<span class="kw">const</span> set = profiles.<span class="field">get</span>(<span class="ty">'alice'</span>);<br>
+profiles.<span class="field">set</span>(<span class="ty">'alice'</span>, <span class="kw">new</span> <span class="ty">UnorderedSet</span>()); <span class="comment">// ❌</span><br><br>
+<span class="comment">// ✅ GOOD — reuse the existing handle</span><br>
+<span class="kw">const</span> s = profiles.<span class="field">get</span>(<span class="ty">'alice'</span>) ?? <span class="kw">new</span> <span class="ty">UnorderedSet</span>();<br>
+s.<span class="field">add</span>(<span class="ty">'blue'</span>);                            <span class="comment">// ✅</span><br>
+profiles.<span class="field">set</span>(<span class="ty">'alice'</span>, s);
+    </div>
+  </div>
+</div>
+
+<h3 style="margin-top:20px;">Performance</h3>
+<div class="g4" style="margin-top:8px;">
+  <div class="stat"><div class="v" style="font-size:1.2rem;">O(1)</div><div class="l">UnorderedMap get/set</div></div>
+  <div class="stat"><div class="v" style="font-size:1.2rem;">O(1)</div><div class="l">Vector push/get</div></div>
+  <div class="stat"><div class="v" style="font-size:1.2rem;">O(1)</div><div class="l">Counter increment</div></div>
+  <div class="stat"><div class="v" style="font-size:1.2rem;">Lazy</div><div class="l">no deep clone on access</div></div>
+</div>
+<p style="margin-top:12px;">Collections return lightweight handles. The full structure is only materialised in JavaScript when you explicitly call <span class="code">toArray()</span> or return an entire map from a view. Mutations go straight to host functions via the CRDT ID.</p>
+</div>
+
+</div>
+</div>
+<script src="nav.js"></script>
+<script>document.addEventListener('DOMContentLoaded',()=>{ window.sdk?.buildBreadcrumb([{label:'Home',href:'index.html'},{label:'Collections',href:''}]); });</script>
+</body>
+</html>

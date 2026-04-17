@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API Reference — Calimero SDK JS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+<meta name="description" content="Complete API reference for @calimero-network/calimero-sdk-js — decorators, environment functions, events, and state helpers.">
+<meta name="theme-color" content="#0d1117">
+</head>
+<body>
+<div class="main">
+<div class="content">
+
+<div class="breadcrumb"></div>
+<h1>API <em>Reference</em></h1>
+<p class="page-subtitle">calimero-sdk-js / api-reference</p>
+
+<h2>Decorators</h2>
+<div class="g2" style="margin-bottom:20px;">
+  <div class="card ga">
+    <h3>@State</h3>
+    <p style="margin-bottom:10px;">Marks a class as the application state container. Only one <span class="code">@State</span> class per service.</p>
+    <div class="typedef">
+<span class="kw">@State</span><br>
+<span class="kw">export class</span> <span class="ty">MyApp</span> {<br>
+&nbsp;&nbsp;items: <span class="ty">UnorderedMap</span>&lt;<span class="ty">string</span>, <span class="ty">string</span>&gt; = <span class="field">createUnorderedMap</span>();<br>
+}
+    </div>
+  </div>
+  <div class="card ga">
+    <h3>@Logic</h3>
+    <p style="margin-bottom:10px;">Links a logic class to its state class. Methods in this class become callable service endpoints.</p>
+    <div class="typedef">
+<span class="kw">@Logic</span>(<span class="ty">MyApp</span>)<br>
+<span class="kw">export class</span> <span class="ty">MyAppLogic</span> {<br>
+&nbsp;&nbsp;<span class="comment">// methods become RPC endpoints</span><br>
+}
+    </div>
+  </div>
+  <div class="card ga">
+    <h3>@Init</h3>
+    <p style="margin-bottom:10px;">Marks a <strong>static</strong> method as the service initialiser. Called once when the service is first installed.</p>
+    <div class="typedef">
+<span class="kw">@Init</span><br>
+<span class="kw">static</span> <span class="field">initialize</span>(): <span class="ty">MyApp</span> {<br>
+&nbsp;&nbsp;<span class="kw">return new</span> <span class="ty">MyApp</span>();<br>
+}
+    </div>
+  </div>
+  <div class="card ga">
+    <h3>@View()</h3>
+    <p style="margin-bottom:10px;">Marks a method as read-only. Skips persistence pipeline — no state delta emitted, no storage write.</p>
+    <div class="typedef">
+<span class="kw">@View</span>()<br>
+<span class="field">getItems</span>(): <span class="ty">string</span>[] {<br>
+&nbsp;&nbsp;<span class="kw">return this</span>.items.<span class="field">keys</span>();<br>
+}
+    </div>
+  </div>
+  <div class="card ga">
+    <h3>@Event</h3>
+    <p style="margin-bottom:10px;">Marks a class as an event type. Event fields are serialised with ABI-aware Borsh for Rust compatibility.</p>
+    <div class="typedef">
+<span class="kw">@Event</span><br>
+<span class="kw">export class</span> <span class="ty">ItemAdded</span> {<br>
+&nbsp;&nbsp;<span class="kw">constructor</span>(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">public</span> key: <span class="ty">string</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">public</span> value: <span class="ty">string</span><br>
+&nbsp;&nbsp;) {}<br>
+}
+    </div>
+  </div>
+</div>
+
+<h2>Environment Functions</h2>
+<p style="margin-bottom:14px;">Import from <span class="code">@calimero-network/calimero-sdk-js/env</span>:</p>
+
+<div class="card gb">
+<h3>Identity &amp; Time</h3>
+<div class="g2">
+  <div>
+    <div class="fr"><div class="fp">log(message: string)</div><div class="fd">Logs a message to the runtime.</div></div>
+    <div class="fr"><div class="fp">contextId(): Uint8Array</div><div class="fd">Current context ID (32 bytes).</div></div>
+    <div class="fr"><div class="fp">executorId(): Uint8Array</div><div class="fd">Current executor identity key (32 bytes).</div></div>
+    <div class="fr"><div class="fp">timeNow(): bigint</div><div class="fd">Current timestamp in nanoseconds.</div></div>
+  </div>
+  <div>
+    <div class="typedef">
+<span class="kw">import</span> * <span class="kw">as</span> <span class="field">env</span> <span class="kw">from</span> <span class="ty">'@calimero-network/calimero-sdk-js/env'</span>;<br><br>
+<span class="field">env</span>.<span class="field">log</span>(<span class="ty">'hello'</span>);<br>
+<span class="kw">const</span> ctx = <span class="field">env</span>.<span class="field">contextId</span>();<br>
+<span class="kw">const</span> exec = <span class="field">env</span>.<span class="field">executorId</span>();<br>
+<span class="kw">const</span> now = <span class="field">env</span>.<span class="field">timeNow</span>();
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="card gb">
+<h3>Context Management</h3>
+<div class="g2">
+  <div>
+    <div class="fr"><div class="fp">contextAddMember(publicKey)</div><div class="fd">Add member by 32-byte Ed25519 public key. Takes effect after successful execution.</div></div>
+    <div class="fr"><div class="fp">contextRemoveMember(publicKey)</div><div class="fd">Remove member. Takes effect after successful execution.</div></div>
+    <div class="fr"><div class="fp">contextIsMember(publicKey): boolean</div><div class="fd">Synchronous read — checks membership.</div></div>
+    <div class="fr"><div class="fp">contextMembers(): Uint8Array[]</div><div class="fd">All member public keys in the current context.</div></div>
+    <div class="fr"><div class="fp">contextCreate(protocol, appId, initArgs, alias)</div><div class="fd">Creates a child context with the given protocol, app ID, init args, and alias (max 64 bytes).</div></div>
+    <div class="fr"><div class="fp">contextDelete(contextId)</div><div class="fd">Delete a context. Pass current context ID for self-deletion.</div></div>
+    <div class="fr"><div class="fp">contextResolveAlias(alias): Uint8Array | null</div><div class="fd">Resolve a context alias to its 32-byte context ID.</div></div>
+  </div>
+  <div>
+    <div class="typedef">
+<span class="kw">import</span> {<br>
+&nbsp;&nbsp;<span class="field">contextAddMember</span>, <span class="field">contextIsMember</span>,<br>
+&nbsp;&nbsp;<span class="field">contextMembers</span>, <span class="field">contextCreate</span><br>
+} <span class="kw">from</span> <span class="ty">'@calimero-network/calimero-sdk-js/env'</span>;<br><br>
+<span class="kw">const</span> key = <span class="kw">new</span> <span class="ty">Uint8Array</span>(32);<br>
+<span class="field">contextAddMember</span>(key);<br>
+<span class="kw">const</span> isMember = <span class="field">contextIsMember</span>(key);<br>
+<span class="kw">const</span> members = <span class="field">contextMembers</span>();<br><br>
+<span class="comment">// Create child context</span><br>
+<span class="field">contextCreate</span>(<br>
+&nbsp;&nbsp;<span class="kw">new</span> <span class="ty">TextEncoder</span>().<span class="field">encode</span>(<span class="ty">'near'</span>),<br>
+&nbsp;&nbsp;<span class="kw">new</span> <span class="ty">Uint8Array</span>(32), <span class="comment">// app ID</span><br>
+&nbsp;&nbsp;<span class="kw">new</span> <span class="ty">TextEncoder</span>().<span class="field">encode</span>(<span class="ty">'{}'</span>),<br>
+&nbsp;&nbsp;<span class="kw">new</span> <span class="ty">TextEncoder</span>().<span class="field">encode</span>(<span class="ty">'my-ctx'</span>)<br>
+);
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="card gb">
+<h3>Storage</h3>
+<div class="g2">
+  <div>
+    <div class="fr"><div class="fp">storageRead(key: Uint8Array): Uint8Array | null</div><div class="fd">Read raw bytes from node-local storage.</div></div>
+    <div class="fr"><div class="fp">storageWrite(key: Uint8Array, value: Uint8Array): void</div><div class="fd">Write raw bytes to node-local storage.</div></div>
+    <div class="fr"><div class="fp">storageRemove(key: Uint8Array): boolean</div><div class="fd">Remove a key from storage. Returns true if it existed.</div></div>
+  </div>
+  <div>
+    <div class="typedef">
+<span class="kw">const</span> key = <span class="kw">new</span> <span class="ty">TextEncoder</span>().<span class="field">encode</span>(<span class="ty">'my-key'</span>);<br>
+<span class="kw">const</span> val = <span class="kw">new</span> <span class="ty">TextEncoder</span>().<span class="field">encode</span>(<span class="ty">'data'</span>);<br><br>
+<span class="field">env</span>.<span class="field">storageWrite</span>(key, val);<br>
+<span class="kw">const</span> read = <span class="field">env</span>.<span class="field">storageRead</span>(key);<br>
+<span class="field">env</span>.<span class="field">storageRemove</span>(key);
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="card gb">
+<h3>Cryptography</h3>
+<div class="g2">
+  <div>
+    <div class="fr"><div class="fp">ed25519Verify(sig, pubKey, msg): boolean</div><div class="fd">Verify a 64-byte Ed25519 signature against a 32-byte public key and message bytes.</div></div>
+  </div>
+  <div>
+    <div class="typedef">
+<span class="kw">const</span> sig = <span class="kw">new</span> <span class="ty">Uint8Array</span>(64);<br>
+<span class="kw">const</span> pub = <span class="kw">new</span> <span class="ty">Uint8Array</span>(32);<br>
+<span class="kw">const</span> msg = <span class="kw">new</span> <span class="ty">TextEncoder</span>().<span class="field">encode</span>(<span class="ty">'hello'</span>);<br><br>
+<span class="kw">const</span> valid = <span class="field">env</span>.<span class="field">ed25519Verify</span>(sig, pub, msg);<br>
+<span class="kw">if</span> (!valid) <span class="kw">throw new</span> <span class="ty">Error</span>(<span class="ty">'bad signature'</span>);
+    </div>
+  </div>
+</div>
+</div>
+
+<h2 style="margin-top:36px;">Events</h2>
+<div class="card gc">
+<div class="g2">
+  <div>
+    <div class="fr"><div class="fp">emit(event: AppEvent): void</div><div class="fd">Emit an event without a handler.</div></div>
+    <div class="fr"><div class="fp">emitWithHandler(event, handler: string): void</div><div class="fd">Emit with a named handler method on receiving nodes.</div></div>
+  </div>
+  <div>
+    <div class="typedef">
+<span class="kw">import</span> { <span class="field">emit</span>, <span class="field">emitWithHandler</span> } <span class="kw">from</span> <span class="ty">'@calimero-network/calimero-sdk-js'</span>;<br><br>
+<span class="field">emit</span>(<span class="kw">new</span> <span class="ty">ItemAdded</span>(<span class="ty">'key'</span>, <span class="ty">'value'</span>));<br>
+<span class="field">emitWithHandler</span>(<span class="kw">new</span> <span class="ty">ItemAdded</span>(<span class="ty">'key'</span>, <span class="ty">'val'</span>), <span class="ty">'onItemAdded'</span>);
+    </div>
+  </div>
+</div>
+</div>
+
+<h2 style="margin-top:36px;">State Helper Factories</h2>
+<p style="margin-bottom:14px;">Import from <span class="code">@calimero-network/calimero-sdk-js</span>. Always initialise CRDT fields inline using these factories so the runtime rehydrates persisted collection IDs:</p>
+<div class="card gd">
+<div class="typedef">
+<span class="kw">import</span> {<br>
+&nbsp;&nbsp;<span class="field">createUnorderedMap</span>, <span class="field">createUnorderedSet</span>,<br>
+&nbsp;&nbsp;<span class="field">createVector</span>, <span class="field">createCounter</span>,<br>
+&nbsp;&nbsp;<span class="field">createLwwRegister</span>, <span class="field">createUserStorage</span>,<br>
+&nbsp;&nbsp;<span class="field">createFrozenStorage</span>, <span class="field">createPrivateEntry</span><br>
+} <span class="kw">from</span> <span class="ty">'@calimero-network/calimero-sdk-js'</span>;<br><br>
+<span class="comment">// Standard CRDT collections</span><br>
+<span class="kw">const</span> map &nbsp;&nbsp;&nbsp;= <span class="field">createUnorderedMap</span>&lt;<span class="ty">string</span>, <span class="ty">number</span>&gt;();<br>
+<span class="kw">const</span> set &nbsp;&nbsp;&nbsp;= <span class="field">createUnorderedSet</span>&lt;<span class="ty">string</span>&gt;();<br>
+<span class="kw">const</span> vec &nbsp;&nbsp;&nbsp;= <span class="field">createVector</span>&lt;<span class="ty">string</span>&gt;();<br>
+<span class="kw">const</span> ctr &nbsp;&nbsp;&nbsp;= <span class="field">createCounter</span>();<br>
+<span class="kw">const</span> reg &nbsp;&nbsp;&nbsp;= <span class="field">createLwwRegister</span>&lt;<span class="ty">string</span>&gt;();<br><br>
+<span class="comment">// Specialised storage</span><br>
+<span class="kw">const</span> users  = <span class="field">createUserStorage</span>&lt;<span class="ty">UserProfile</span>&gt;();<br>
+<span class="kw">const</span> frozen = <span class="field">createFrozenStorage</span>&lt;<span class="ty">Document</span>&gt;();<br><br>
+<span class="comment">// Node-local (no CRDT replication)</span><br>
+<span class="kw">const</span> priv   = <span class="field">createPrivateEntry</span>&lt;{ token: <span class="ty">string</span> }&gt;(<span class="ty">'private:key'</span>);
+</div>
+</div>
+
+</div>
+</div>
+<script src="nav.js"></script>
+<script>document.addEventListener('DOMContentLoaded',()=>{ window.sdk?.buildBreadcrumb([{label:'Home',href:'index.html'},{label:'API Reference',href:''}]); });</script>
+</body>
+</html>

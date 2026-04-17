@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Events — Calimero SDK JS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+<meta name="description" content="Calimero SDK JS events guide — defining, emitting, and handling events with commutativity, idempotency, and purity requirements.">
+<meta name="theme-color" content="#0d1117">
+</head>
+<body>
+<div class="main">
+<div class="content">
+
+<div class="breadcrumb"></div>
+<h1><em>Events</em></h1>
+<p class="page-subtitle">calimero-sdk-js / events</p>
+
+<div class="card ga">
+<h2>Overview</h2>
+<p style="margin-bottom:14px;">Events enable async communication between nodes. When a node emits an event, it is broadcast via the P2P network. Receiving nodes apply the delta and execute the named handler — the author node does <strong>not</strong> execute its own handlers.</p>
+<div class="g3">
+  <div class="cb"><h4>Author node</h4><p>Emits event → broadcasts delta to network. Does NOT run its own handler.</p></div>
+  <div class="cb"><h4>Receiving nodes</h4><p>Receive event → apply delta → execute handler → update state.</p></div>
+  <div class="cb"><h4>Handlers may run concurrently</h4><p>Two events can arrive at the same node in any order. Handlers MUST be commutative, idempotent, independent, and pure.</p></div>
+</div>
+</div>
+
+<div class="card gb">
+<h2>Defining Events</h2>
+<p style="margin-bottom:10px;">Use the <span class="code">@Event</span> decorator. Fields are serialised with ABI-aware Borsh for Rust compatibility:</p>
+<div class="typedef">
+<span class="kw">import</span> { <span class="ty">Event</span> } <span class="kw">from</span> <span class="ty">'@calimero-network/calimero-sdk-js'</span>;<br><br>
+<span class="kw">@Event</span><br>
+<span class="kw">export class</span> <span class="ty">ItemAdded</span> {<br>
+&nbsp;&nbsp;<span class="kw">constructor</span>(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">public</span> key: <span class="ty">string</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">public</span> value: <span class="ty">string</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">public</span> timestamp: <span class="ty">number</span><br>
+&nbsp;&nbsp;) {}<br>
+}<br><br>
+<span class="kw">@Event</span><br>
+<span class="kw">export class</span> <span class="ty">ItemRemoved</span> {<br>
+&nbsp;&nbsp;<span class="kw">constructor</span>(<span class="kw">public</span> key: <span class="ty">string</span>) {}<br>
+}
+</div>
+</div>
+
+<div class="card gc">
+<h2>Emitting Events</h2>
+<div class="g2">
+  <div>
+    <h3>Without handler</h3>
+    <p style="margin-bottom:8px;">Broadcast event — no handler executed on receiving nodes:</p>
+    <div class="typedef">
+<span class="kw">import</span> { <span class="field">emit</span> } <span class="kw">from</span> <span class="ty">'@calimero-network/calimero-sdk-js'</span>;<br><br>
+<span class="field">emit</span>(<span class="kw">new</span> <span class="ty">ItemAdded</span>(<span class="ty">'k'</span>, <span class="ty">'v'</span>, <span class="ty">Date</span>.<span class="field">now</span>()));
+    </div>
+  </div>
+  <div>
+    <h3>With handler</h3>
+    <p style="margin-bottom:8px;">Receiving nodes execute the named method after applying the delta:</p>
+    <div class="typedef">
+<span class="kw">import</span> { <span class="field">emitWithHandler</span> } <span class="kw">from</span> <span class="ty">'@calimero-network/calimero-sdk-js'</span>;<br><br>
+<span class="field">emitWithHandler</span>(<br>
+&nbsp;&nbsp;<span class="kw">new</span> <span class="ty">ItemAdded</span>(<span class="ty">'k'</span>, <span class="ty">'v'</span>, <span class="ty">Date</span>.<span class="field">now</span>()),<br>
+&nbsp;&nbsp;<span class="ty">'onItemAdded'</span><br>
+);
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="card gd">
+<h2>Event Handlers</h2>
+<p style="margin-bottom:10px;">Handler methods live in the <span class="code">@Logic</span> class. They are called by name when the event arrives at a peer:</p>
+<div class="typedef">
+<span class="kw">@Logic</span>(<span class="ty">MyApp</span>)<br>
+<span class="kw">export class</span> <span class="ty">MyAppLogic</span> {<br>
+&nbsp;&nbsp;<span class="field">addItem</span>(key: <span class="ty">string</span>, value: <span class="ty">string</span>): <span class="kw">void</span> {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">this</span>.items.<span class="field">set</span>(key, value);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="field">emitWithHandler</span>(<span class="kw">new</span> <span class="ty">ItemAdded</span>(key, value, <span class="ty">Date</span>.<span class="field">now</span>()), <span class="ty">'onItemAdded'</span>);<br>
+&nbsp;&nbsp;}<br><br>
+&nbsp;&nbsp;<span class="comment">// Runs on RECEIVING nodes only</span><br>
+&nbsp;&nbsp;<span class="field">onItemAdded</span>(event: <span class="ty">ItemAdded</span>): <span class="kw">void</span> {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">this</span>.itemCount.<span class="field">increment</span>(); <span class="comment">// safe: G-Counter</span><br>
+&nbsp;&nbsp;}<br>
+}
+</div>
+</div>
+
+<h2 style="margin-top:36px;">Handler Requirements</h2>
+<p style="margin-bottom:14px;">Handlers may execute in parallel and in any order. They <strong>must</strong> satisfy all four properties:</p>
+
+<div class="card ga">
+<h3>1. Commutative — order-independent</h3>
+<div class="g2">
+  <div>
+    <h4 style="color:var(--green);">✅ Safe</h4>
+    <div class="typedef">
+<span class="field">onUserRegistered</span>(e: <span class="ty">UserRegistered</span>): <span class="kw">void</span> {<br>
+&nbsp;&nbsp;<span class="kw">this</span>.userCount.<span class="field">increment</span>(); <span class="comment">// G-Counter</span><br>
+}
+    </div>
+  </div>
+  <div>
+    <h4 style="color:var(--red);">❌ Unsafe</h4>
+    <div class="typedef">
+<span class="field">onCreate</span>(e: <span class="ty">Created</span>): <span class="kw">void</span> {<br>
+&nbsp;&nbsp;<span class="kw">this</span>.items.<span class="field">set</span>(e.id, <span class="ty">'created'</span>);<br>
+}<br>
+<span class="field">onUpdate</span>(e: <span class="ty">Updated</span>): <span class="kw">void</span> {<br>
+&nbsp;&nbsp;<span class="comment">// Assumes onCreate ran first!</span><br>
+&nbsp;&nbsp;<span class="kw">const</span> cur = <span class="kw">this</span>.items.<span class="field">get</span>(e.id); <span class="comment">// ❌</span><br>
+}
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="card ga">
+<h3>2. Independent — no shared state between handlers</h3>
+<div class="g2">
+  <div>
+    <h4 style="color:var(--green);">✅ Safe</h4>
+    <div class="typedef">
+<span class="field">handlerA</span>(): <span class="kw">void</span> {<br>
+&nbsp;&nbsp;<span class="kw">this</span>.counters.<span class="field">set</span>(<span class="ty">'a'</span>, <span class="field">createCounter</span>());<br>
+}<br>
+<span class="field">handlerB</span>(): <span class="kw">void</span> {<br>
+&nbsp;&nbsp;<span class="kw">this</span>.counters.<span class="field">set</span>(<span class="ty">'b'</span>, <span class="field">createCounter</span>()); <span class="comment">// different key</span><br>
+}
+    </div>
+  </div>
+  <div>
+    <h4 style="color:var(--red);">❌ Unsafe</h4>
+    <div class="typedef">
+<span class="field">handlerA</span>(): <span class="kw">void</span> {<br>
+&nbsp;&nbsp;<span class="kw">this</span>.shared.<span class="field">set</span>(<span class="ty">'count'</span>, 1); <span class="comment">// RACE!</span><br>
+}<br>
+<span class="field">handlerB</span>(): <span class="kw">void</span> {<br>
+&nbsp;&nbsp;<span class="kw">this</span>.shared.<span class="field">set</span>(<span class="ty">'count'</span>, 2); <span class="comment">// RACE!</span><br>
+}
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="card ga">
+<h3>3. Idempotent — safe to retry</h3>
+<div class="g2">
+  <div>
+    <h4 style="color:var(--green);">✅ Safe</h4>
+    <div class="typedef">
+<span class="field">handler</span>(): <span class="kw">void</span> {<br>
+&nbsp;&nbsp;<span class="kw">this</span>.counter.<span class="field">increment</span>(); <span class="comment">// OK many times</span><br>
+}
+    </div>
+  </div>
+  <div>
+    <h4 style="color:var(--red);">❌ Unsafe</h4>
+    <div class="typedef">
+<span class="field">handler</span>(amount: <span class="ty">number</span>): <span class="kw">void</span> {<br>
+&nbsp;&nbsp;externalAPI.<span class="field">charge</span>(amount); <span class="comment">// may charge twice!</span><br>
+}
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="card ga">
+<h3>4. Pure — no side effects</h3>
+<div class="g2">
+  <div>
+    <h4 style="color:var(--green);">✅ Safe</h4>
+    <div class="typedef">
+<span class="field">handler</span>(data: <span class="ty">string</span>): <span class="kw">void</span> {<br>
+&nbsp;&nbsp;<span class="kw">this</span>.items.<span class="field">set</span>(data, <span class="ty">'processed'</span>);<br>
+&nbsp;&nbsp;<span class="field">env</span>.<span class="field">log</span>(<span class="ty">'Processed'</span>); <span class="comment">// logging OK</span><br>
+}
+    </div>
+  </div>
+  <div>
+    <h4 style="color:var(--red);">❌ Unsafe</h4>
+    <div class="typedef">
+<span class="field">handler</span>(email: <span class="ty">string</span>): <span class="kw">void</span> {<br>
+&nbsp;&nbsp;httpClient.<span class="field">post</span>(<span class="ty">'/notify'</span>, email); <span class="comment">// external!</span><br>
+}
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="card gc" style="margin-top:20px;">
+<h2>Best Practices</h2>
+<div class="g2">
+  <div>
+    <h3>Keep handlers simple</h3>
+    <div class="typedef">
+<span class="comment">// ✅ GOOD — single, focused update</span><br>
+<span class="field">onUserRegistered</span>(): <span class="kw">void</span> {<br>
+&nbsp;&nbsp;<span class="kw">this</span>.registrationCount.<span class="field">increment</span>();<br>
+}<br><br>
+<span class="comment">// ❌ BAD — too complex, unsafe side effects</span><br>
+<span class="field">onUserRegistered</span>(user: <span class="ty">User</span>): <span class="kw">void</span> {<br>
+&nbsp;&nbsp;<span class="kw">this</span>.<span class="field">createProfile</span>(user);<br>
+&nbsp;&nbsp;<span class="kw">this</span>.<span class="field">sendEmail</span>(user);    <span class="comment">// ❌</span><br>
+&nbsp;&nbsp;<span class="kw">this</span>.<span class="field">notifyAdmins</span>();    <span class="comment">// ❌</span><br>
+}
+    </div>
+  </div>
+  <div>
+    <h3>Use multiple targeted events</h3>
+    <div class="typedef">
+<span class="comment">// ✅ Decompose into atomic events</span><br>
+<span class="field">registerUser</span>(user: <span class="ty">User</span>): <span class="kw">void</span> {<br>
+&nbsp;&nbsp;<span class="kw">this</span>.users.<span class="field">set</span>(user.id, user);<br><br>
+&nbsp;&nbsp;<span class="field">emit</span>(<span class="kw">new</span> <span class="ty">UserRegistered</span>(user.id));<br>
+&nbsp;&nbsp;<span class="field">emit</span>(<span class="kw">new</span> <span class="ty">ProfileNeeded</span>(user.id));<br>
+&nbsp;&nbsp;<span class="field">emit</span>(<span class="kw">new</span> <span class="ty">WelcomeEmailNeeded</span>(user.email));<br>
+}
+    </div>
+  </div>
+</div>
+</div>
+
+</div>
+</div>
+<script src="nav.js"></script>
+<script>document.addEventListener('DOMContentLoaded',()=>{ window.sdk?.buildBreadcrumb([{label:'Home',href:'index.html'},{label:'Events',href:''}]); });</script>
+</body>
+</html>
