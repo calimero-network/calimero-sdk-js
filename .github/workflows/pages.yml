@@ -3,7 +3,7 @@ name: Deploy Docs
 on:
   push:
     branches: [master, main]
-    paths: ["docs-static/**"]
+    paths: ['docs-static/**']
   workflow_dispatch:
 
 permissions:

@@ -1,3 +1,4 @@
+/* eslint-env browser */
 /* Calimero SDK JS Docs — Shared Navigation + Full-text Search */
 (function () {
   'use strict';
@@ -7,17 +8,17 @@
 
   const NAV = [
     { section: 'Overview' },
-    { label: 'Home',             href: 'index.html',          dot: '#e3b341' },
-    { label: 'Architecture',     href: 'architecture.html',   dot: '#a5ff11' },
+    { label: 'Home', href: 'index.html', dot: '#e3b341' },
+    { label: 'Architecture', href: 'architecture.html', dot: '#a5ff11' },
     { section: 'Getting Started' },
-    { label: 'Getting Started',  href: 'getting-started.html',dot: '#58a6ff' },
-    { label: 'Migration Guide',  href: 'migration.html',      dot: '#39d0d8' },
+    { label: 'Getting Started', href: 'getting-started.html', dot: '#58a6ff' },
+    { label: 'Migration Guide', href: 'migration.html', dot: '#39d0d8' },
     { section: 'Reference' },
-    { label: 'API Reference',    href: 'api-reference.html',  dot: '#3fb950' },
-    { label: 'Collections',      href: 'collections.html',    dot: '#a371f7' },
-    { label: 'Events',           href: 'events.html',         dot: '#f778ba' },
+    { label: 'API Reference', href: 'api-reference.html', dot: '#3fb950' },
+    { label: 'Collections', href: 'collections.html', dot: '#a371f7' },
+    { label: 'Events', href: 'events.html', dot: '#f778ba' },
     { section: 'Guides' },
-    { label: 'Troubleshooting',  href: 'troubleshooting.html',dot: '#f85149' },
+    { label: 'Troubleshooting', href: 'troubleshooting.html', dot: '#f85149' },
   ];
 
   function currentPage() {
@@ -26,7 +27,8 @@
       if (!item.href) continue;
       if (p.endsWith(item.href) || p.endsWith('/' + item.href)) return item.href;
     }
-    if (p.endsWith('/') || p.endsWith('/docs-static/') || p.endsWith('/docs-static')) return 'index.html';
+    if (p.endsWith('/') || p.endsWith('/docs-static/') || p.endsWith('/docs-static'))
+      return 'index.html';
     return '';
   }
 
@@ -122,43 +124,69 @@
     sb.querySelector('#open-search').addEventListener('click', openSearch);
   }
 
-  let searchIndex = null, searchLoading = false, selectedIdx = -1;
+  let searchIndex = null,
+    searchLoading = false,
+    selectedIdx = -1;
 
   async function buildIndex() {
     if (searchIndex) return searchIndex;
     if (searchLoading) return null;
     searchLoading = true;
     const pages = NAV.filter(item => item.href);
-    const results = await Promise.all(pages.map(async (page) => {
-      try {
-        const res = await fetch(PAGES_BASE + page.href);
-        const html = await res.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        doc.querySelectorAll('script, style, nav, .sidebar, .menu-toggle').forEach(el => el.remove());
-        const contentEl = doc.querySelector('.content') || doc.body;
-        const headings = Array.from(contentEl.querySelectorAll('h1,h2,h3')).map(h => h.textContent.trim()).filter(Boolean);
-        const text = contentEl.textContent.replace(/\s+/g, ' ').trim();
-        return { label: page.label, href: page.href, dot: page.dot, text, headings };
-      } catch { return null; }
-    }));
+    const results = await Promise.all(
+      pages.map(async page => {
+        try {
+          const res = await fetch(PAGES_BASE + page.href);
+          const html = await res.text();
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          doc
+            .querySelectorAll('script, style, nav, .sidebar, .menu-toggle')
+            .forEach(el => el.remove());
+          const contentEl = doc.querySelector('.content') || doc.body;
+          const headings = Array.from(contentEl.querySelectorAll('h1,h2,h3'))
+            .map(h => h.textContent.trim())
+            .filter(Boolean);
+          const text = contentEl.textContent.replace(/\s+/g, ' ').trim();
+          return { label: page.label, href: page.href, dot: page.dot, text, headings };
+        } catch {
+          return null;
+        }
+      })
+    );
     searchIndex = results.filter(Boolean);
     searchLoading = false;
     return searchIndex;
   }
 
   function escapeHtml(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   function highlightMatch(text, query) {
-    const q = String(query); if (!q.trim()) return escapeHtml(text);
-    const t = String(text), qLower = q.toLowerCase(), tLower = t.toLowerCase();
-    let out = '', i = 0;
+    const q = String(query);
+    if (!q.trim()) return escapeHtml(text);
+    const t = String(text),
+      qLower = q.toLowerCase(),
+      tLower = t.toLowerCase();
+    let out = '',
+      i = 0;
     while (i < t.length) {
       const idx = tLower.indexOf(qLower, i);
-      if (idx === -1) { out += escapeHtml(t.slice(i)); break; }
-      out += escapeHtml(t.slice(i, idx)) + '<mark>' + escapeHtml(t.slice(idx, idx + q.length)) + '</mark>';
+      if (idx === -1) {
+        out += escapeHtml(t.slice(i));
+        break;
+      }
+      out +=
+        escapeHtml(t.slice(i, idx)) +
+        '<mark>' +
+        escapeHtml(t.slice(idx, idx + q.length)) +
+        '</mark>';
       i = idx + q.length;
     }
     return out;
@@ -167,65 +195,108 @@
   function getExcerpt(text, query, ctxLen = 140) {
     const idx = text.toLowerCase().indexOf(query.toLowerCase());
     if (idx === -1) return null;
-    const start = Math.max(0, idx - 60), end = Math.min(text.length, idx + ctxLen);
-    return (start > 0 ? '…' : '') + highlightMatch(text.slice(start, end).trimStart(), query) + (end < text.length ? '…' : '');
+    const start = Math.max(0, idx - 60),
+      end = Math.min(text.length, idx + ctxLen);
+    return (
+      (start > 0 ? '…' : '') +
+      highlightMatch(text.slice(start, end).trimStart(), query) +
+      (end < text.length ? '…' : '')
+    );
   }
 
   function searchDocs(query, index) {
-    const q = query.trim(); if (!q) return [];
-    return index.map(page => {
-      const titleMatch = page.label.toLowerCase().includes(q.toLowerCase());
-      const headingMatch = page.headings.some(h => h.toLowerCase().includes(q.toLowerCase()));
-      const excerpt = getExcerpt(page.text, q);
-      if (!titleMatch && !headingMatch && !excerpt) return null;
-      return { ...page, excerpt, score: (titleMatch?2:0)+(headingMatch?1:0)+(excerpt?.5:0) };
-    }).filter(Boolean).sort((a,b)=>b.score-a.score).slice(0,8);
+    const q = query.trim();
+    if (!q) return [];
+    return index
+      .map(page => {
+        const titleMatch = page.label.toLowerCase().includes(q.toLowerCase());
+        const headingMatch = page.headings.some(h => h.toLowerCase().includes(q.toLowerCase()));
+        const excerpt = getExcerpt(page.text, q);
+        if (!titleMatch && !headingMatch && !excerpt) return null;
+        return {
+          ...page,
+          excerpt,
+          score: (titleMatch ? 2 : 0) + (headingMatch ? 1 : 0) + (excerpt ? 0.5 : 0),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8);
   }
 
   function renderResults(results, query) {
     const el = document.getElementById('search-results');
-    if (!query.trim()) { el.innerHTML = '<p class="search-hint">Type to search across all documentation…</p>'; selectedIdx=-1; return; }
-    if (!results.length) { el.innerHTML = '<p class="search-hint">No results for <strong>"'+escapeHtml(query)+'"</strong></p>'; selectedIdx=-1; return; }
-    el.innerHTML = results.map((r,i) => `<a class="search-result-item" href="${PAGES_BASE+r.href}" data-idx="${i}"><div class="search-result-header"><span class="nav-dot" style="background:${r.dot};width:8px;height:8px;border-radius:2px;flex-shrink:0;display:inline-block;"></span><span class="search-result-title">${highlightMatch(r.label,query)}</span></div>${r.excerpt?`<p class="search-result-excerpt">${r.excerpt}</p>`:''}</a>`).join('');
+    if (!query.trim()) {
+      el.innerHTML = '<p class="search-hint">Type to search across all documentation…</p>';
+      selectedIdx = -1;
+      return;
+    }
+    if (!results.length) {
+      el.innerHTML =
+        '<p class="search-hint">No results for <strong>"' + escapeHtml(query) + '"</strong></p>';
+      selectedIdx = -1;
+      return;
+    }
+    el.innerHTML = results
+      .map(
+        (r, i) =>
+          `<a class="search-result-item" href="${PAGES_BASE + r.href}" data-idx="${i}"><div class="search-result-header"><span class="nav-dot" style="background:${r.dot};width:8px;height:8px;border-radius:2px;flex-shrink:0;display:inline-block;"></span><span class="search-result-title">${highlightMatch(r.label, query)}</span></div>${r.excerpt ? `<p class="search-result-excerpt">${r.excerpt}</p>` : ''}</a>`
+      )
+      .join('');
     selectedIdx = -1;
   }
 
   function setSelected(idx, items) {
-    items.forEach(el=>el.classList.remove('selected'));
-    if (idx>=0&&idx<items.length){items[idx].classList.add('selected');items[idx].scrollIntoView({block:'nearest'});}
-    selectedIdx=idx;
+    items.forEach(el => el.classList.remove('selected'));
+    if (idx >= 0 && idx < items.length) {
+      items[idx].classList.add('selected');
+      items[idx].scrollIntoView({ block: 'nearest' });
+    }
+    selectedIdx = idx;
   }
 
   function openSearch() {
     let overlay = document.getElementById('search-overlay');
     if (!overlay) {
       overlay = document.createElement('div');
-      overlay.id = 'search-overlay'; overlay.className = 'search-overlay';
+      overlay.id = 'search-overlay';
+      overlay.className = 'search-overlay';
       overlay.innerHTML = `<div class="search-modal" role="dialog" aria-modal="true"><div class="search-input-row"><svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input type="text" id="search-input" placeholder="Search documentation…" autocomplete="off" spellcheck="false"/><kbd class="search-esc-hint">Esc</kbd></div><div id="search-results" class="search-results"><p class="search-hint">Type to search across all documentation…</p></div><div class="search-footer-bar"><span><kbd>↑</kbd><kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> open</span><span><kbd>Esc</kbd> close</span></div></div>`;
       document.body.appendChild(overlay);
-      overlay.addEventListener('click', e => { if (e.target===overlay) closeSearch(); });
+      overlay.addEventListener('click', e => {
+        if (e.target === overlay) closeSearch();
+      });
       const input = overlay.querySelector('#search-input');
       let debounceTimer;
       input.addEventListener('input', () => {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(async () => {
           const q = input.value;
-          if (!searchIndex&&!searchLoading) document.getElementById('search-results').innerHTML='<p class="search-hint search-loading">Loading index…</p>';
-          const index = await buildIndex(); if (!index) return;
-          renderResults(searchDocs(q,index),q);
-        },120);
+          if (!searchIndex && !searchLoading)
+            document.getElementById('search-results').innerHTML =
+              '<p class="search-hint search-loading">Loading index…</p>';
+          const index = await buildIndex();
+          if (!index) return;
+          renderResults(searchDocs(q, index), q);
+        }, 120);
       });
       input.addEventListener('keydown', e => {
         const items = Array.from(document.querySelectorAll('.search-result-item'));
-        if (e.key==='ArrowDown'){e.preventDefault();setSelected(Math.min(selectedIdx+1,items.length-1),items);}
-        else if (e.key==='ArrowUp'){e.preventDefault();setSelected(Math.max(selectedIdx-1,0),items);}
-        else if (e.key==='Enter'){if(selectedIdx>=0&&items[selectedIdx])window.location=items[selectedIdx].href;else if(items[0])window.location=items[0].href;}
-        else if (e.key==='Escape') closeSearch();
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setSelected(Math.min(selectedIdx + 1, items.length - 1), items);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setSelected(Math.max(selectedIdx - 1, 0), items);
+        } else if (e.key === 'Enter') {
+          if (selectedIdx >= 0 && items[selectedIdx]) window.location = items[selectedIdx].href;
+          else if (items[0]) window.location = items[0].href;
+        } else if (e.key === 'Escape') closeSearch();
       });
     }
     overlay.classList.add('open');
-    setTimeout(()=>overlay.querySelector('#search-input').focus(),50);
-    if (!searchIndex&&!searchLoading) buildIndex();
+    setTimeout(() => overlay.querySelector('#search-input').focus(), 50);
+    if (!searchIndex && !searchLoading) buildIndex();
   }
 
   function closeSearch() {
@@ -233,36 +304,60 @@
     if (overlay) {
       overlay.classList.remove('open');
       const input = overlay.querySelector('#search-input');
-      if (input) input.value='';
+      if (input) input.value = '';
       const results = document.getElementById('search-results');
-      if (results) results.innerHTML='<p class="search-hint">Type to search across all documentation…</p>';
+      if (results)
+        results.innerHTML = '<p class="search-hint">Type to search across all documentation…</p>';
     }
   }
 
   document.addEventListener('keydown', e => {
-    if ((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();const o=document.getElementById('search-overlay');if(o&&o.classList.contains('open'))closeSearch();else openSearch();}
-    if (e.key==='Escape') closeSearch();
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      const o = document.getElementById('search-overlay');
+      if (o && o.classList.contains('open')) closeSearch();
+      else openSearch();
+    }
+    if (e.key === 'Escape') closeSearch();
   });
 
   function buildBreadcrumb(items) {
-    const bc = document.querySelector('.breadcrumb'); if (!bc) return;
-    bc.innerHTML = items.map((item,i)=>i===items.length-1?`<span>${item.label}</span>`:`<a href="${item.href}">${item.label}</a><span class="sep">/</span>`).join('');
+    const bc = document.querySelector('.breadcrumb');
+    if (!bc) return;
+    bc.innerHTML = items
+      .map((item, i) =>
+        i === items.length - 1
+          ? `<span>${item.label}</span>`
+          : `<a href="${item.href}">${item.label}</a><span class="sep">/</span>`
+      )
+      .join('');
   }
 
   function tabSystem() {
     document.querySelectorAll('[data-tabs]').forEach(container => {
       const tabs = container.querySelectorAll('.tab');
       const panels = container.parentElement.querySelectorAll('.panel');
-      tabs.forEach(tab => { tab.addEventListener('click', () => { tabs.forEach(t=>t.classList.remove('on')); panels.forEach(p=>p.classList.remove('on')); tab.classList.add('on'); const target=document.getElementById(tab.dataset.target); if(target)target.classList.add('on'); }); });
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          tabs.forEach(t => t.classList.remove('on'));
+          panels.forEach(p => p.classList.remove('on'));
+          tab.classList.add('on');
+          const target = document.getElementById(tab.dataset.target);
+          if (target) target.classList.add('on');
+        });
+      });
     });
   }
 
   function ghLink(path, line) {
     const base = REPO + '/blob/main/';
-    const url = line ? base+path+'#L'+line : base+path;
+    const url = line ? base + path + '#L' + line : base + path;
     return `<a class="gh-link" href="${url}" target="_blank" rel="noopener">${path}</a>`;
   }
 
-  document.addEventListener('DOMContentLoaded', () => { buildSidebar(); tabSystem(); });
+  document.addEventListener('DOMContentLoaded', () => {
+    buildSidebar();
+    tabSystem();
+  });
   window.sdk = { ghLink, buildBreadcrumb, openSearch, REPO, PAGES_BASE };
 })();
