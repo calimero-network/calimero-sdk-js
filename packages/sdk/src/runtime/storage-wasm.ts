@@ -50,9 +50,12 @@ import {
   jsFrozenStorageGet,
   jsFrozenStorageContains,
 } from '../env/api';
-
-const REGISTER_ID = 0n;
-const COLLECTION_ID_LENGTH = 32;
+import {
+  REGISTER_ID,
+  COLLECTION_ID_LENGTH,
+  PUBLIC_KEY_LENGTH,
+  SHA256_HASH_LENGTH,
+} from '../constants';
 const textDecoder = new TextDecoder();
 
 function readRegisterBytes(): Uint8Array {
@@ -582,8 +585,8 @@ export function userStorageGetForUser(
 ): Uint8Array | null {
   ensureCollectionId(storageId, 'storageId');
   ensureUint8Array(userKey, 'userKey');
-  if (userKey.length !== 32) {
-    throw new TypeError('userKey must be 32 bytes');
+  if (userKey.length !== PUBLIC_KEY_LENGTH) {
+    throw new TypeError(`userKey must be ${PUBLIC_KEY_LENGTH} bytes`);
   }
 
   const status = Number(jsUserStorageGetForUser(storageId, userKey, REGISTER_ID));
@@ -628,8 +631,8 @@ export function userStorageContains(storageId: Uint8Array): boolean {
 export function userStorageContainsUser(storageId: Uint8Array, userKey: Uint8Array): boolean {
   ensureCollectionId(storageId, 'storageId');
   ensureUint8Array(userKey, 'userKey');
-  if (userKey.length !== 32) {
-    throw new TypeError('userKey must be 32 bytes');
+  if (userKey.length !== PUBLIC_KEY_LENGTH) {
+    throw new TypeError(`userKey must be ${PUBLIC_KEY_LENGTH} bytes`);
   }
 
   const status = Number(jsUserStorageContainsUser(storageId, userKey));
@@ -666,7 +669,7 @@ export function frozenStorageAdd(storageId: Uint8Array, value: Uint8Array): Uint
 
   // The hash is returned in the register
   const hash = readRegisterBytes();
-  if (hash.length !== 32) {
+  if (hash.length !== SHA256_HASH_LENGTH) {
     throw new Error(`[storage] frozenStorageAdd returned invalid hash length (${hash.length})`);
   }
   return hash;
@@ -675,8 +678,8 @@ export function frozenStorageAdd(storageId: Uint8Array, value: Uint8Array): Uint
 export function frozenStorageGet(storageId: Uint8Array, hash: Uint8Array): Uint8Array | null {
   ensureCollectionId(storageId, 'storageId');
   ensureUint8Array(hash, 'hash');
-  if (hash.length !== 32) {
-    throw new TypeError('hash must be 32 bytes');
+  if (hash.length !== SHA256_HASH_LENGTH) {
+    throw new TypeError(`hash must be ${SHA256_HASH_LENGTH} bytes`);
   }
 
   const status = Number(jsFrozenStorageGet(storageId, hash, REGISTER_ID));
@@ -694,8 +697,8 @@ export function frozenStorageGet(storageId: Uint8Array, hash: Uint8Array): Uint8
 export function frozenStorageContains(storageId: Uint8Array, hash: Uint8Array): boolean {
   ensureCollectionId(storageId, 'storageId');
   ensureUint8Array(hash, 'hash');
-  if (hash.length !== 32) {
-    throw new TypeError('hash must be 32 bytes');
+  if (hash.length !== SHA256_HASH_LENGTH) {
+    throw new TypeError(`hash must be ${SHA256_HASH_LENGTH} bytes`);
   }
 
   const status = Number(jsFrozenStorageContains(storageId, hash));

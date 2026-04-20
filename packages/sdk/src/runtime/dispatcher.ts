@@ -3,11 +3,10 @@ import { StateManager } from './state-manager';
 import { runtimeLogicEntries } from './method-registry';
 import { getAbiManifest, getMethod } from '../abi/helpers';
 import type { TypeRef, AbiManifest, ScalarType, Variant } from '../abi/types';
+import { REGISTER_ID } from '../constants';
 import './sync';
 
 type JsonObject = Record<string, unknown>;
-
-const REGISTER_ID = 0n;
 
 if (typeof (globalThis as any).__calimero_register_merge !== 'function') {
   (globalThis as any).__calimero_register_merge = function __calimero_register_merge(): void {};

@@ -1,6 +1,5 @@
 import { applyStorageDelta, input, registerLen, readRegister, log } from '../env/api';
-
-const REGISTER_ID = 0n;
+import { REGISTER_ID } from '../constants';
 
 function readDeltaPayload(): Uint8Array {
   input(REGISTER_ID);
