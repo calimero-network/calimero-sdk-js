@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Troubleshooting — Calimero SDK JS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+<meta name="description" content="Troubleshoot common issues with Calimero SDK JS — build errors, runtime failures, event handler problems, and performance tips.">
+<meta name="theme-color" content="#0d1117">
+</head>
+<body>
+<div class="main">
+<div class="content">
+
+<div class="breadcrumb"></div>
+<h1><em>Troubleshooting</em></h1>
+<p class="page-subtitle">calimero-sdk-js / troubleshooting</p>
+
+<h2>Build Issues</h2>
+
+<div class="card ga">
+<h3>QuickJS Not Found</h3>
+<div class="g2">
+  <div>
+    <div class="cb"><h4>Error</h4><p><span class="code">QuickJS compiler not found</span></p></div>
+    <div class="cb"><h4>Cause</h4><p>QuickJS is downloaded automatically on install but may not have run.</p></div>
+  </div>
+  <div>
+    <div class="cb"><h4>Fix</h4>
+    <div class="typedef">pnpm install <span class="comment"># downloads QuickJS automatically</span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="card ga">
+<h3>WASI-SDK Not Found</h3>
+<div class="g2">
+  <div>
+    <div class="cb"><h4>Error</h4><p><span class="code">WASI-SDK not found</span></p></div>
+    <div class="cb"><h4>Cause</h4><p>The CLI package downloads WASI-SDK on first install.</p></div>
+  </div>
+  <div>
+    <div class="cb"><h4>Fix</h4>
+    <div class="typedef">cd packages/cli<br>pnpm install <span class="comment"># downloads WASI-SDK</span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="card ga">
+<h3>Unsupported Platform</h3>
+<div class="g2">
+  <div>
+    <div class="cb"><h4>Error</h4><p><span class="code">Platform win32 is not supported</span></p></div>
+    <div class="cb"><h4>Supported</h4><p>macOS (darwin) and Linux only.</p></div>
+  </div>
+  <div>
+    <div class="cb"><h4>Workaround</h4><p>Use WSL (Windows Subsystem for Linux) on Windows. The full Linux toolchain works inside WSL.</p></div>
+  </div>
+</div>
+</div>
+
+<div class="card ga">
+<h3>TypeScript / Module Errors</h3>
+<div class="g2">
+  <div>
+    <div class="cb"><h4>Error</h4><p><span class="code">Cannot find module '@calimero-network/calimero-sdk-js'</span></p></div>
+  </div>
+  <div>
+    <div class="cb"><h4>Fix</h4>
+    <div class="typedef">pnpm install<br>pnpm build <span class="comment"># build SDK packages first</span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<h2>Runtime Issues</h2>
+
+<div class="card gb">
+<h3>Method Not Found</h3>
+<div class="g2">
+  <div>
+    <div class="cb"><h4>Error</h4><p>Contract method not exported at runtime.</p></div>
+    <div class="cb"><h4>Checklist</h4>
+    <ul style="margin-top:4px;">
+      <li>Method is inside a <span class="code">@Logic</span> class</li>
+      <li>Method is not named <span class="code">constructor</span></li>
+      <li>Build succeeded — check <span class="code">methods.h</span> was generated</li>
+    </ul>
+    </div>
+  </div>
+  <div>
+    <div class="typedef">
+<span class="comment">// ✅ Correct — method in @Logic</span><br>
+<span class="kw">@Logic</span>(<span class="ty">MyApp</span>)<br>
+<span class="kw">export class</span> <span class="ty">MyAppLogic</span> <span class="kw">extends</span> <span class="ty">MyApp</span> {<br>
+&nbsp;&nbsp;<span class="field">myMethod</span>(): <span class="kw">void</span> { <span class="comment">/* … */</span> } <span class="comment">// exported</span><br>
+}<br><br>
+<span class="comment">// ❌ Wrong — method in @State</span><br>
+<span class="kw">@State</span><br>
+<span class="kw">export class</span> <span class="ty">MyApp</span> {<br>
+&nbsp;&nbsp;<span class="field">myMethod</span>(): <span class="kw">void</span> {} <span class="comment">// not exported!</span><br>
+}
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="card gb">
+<h3>Storage Errors</h3>
+<div class="g2">
+  <div>
+    <div class="cb"><h4>Error</h4><p><span class="code">Storage operation failed</span></p></div>
+    <div class="cb"><h4>Checklist</h4>
+    <ul style="margin-top:4px;">
+      <li>Check key serialization — keys must be <span class="code">Uint8Array</span></li>
+      <li>Verify storage access permissions</li>
+      <li>Check for null/undefined values before write</li>
+    </ul>
+    </div>
+  </div>
+  <div>
+    <div class="typedef">
+<span class="comment">// ✅ Correct — Uint8Array key</span><br>
+<span class="kw">const</span> key = <span class="kw">new</span> <span class="ty">TextEncoder</span>().<span class="field">encode</span>(<span class="ty">'my-key'</span>);<br>
+<span class="kw">const</span> val = <span class="kw">new</span> <span class="ty">TextEncoder</span>().<span class="field">encode</span>(data);<br>
+<span class="field">env</span>.<span class="field">storageWrite</span>(key, val);<br><br>
+<span class="comment">// Guard nulls</span><br>
+<span class="kw">const</span> item = <span class="kw">this</span>.map.<span class="field">get</span>(id);<br>
+<span class="kw">if</span> (!item) <span class="kw">throw new</span> <span class="ty">Error</span>(<span class="ty">'not found'</span>);
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="card gb">
+<h3>Event Handler Not Executing</h3>
+<div class="g2">
+  <div>
+    <div class="cb"><h4>Possible Causes</h4>
+    <ul style="margin-top:4px;">
+      <li>Handler name doesn't match the method name string passed to <span class="code">emitWithHandler</span></li>
+      <li>Author node trying to execute its own handler (this is by design — it doesn't)</li>
+      <li>Delta not applied — parents missing from peer's DAG</li>
+    </ul>
+    </div>
+  </div>
+  <div>
+    <div class="typedef">
+<span class="comment">// Handler name must match exactly</span><br>
+<span class="field">emitWithHandler</span>(event, <span class="ty">'onItemAdded'</span>);<br><br>
+<span class="comment">// Method must have this exact name</span><br>
+<span class="field">onItemAdded</span>(e: <span class="ty">ItemAdded</span>): <span class="kw">void</span> { <span class="comment">/* … */</span> }<br><br>
+<span class="comment">// Debug: log the handler name</span><br>
+<span class="field">env</span>.<span class="field">log</span>(<span class="ty">`emitting: onItemAdded`</span>);
+    </div>
+  </div>
+</div>
+</div>
+
+<h2>Performance Issues</h2>
+
+<div class="card gc">
+<h3>Slow Build Times</h3>
+<div class="g2">
+  <div>
+    <div class="cb"><h4>For development</h4>
+    <div class="typedef">calimero-sdk build src/index.ts --no-optimize</div>
+    <p style="margin-top:8px;">Skip WASM optimisation during dev — saves 10-30s per build.</p>
+    </div>
+  </div>
+  <div>
+    <div class="cb"><h4>For production</h4>
+    <div class="typedef">calimero-sdk build src/index.ts --optimize</div>
+    <p style="margin-top:8px;">Full wasm-opt run. Required for production deploys to minimise binary size.</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="card gc">
+<h3>Large WASM Binary</h3>
+<div class="g2">
+  <div>
+    <div class="cb"><h4>Expected size</h4><p>~500 KB is normal. QuickJS runtime alone is ~450 KB.</p></div>
+    <div class="cb"><h4>Reduce size</h4>
+    <ul style="margin-top:4px;">
+      <li>Enable <span class="code">--optimize</span> flag</li>
+      <li>Remove unused imports</li>
+      <li>Avoid importing entire libraries when only using one function</li>
+    </ul>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="stat"><div class="v">~100KB</div><div class="l">Rust SDK</div></div>
+    <div class="stat"><div class="v">~500KB</div><div class="l">JS SDK</div></div>
+    <div class="stat"><div class="v">~2-5ms</div><div class="l">method overhead</div></div>
+    <div class="stat"><div class="v">same</div><div class="l">sync speed</div></div>
+  </div>
+</div>
+</div>
+
+<div class="card gd" style="margin-top:20px;">
+<h2>Debug Mode</h2>
+<p style="margin-bottom:14px;">Enable verbose output to see every build step:</p>
+<div class="typedef">
+calimero-sdk build src/index.ts <span class="field">--verbose</span>
+</div>
+<h3>Output includes:</h3>
+<div class="g2" style="margin-top:10px;">
+  <div>
+    <div class="fr"><div class="fp">Rollup bundling</div><div class="fd">Module resolution, tree-shaking, ABI injection</div></div>
+    <div class="fr"><div class="fp">QuickJS compilation</div><div class="fd">JS → bytecode conversion steps</div></div>
+  </div>
+  <div>
+    <div class="fr"><div class="fp">Clang flags</div><div class="fd">WASI-SDK compiler invocation details</div></div>
+    <div class="fr"><div class="fp">Optimisation passes</div><div class="fd">wasm-opt reduction stats</div></div>
+  </div>
+</div>
+</div>
+
+<div class="card ga" style="margin-top:20px;">
+<h2>Getting Help</h2>
+<div class="g3">
+  <a href="getting-started.html" class="cb" style="display:block;text-decoration:none;">
+    <h4 style="color:var(--blue);">Documentation</h4>
+    <p>Start with the Getting Started guide and work through the API Reference.</p>
+  </a>
+  <a href="https://github.com/calimero-network/calimero-sdk-js/issues" target="_blank" rel="noopener" class="cb" style="display:block;text-decoration:none;">
+    <h4 style="color:var(--accent);">GitHub Issues</h4>
+    <p>Search existing issues or open a new one with a reproducible example.</p>
+  </a>
+  <a href="https://discord.gg/calimero" target="_blank" rel="noopener" class="cb" style="display:block;text-decoration:none;">
+    <h4 style="color:var(--violet);">Discord</h4>
+    <p>Join the Calimero Discord for real-time help from the team and community.</p>
+  </a>
+</div>
+</div>
+
+</div>
+</div>
+<script src="nav.js"></script>
+<script>document.addEventListener('DOMContentLoaded',()=>{ window.sdk?.buildBreadcrumb([{label:'Home',href:'index.html'},{label:'Troubleshooting',href:''}]); });</script>
+</body>
+</html>

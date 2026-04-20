@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Calimero SDK JS</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <meta
+      name="description"
+      content="Calimero JavaScript SDK — Build P2P applications with TypeScript, CRDT collections, and QuickJS-powered WASM."
+    />
+    <meta name="theme-color" content="#0d1117" />
+  </head>
+  <body>
+    <div class="main">
+      <div class="content">
+        <div class="hero">
+          <h1>Calimero <em>SDK JS</em></h1>
+          <p class="tagline">
+            Build decentralised P2P applications in TypeScript. Write once, deploy as WASM — with
+            automatic CRDT state sync, event streaming, and full npm ecosystem access.
+          </p>
+
+          <div class="g4" style="margin-bottom: 36px">
+            <div class="stat">
+              <div class="v">TypeScript</div>
+              <div class="l">first-class support</div>
+            </div>
+            <div class="stat">
+              <div class="v">CRDT</div>
+              <div class="l">auto state sync</div>
+            </div>
+            <div class="stat">
+              <div class="v">QuickJS</div>
+              <div class="l">~450 KB runtime</div>
+            </div>
+            <div class="stat">
+              <div class="v">npm</div>
+              <div class="l">ecosystem access</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card ga">
+          <h2>What is Calimero SDK JS?</h2>
+          <p style="margin-bottom: 18px">
+            The Calimero JavaScript SDK lets you write Calimero P2P services in
+            TypeScript/JavaScript. Your code compiles to a WASM binary (via QuickJS) that runs
+            inside a Calimero node, with automatic state replication across all peers using CRDTs.
+          </p>
+          <div class="g3">
+            <div class="step">
+              <div class="n">1</div>
+              <h4>Write TypeScript</h4>
+              <p>
+                Use familiar decorators (<span class="code">@State</span>,
+                <span class="code">@Logic</span>, <span class="code">@Init</span>) and CRDT
+                collection types to define your application logic.
+              </p>
+            </div>
+            <div class="step">
+              <div class="n">2</div>
+              <h4>Build to WASM</h4>
+              <p>
+                The CLI compiles TypeScript → JavaScript → QuickJS bytecode → WASM. The ABI manifest
+                is embedded automatically for Rust compatibility.
+              </p>
+            </div>
+            <div class="step">
+              <div class="n">3</div>
+              <h4>Deploy &amp; Sync</h4>
+              <p>
+                Install on a Calimero node. State changes replicate to all peers via causal deltas —
+                no manual sync code required.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card gb">
+          <h2>System Overview</h2>
+          <svg viewBox="0 0 900 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <filter id="glow-sdk">
+                <feDropShadow
+                  dx="0"
+                  dy="0"
+                  stdDeviation="3"
+                  flood-color="#a5ff11"
+                  flood-opacity="0.22"
+                />
+              </filter>
+            </defs>
+
+            <!-- TypeScript Source -->
+            <rect
+              x="20"
+              y="110"
+              width="140"
+              height="60"
+              rx="10"
+              fill="#58a6ff10"
+              stroke="#58a6ff"
+              stroke-width="1.2"
+            />
+            <text
+              x="90"
+              y="137"
+              text-anchor="middle"
+              fill="#58a6ff"
+              font-family="JetBrains Mono"
+              font-size="11"
+              font-weight="700"
+            >
+              TypeScript
+            </text>
+            <text
+              x="90"
+              y="155"
+              text-anchor="middle"
+              fill="#6b6b80"
+              font-family="DM Sans"
+              font-size="9"
+            >
+              your service code
+            </text>
+
+            <!-- Arrow 1 -->
+            <line x1="162" y1="140" x2="198" y2="140" stroke="#a5ff11" stroke-width="1.5" />
+            <polygon points="198,140 190,136 190,144" fill="#a5ff11" />
+            <text
+              x="180"
+              y="133"
+              text-anchor="middle"
+              fill="#6b6b80"
+              font-family="JetBrains Mono"
+              font-size="8"
+            >
+              CLI
+            </text>
+
+            <!-- Build Pipeline -->
+            <rect
+              x="200"
+              y="80"
+              width="200"
+              height="120"
+              rx="12"
+              fill="#a5ff1108"
+              stroke="#a5ff11"
+              stroke-width="1.6"
+              filter="url(#glow-sdk)"
+            />
+            <text
+              x="220"
+              y="106"
+              fill="#a5ff11"
+              font-family="JetBrains Mono"
+              font-size="11"
+              font-weight="700"
+            >
+              Build Pipeline
+            </text>
+            <rect
+              x="218"
+              y="115"
+              width="164"
+              height="22"
+              rx="5"
+              fill="#58a6ff12"
+              stroke="#58a6ff"
+              stroke-width="1"
+            />
+            <text
+              x="300"
+              y="130"
+              text-anchor="middle"
+              fill="#58a6ff"
+              font-family="JetBrains Mono"
+              font-size="9"
+            >
+              tsc → rollup → ABI emitter
+            </text>
+            <rect
+              x="218"
+              y="142"
+              width="164"
+              height="22"
+              rx="5"
+              fill="#f778ba12"
+              stroke="#f778ba"
+              stroke-width="1"
+            />
+            <text
+              x="300"
+              y="157"
+              text-anchor="middle"
+              fill="#f778ba"
+              font-family="JetBrains Mono"
+              font-size="9"
+            >
+              QuickJS qjsc bytecode
+            </text>
+            <rect
+              x="218"
+              y="169"
+              width="164"
+              height="22"
+              rx="5"
+              fill="#3fb95012"
+              stroke="#3fb950"
+              stroke-width="1"
+            />
+            <text
+              x="300"
+              y="184"
+              text-anchor="middle"
+              fill="#3fb950"
+              font-family="JetBrains Mono"
+              font-size="9"
+            >
+              clang/WASI → .wasm
+            </text>
+
+            <!-- Arrow 2 -->
+            <line x1="402" y1="140" x2="438" y2="140" stroke="#a5ff11" stroke-width="1.5" />
+            <polygon points="438,140 430,136 430,144" fill="#a5ff11" />
+
+            <!-- WASM Binary -->
+            <rect
+              x="440"
+              y="100"
+              width="140"
+              height="80"
+              rx="10"
+              fill="#3fb95010"
+              stroke="#3fb950"
+              stroke-width="1.4"
+            />
+            <text
+              x="510"
+              y="132"
+              text-anchor="middle"
+              fill="#3fb950"
+              font-family="JetBrains Mono"
+              font-size="11"
+              font-weight="700"
+            >
+              WASM Binary
+            </text>
+            <text
+              x="510"
+              y="150"
+              text-anchor="middle"
+              fill="#6b6b80"
+              font-family="DM Sans"
+              font-size="9"
+            >
+              QuickJS + service + ABI
+            </text>
+            <text
+              x="510"
+              y="166"
+              text-anchor="middle"
+              fill="#6b6b80"
+              font-family="DM Sans"
+              font-size="9"
+            >
+              ~500 KB
+            </text>
+
+            <!-- Arrow 3 -->
+            <line x1="582" y1="140" x2="618" y2="140" stroke="#a5ff11" stroke-width="1.5" />
+            <polygon points="618,140 610,136 610,144" fill="#a5ff11" />
+
+            <!-- Node -->
+            <rect
+              x="620"
+              y="80"
+              width="150"
+              height="80"
+              rx="10"
+              fill="#a371f710"
+              stroke="#a371f7"
+              stroke-width="1.4"
+            />
+            <text
+              x="695"
+              y="112"
+              text-anchor="middle"
+              fill="#a371f7"
+              font-family="JetBrains Mono"
+              font-size="11"
+              font-weight="700"
+            >
+              Calimero Node
+            </text>
+            <text
+              x="695"
+              y="130"
+              text-anchor="middle"
+              fill="#6b6b80"
+              font-family="DM Sans"
+              font-size="9"
+            >
+              Wasmer runtime
+            </text>
+            <text
+              x="695"
+              y="148"
+              text-anchor="middle"
+              fill="#6b6b80"
+              font-family="DM Sans"
+              font-size="9"
+            >
+              CRDT state replication
+            </text>
+
+            <!-- Peer nodes -->
+            <rect
+              x="790"
+              y="60"
+              width="100"
+              height="50"
+              rx="8"
+              fill="#a371f708"
+              stroke="#a371f7"
+              stroke-width="1"
+              stroke-dasharray="4 3"
+            />
+            <text
+              x="840"
+              y="82"
+              text-anchor="middle"
+              fill="#a371f7"
+              font-family="JetBrains Mono"
+              font-size="9"
+            >
+              Peer A
+            </text>
+            <rect
+              x="790"
+              y="170"
+              width="100"
+              height="50"
+              rx="8"
+              fill="#a371f708"
+              stroke="#a371f7"
+              stroke-width="1"
+              stroke-dasharray="4 3"
+            />
+            <text
+              x="840"
+              y="192"
+              text-anchor="middle"
+              fill="#a371f7"
+              font-family="JetBrains Mono"
+              font-size="9"
+            >
+              Peer B
+            </text>
+            <line
+              x1="770"
+              y1="110"
+              x2="790"
+              y2="85"
+              stroke="#a371f7"
+              stroke-width="1"
+              stroke-dasharray="4 3"
+            />
+            <line
+              x1="770"
+              y1="150"
+              x2="790"
+              y2="195"
+              stroke="#a371f7"
+              stroke-width="1"
+              stroke-dasharray="4 3"
+            />
+            <text
+              x="840"
+              y="145"
+              text-anchor="middle"
+              fill="#6b6b80"
+              font-family="JetBrains Mono"
+              font-size="8"
+            >
+              P2P delta
+            </text>
+            <text
+              x="840"
+              y="157"
+              text-anchor="middle"
+              fill="#6b6b80"
+              font-family="JetBrains Mono"
+              font-size="8"
+            >
+              broadcast
+            </text>
+
+            <!-- Labels -->
+            <text
+              x="90"
+              y="240"
+              text-anchor="middle"
+              fill="#6b6b80"
+              font-family="DM Sans"
+              font-size="9"
+            >
+              @State @Logic @Init
+            </text>
+            <text
+              x="300"
+              y="240"
+              text-anchor="middle"
+              fill="#6b6b80"
+              font-family="DM Sans"
+              font-size="9"
+            >
+              ABI-aware Borsh serialization
+            </text>
+            <text
+              x="510"
+              y="240"
+              text-anchor="middle"
+              fill="#6b6b80"
+              font-family="DM Sans"
+              font-size="9"
+            >
+              embedded ABI manifest
+            </text>
+            <text
+              x="695"
+              y="240"
+              text-anchor="middle"
+              fill="#6b6b80"
+              font-family="DM Sans"
+              font-size="9"
+            >
+              RocksDB + Merkle DAG
+            </text>
+          </svg>
+        </div>
+
+        <h2 style="margin-top: 40px">Quick Start</h2>
+        <div class="card gc" style="margin-bottom: 20px">
+          <h3>Install</h3>
+          <div class="typedef">
+            <span class="comment"># SDK for your service code</span><br />
+            npm install <span class="field">@calimero-network/calimero-sdk-js</span><br /><br />
+            <span class="comment"># CLI build toolchain</span><br />
+            npm install -D <span class="field">@calimero-network/calimero-cli-js</span>
+          </div>
+          <h3>Write your first service</h3>
+          <div class="typedef">
+            <span class="kw">import</span> { <span class="field">State</span>,
+            <span class="field">Logic</span>, <span class="field">Init</span>,
+            <span class="field">createCounter</span> } <span class="kw">from</span>
+            <span class="ty">'@calimero-network/calimero-sdk-js'</span>;<br />
+            <span class="kw">import</span> * <span class="kw">as</span>
+            <span class="field">env</span> <span class="kw">from</span>
+            <span class="ty">'@calimero-network/calimero-sdk-js/env'</span>;<br /><br />
+            <span class="kw">@State</span><br />
+            <span class="kw">export class</span> <span class="ty">CounterApp</span> {<br />
+            &nbsp;&nbsp;count = <span class="field">createCounter</span>();<br />
+            }<br /><br />
+            <span class="kw">@Logic</span>(<span class="ty">CounterApp</span>)<br />
+            <span class="kw">export class</span> <span class="ty">CounterLogic</span>
+            <span class="kw">extends</span> <span class="ty">CounterApp</span> {<br />
+            &nbsp;&nbsp;<span class="kw">@Init</span><br />
+            &nbsp;&nbsp;<span class="kw">static</span> <span class="field">initialize</span>():
+            <span class="ty">CounterApp</span> { <span class="kw">return new</span>
+            <span class="ty">CounterApp</span>(); }<br /><br />
+            &nbsp;&nbsp;<span class="field">increment</span>(): <span class="kw">void</span> {
+            <span class="kw">this</span>.count.<span class="field">increment</span>(); }<br />
+            &nbsp;&nbsp;<span class="kw">@View</span>()<br />
+            &nbsp;&nbsp;<span class="field">getCount</span>(): <span class="ty">bigint</span> {
+            <span class="kw">return this</span>.count.<span class="field">value</span>(); }<br />
+            }
+          </div>
+          <h3>Build &amp; Deploy</h3>
+          <div class="typedef">
+            <span class="comment"># Build to WASM</span><br />
+            <span class="field">npx calimero-sdk build</span> src/index.ts -o build/service.wasm<br /><br />
+            <span class="comment"># Install on node</span><br />
+            <span class="field">meroctl</span> --node-name node1 app install --path
+            build/service.wasm --context-id &lt;ID&gt;
+          </div>
+        </div>
+
+        <h2>Documentation</h2>
+        <div class="g3" style="margin-bottom: 16px">
+          <a href="getting-started.html" class="hero-card">
+            <span class="card-icon" style="color: var(--blue)">&#9670;</span>
+            <h3 style="color: var(--blue)">Getting Started</h3>
+            <p>
+              Install the SDK, write your first service, build to WASM, and deploy to a Calimero
+              node in minutes.
+            </p>
+          </a>
+          <a href="architecture.html" class="hero-card">
+            <span class="card-icon" style="color: var(--accent)">&#9670;</span>
+            <h3 style="color: var(--accent)">Architecture</h3>
+            <p>
+              How TypeScript compiles to WASM, how QuickJS calls host functions, and how CRDT deltas
+              propagate.
+            </p>
+          </a>
+          <a href="api-reference.html" class="hero-card">
+            <span class="card-icon" style="color: var(--green)">&#9670;</span>
+            <h3 style="color: var(--green)">API Reference</h3>
+            <p>
+              Complete reference for all decorators, environment functions, events, and state helper
+              factories.
+            </p>
+          </a>
+        </div>
+        <div class="g3">
+          <a href="collections.html" class="hero-card">
+            <span class="card-icon" style="color: var(--violet)">&#9670;</span>
+            <h3 style="color: var(--violet)">Collections</h3>
+            <p>
+              CRDT types: UnorderedMap, Vector, Counter, LwwRegister, UserStorage, FrozenStorage —
+              with automatic nested tracking.
+            </p>
+          </a>
+          <a href="events.html" class="hero-card">
+            <span class="card-icon" style="color: var(--pink)">&#9670;</span>
+            <h3 style="color: var(--pink)">Events</h3>
+            <p>
+              Define and emit events with <span class="code">@Event</span>. Handler requirements:
+              commutativity, idempotency, and pure execution.
+            </p>
+          </a>
+          <a href="migration.html" class="hero-card">
+            <span class="card-icon" style="color: var(--cyan)">&#9670;</span>
+            <h3 style="color: var(--cyan)">Migration Guide</h3>
+            <p>
+              Migrating from the Rust SDK? Side-by-side comparisons of macros vs decorators, types,
+              and collection APIs.
+            </p>
+          </a>
+        </div>
+      </div>
+    </div>
+    <script src="nav.js"></script>
+  </body>
+</html>

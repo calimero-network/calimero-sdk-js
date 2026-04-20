@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Getting Started — Calimero SDK JS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+<meta name="description" content="Build your first Calimero P2P service with the JavaScript SDK — install, write, build, and deploy.">
+<meta name="theme-color" content="#0d1117">
+</head>
+<body>
+<div class="main">
+<div class="content">
+
+<div class="breadcrumb"></div>
+<h1>Getting <em>Started</em></h1>
+<p class="page-subtitle">calimero-sdk-js / getting-started</p>
+
+<div class="card ga">
+<h2>Prerequisites</h2>
+<div class="g3">
+  <div class="cb"><h4>Node.js ≥ 18</h4><p>Required for running the CLI toolchain and build pipeline.</p></div>
+  <div class="cb"><h4>pnpm ≥ 8</h4><p>Recommended package manager. npm and yarn also work.</p></div>
+  <div class="cb"><h4>merod running</h4><p>A Calimero node must be running locally or remotely to deploy services.</p></div>
+</div>
+</div>
+
+<div class="card gb">
+<h2>Installation</h2>
+<p style="margin-bottom:14px;">Install both the SDK (used in your service code) and the CLI (build toolchain):</p>
+<div class="typedef">
+<span class="comment"># npm</span><br>
+npm install <span class="field">@calimero-network/calimero-sdk-js</span><br>
+npm install -D <span class="field">@calimero-network/calimero-cli-js</span><br><br>
+<span class="comment"># or pnpm</span><br>
+pnpm add <span class="field">@calimero-network/calimero-sdk-js</span><br>
+pnpm add -D <span class="field">@calimero-network/calimero-cli-js</span>
+</div>
+</div>
+
+<h2>Create Your First App</h2>
+
+<div class="step"><div class="n">STEP 1</div>
+<h4>Create project structure</h4>
+<div class="typedef">
+mkdir my-calimero-app &amp;&amp; cd my-calimero-app<br>
+pnpm init<br>
+pnpm add <span class="field">@calimero-network/calimero-sdk-js</span><br>
+pnpm add -D <span class="field">@calimero-network/calimero-cli-js</span> typescript
+</div>
+</div>
+
+<div class="step"><div class="n">STEP 2</div>
+<h4>Write your contract — <span class="code">src/index.ts</span></h4>
+<div class="typedef">
+<span class="kw">import</span> { <span class="field">State</span>, <span class="field">Logic</span>, <span class="field">Init</span>, <span class="field">View</span>, <span class="field">createCounter</span> } <span class="kw">from</span> <span class="ty">'@calimero-network/calimero-sdk-js'</span>;<br>
+<span class="kw">import type</span> { <span class="ty">Counter</span> } <span class="kw">from</span> <span class="ty">'@calimero-network/calimero-sdk-js/collections'</span>;<br>
+<span class="kw">import</span> * <span class="kw">as</span> <span class="field">env</span> <span class="kw">from</span> <span class="ty">'@calimero-network/calimero-sdk-js/env'</span>;<br><br>
+<span class="kw">@State</span><br>
+<span class="kw">export class</span> <span class="ty">CounterApp</span> {<br>
+&nbsp;&nbsp;count: <span class="ty">Counter</span> = <span class="field">createCounter</span>();<br>
+}<br><br>
+<span class="kw">@Logic</span>(<span class="ty">CounterApp</span>)<br>
+<span class="kw">export class</span> <span class="ty">CounterLogic</span> <span class="kw">extends</span> <span class="ty">CounterApp</span> {<br>
+&nbsp;&nbsp;<span class="kw">@Init</span><br>
+&nbsp;&nbsp;<span class="kw">static</span> <span class="field">initialize</span>(): <span class="ty">CounterApp</span> {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="field">env</span>.<span class="field">log</span>(<span class="ty">'Initializing counter'</span>);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return new</span> <span class="ty">CounterApp</span>();<br>
+&nbsp;&nbsp;}<br><br>
+&nbsp;&nbsp;<span class="field">increment</span>(): <span class="kw">void</span> {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">this</span>.count.<span class="field">increment</span>();<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="field">env</span>.<span class="field">log</span>(<span class="ty">'Counter incremented'</span>);<br>
+&nbsp;&nbsp;}<br><br>
+&nbsp;&nbsp;<span class="kw">@View</span>()<br>
+&nbsp;&nbsp;<span class="field">getCount</span>(): <span class="ty">bigint</span> {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return this</span>.count.<span class="field">value</span>();<br>
+&nbsp;&nbsp;}<br>
+}
+</div>
+<div class="g2" style="margin-top:14px;">
+  <div class="cb"><h4>Initialize CRDT fields inline</h4><p>Call <span class="code">createCounter()</span> in the field initializer so the runtime rehydrates persisted state without relying on constructor logic.</p></div>
+  <div class="cb"><h4>Mark read-only with @View()</h4><p>View methods skip persistence and avoid emitting redundant storage deltas when only returning data.</p></div>
+</div>
+</div>
+
+<div class="step"><div class="n">STEP 3</div>
+<h4>Build your service</h4>
+<div class="typedef">
+npx calimero-sdk build src/index.ts -o build/service.wasm
+</div>
+<p style="margin-top:10px;">This runs the full pipeline: TypeScript → JavaScript → ABI extraction → QuickJS bytecode → Clang/WASI → <span class="code">service.wasm</span>.</p>
+</div>
+
+<div class="step"><div class="n">STEP 4</div>
+<h4>Deploy the service</h4>
+<div class="typedef">
+meroctl --node-name node1 app install \<br>
+&nbsp;&nbsp;--path build/service.wasm \<br>
+&nbsp;&nbsp;--context-id &lt;YOUR_CONTEXT_ID&gt;
+</div>
+</div>
+
+<div class="step"><div class="n">STEP 5</div>
+<h4>Call your service</h4>
+<div class="typedef">
+<span class="comment"># Increment the counter</span><br>
+meroctl --node-name node1 call \<br>
+&nbsp;&nbsp;--context-id &lt;CONTEXT_ID&gt; \<br>
+&nbsp;&nbsp;--method increment<br><br>
+<span class="comment"># Get the count</span><br>
+meroctl --node-name node1 call \<br>
+&nbsp;&nbsp;--context-id &lt;CONTEXT_ID&gt; \<br>
+&nbsp;&nbsp;--method getCount
+</div>
+</div>
+
+<div class="card gc" style="margin-top:36px;">
+<h2>Private Storage</h2>
+<p style="margin-bottom:14px;">Use private storage for node-local data that should not replicate to peers — e.g. cached secrets, per-node counters:</p>
+<div class="typedef">
+<span class="kw">import</span> { <span class="field">createPrivateEntry</span> } <span class="kw">from</span> <span class="ty">'@calimero-network/calimero-sdk-js'</span>;<br><br>
+<span class="kw">const</span> secrets = <span class="field">createPrivateEntry</span>&lt;{ token: <span class="ty">string</span> }&gt;(<span class="ty">'private:secrets'</span>);<br><br>
+<span class="kw">const</span> current = secrets.<span class="field">getOrInit</span>(() =&gt; ({ token: <span class="ty">''</span> }));<br>
+secrets.<span class="field">modify</span>(<br>
+&nbsp;&nbsp;value =&gt; { value.token = <span class="ty">'rotated-token'</span>; },<br>
+&nbsp;&nbsp;() =&gt; ({ token: <span class="ty">''</span> })<br>
+);
+</div>
+<p style="margin-top:10px;">Entries route through <span class="code">storage_read</span> / <span class="code">storage_write</span> directly — they never appear in CRDT deltas.</p>
+</div>
+
+<div class="card gd" style="margin-top:20px;">
+<h2>Common Issues</h2>
+<div class="g2">
+  <div>
+    <h3>Build Errors</h3>
+    <div class="step"><div class="n">FIX</div><h4>Cannot find dependencies</h4><p>Run <span class="code">pnpm install</span> — QuickJS and WASI-SDK are downloaded automatically on first install.</p></div>
+    <div class="step"><div class="n">FIX</div><h4>TypeScript errors</h4><p>Run <span class="code">pnpm list typescript</span> to verify version ≥ 5.3. Use <span class="code">--verbose</span> flag for detailed output.</p></div>
+  </div>
+  <div>
+    <h3>Runtime Errors</h3>
+    <div class="step"><div class="n">FIX</div><h4>Method not found</h4><p>Ensure the method is inside a <span class="code">@Logic</span> decorated class and is not the constructor.</p></div>
+    <div class="step"><div class="n">FIX</div><h4>Service fails at runtime</h4><p>Check logs with <span class="code">meroctl logs</span>. Verify host functions are available and error handling is in place.</p></div>
+  </div>
+</div>
+</div>
+
+<h2 style="margin-top:36px;">Next Steps</h2>
+<div class="g4">
+  <a href="api-reference.html" class="hero-card"><span class="card-icon" style="color:var(--green);">&#9670;</span><h3 style="color:var(--green)">API Reference</h3><p>Full decorator and env function docs.</p></a>
+  <a href="collections.html" class="hero-card"><span class="card-icon" style="color:var(--violet);">&#9670;</span><h3 style="color:var(--violet)">Collections</h3><p>CRDT types and best practices.</p></a>
+  <a href="events.html" class="hero-card"><span class="card-icon" style="color:var(--pink);">&#9670;</span><h3 style="color:var(--pink)">Events</h3><p>Event emission and handler patterns.</p></a>
+  <a href="architecture.html" class="hero-card"><span class="card-icon" style="color:var(--accent);">&#9670;</span><h3 style="color:var(--accent)">Architecture</h3><p>Build pipeline and runtime details.</p></a>
+</div>
+
+</div>
+</div>
+<script src="nav.js"></script>
+<script>document.addEventListener('DOMContentLoaded',()=>{ window.sdk?.buildBreadcrumb([{label:'Home',href:'index.html'},{label:'Getting Started',href:''}]); });</script>
+</body>
+</html>

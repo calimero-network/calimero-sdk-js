@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Architecture — Calimero SDK JS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+<meta name="description" content="Calimero SDK JS architecture — build pipeline, QuickJS runtime, CRDT delta tracking, and host function data flow.">
+<meta name="theme-color" content="#0d1117">
+</head>
+<body>
+<div class="main">
+<div class="content">
+
+<div class="breadcrumb"></div>
+<h1><em>Architecture</em></h1>
+<p class="page-subtitle">calimero-sdk-js / architecture</p>
+
+<div class="card ga">
+<h2>System Layers</h2>
+<div class="g2">
+  <div>
+    <div class="step"><div class="n">5</div><h4>JavaScript Application</h4><p>Your TypeScript code with <span class="code">@State</span>, <span class="code">@Logic</span>, <span class="code">@Init</span> decorators and CRDT collections.</p></div>
+    <div class="step"><div class="n">4</div><h4>calimero-sdk-js</h4><p>Decorators, CRDT collection wrappers, event system, ABI-aware serialization.</p></div>
+    <div class="step"><div class="n">3</div><h4>QuickJS Runtime (WASM)</h4><p>Full JavaScript interpreter embedded in the WASM binary. ~450 KB overhead. Proven by NEAR Protocol.</p></div>
+    <div class="step"><div class="n">2</div><h4>Calimero Host Functions</h4><p><span class="code">storage_read/write</span>, <span class="code">emit/commit</span>, <span class="code">context_id</span>, <span class="code">executor_id</span>, <span class="code">flush_delta</span>.</p></div>
+    <div class="step"><div class="n">1</div><h4>Calimero Runtime (Wasmer)</h4><p>WASM execution, P2P synchronisation, RocksDB storage, Merkle DAG.</p></div>
+  </div>
+  <div>
+    <div class="card gc" style="margin-top:0;">
+    <h3>Why QuickJS?</h3>
+    <div class="g2" style="margin-top:8px;">
+      <div class="cb"><h4>Pros</h4><p>Full TypeScript support · npm ecosystem · Proven by NEAR · Smaller than V8/SpiderMonkey</p></div>
+      <div class="cb"><h4>Cons</h4><p>~450 KB overhead vs ~50 KB AssemblyScript · ~2-5× slower than native WASM</p></div>
+    </div>
+    <p style="margin-top:12px;">We chose QuickJS over AssemblyScript for the significantly better developer experience — full TypeScript generics, npm packages, and familiar tooling.</p>
+    </div>
+    <div class="g4" style="margin-top:16px;">
+      <div class="stat"><div class="v">~5ms</div><div class="l">QuickJS init</div></div>
+      <div class="stat"><div class="v">~2-5ms</div><div class="l">method call</div></div>
+      <div class="stat"><div class="v">~500KB</div><div class="l">WASM binary</div></div>
+      <div class="stat"><div class="v">same</div><div class="l">network sync</div></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="card gb">
+<h2>Build Pipeline</h2>
+<svg viewBox="0 0 860 380" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs><filter id="glow-b"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#a5ff11" flood-opacity="0.2"/></filter></defs>
+
+  <!-- Column 1 -->
+  <rect x="20" y="20" width="160" height="50" rx="8" fill="#58a6ff12" stroke="#58a6ff" stroke-width="1.2"/>
+  <text x="100" y="42" text-anchor="middle" fill="#58a6ff" font-family="JetBrains Mono" font-size="10" font-weight="700">TypeScript Source</text>
+  <text x="100" y="58" text-anchor="middle" fill="#6b6b80" font-family="DM Sans" font-size="9">@State @Logic @Init</text>
+
+  <line x1="100" y1="72" x2="100" y2="98" stroke="#a5ff11" stroke-width="1.3"/>
+  <polygon points="100,98 96,90 104,90" fill="#a5ff11"/>
+  <text x="108" y="88" fill="#6b6b80" font-family="JetBrains Mono" font-size="8">tsc</text>
+
+  <rect x="20" y="100" width="160" height="40" rx="8" fill="#a5ff1108" stroke="#a5ff11" stroke-width="1"/>
+  <text x="100" y="124" text-anchor="middle" fill="#a5ff11" font-family="JetBrains Mono" font-size="10">JavaScript ES6</text>
+
+  <line x1="100" y1="142" x2="100" y2="168" stroke="#a5ff11" stroke-width="1.3"/>
+  <polygon points="100,168 96,160 104,160" fill="#a5ff11"/>
+  <text x="108" y="158" fill="#6b6b80" font-family="JetBrains Mono" font-size="8">ABI emitter</text>
+
+  <rect x="20" y="170" width="160" height="40" rx="8" fill="#e3b34112" stroke="#e3b341" stroke-width="1"/>
+  <text x="100" y="188" text-anchor="middle" fill="#e3b341" font-family="JetBrains Mono" font-size="10">abi.json</text>
+  <text x="100" y="203" text-anchor="middle" fill="#6b6b80" font-family="DM Sans" font-size="8">types · methods · events</text>
+
+  <line x1="100" y1="212" x2="100" y2="238" stroke="#a5ff11" stroke-width="1.3"/>
+  <polygon points="100,238 96,230 104,230" fill="#a5ff11"/>
+  <text x="108" y="228" fill="#6b6b80" font-family="JetBrains Mono" font-size="8">rollup</text>
+
+  <rect x="20" y="240" width="160" height="40" rx="8" fill="#3fb95012" stroke="#3fb950" stroke-width="1"/>
+  <text x="100" y="258" text-anchor="middle" fill="#3fb950" font-family="JetBrains Mono" font-size="10">JS Bundle</text>
+  <text x="100" y="273" text-anchor="middle" fill="#6b6b80" font-family="DM Sans" font-size="8">+ __CALIMERO_ABI__</text>
+
+  <!-- Column 2 -->
+  <line x1="182" y1="260" x2="258" y2="260" stroke="#a5ff11" stroke-width="1.3"/>
+  <polygon points="258,260 250,256 250,264" fill="#a5ff11"/>
+  <text x="219" y="252" fill="#6b6b80" font-family="JetBrains Mono" font-size="8">qjsc</text>
+
+  <rect x="260" y="240" width="160" height="40" rx="8" fill="#f778ba12" stroke="#f778ba" stroke-width="1"/>
+  <text x="340" y="258" text-anchor="middle" fill="#f778ba" font-family="JetBrains Mono" font-size="10">code.h</text>
+  <text x="340" y="273" text-anchor="middle" fill="#6b6b80" font-family="DM Sans" font-size="8">QuickJS bytecode (C header)</text>
+
+  <line x1="340" y1="238" x2="340" y2="212" stroke="#a5ff11" stroke-width="1.3"/>
+  <polygon points="340,212 336,220 344,220" fill="#a5ff11"/>
+  <text x="348" y="228" fill="#6b6b80" font-family="JetBrains Mono" font-size="8">extract methods</text>
+
+  <rect x="260" y="170" width="160" height="40" rx="8" fill="#f0883e12" stroke="#f0883e" stroke-width="1"/>
+  <text x="340" y="188" text-anchor="middle" fill="#f0883e" font-family="JetBrains Mono" font-size="10">methods.h</text>
+  <text x="340" y="203" text-anchor="middle" fill="#6b6b80" font-family="DM Sans" font-size="8">parsed method list</text>
+
+  <line x1="340" y1="168" x2="340" y2="142" stroke="#a5ff11" stroke-width="1.3"/>
+  <polygon points="340,142 336,150 344,150" fill="#a5ff11"/>
+  <text x="348" y="158" fill="#6b6b80" font-family="JetBrains Mono" font-size="8">inject ABI</text>
+
+  <rect x="260" y="100" width="160" height="40" rx="8" fill="#a371f712" stroke="#a371f7" stroke-width="1"/>
+  <text x="340" y="118" text-anchor="middle" fill="#a371f7" font-family="JetBrains Mono" font-size="10">abi.h</text>
+  <text x="340" y="133" text-anchor="middle" fill="#6b6b80" font-family="DM Sans" font-size="8">ABI as C byte array</text>
+
+  <!-- Column 3 -->
+  <line x1="422" y1="200" x2="498" y2="200" stroke="#a5ff11" stroke-width="1.3"/>
+  <polygon points="498,200 490,196 490,204" fill="#a5ff11"/>
+  <text x="453" y="192" fill="#6b6b80" font-family="JetBrains Mono" font-size="8">clang/WASI-SDK</text>
+
+  <rect x="500" y="160" width="160" height="80" rx="10" fill="#a5ff1108" stroke="#a5ff11" stroke-width="1.6" filter="url(#glow-b)"/>
+  <text x="580" y="188" text-anchor="middle" fill="#a5ff11" font-family="JetBrains Mono" font-size="11" font-weight="700">WASM Binary</text>
+  <text x="580" y="206" text-anchor="middle" fill="#6b6b80" font-family="DM Sans" font-size="9">QuickJS runtime</text>
+  <text x="580" y="222" text-anchor="middle" fill="#6b6b80" font-family="DM Sans" font-size="9">service bytecode + ABI</text>
+
+  <line x1="580" y1="242" x2="580" y2="268" stroke="#a5ff11" stroke-width="1.3"/>
+  <polygon points="580,268 576,260 584,260" fill="#a5ff11"/>
+  <text x="588" y="258" fill="#6b6b80" font-family="JetBrains Mono" font-size="8">wasm-opt</text>
+
+  <rect x="500" y="270" width="160" height="50" rx="10" fill="#3fb95012" stroke="#3fb950" stroke-width="1.6"/>
+  <text x="580" y="292" text-anchor="middle" fill="#3fb950" font-family="JetBrains Mono" font-size="11" font-weight="700">Final Service</text>
+  <text x="580" y="308" text-anchor="middle" fill="#6b6b80" font-family="DM Sans" font-size="9">~500 KB + ABI embedded</text>
+
+  <!-- connect code.h + methods.h + abi.h → WASM -->
+  <path d="M422 120 Q460 120 500 200" stroke="#a371f7" stroke-width="1" stroke-dasharray="4 3" fill="none"/>
+  <path d="M422 190 Q460 190 500 200" stroke="#f0883e" stroke-width="1" stroke-dasharray="4 3" fill="none"/>
+  <path d="M422 260 Q460 260 500 200" stroke="#f778ba" stroke-width="1" stroke-dasharray="4 3" fill="none"/>
+</svg>
+</div>
+
+<div class="card gc">
+<h2>Method Call Flow</h2>
+<p style="margin-bottom:14px;">What happens when a JSON-RPC call reaches the node:</p>
+<div class="g2">
+  <div>
+    <div class="step"><div class="n">1</div><h4>JSON-RPC arrives</h4><p>Calimero node receives the call with JSON parameters for the target method.</p></div>
+    <div class="step"><div class="n">2</div><h4>WASM loads</h4><p>Node loads the service WASM module, creates QuickJS runtime, loads bytecode + ABI.</p></div>
+    <div class="step"><div class="n">3</div><h4>Parameters converted</h4><p>JSON → ABI-compatible types: string bigints → <span class="code">BigInt</span>, number arrays → <span class="code">Uint8Array</span>, etc.</p></div>
+    <div class="step"><div class="n">4</div><h4>Method executes</h4><p>Your TypeScript logic runs. <span class="code">env.*</span> host function calls go to the Calimero runtime.</p></div>
+  </div>
+  <div>
+    <div class="step"><div class="n">5</div><h4>CRDT delta tracked</h4><p>Collection mutations (<span class="code">map.set</span>, <span class="code">vec.push</span>) accumulate in the Rust delta context.</p></div>
+    <div class="step"><div class="n">6</div><h4>State persisted</h4><p>ABI-aware Borsh serialization: <span class="code">[version: u8=1][state: borsh][collections: legacy]</span>.</p></div>
+    <div class="step"><div class="n">7</div><h4>Delta flushed</h4><p><span class="code">flush_delta()</span> turns recorded actions into a causal delta. <span class="code">commit()</span> finalises the execution.</p></div>
+    <div class="step"><div class="n">8</div><h4>Network broadcast</h4><p>Delta broadcast to all peers. Receiving nodes apply the causal delta and run event handlers.</p></div>
+  </div>
+</div>
+</div>
+
+<div class="card gd">
+<h2>QuickJS ↔ Host Data Flow</h2>
+<div class="g2">
+  <div>
+    <h3>Method Parameters (Host → QuickJS)</h3>
+    <p style="margin-bottom:10px;">Host sends JSON. Dispatcher converts using the embedded ABI:</p>
+    <div class="fr"><div class="fp">string (numeric)</div><div class="fd">→ <span class="code">BigInt</span> (u64/i64/u128)</div></div>
+    <div class="fr"><div class="fp">number[]</div><div class="fd">→ <span class="code">Uint8Array</span> (bytes)</div></div>
+    <div class="fr"><div class="fp">object</div><div class="fd">→ <span class="code">Map</span> (if ABI says map type)</div></div>
+    <div class="fr"><div class="fp">unknown JSON object</div><div class="fd">→ passed as first parameter (union types)</div></div>
+  </div>
+  <div>
+    <h3>Return Values (QuickJS → Host)</h3>
+    <p style="margin-bottom:10px;">ABI-compatible types converted before JSON serialisation:</p>
+    <div class="fr"><div class="fp">BigInt</div><div class="fd">→ string (safe integer transport)</div></div>
+    <div class="fr"><div class="fp">Uint8Array</div><div class="fd">→ number[] (JSON-compatible bytes)</div></div>
+    <div class="fr"><div class="fp">Map</div><div class="fd">→ plain object</div></div>
+  </div>
+</div>
+<h3 style="margin-top:20px;">CRDT Collection Encoding</h3>
+<p style="margin-bottom:10px;">Collections are stored as lightweight handles — not full copies:</p>
+<div class="typedef">
+<span class="comment">// Serialized handle in storage (not the actual data)</span><br>
+{ <span class="field">"__calimeroCollection"</span>: <span class="ty">"Vector"</span>, <span class="field">"id"</span>: <span class="ty">"caf3…hex…"</span> }<br><br>
+<span class="comment">// Real CRDT state is keyed by the 32-byte ID in Rust storage</span><br>
+<span class="comment">// Mutations issue incremental host calls — no deep clone on access</span>
+</div>
+</div>
+
+<div class="card ga" style="margin-top:20px;">
+<h2>Rust SDK vs JS SDK</h2>
+<p style="margin-bottom:14px;">Rust services run storage collections <em>inside</em> the host runtime. QuickJS services run in an isolated VM and must round-trip through host calls:</p>
+<div class="g3">
+  <div class="cb"><h4>env.persist_root_state()</h4><p>Stores the serialised root document through the same storage interface Rust uses, so Merkle hashes and CRDT actions stay aligned.</p></div>
+  <div class="cb"><h4>env.flush_delta()</h4><p>Turns recorded host-side actions into a causal delta — equivalent to what Rust does automatically after method return.</p></div>
+  <div class="cb"><h4>env.commit()</h4><p>Reports execution result. Both Rust and JS SDKs must call this exactly once per execution for receipts, events, and broadcasts.</p></div>
+</div>
+<p style="margin-top:14px;">These extra steps exist because QuickJS cannot mutate host data structures directly. The JS SDK produces the same Merkle roots, artifacts, and deltas that the core runtime expects from the Rust SDK.</p>
+</div>
+
+<div class="card gb" style="margin-top:20px;">
+<h2>Security &amp; Sandboxing</h2>
+<div class="g3">
+  <div class="cb"><h4>WASM Sandbox</h4><p>QuickJS runs inside the WASM sandbox. No filesystem access, no network access — only approved host functions.</p></div>
+  <div class="cb"><h4>Host Validation</h4><p>All host functions validate inputs: buffer bounds, register validation, type checking.</p></div>
+  <div class="cb"><h4>Rust Compatibility</h4><p>JS services produce the same serialisation format as Rust services — they can run on the same network and sync state.</p></div>
+</div>
+</div>
+
+</div>
+</div>
+<script src="nav.js"></script>
+<script>document.addEventListener('DOMContentLoaded',()=>{ window.sdk?.buildBreadcrumb([{label:'Home',href:'index.html'},{label:'Architecture',href:''}]); });</script>
+</body>
+</html>
