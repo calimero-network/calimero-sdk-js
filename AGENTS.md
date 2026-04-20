@@ -570,17 +570,17 @@ merobox bootstrap run examples/counter/workflows/counter-js.yml --log-level=trac
 
 ## Rust SDK Equivalents
 
-| TypeScript                | Rust                              |
-| ------------------------- | --------------------------------- |
-| `@State`                  | `#[app::state]`                   |
-| `@Logic(StateClass)`      | `#[app::logic]`                   |
-| `@Init`                   | `#[app::init]`                    |
-| `@View()`                 | Method without `&mut self`        |
-| `Counter`                 | `Counter`                         |
-| `UnorderedMap<K, V>`      | `UnorderedMap<K, LwwRegister<V>>` |
-| `UnorderedSet<T>`         | `UnorderedSet<T>`                 |
-| `Vector<T>`               | `Vector<T>`                       |
-| `LwwRegister<T>`          | `LwwRegister<T>`                  |
-| `env.log()`               | `app::log!()`                     |
-| `emit(event)`             | `app::emit!(event)`               |
+| TypeScript                   | Rust                              |
+| ---------------------------- | --------------------------------- |
+| `@State`                     | `#[app::state]`                   |
+| `@Logic(StateClass)`         | `#[app::logic]`                   |
+| `@Init`                      | `#[app::init]`                    |
+| `@View()`                    | Method without `&mut self`        |
+| `Counter`                    | `Counter`                         |
+| `UnorderedMap<K, V>`         | `UnorderedMap<K, LwwRegister<V>>` |
+| `UnorderedSet<T>`            | `UnorderedSet<T>`                 |
+| `Vector<T>`                  | `Vector<T>`                       |
+| `LwwRegister<T>`             | `LwwRegister<T>`                  |
+| `env.log()`                  | `app::log!()`                     |
+| `emit(event)`                | `app::emit!(event)`               |
 | `createPrivateEntry<T>(key)` | Private storage API               |
