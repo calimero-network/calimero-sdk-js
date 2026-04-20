@@ -1,10 +1,10 @@
 import { State, Logic, Init, View } from '@calimero-network/calimero-sdk-js';
-import { Counter } from '@calimero-network/calimero-sdk-js/collections';
+import { GCounter } from '@calimero-network/calimero-sdk-js/collections';
 import * as env from '@calimero-network/calimero-sdk-js/env';
 
 @State
 export class CounterApp {
-  count: Counter = new Counter();
+  count: GCounter = new GCounter();
 }
 
 @Logic(CounterApp)

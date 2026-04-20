@@ -10,7 +10,7 @@ import {
   UnorderedMap,
   UnorderedSet,
   LwwRegister,
-  Counter,
+  GCounter,
 } from '@calimero-network/calimero-sdk-js/collections';
 import * as env from '@calimero-network/calimero-sdk-js/env';
 
@@ -43,13 +43,13 @@ export class KvStore {
   items: UnorderedMap<string, LwwRegister<string>>;
   tags: UnorderedMap<string, UnorderedSet<string>>;
   handlersCalled: UnorderedMap<string, LwwRegister<string>>;
-  handlerCounter: Counter;
+  handlerCounter: GCounter;
 
   constructor() {
     this.items = new UnorderedMap<string, LwwRegister<string>>();
     this.tags = new UnorderedMap<string, UnorderedSet<string>>();
     this.handlersCalled = new UnorderedMap<string, LwwRegister<string>>();
-    this.handlerCounter = new Counter();
+    this.handlerCounter = new GCounter();
   }
 }
 

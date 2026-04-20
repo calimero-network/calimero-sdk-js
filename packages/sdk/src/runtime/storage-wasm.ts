@@ -13,17 +13,20 @@ import {
   registerLen,
   readRegister,
   jsCrdtMapNew,
+  jsCrdtMapNewWithId,
   jsCrdtMapGet,
   jsCrdtMapInsert,
   jsCrdtMapRemove,
   jsCrdtMapContains,
   jsCrdtMapIter,
   jsCrdtVectorNew,
+  jsCrdtVectorNewWithId,
   jsCrdtVectorLen,
   jsCrdtVectorPush,
   jsCrdtVectorGet,
   jsCrdtVectorPop,
   jsCrdtSetNew,
+  jsCrdtSetNewWithId,
   jsCrdtSetInsert,
   jsCrdtSetContains,
   jsCrdtSetRemove,
@@ -31,13 +34,34 @@ import {
   jsCrdtSetIter,
   jsCrdtSetClear,
   jsCrdtLwwNew,
+  jsCrdtLwwNewWithId,
   jsCrdtLwwSet,
   jsCrdtLwwGet,
   jsCrdtLwwTimestamp,
-  jsCrdtCounterNew,
-  jsCrdtCounterIncrement,
-  jsCrdtCounterValue,
-  jsCrdtCounterGetExecutorCount,
+  jsCrdtGCounterNew,
+  jsCrdtGCounterNewWithId,
+  jsCrdtGCounterIncrement,
+  jsCrdtGCounterValue,
+  jsCrdtGCounterGetExecutorCount,
+  jsCrdtGCounterSerialize,
+  jsCrdtGCounterDeserialize,
+  jsCrdtPnCounterNew,
+  jsCrdtPnCounterNewWithId,
+  jsCrdtPnCounterIncrement,
+  jsCrdtPnCounterDecrement,
+  jsCrdtPnCounterValue,
+  jsCrdtPnCounterGetPositiveCount,
+  jsCrdtPnCounterGetNegativeCount,
+  jsCrdtPnCounterSerialize,
+  jsCrdtPnCounterDeserialize,
+  jsCrdtRgaNew,
+  jsCrdtRgaNewWithId,
+  jsCrdtRgaInsert,
+  jsCrdtRgaDelete,
+  jsCrdtRgaGetText,
+  jsCrdtRgaLen,
+  jsCrdtRgaSerialize,
+  jsCrdtRgaDeserialize,
   jsUserStorageNew,
   jsUserStorageInsert,
   jsUserStorageGet,
@@ -100,6 +124,24 @@ export function mapNew(): Uint8Array {
     throw new Error(`[storage] mapNew returned invalid map id length (${id.length})`);
   }
   return id;
+}
+
+/**
+ * Creates a new map with a deterministic ID.
+ * The ID should be computed using computeCollectionId(parentId, fieldName).
+ */
+export function mapNewWithId(id: Uint8Array): Uint8Array {
+  ensureCollectionId(id, 'id');
+  const status = Number(jsCrdtMapNewWithId(id, REGISTER_ID));
+  if (status < 0) {
+    decodeError('mapNewWithId');
+  }
+
+  const returnedId = readRegisterBytes();
+  if (returnedId.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] mapNewWithId returned invalid map id length (${returnedId.length})`);
+  }
+  return returnedId;
 }
 
 export function mapGet(mapId: Uint8Array, key: Uint8Array): Uint8Array | null {
@@ -258,6 +300,23 @@ export function vectorNew(): Uint8Array {
   return id;
 }
 
+/**
+ * Creates a new vector with a deterministic ID.
+ */
+export function vectorNewWithId(id: Uint8Array): Uint8Array {
+  ensureCollectionId(id, 'id');
+  const status = Number(jsCrdtVectorNewWithId(id, REGISTER_ID));
+  if (status < 0) {
+    decodeError('vectorNewWithId');
+  }
+
+  const returnedId = readRegisterBytes();
+  if (returnedId.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] vectorNewWithId returned invalid id length (${returnedId.length})`);
+  }
+  return returnedId;
+}
+
 export function vectorLen(vectorId: Uint8Array): number {
   ensureCollectionId(vectorId, 'vectorId');
 
@@ -325,6 +384,23 @@ export function setNew(): Uint8Array {
     throw new Error(`[storage] setNew returned invalid id length (${id.length})`);
   }
   return id;
+}
+
+/**
+ * Creates a new set with a deterministic ID.
+ */
+export function setNewWithId(id: Uint8Array): Uint8Array {
+  ensureCollectionId(id, 'id');
+  const status = Number(jsCrdtSetNewWithId(id, REGISTER_ID));
+  if (status < 0) {
+    decodeError('setNewWithId');
+  }
+
+  const returnedId = readRegisterBytes();
+  if (returnedId.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] setNewWithId returned invalid id length (${returnedId.length})`);
+  }
+  return returnedId;
 }
 
 export function setInsert(setId: Uint8Array, value: Uint8Array): boolean {
@@ -438,6 +514,23 @@ export function lwwNew(): Uint8Array {
   return id;
 }
 
+/**
+ * Creates a new LWW register with a deterministic ID.
+ */
+export function lwwNewWithId(id: Uint8Array): Uint8Array {
+  ensureCollectionId(id, 'id');
+  const status = Number(jsCrdtLwwNewWithId(id, REGISTER_ID));
+  if (status < 0) {
+    decodeError('lwwNewWithId');
+  }
+
+  const returnedId = readRegisterBytes();
+  if (returnedId.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] lwwNewWithId returned invalid id length (${returnedId.length})`);
+  }
+  return returnedId;
+}
+
 export function lwwSet(registerId: Uint8Array, value: Uint8Array | null): void {
   ensureCollectionId(registerId, 'registerId');
   if (value !== null) {
@@ -478,55 +571,340 @@ export function lwwTimestamp(registerId: Uint8Array): { time: bigint; node: Uint
   return readTimestampPayload();
 }
 
-export function counterNew(): Uint8Array {
-  const status = Number(jsCrdtCounterNew(REGISTER_ID));
+// =============================================================================
+// GCounter - Grow-only Counter (increment only, always non-negative)
+// Corresponds to Rust CrdtType::GCounter
+// =============================================================================
+
+export function gCounterNew(): Uint8Array {
+  const status = Number(jsCrdtGCounterNew(REGISTER_ID));
   if (status < 0) {
-    decodeError('counterNew');
+    decodeError('gCounterNew');
   }
 
   const id = readRegisterBytes();
   if (id.length !== COLLECTION_ID_LENGTH) {
-    throw new Error(`[storage] counterNew returned invalid id length (${id.length})`);
+    throw new Error(`[storage] gCounterNew returned invalid id length (${id.length})`);
   }
   return id;
 }
 
-export function counterIncrement(counterId: Uint8Array): void {
+/**
+ * Creates a new G-Counter with a deterministic ID.
+ */
+export function gCounterNewWithId(id: Uint8Array): Uint8Array {
+  ensureCollectionId(id, 'id');
+  const status = Number(jsCrdtGCounterNewWithId(id, REGISTER_ID));
+  if (status < 0) {
+    decodeError('gCounterNewWithId');
+  }
+
+  const returnedId = readRegisterBytes();
+  if (returnedId.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] gCounterNewWithId returned invalid id length (${returnedId.length})`);
+  }
+  return returnedId;
+}
+
+export function gCounterIncrement(counterId: Uint8Array): void {
   ensureCollectionId(counterId, 'counterId');
 
-  const status = Number(jsCrdtCounterIncrement(counterId));
+  const status = Number(jsCrdtGCounterIncrement(counterId));
   if (status < 0) {
-    decodeError('counterIncrement');
+    decodeError('gCounterIncrement');
   }
 }
 
-export function counterValue(counterId: Uint8Array): bigint {
+export function gCounterValue(counterId: Uint8Array): bigint {
   ensureCollectionId(counterId, 'counterId');
 
-  const status = Number(jsCrdtCounterValue(counterId, REGISTER_ID));
+  const status = Number(jsCrdtGCounterValue(counterId, REGISTER_ID));
   if (status < 0) {
-    decodeError('counterValue');
+    decodeError('gCounterValue');
   }
 
   const value = readBigUint64();
   return value;
 }
 
-export function counterGetExecutorCount(counterId: Uint8Array, executorId?: Uint8Array): bigint {
+export function gCounterGetExecutorCount(counterId: Uint8Array, executorId?: Uint8Array): bigint {
   ensureCollectionId(counterId, 'counterId');
   if (executorId !== undefined && executorId !== null) {
     ensureUint8Array(executorId, 'executorId');
   }
 
   const status = Number(
-    jsCrdtCounterGetExecutorCount(counterId, REGISTER_ID, executorId ?? undefined)
+    jsCrdtGCounterGetExecutorCount(counterId, REGISTER_ID, executorId ?? undefined)
   );
   if (status < 0) {
-    decodeError('counterGetExecutorCount');
+    decodeError('gCounterGetExecutorCount');
   }
 
   const value = readBigUint64();
   return value;
+}
+
+export function gCounterSerialize(counterId: Uint8Array): Uint8Array {
+  ensureCollectionId(counterId, 'counterId');
+
+  const status = Number(jsCrdtGCounterSerialize(counterId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('gCounterSerialize');
+  }
+
+  return readRegisterBytes();
+}
+
+export function gCounterDeserialize(data: Uint8Array): Uint8Array {
+  ensureUint8Array(data, 'data');
+
+  const status = Number(jsCrdtGCounterDeserialize(data, REGISTER_ID));
+  if (status < 0) {
+    decodeError('gCounterDeserialize');
+  }
+
+  const id = readRegisterBytes();
+  if (id.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] gCounterDeserialize returned invalid counter id length (${id.length})`);
+  }
+  return id;
+}
+
+// =============================================================================
+// PNCounter - Positive-Negative Counter (supports both increment and decrement)
+// Corresponds to Rust CrdtType::PnCounter
+// =============================================================================
+
+export function pnCounterNew(): Uint8Array {
+  const status = Number(jsCrdtPnCounterNew(REGISTER_ID));
+  if (status < 0) {
+    decodeError('pnCounterNew');
+  }
+
+  const id = readRegisterBytes();
+  if (id.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] pnCounterNew returned invalid id length (${id.length})`);
+  }
+  return id;
+}
+
+/**
+ * Creates a new PN-Counter with a deterministic ID.
+ */
+export function pnCounterNewWithId(id: Uint8Array): Uint8Array {
+  ensureCollectionId(id, 'id');
+  const status = Number(jsCrdtPnCounterNewWithId(id, REGISTER_ID));
+  if (status < 0) {
+    decodeError('pnCounterNewWithId');
+  }
+
+  const returnedId = readRegisterBytes();
+  if (returnedId.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] pnCounterNewWithId returned invalid id length (${returnedId.length})`);
+  }
+  return returnedId;
+}
+
+export function pnCounterIncrement(counterId: Uint8Array): void {
+  ensureCollectionId(counterId, 'counterId');
+
+  const status = Number(jsCrdtPnCounterIncrement(counterId));
+  if (status < 0) {
+    decodeError('pnCounterIncrement');
+  }
+}
+
+export function pnCounterDecrement(counterId: Uint8Array): void {
+  ensureCollectionId(counterId, 'counterId');
+
+  const status = Number(jsCrdtPnCounterDecrement(counterId));
+  if (status < 0) {
+    decodeError('pnCounterDecrement');
+  }
+}
+
+export function pnCounterValue(counterId: Uint8Array): bigint {
+  ensureCollectionId(counterId, 'counterId');
+
+  const status = Number(jsCrdtPnCounterValue(counterId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('pnCounterValue');
+  }
+
+  // PNCounter value is i64, read as signed
+  const value = readBigInt64();
+  return value;
+}
+
+export function pnCounterGetPositiveCount(counterId: Uint8Array, executorId?: Uint8Array): bigint {
+  ensureCollectionId(counterId, 'counterId');
+  if (executorId !== undefined && executorId !== null) {
+    ensureUint8Array(executorId, 'executorId');
+  }
+
+  const status = Number(
+    jsCrdtPnCounterGetPositiveCount(counterId, REGISTER_ID, executorId ?? undefined)
+  );
+  if (status < 0) {
+    decodeError('pnCounterGetPositiveCount');
+  }
+
+  const value = readBigUint64();
+  return value;
+}
+
+export function pnCounterGetNegativeCount(counterId: Uint8Array, executorId?: Uint8Array): bigint {
+  ensureCollectionId(counterId, 'counterId');
+  if (executorId !== undefined && executorId !== null) {
+    ensureUint8Array(executorId, 'executorId');
+  }
+
+  const status = Number(
+    jsCrdtPnCounterGetNegativeCount(counterId, REGISTER_ID, executorId ?? undefined)
+  );
+  if (status < 0) {
+    decodeError('pnCounterGetNegativeCount');
+  }
+
+  const value = readBigUint64();
+  return value;
+}
+
+export function pnCounterSerialize(counterId: Uint8Array): Uint8Array {
+  ensureCollectionId(counterId, 'counterId');
+
+  const status = Number(jsCrdtPnCounterSerialize(counterId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('pnCounterSerialize');
+  }
+
+  return readRegisterBytes();
+}
+
+export function pnCounterDeserialize(data: Uint8Array): Uint8Array {
+  ensureUint8Array(data, 'data');
+
+  const status = Number(jsCrdtPnCounterDeserialize(data, REGISTER_ID));
+  if (status < 0) {
+    decodeError('pnCounterDeserialize');
+  }
+
+  const id = readRegisterBytes();
+  if (id.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] pnCounterDeserialize returned invalid counter id length (${id.length})`);
+  }
+  return id;
+}
+
+// Helper to read signed 64-bit integer from register
+function readBigInt64(): bigint {
+  const bytes = readRegisterBytes();
+  if (bytes.length !== 8) {
+    throw new Error(`Expected 8 bytes for i64, got ${bytes.length}`);
+  }
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return view.getBigInt64(0, true); // little-endian
+}
+
+// =============================================================================
+// RGA - Replicated Growable Array (collaborative text editing CRDT)
+// Corresponds to Rust CrdtType::Rga
+// =============================================================================
+
+export function rgaNew(): Uint8Array {
+  const status = Number(jsCrdtRgaNew(REGISTER_ID));
+  if (status < 0) {
+    decodeError('rgaNew');
+  }
+
+  const id = readRegisterBytes();
+  if (id.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] rgaNew returned invalid id length (${id.length})`);
+  }
+  return id;
+}
+
+export function rgaNewWithId(id: Uint8Array): Uint8Array {
+  ensureCollectionId(id, 'id');
+  const status = Number(jsCrdtRgaNewWithId(id, REGISTER_ID));
+  if (status < 0) {
+    decodeError('rgaNewWithId');
+  }
+
+  const returnedId = readRegisterBytes();
+  if (returnedId.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] rgaNewWithId returned invalid id length (${returnedId.length})`);
+  }
+  return returnedId;
+}
+
+export function rgaInsert(rgaId: Uint8Array, pos: number, text: string): void {
+  ensureCollectionId(rgaId, 'rgaId');
+
+  const textBytes = new TextEncoder().encode(text);
+  const status = Number(jsCrdtRgaInsert(rgaId, BigInt(pos), textBytes));
+  if (status < 0) {
+    decodeError('rgaInsert');
+  }
+}
+
+export function rgaDelete(rgaId: Uint8Array, pos: number): void {
+  ensureCollectionId(rgaId, 'rgaId');
+
+  const status = Number(jsCrdtRgaDelete(rgaId, BigInt(pos)));
+  if (status < 0) {
+    decodeError('rgaDelete');
+  }
+}
+
+export function rgaGetText(rgaId: Uint8Array): string {
+  ensureCollectionId(rgaId, 'rgaId');
+
+  const status = Number(jsCrdtRgaGetText(rgaId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('rgaGetText');
+  }
+
+  const bytes = readRegisterBytes();
+  return new TextDecoder().decode(bytes);
+}
+
+export function rgaLen(rgaId: Uint8Array): number {
+  ensureCollectionId(rgaId, 'rgaId');
+
+  const status = Number(jsCrdtRgaLen(rgaId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('rgaLen');
+  }
+
+  const value = readBigUint64();
+  return Number(value);
+}
+
+export function rgaSerialize(rgaId: Uint8Array): Uint8Array {
+  ensureCollectionId(rgaId, 'rgaId');
+
+  const status = Number(jsCrdtRgaSerialize(rgaId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('rgaSerialize');
+  }
+
+  return readRegisterBytes();
+}
+
+export function rgaDeserialize(data: Uint8Array): Uint8Array {
+  ensureUint8Array(data, 'data');
+
+  const status = Number(jsCrdtRgaDeserialize(data, REGISTER_ID));
+  if (status < 0) {
+    decodeError('rgaDeserialize');
+  }
+
+  const id = readRegisterBytes();
+  if (id.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] rgaDeserialize returned invalid rga id length (${id.length})`);
+  }
+  return id;
 }
 
 // UserStorage functions

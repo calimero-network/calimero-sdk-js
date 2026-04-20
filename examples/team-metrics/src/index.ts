@@ -1,5 +1,5 @@
 import { State, Logic, Init, View, Mergeable } from '@calimero-network/calimero-sdk-js';
-import { UnorderedMap, Counter, Vector } from '@calimero-network/calimero-sdk-js/collections';
+import { UnorderedMap, GCounter, Vector } from '@calimero-network/calimero-sdk-js/collections';
 import * as env from '@calimero-network/calimero-sdk-js/env';
 
 class ContributionNoteRecord {
@@ -13,7 +13,7 @@ class ContributionNoteRecord {
     resolved.displayName = remote.displayName ?? local.displayName;
 
     resolved.roles = mergeVectorOfStrings(local.roles, remote.roles);
-    resolved.contributions = mergeCounter(local.contributions, remote.contributions);
+    resolved.contributions = mergeGCounter(local.contributions, remote.contributions);
     resolved.recentNotes = mergeVectorOfNotes(local.recentNotes, remote.recentNotes);
 
     return resolved;
@@ -22,7 +22,7 @@ class ContributionNoteRecord {
 class MemberProfileRecord {
   displayName: string = '';
   roles: Vector<string> = new Vector<string>();
-  contributions: Counter = new Counter();
+  contributions: GCounter = new GCounter();
   recentNotes: Vector<ContributionNoteRecord> = new Vector<ContributionNoteRecord>();
 }
 
@@ -36,12 +36,12 @@ export type MemberProfile = {
 @State
 export class TeamMetrics {
   memberContributions: UnorderedMap<string, Counter>;
-  totalContributions: Counter;
+  totalContributions: GCounter;
   memberProfiles: UnorderedMap<string, MemberProfileRecord>;
 
   constructor() {
     this.memberContributions = new UnorderedMap();
-    this.totalContributions = new Counter();
+    this.totalContributions = new GCounter();
     this.memberProfiles = new UnorderedMap();
   }
 }
@@ -81,7 +81,7 @@ export class TeamMetricsLogic extends TeamMetrics {
 
     let counter = this.memberContributions.get(member);
     if (!counter) {
-      counter = new Counter();
+      counter = new GCounter();
       this.memberContributions.set(member, counter);
     }
 
@@ -103,7 +103,7 @@ export class TeamMetricsLogic extends TeamMetrics {
 
     let memberCounter = this.memberContributions.get(member);
     if (!memberCounter) {
-      memberCounter = new Counter();
+      memberCounter = new GCounter();
       this.memberContributions.set(member, memberCounter);
     }
 
@@ -171,17 +171,17 @@ const createProfileRecord = (
   member: string,
   displayName?: string,
   roles?: string[],
-  contributions?: Counter
+  contributions?: GCounter
 ): MemberProfileRecord => {
   const profile = new MemberProfileRecord();
   profile.displayName = displayName ?? member;
   profile.roles = Vector.fromArray(roles ?? []);
-  profile.contributions = contributions ?? new Counter();
+  profile.contributions = contributions ?? new GCounter();
   profile.recentNotes = new Vector<ContributionNoteRecord>();
   return profile;
 };
 
-function mergeCounter(local: Counter, remote: Counter): Counter {
+function mergeGCounter(local: GCounter, remote: GCounter): GCounter {
   const localValue = local.value();
   const remoteValue = remote.value();
   return remoteValue >= localValue ? remote : local;

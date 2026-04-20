@@ -6,7 +6,10 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { generateAbiManifestRustFormat } from '../abi/emitter.js';
+import {
+  generateAbiManifestRustFormat,
+  generateAbiManifestRustFormatWithStateSchema,
+} from '../abi/emitter.js';
 
 interface AbiOptions {
   verbose: boolean;
@@ -15,6 +18,9 @@ interface AbiOptions {
 
 /**
  * Generates ABI manifest from source code and saves as JSON
+ *
+ * This generates the basic ABI without CRDT metadata (for compatibility).
+ * The generateAbiJsonWithCrdtTypes function generates the version with CRDT types.
  *
  * @param sourceFile - Path to source TypeScript/JavaScript file
  * @param options - Options for ABI generation
@@ -41,20 +47,59 @@ export async function generateAbiJson(sourceFile: string, options: AbiOptions): 
 }
 
 /**
+ * Generates ABI manifest WITH CRDT type metadata.
+ *
+ * This version includes crdt_type on collection fields, which is required
+ * by the dispatcher to initialize state via the init_state host function.
+ *
+ * @param sourceFile - Path to source TypeScript/JavaScript file
+ * @param options - Options for ABI generation
+ * @returns The ABI object with CRDT metadata
+ */
+export function generateAbiWithCrdtTypes(sourceFile: string, options: AbiOptions): any {
+  if (options.verbose) {
+    console.log(`Generating ABI with CRDT types from: ${sourceFile}`);
+  }
+
+  // First get basic ABI to find state_root
+  const basicAbi = generateAbiManifestRustFormat(sourceFile);
+
+  if (!basicAbi.state_root) {
+    return basicAbi; // No state root, return as-is
+  }
+
+  // Generate ABI with CRDT metadata for the state type
+  const abiWithCrdt = generateAbiManifestRustFormatWithStateSchema(sourceFile, basicAbi.state_root);
+
+  // Merge methods/events from basic ABI (they're not in state schema version)
+  abiWithCrdt.methods = basicAbi.methods;
+  abiWithCrdt.events = basicAbi.events;
+
+  return abiWithCrdt;
+}
+
+/**
  * Generates C header file from ABI JSON for embedding in WASM
  *
- * @param abiJsonPath - Path to ABI JSON file
+ * This function now uses the CRDT-enhanced ABI for the embedded manifest,
+ * which includes crdt_type metadata needed by the dispatcher.
+ *
+ * @param abiJsonPath - Path to ABI JSON file (used for fallback)
+ * @param sourceFile - Path to source TypeScript/JavaScript file
  * @param options - Options for header generation
  * @returns Path to generated ABI header file
  */
-export async function generateAbiHeader(abiJsonPath: string, options: AbiOptions): Promise<string> {
+export async function generateAbiHeader(
+  abiJsonPath: string,
+  sourceFile: string,
+  options: AbiOptions
+): Promise<string> {
   const abiHeaderPath = path.join(options.outputDir, 'abi.h');
 
-  if (!fs.existsSync(abiJsonPath)) {
-    throw new Error(`ABI JSON file not found: ${abiJsonPath}`);
-  }
-
-  const abiJson = fs.readFileSync(abiJsonPath, 'utf-8');
+  // Generate CRDT-enhanced ABI for embedding
+  // This includes crdt_type metadata that the dispatcher needs
+  const abiWithCrdt = generateAbiWithCrdtTypes(sourceFile, options);
+  const abiJson = JSON.stringify(abiWithCrdt, null, 2);
   const abiBytes = Buffer.from(abiJson, 'utf-8');
 
   // Generate C header file similar to storage_wasm.h

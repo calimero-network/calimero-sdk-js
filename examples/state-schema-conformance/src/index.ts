@@ -13,7 +13,7 @@ import {
   UnorderedMap,
   UnorderedSet,
   Vector,
-  Counter,
+  GGCounter,
   LwwRegister,
 } from '@calimero-network/calimero-sdk-js/collections';
 
@@ -30,7 +30,7 @@ export interface Person {
 // Profile with CRDT fields (can be used directly in UnorderedMap)
 export class Profile {
   bio: LwwRegister<string | null> = new LwwRegister<string | null>();
-  visit_count: Counter = new Counter();
+  visit_count: GCounter = new GCounter();
 }
 
 // Variant types - using classes to represent variants
@@ -70,21 +70,21 @@ export class StateSchemaConformance {
   nested_map: UnorderedMap<string, UnorderedMap<string, LwwRegister<number>>> = new UnorderedMap(); // map<string, map<string, u32>>
 
   // Lists using Vector (Calimero collection) - Vector items must be CRDTs
-  counter_list: Vector<Counter> = new Vector(); // list<Counter>
+  counter_list: Vector<GCounter> = new Vector(); // list<GCounter>
   register_list: Vector<LwwRegister<string>> = new Vector(); // list<LwwRegister<string>>
   record_list: Vector<LwwRegister<Person>> = new Vector(); // list<Person> (wrapped for CRDT)
-  nested_list: Vector<Vector<Counter>> = new Vector(); // list<list<Counter>>
+  nested_list: Vector<Vector<GCounter>> = new Vector(); // list<list<GCounter>>
 
   // Nested collections
-  map_of_counters: UnorderedMap<string, Counter> = new UnorderedMap(); // map<string, Counter>
-  map_of_lists: UnorderedMap<string, Vector<Counter>> = new UnorderedMap(); // map<string, list<Counter>>
+  map_of_counters: UnorderedMap<string, GCounter> = new UnorderedMap(); // map<string, GCounter>
+  map_of_lists: UnorderedMap<string, Vector<GCounter>> = new UnorderedMap(); // map<string, list<GCounter>>
   list_of_maps: Vector<UnorderedMap<string, LwwRegister<number>>> = new Vector(); // list<map<string, u32>>
 
   // Sets
   string_set: UnorderedSet<string> = new UnorderedSet(); // set<string>
 
-  // Counters
-  visit_counter: Counter = new Counter(); // counter
+  // GCounters
+  visit_counter: GCounter = new GCounter(); // counter
 
   // Records with collections (Profile has CRDT fields)
   profile_map: UnorderedMap<string, Profile> = new UnorderedMap(); // map<string, Profile>

@@ -26,6 +26,26 @@ export async function generateMethodsHeader(jsFile: string, outputDir: string): 
       }
     });
     registrySnapshot.functions.forEach(fn => methodSet.add(fn));
+  }
+
+  // If registry extraction found no application methods, try the ABI manifest
+  if (methodSet.size === 0) {
+    const abiPath = path.join(outputDir, 'abi.json');
+    if (fs.existsSync(abiPath)) {
+      try {
+        const abi = JSON.parse(fs.readFileSync(abiPath, 'utf-8'));
+        if (abi.methods && Array.isArray(abi.methods)) {
+          for (const m of abi.methods) {
+            if (m.name && typeof m.name === 'string') {
+              methodSet.add(m.name);
+            }
+          }
+        }
+      } catch { /* ignore parse errors */ }
+    }
+  }
+
+  if (methodSet.size > 0) {
     methodSet.add('__calimero_sync_next');
     methodSet.add('__calimero_register_merge');
     emitHeaders(outputDir, Array.from(methodSet).sort());
@@ -178,25 +198,35 @@ function createEnvStub(): Record<string, (...args: any[]) => any> {
   const zero = () => 0;
   const bigZero = () => 0n;
 
-  return {
-    panic_utf8: () => {
-      throw new Error('panic_utf8 called during method registry extraction');
+  return new Proxy(
+    {
+      panic_utf8: () => {
+        throw new Error('panic_utf8 called during method registry extraction');
+      },
+      value_return: noOp,
+      log_utf8: noOp,
+      context_id: noOp,
+      executor_id: noOp,
+      storage_read: zero,
+      storage_write: noOp,
+      storage_remove: zero,
+      register_len: zero,
+      read_register: noOp,
+      commit: noOp,
+      time_now: noOp,
+      blob_create: bigZero,
+      blob_open: bigZero,
+      blob_read: bigZero,
+      blob_write: bigZero,
+      blob_close: zero,
     },
-    value_return: noOp,
-    log_utf8: noOp,
-    context_id: noOp,
-    executor_id: noOp,
-    storage_read: zero,
-    storage_write: noOp,
-    storage_remove: zero,
-    register_len: zero,
-    read_register: noOp,
-    commit: noOp,
-    time_now: noOp,
-    blob_create: bigZero,
-    blob_open: bigZero,
-    blob_read: bigZero,
-    blob_write: bigZero,
-    blob_close: zero,
-  };
+    {
+      get(target, prop) {
+        if (prop in target) {
+          return (target as any)[prop];
+        }
+        return noOp;
+      },
+    }
+  );
 }

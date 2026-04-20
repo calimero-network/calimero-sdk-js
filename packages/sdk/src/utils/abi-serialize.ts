@@ -312,6 +312,14 @@ function serializeTypeDef(
       }
       const obj = value as Record<string, unknown>;
       for (const field of typeDef.fields) {
+        // Check if this field is a CRDT type (has crdt_type metadata)
+        // CRDT fields are handled separately via init_state and don't need Borsh serialization
+        const fieldType = field.type as any;
+        if (fieldType.crdt_type) {
+          // Skip CRDT fields entirely - they're stored as separate entities
+          continue;
+        }
+
         const fieldValue = obj[field.name];
         // Handle missing fields (undefined) - treat as null for nullable fields, provide defaults for non-nullable
         if (fieldValue === undefined) {
@@ -621,6 +629,14 @@ function deserializeTypeDef(reader: BorshReader, typeDef: TypeDef, abi: AbiManif
       }
       const record: Record<string, unknown> = {};
       for (const field of typeDef.fields) {
+        // Check if this field is a CRDT type (has crdt_type metadata)
+        // CRDT fields are handled separately via collections and not serialized in Borsh
+        const fieldType = field.type as any;
+        if (fieldType.crdt_type) {
+          // Skip CRDT fields - they're not in the serialized data
+          continue;
+        }
+
         if (field.nullable) {
           const some = reader.readU8();
           if (some === 0) {

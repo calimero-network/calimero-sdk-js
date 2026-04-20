@@ -45,6 +45,13 @@ export class UnorderedSet<T> {
     }
   }
 
+  /**
+   * Create an unordered set from an existing ID.
+   */
+  static fromId<U>(id: Uint8Array | string): UnorderedSet<U> {
+    return new UnorderedSet<U>({ id });
+  }
+
   id(): string {
     return bytesToHex(this.setId);
   }

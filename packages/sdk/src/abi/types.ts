@@ -64,6 +64,9 @@ export interface TypeRef {
   value?: TypeRef;
   name?: string;
   $ref?: string; // Rust format uses "$ref" instead of "reference" kind
+  // CRDT type metadata for state fields
+  crdt_type?: string;
+  inner_type?: TypeRef; // For LwwRegister's inner type
 }
 
 export type ScalarType =

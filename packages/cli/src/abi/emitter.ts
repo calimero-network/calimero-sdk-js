@@ -1477,8 +1477,9 @@ export class AbiEmitter {
           } as any;
         }
         break;
-      case 'Counter':
-        // Counter returns u64 value, but is stored as collection reference (32 bytes)
+      case 'GCounter':
+      case 'PNCounter':
+        // GCounter/PNCounter returns u64 value, but is stored as collection reference (32 bytes)
         // ABI represents the logical type (u64), deserializer handles the storage format
         return { kind: 'u64' } as any;
       case 'LwwRegister':
@@ -2075,11 +2076,28 @@ export class AbiEmitter {
         }
         break;
       }
-      case 'Counter': {
+      case 'GCounter': {
+        // GCounter: grow-only counter (increment only)
         return {
           kind: 'record',
           fields: [],
-          crdt_type: 'counter',
+          crdt_type: 'g_counter',
+        };
+      }
+      case 'PNCounter': {
+        // PNCounter supports both increment and decrement
+        return {
+          kind: 'record',
+          fields: [],
+          crdt_type: 'pn_counter',
+        };
+      }
+      case 'Rga': {
+        // Rga: Replicated Growable Array for collaborative text editing
+        return {
+          kind: 'record',
+          fields: [],
+          crdt_type: 'rga',
         };
       }
       case 'LwwRegister': {

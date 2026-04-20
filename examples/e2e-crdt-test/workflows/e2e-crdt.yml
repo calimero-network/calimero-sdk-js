@@ -1,0 +1,319 @@
+name: E2E CRDT Test (JavaScript SDK)
+description: Comprehensive 3-node test for JS SDK CRDT types
+
+force_pull_image: false
+
+nodes:
+  chain_id: testnet-1
+  count: 3
+  image: ghcr.io/calimero-network/merod:edge
+  prefix: crdt-node
+
+steps:
+  # =============================================================================
+  # SETUP: Install app and create 3-node mesh
+  # =============================================================================
+
+  - name: Install application on node-1
+    type: install_application
+    node: crdt-node-1
+    path: build/service.wasm
+    dev: true
+    outputs:
+      app_id: applicationId
+
+  - name: Assert application installed
+    type: assert
+    statements:
+      - "is_set({{app_id}})"
+
+  - name: Create mesh with node-2 and node-3
+    type: create_mesh
+    context_node: crdt-node-1
+    application_id: "{{app_id}}"
+    nodes:
+      - crdt-node-2
+      - crdt-node-3
+    capability: member
+    outputs:
+      context_id: contextId
+      node1_key: memberPublicKey
+
+  # =============================================================================
+  # G-COUNTER TESTS: Grow-only counter with concurrent increments
+  # =============================================================================
+
+  - name: Increment G-Counter on node-1
+    type: call
+    node: crdt-node-1
+    context_id: "{{context_id}}"
+    executor_public_key: "{{node1_key}}"
+    method: incrementGCounter
+    args:
+      key: "visits"
+    outputs:
+      gcounter_n1: result.output
+
+  - name: Increment G-Counter on node-2
+    type: call
+    node: crdt-node-2
+    context_id: "{{context_id}}"
+    executor_public_key: "{{public_key_crdt-node-2}}"
+    method: incrementGCounter
+    args:
+      key: "visits"
+    outputs:
+      gcounter_n2: result.output
+
+  - name: Increment G-Counter on node-3
+    type: call
+    node: crdt-node-3
+    context_id: "{{context_id}}"
+    executor_public_key: "{{public_key_crdt-node-3}}"
+    method: incrementGCounter
+    args:
+      key: "visits"
+    outputs:
+      gcounter_n3: result.output
+
+  - name: Wait for G-Counter sync
+    type: wait_for_sync
+    context_id: "{{context_id}}"
+    nodes:
+      - crdt-node-1
+      - crdt-node-2
+      - crdt-node-3
+    timeout: 60
+    check_interval: 2
+    trigger_sync: true
+
+  - name: Get G-Counter on node-1 (should be 3)
+    type: call
+    node: crdt-node-1
+    context_id: "{{context_id}}"
+    executor_public_key: "{{node1_key}}"
+    method: getGCounter
+    args:
+      key: "visits"
+    outputs:
+      gcounter_final: result.output
+
+  - name: Assert G-Counter merged correctly (3 increments = 3)
+    type: json_assert
+    statements:
+      - "equal({{gcounter_final}}, 3)"
+
+  # =============================================================================
+  # PN-COUNTER TESTS: Positive-negative counter (increment + decrement)
+  # =============================================================================
+
+  - name: Increment PN-Counter on node-1
+    type: call
+    node: crdt-node-1
+    context_id: "{{context_id}}"
+    executor_public_key: "{{node1_key}}"
+    method: incrementPNCounter
+    args:
+      key: "score"
+
+  - name: Increment PN-Counter on node-2
+    type: call
+    node: crdt-node-2
+    context_id: "{{context_id}}"
+    executor_public_key: "{{public_key_crdt-node-2}}"
+    method: incrementPNCounter
+    args:
+      key: "score"
+
+  - name: Decrement PN-Counter on node-3
+    type: call
+    node: crdt-node-3
+    context_id: "{{context_id}}"
+    executor_public_key: "{{public_key_crdt-node-3}}"
+    method: decrementPNCounter
+    args:
+      key: "score"
+
+  - name: Wait for PN-Counter sync
+    type: wait_for_sync
+    context_id: "{{context_id}}"
+    nodes:
+      - crdt-node-1
+      - crdt-node-2
+      - crdt-node-3
+    timeout: 60
+    check_interval: 2
+    trigger_sync: true
+
+  - name: Get PN-Counter on node-2 (should be 1)
+    type: call
+    node: crdt-node-2
+    context_id: "{{context_id}}"
+    executor_public_key: "{{public_key_crdt-node-2}}"
+    method: getPNCounter
+    args:
+      key: "score"
+    outputs:
+      pncounter_final: result.output
+
+  - name: Assert PN-Counter merged correctly (2 inc - 1 dec = 1)
+    type: json_assert
+    statements:
+      - "equal({{pncounter_final}}, 1)"
+
+  # =============================================================================
+  # LWW REGISTER TESTS: Last-write-wins values
+  # =============================================================================
+
+  - name: Set register on node-1
+    type: call
+    node: crdt-node-1
+    context_id: "{{context_id}}"
+    executor_public_key: "{{node1_key}}"
+    method: setRegister
+    args:
+      key: "config"
+      value: "value_from_node1"
+
+  - name: Wait for register sync
+    type: wait_for_sync
+    context_id: "{{context_id}}"
+    nodes:
+      - crdt-node-1
+      - crdt-node-2
+      - crdt-node-3
+    timeout: 60
+    check_interval: 2
+    trigger_sync: true
+
+  - name: Get register on node-3
+    type: call
+    node: crdt-node-3
+    context_id: "{{context_id}}"
+    executor_public_key: "{{public_key_crdt-node-3}}"
+    method: getRegister
+    args:
+      key: "config"
+    outputs:
+      register_value: result.output
+
+  - name: Assert register synced
+    type: json_assert
+    statements:
+      - 'equal({{register_value}}, "value_from_node1")'
+
+  # =============================================================================
+  # UNORDERED SET TESTS: Tag sets with union merge
+  # =============================================================================
+
+  - name: Add tag on node-1
+    type: call
+    node: crdt-node-1
+    context_id: "{{context_id}}"
+    executor_public_key: "{{node1_key}}"
+    method: addTag
+    args:
+      category: "features"
+      tag: "sync"
+
+  - name: Add different tag on node-2
+    type: call
+    node: crdt-node-2
+    context_id: "{{context_id}}"
+    executor_public_key: "{{public_key_crdt-node-2}}"
+    method: addTag
+    args:
+      category: "features"
+      tag: "crdt"
+
+  - name: Add another tag on node-3
+    type: call
+    node: crdt-node-3
+    context_id: "{{context_id}}"
+    executor_public_key: "{{public_key_crdt-node-3}}"
+    method: addTag
+    args:
+      category: "features"
+      tag: "p2p"
+
+  - name: Wait for tags sync
+    type: wait_for_sync
+    context_id: "{{context_id}}"
+    nodes:
+      - crdt-node-1
+      - crdt-node-2
+      - crdt-node-3
+    timeout: 60
+    check_interval: 2
+    trigger_sync: true
+
+  - name: Get tag count on node-1 (should be 3)
+    type: call
+    node: crdt-node-1
+    context_id: "{{context_id}}"
+    executor_public_key: "{{node1_key}}"
+    method: getTagCount
+    args:
+      category: "features"
+    outputs:
+      tag_count: result.output
+
+  - name: Assert all tags merged (union = 3)
+    type: json_assert
+    statements:
+      - "equal({{tag_count}}, 3)"
+
+  # =============================================================================
+  # VECTOR TESTS: Ordered metrics with element-wise merge
+  # =============================================================================
+
+  - name: Push metric on node-1
+    type: call
+    node: crdt-node-1
+    context_id: "{{context_id}}"
+    executor_public_key: "{{node1_key}}"
+    method: pushMetric
+
+  - name: Wait for vector sync
+    type: wait_for_sync
+    context_id: "{{context_id}}"
+    nodes:
+      - crdt-node-1
+      - crdt-node-2
+      - crdt-node-3
+    timeout: 60
+    check_interval: 2
+    trigger_sync: true
+
+  - name: Get metrics length on node-2
+    type: call
+    node: crdt-node-2
+    context_id: "{{context_id}}"
+    executor_public_key: "{{public_key_crdt-node-2}}"
+    method: metricsLen
+    outputs:
+      metrics_len: result.output
+
+  - name: Assert metrics length synced
+    type: json_assert
+    statements:
+      - "equal({{metrics_len}}, 1)"
+
+  # =============================================================================
+  # FINAL VERIFICATION: All nodes have same state hash
+  # =============================================================================
+
+  - name: Final sync check
+    type: wait_for_sync
+    context_id: "{{context_id}}"
+    nodes:
+      - crdt-node-1
+      - crdt-node-2
+      - crdt-node-3
+    timeout: 60
+    check_interval: 2
+    trigger_sync: true
+
+stop_all_nodes: false
+restart: true
+wait_timeout: 300

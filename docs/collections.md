@@ -172,14 +172,14 @@ const map = new UnorderedMap<string, UnorderedSet<string>>();
 map.set('owners', set);
 ```
 
-## Counter
+## GCounter (Grow-only Counter)
 
-Grow-only counter (G-Counter) for distributed counting.
+Grow-only counter (G-Counter) for distributed counting. Corresponds to Rust's `CrdtType::GCounter`.
 
 ```typescript
-import { Counter } from '@calimero-network/calimero-sdk-js/collections';
+import { GCounter } from '@calimero-network/calimero-sdk-js/collections';
 
-const counter = new Counter();
+const counter = new GCounter();
 
 counter.increment();
 counter.increment();
@@ -189,12 +189,20 @@ const total = counter.value(); // 2n
 ### How It Works
 
 Each node tracks its own count. The total is the sum across all nodes.
+Only increment operations are supported - the value can never decrease.
 
 ```
 Node A increments: local_count_A = 1
 Node B increments: local_count_B = 1
 Total = local_count_A + local_count_B = 2
 ```
+
+### Counter Types in Rust vs JS SDK
+
+| Rust Type | JS SDK Type | CrdtType | Supports Decrement |
+|-----------|-------------|----------|-------------------|
+| `Counter<false>` / `GCounter` | `GCounter` | `CrdtType::GCounter` | ❌ No |
+| `Counter<true>` / `PNCounter` | `PNCounter` | `CrdtType::PnCounter` | ✅ Yes |
 
 ## LwwRegister<T>
 

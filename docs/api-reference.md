@@ -296,7 +296,8 @@ See [Collections Guide](./collections.md) for detailed documentation on:
 - UnorderedMap
 - UnorderedSet
 - Vector
-- Counter
+- GCounter (grow-only counter)
+- PNCounter (positive-negative counter)
 - LwwRegister
 - **UserStorage** - User-owned, signed storage with PublicKey keys
 - **FrozenStorage** - Immutable, content-addressable storage
@@ -310,7 +311,8 @@ import {
   createUnorderedMap,
   createUnorderedSet,
   createVector,
-  createCounter,
+  createGCounter,     // Grow-only counter (increment only)
+  createPNCounter,    // Positive-negative counter (supports decrement)
   createLwwRegister,
   createUserStorage,
   createFrozenStorage,
@@ -320,7 +322,8 @@ import {
 const map = createUnorderedMap<string, number>();
 const set = createUnorderedSet<string>();
 const vec = createVector<string>();
-const counter = createCounter();
+const counter = createGCounter();      // GCounter: increment-only
+const pnCounter = createPNCounter();   // PNCounter: supports decrement
 const register = createLwwRegister<string>();
 
 // Specialized storage

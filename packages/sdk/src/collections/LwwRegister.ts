@@ -31,6 +31,13 @@ export class LwwRegister<T> {
     }
   }
 
+  /**
+   * Create an LwwRegister from an existing ID.
+   */
+  static fromId<U>(id: Uint8Array | string): LwwRegister<U> {
+    return new LwwRegister<U>({ id });
+  }
+
   id(): string {
     return bytesToHex(this.registerId);
   }

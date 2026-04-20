@@ -20,6 +20,15 @@ type CounterStore = {
   totalsByExecutor: Map<string, bigint>;
 };
 
+type PNCounterStore = {
+  positiveByExecutor: Map<string, bigint>;
+  negativeByExecutor: Map<string, bigint>;
+};
+
+type RgaStore = {
+  text: string;
+};
+
 type LwwStore = {
   value: Uint8Array | null;
   timestamp: bigint;
@@ -32,6 +41,8 @@ const maps = new Map<string, MapStore>();
 const vectors = new Map<string, VectorStore>();
 const sets = new Map<string, SetStore>();
 const counters = new Map<string, CounterStore>();
+const pnCounters = new Map<string, PNCounterStore>();
+const rgas = new Map<string, RgaStore>();
 const lwwRegisters = new Map<string, LwwStore>();
 
 // Register buffer
@@ -62,6 +73,13 @@ function writeU64ToRegister(value: bigint): void {
   const buffer = new Uint8Array(8);
   const view = new DataView(buffer.buffer);
   view.setBigUint64(0, value, true);
+  setRegister(buffer);
+}
+
+function writeI64ToRegister(value: bigint): void {
+  const buffer = new Uint8Array(8);
+  const view = new DataView(buffer.buffer);
+  view.setBigInt64(0, value, true);
   setRegister(buffer);
 }
 
@@ -442,14 +460,14 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 1;
   },
 
-  js_crdt_counter_new: (_register_id: bigint): number => {
+  js_crdt_g_counter_new: (_register_id: bigint): number => {
     const id = generateId();
     counters.set(idToKey(id), { totalsByExecutor: new Map() });
     setRegister(id);
     return 1;
   },
 
-  js_crdt_counter_increment: (counterId: Uint8Array): number => {
+  js_crdt_g_counter_increment: (counterId: Uint8Array): number => {
     const store = counters.get(idToKey(counterId));
     if (!store) {
       return -1;
@@ -460,7 +478,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 1;
   },
 
-  js_crdt_counter_value: (counterId: Uint8Array, _register_id: bigint): number => {
+  js_crdt_g_counter_value: (counterId: Uint8Array, _register_id: bigint): number => {
     const store = counters.get(idToKey(counterId));
     if (!store) {
       return -1;
@@ -473,7 +491,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 1;
   },
 
-  js_crdt_counter_get_executor_count: (
+  js_crdt_g_counter_get_executor_count: (
     counterId: Uint8Array,
     _register_id: bigint,
     executorId?: Uint8Array
@@ -487,6 +505,141 @@ function getExecutorKey(executor?: Uint8Array): string {
     writeU64ToRegister(total);
     return 1;
   },
+
+  // PNCounter (Positive-Negative Counter) mock functions
+  js_crdt_pn_counter_new: (_register_id: bigint): number => {
+    const id = generateId();
+    pnCounters.set(idToKey(id), {
+      positiveByExecutor: new Map(),
+      negativeByExecutor: new Map(),
+    });
+    setRegister(id);
+    return 0; // 0 = success for new operations
+  },
+
+  js_crdt_pn_counter_increment: (counterId: Uint8Array): number => {
+    const store = pnCounters.get(idToKey(counterId));
+    if (!store) {
+      return -1;
+    }
+    const executorKey = getExecutorKey();
+    const current = store.positiveByExecutor.get(executorKey) ?? 0n;
+    store.positiveByExecutor.set(executorKey, current + 1n);
+    return 1;
+  },
+
+  js_crdt_pn_counter_decrement: (counterId: Uint8Array): number => {
+    const store = pnCounters.get(idToKey(counterId));
+    if (!store) {
+      return -1;
+    }
+    const executorKey = getExecutorKey();
+    const current = store.negativeByExecutor.get(executorKey) ?? 0n;
+    store.negativeByExecutor.set(executorKey, current + 1n);
+    return 1;
+  },
+
+  js_crdt_pn_counter_value: (counterId: Uint8Array, _register_id: bigint): number => {
+    const store = pnCounters.get(idToKey(counterId));
+    if (!store) {
+      return -1;
+    }
+    const positive = Array.from(store.positiveByExecutor.values()).reduce(
+      (acc, value) => acc + value,
+      0n
+    );
+    const negative = Array.from(store.negativeByExecutor.values()).reduce(
+      (acc, value) => acc + value,
+      0n
+    );
+    const value = positive - negative;
+    writeI64ToRegister(value);
+    return 1;
+  },
+
+  js_crdt_pn_counter_get_positive_count: (
+    counterId: Uint8Array,
+    _register_id: bigint,
+    executorId?: Uint8Array
+  ): number => {
+    const store = pnCounters.get(idToKey(counterId));
+    if (!store) {
+      return -1;
+    }
+    const key = getExecutorKey(executorId);
+    const total = store.positiveByExecutor.get(key) ?? 0n;
+    writeU64ToRegister(total);
+    return 1;
+  },
+
+  js_crdt_pn_counter_get_negative_count: (
+    counterId: Uint8Array,
+    _register_id: bigint,
+    executorId?: Uint8Array
+  ): number => {
+    const store = pnCounters.get(idToKey(counterId));
+    if (!store) {
+      return -1;
+    }
+    const key = getExecutorKey(executorId);
+    const total = store.negativeByExecutor.get(key) ?? 0n;
+    writeU64ToRegister(total);
+    return 1;
+  },
+
+  // RGA (Replicated Growable Array) mock functions
+  js_crdt_rga_new: (_register_id: bigint): number => {
+    const id = generateId();
+    rgas.set(idToKey(id), { text: '' });
+    setRegister(id);
+    return 0;
+  },
+
+  js_crdt_rga_insert: (rgaId: Uint8Array, pos: bigint, text: Uint8Array): number => {
+    const store = rgas.get(idToKey(rgaId));
+    if (!store) {
+      return -1;
+    }
+    const textStr = new TextDecoder().decode(text);
+    const posNum = Number(pos);
+    if (posNum < 0 || posNum > store.text.length) {
+      return -1;
+    }
+    store.text = store.text.slice(0, posNum) + textStr + store.text.slice(posNum);
+    return 1;
+  },
+
+  js_crdt_rga_delete: (rgaId: Uint8Array, pos: bigint): number => {
+    const store = rgas.get(idToKey(rgaId));
+    if (!store) {
+      return -1;
+    }
+    const posNum = Number(pos);
+    if (posNum < 0 || posNum >= store.text.length) {
+      return -1;
+    }
+    store.text = store.text.slice(0, posNum) + store.text.slice(posNum + 1);
+    return 1;
+  },
+
+  js_crdt_rga_get_text: (rgaId: Uint8Array, _register_id: bigint): number => {
+    const store = rgas.get(idToKey(rgaId));
+    if (!store) {
+      return -1;
+    }
+    const textBytes = new TextEncoder().encode(store.text);
+    setRegister(textBytes);
+    return 1;
+  },
+
+  js_crdt_rga_len: (rgaId: Uint8Array, _register_id: bigint): number => {
+    const store = rgas.get(idToKey(rgaId));
+    if (!store) {
+      return -1;
+    }
+    writeU64ToRegister(BigInt(store.text.length));
+    return 1;
+  },
 };
 
 // Helper to clear storage between tests
@@ -496,6 +649,8 @@ export function clearStorage() {
   vectors.clear();
   sets.clear();
   counters.clear();
+  pnCounters.clear();
+  rgas.clear();
   lwwRegisters.clear();
   currentRegister = null;
 }
