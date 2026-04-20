@@ -392,7 +392,7 @@ map.get('task:123')?.add('high-priority'); // Just works!
 import { createPrivateEntry } from '@calimero-network/calimero-sdk-js';
 
 // Create private entry (never broadcast to other nodes)
-const privateKey = createPrivateEntry<string>();
+const privateKey = createPrivateEntry<string>('private:key');
 
 // Set value (stored locally only)
 privateKey.set('my-secret-value');
@@ -583,4 +583,4 @@ merobox bootstrap run examples/counter/workflows/counter-js.yml --log-level=trac
 | `LwwRegister<T>`          | `LwwRegister<T>`                  |
 | `env.log()`               | `app::log!()`                     |
 | `emit(event)`             | `app::emit!(event)`               |
-| `createPrivateEntry<T>()` | Private storage API               |
+| `createPrivateEntry<T>(key)` | Private storage API               |

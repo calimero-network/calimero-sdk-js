@@ -287,7 +287,7 @@
           setSelected(Math.min(selectedIdx + 1, items.length - 1), items);
         } else if (e.key === 'ArrowUp') {
           e.preventDefault();
-          setSelected(Math.max(selectedIdx - 1, 0), items);
+          setSelected(Math.max(selectedIdx - 1, -1), items);
         } else if (e.key === 'Enter') {
           if (selectedIdx >= 0 && items[selectedIdx]) window.location = items[selectedIdx].href;
           else if (items[0]) window.location = items[0].href;

@@ -152,8 +152,8 @@
   <div>
     <h4 style="color:var(--green);">✅ Safe</h4>
     <div class="typedef">
-<span class="field">handler</span>(): <span class="kw">void</span> {<br>
-&nbsp;&nbsp;<span class="kw">this</span>.counter.<span class="field">increment</span>(); <span class="comment">// OK many times</span><br>
+<span class="field">handler</span>(e: <span class="ty">ItemAdded</span>): <span class="kw">void</span> {<br>
+&nbsp;&nbsp;<span class="kw">this</span>.items.<span class="field">set</span>(e.id, <span class="ty">'processed'</span>); <span class="comment">// same result each time</span><br>
 }
     </div>
   </div>
