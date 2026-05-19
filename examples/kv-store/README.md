@@ -21,19 +21,19 @@ pnpm build
 
 ```bash
 # Set a value
-meroctl --node-name node1 call \
+meroctl --node node1 call \
   --context-id <CONTEXT_ID> \
   --method set \
   --args '{"key": "name", "value": "Alice"}'
 
 # Get a value
-meroctl --node-name node1 call \
+meroctl --node node1 call \
   --context-id <CONTEXT_ID> \
   --method get \
   --args '{"key": "name"}'
 
 # Remove a value
-meroctl --node-name node1 call \
+meroctl --node node1 call \
   --context-id <CONTEXT_ID> \
   --method remove \
   --args '{"key": "name"}'

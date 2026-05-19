@@ -76,7 +76,7 @@ npx calimero-sdk build src/index.ts -o build/service.wasm
 ### 4. Deploy the Service
 
 ```bash
-meroctl --node-name node1 app install \
+meroctl --node node1 app install \
   --path build/service.wasm \
   --context-id <YOUR_CONTEXT_ID>
 ```
@@ -85,12 +85,12 @@ meroctl --node-name node1 app install \
 
 ```bash
 # Increment the counter
-meroctl --node-name node1 call \
+meroctl --node node1 call \
   --context-id <CONTEXT_ID> \
   --method increment
 
 # Get the count
-meroctl --node-name node1 call \
+meroctl --node node1 call \
   --context-id <CONTEXT_ID> \
   --method getCount
 ```

@@ -20,19 +20,19 @@ pnpm build
 
 ```bash
 # Add contribution
-meroctl --node-name node1 call \
+meroctl --node node1 call \
   --context-id <CONTEXT_ID> \
   --method addContribution \
   --args '{"member": "alice", "points": 10}'
 
 # Get member metrics
-meroctl --node-name node1 call \
+meroctl --node node1 call \
   --context-id <CONTEXT_ID> \
   --method getMemberMetrics \
   --args '{"member": "alice"}'
 
 # Get total contributions
-meroctl --node-name node1 call \
+meroctl --node node1 call \
   --context-id <CONTEXT_ID> \
   --method getTotalContributions
 ```

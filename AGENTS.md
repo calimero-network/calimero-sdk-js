@@ -488,12 +488,12 @@ pnpm add -D @calimero-network/calimero-cli-js
 npx calimero-sdk build src/index.ts -o build/service.wasm
 
 # Deploy to node
-meroctl --node-name <NODE> app install \
+meroctl --node <NODE> app install \
   --path build/service.wasm \
   --context-id <CONTEXT_ID>
 
 # Call methods
-meroctl --node-name <NODE> call \
+meroctl --node <NODE> call \
   --context-id <CONTEXT_ID> \
   --method increment
 ```
