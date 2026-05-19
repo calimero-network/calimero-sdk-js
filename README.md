@@ -164,7 +164,7 @@ Build & deploy the service bundle:
 
 ```bash
 npx calimero-sdk build src/index.ts -o build/service.wasm
-meroctl --node-name <NODE> app install \
+meroctl --node <NODE> app install \
 --path build/service.wasm \
   --context-id <CONTEXT_ID>
 ```
@@ -172,10 +172,10 @@ meroctl --node-name <NODE> app install \
 Call it:
 
 ```bash
-meroctl --node-name <NODE> call \
+meroctl --node <NODE> call \
   --context-id <CONTEXT_ID> \
 --method increment
-meroctl --node-name <NODE> call \
+meroctl --node <NODE> call \
   --context-id <CONTEXT_ID> \
 --method getCount
 ```
