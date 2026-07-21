@@ -1,0 +1,128 @@
+---
+title: Events
+description: Define event types with @Event, emit them with emit / emitWithHandler, and write receiver-side handlers — plus the concurrency rules handlers must obey to stay convergent.
+sidebar:
+  order: 2
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import SeqDiagram from '../../../components/SeqDiagram.astro';
+
+Events let a service notify other nodes that something happened and, optionally,
+run a handler on those nodes when the change is received.
+
+## Define an event
+
+Mark an event class with `@Event`. The decorator records the class name as the
+event `kind` and adds `serialize()` / `deserialize()` helpers.
+
+```typescript
+import { Event } from '@calimero-network/calimero-sdk-js';
+
+@Event
+export class ItemAdded {
+  constructor(
+    public key: string,
+    public value: string,
+    public timestamp: number
+  ) {}
+}
+
+@Event
+export class ItemRemoved {
+  constructor(public key: string) {}
+}
+```
+
+## Emit an event
+
+There are two emitters, both imported from the package root:
+
+```typescript
+import { emit, emitWithHandler } from '@calimero-network/calimero-sdk-js';
+
+// Fire-and-forget notification (no handler runs on receivers)
+emit(new ItemAdded('key1', 'value1', Date.now()));
+
+// Emit and name a handler method to run on receiving nodes
+emitWithHandler(new ItemAdded('key1', 'value1', Date.now()), 'onItemAdded');
+```
+
+The event payload is serialized through the ABI manifest, so it is compatible
+with Rust services that observe the same event type.
+
+<Aside type="note">
+  `emitWithHandler(event, handlerName)` names a method on your `@Logic` class.
+  The receiving node runs that method after applying the delta; the authoring
+  node does **not** run its own handler.
+</Aside>
+
+## Handle an event
+
+A handler is just a method on the logic class whose name matches the string
+passed to `emitWithHandler`:
+
+```typescript
+@Logic(MyApp)
+export class MyAppLogic {
+  addItem(key: string, value: string): void {
+    this.items.set(key, value);
+    emitWithHandler(new ItemAdded(key, value, Date.now()), 'onItemAdded');
+  }
+
+  // Runs on receiving nodes after the delta is applied
+  onItemAdded(event: ItemAdded): void {
+    this.itemCount.increment();
+  }
+}
+```
+
+## Event flow
+
+<SeqDiagram id="d-event-flow" title="emitWithHandler across nodes"
+  lanes={[
+    { label: 'Author node', color: '#a371f7' },
+    { label: 'Network (gossip)', color: '#a5ff11' },
+    { label: 'Receiver node', color: '#3fb950' },
+  ]}
+  steps={[
+    { from: 0, to: 0, label: 'addItem(): mutate state + emitWithHandler(evt, "onItemAdded")' },
+    { from: 0, to: 1, label: 'broadcast event + state delta' },
+    { type: 'divider', label: 'author does NOT run its own handler' },
+    { from: 1, to: 2, label: 'deliver event + delta' },
+    { from: 2, to: 2, label: 'apply delta to state' },
+    { from: 2, to: 2, label: 'run onItemAdded(event)', color: '#3fb950' },
+  ]} />
+
+## Handlers must stay convergent
+
+Handlers may run on many nodes, in any order, and can be retried. To keep every
+node's state identical, a handler must be:
+
+1. **Commutative** — order-independent. `this.userCount.increment()` (a
+   `Counter`) is safe; reading another key and appending to it assumes an
+   ordering that may not hold.
+2. **Independent** — no unsynchronized shared state. Two handlers writing the
+   same key race; writing distinct keys is fine.
+3. **Idempotent** — safe to run more than once. CRDT increments are; charging an
+   external API is not.
+4. **Pure** — no external side effects. Mutating CRDT state and `env.log(...)`
+   are fine; outbound HTTP calls are not (and are not available in the sandbox).
+
+<Aside type="caution">
+  Do not perform external I/O or depend on execution order inside a handler.
+  Prefer emitting several small, independent events over one handler that does a
+  lot of ordered work.
+</Aside>
+
+## Best practices
+
+- Keep handlers to a single, commutative state update.
+- Split complex reactions into multiple events rather than one big handler.
+- Test handlers under concurrent, out-of-order delivery — that is the real
+  execution model.
+
+## See also
+
+- [Collections](/guides/collections/) — the CRDT types handlers should mutate.
+- [API Reference](/reference/api/#events) — `emit` / `emitWithHandler` signatures.

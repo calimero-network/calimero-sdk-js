@@ -1,0 +1,169 @@
+---
+title: Getting Started
+description: Build your first Calimero P2P application in TypeScript — install the SDK and CLI, write a service with decorators, compile it to WASM, and call it on a node.
+sidebar:
+  order: 1
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+This guide walks you from an empty directory to a running Calimero service
+written in TypeScript.
+
+## Prerequisites
+
+- **Node.js** >= 18
+- **pnpm** >= 8 (npm works too)
+- A running Calimero node (`merod`) and the [`meroctl`](https://calimero-network.github.io/core/) CLI to install and call your service
+- **Linux or macOS** — the build toolchain downloads a WASI SDK and QuickJS compiler that are not published for Windows (use WSL)
+
+## Install
+
+The SDK is split into two packages: the runtime library and the build CLI.
+
+```bash
+npm install @calimero-network/calimero-sdk-js
+npm install -D @calimero-network/calimero-cli-js
+# or with pnpm
+pnpm add @calimero-network/calimero-sdk-js
+pnpm add -D @calimero-network/calimero-cli-js
+```
+
+<Aside type="note">
+  On first install the CLI runs a `postinstall` step that downloads the QuickJS
+  compiler and WASI SDK it needs to build WASM. This requires network access.
+</Aside>
+
+## Write your first service
+
+A Calimero service has two halves:
+
+- a **state class** marked `@State` — the data that is persisted and synced, and
+- a **logic class** marked `@Logic(StateClass)` — the methods clients call.
+
+Create `src/index.ts`:
+
+```typescript
+import { State, Logic, Init, View, createCounter } from '@calimero-network/calimero-sdk-js';
+import type { Counter } from '@calimero-network/calimero-sdk-js/collections';
+import * as env from '@calimero-network/calimero-sdk-js/env';
+
+@State
+export class CounterApp {
+  // Initialize CRDT fields inline with the factory helpers so the runtime
+  // reuses the persisted collection ID on every invocation.
+  count: Counter = createCounter();
+}
+
+@Logic(CounterApp)
+export class CounterLogic {
+  @Init
+  static initialize(): CounterApp {
+    env.log('Initializing counter');
+    return new CounterApp();
+  }
+
+  increment(): void {
+    this.count.increment();
+    env.log('Counter incremented');
+  }
+
+  @View()
+  getCount(): bigint {
+    return this.count.value();
+  }
+}
+```
+
+Key points:
+
+- **Initialize CRDT fields inline** with the `create*` helpers (`createCounter()`,
+  `createUnorderedMap()`, …). The logic class methods run with `this` bound to a
+  hydrated state instance, so inline defaults guarantee the runtime reattaches
+  the persisted collection ID instead of allocating a fresh one.
+- **Mark read-only entry points with `@View()`.** The dispatcher then skips the
+  persistence pipeline for that method — no state snapshot, no delta, no gossip.
+  A method without `@View()` is assumed to mutate state.
+
+<Aside type="tip">
+  `@Init` marks the static initializer that produces the first state instance.
+  Every other (non-static) method on the `@Logic` class is exported as a callable
+  service function.
+</Aside>
+
+## Build to WASM
+
+The `calimero-sdk build` command compiles your TypeScript through Rollup →
+QuickJS → WASI-SDK into a single WASM module, emitting an ABI manifest alongside
+it:
+
+```bash
+npx calimero-sdk build src/index.ts -o build/service.wasm
+```
+
+This produces `build/service.wasm` plus `build/abi.json` (the ABI manifest used
+for Rust-compatible serialization and for [client generation](/guides/client-generation/)).
+
+Useful flags:
+
+- `-o, --output <path>` — output path (default `build/service.wasm`).
+- `--no-optimize` — skip the `wasm-opt` pass for faster dev builds. Optimization is **on by default**.
+- `--verbose` — show every pipeline stage (Rollup, QuickJS, Clang, optimization).
+
+There is also `calimero-sdk validate src/index.ts` to check a source file before building.
+
+<Aside type="caution">
+  The ABI manifest is **mandatory** at runtime. It is generated automatically
+  during the build and embedded in both the JS bundle and the WASM binary; a
+  service without an embedded ABI fails at runtime with an explicit error.
+</Aside>
+
+## Deploy and call
+
+Install the built WASM on a node and call its methods with `meroctl`:
+
+```bash
+# Install the service into a context
+meroctl --node node1 app install --path build/service.wasm
+
+# Call a mutating method
+meroctl --node node1 call --context-id <CONTEXT_ID> --method increment
+
+# Call a view
+meroctl --node node1 call --context-id <CONTEXT_ID> --method getCount
+```
+
+## Node-local private storage
+
+For data that should stay on the executing node and **not** replicate through
+CRDT deltas (cached secrets, per-node bookkeeping), use the private storage
+helper:
+
+```typescript
+import { createPrivateEntry } from '@calimero-network/calimero-sdk-js';
+
+const secrets = createPrivateEntry<{ token: string }>('private:secrets');
+
+// Read-or-initialize
+const current = secrets.getOrInit(() => ({ token: '' }));
+
+// Mutate in place (initialiser is used when no value exists yet)
+secrets.modify(
+  value => {
+    value.token = 'rotated-token';
+  },
+  () => ({ token: '' })
+);
+```
+
+`PrivateEntryHandle` also exposes `get()`, `set(value)`, `remove()`, and
+`getOrDefault(value)`. Entries are stored through `storageRead`/`storageWrite`
+directly, so they never appear in CRDT deltas or gossip.
+
+## Next steps
+
+- [CRDT Collections](/guides/collections/) — the data types that sync automatically.
+- [Events](/guides/events/) — emit and handle events across nodes.
+- [Client Generation](/guides/client-generation/) — generate a typed client from your ABI.
+- [Architecture](/understand/architecture/) — how the build and runtime work.
+- [API Reference](/reference/api/) — decorators, `env` functions, and collection methods.

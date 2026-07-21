@@ -1,0 +1,120 @@
+---
+title: Troubleshooting
+description: Fixes for common build and runtime problems with the Calimero JS SDK — toolchain downloads, unsupported platforms, missing methods, event handlers that don't run, and WASM size.
+sidebar:
+  order: 6
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## Build issues
+
+### QuickJS or WASI SDK not found
+
+The CLI downloads the QuickJS compiler and WASI SDK during its `postinstall`
+step. If they're missing, reinstall to re-trigger the download:
+
+```bash
+pnpm install   # or: cd node_modules/@calimero-network/calimero-cli-js && pnpm run postinstall
+```
+
+This step needs network access.
+
+### Unsupported platform
+
+The toolchain publishes binaries for **macOS (darwin)** and **Linux** only.
+On Windows, build inside **WSL**.
+
+### Slow builds
+
+Skip the optimization pass during development:
+
+```bash
+npx calimero-sdk build src/index.ts --no-optimize
+```
+
+<Aside type="caution">
+  Optimization is **on by default**. The flag is `--no-optimize` to turn it
+  **off** — there is no `--optimize` flag. Ship production builds with
+  optimization enabled (i.e. without `--no-optimize`).
+</Aside>
+
+### Inspecting the build
+
+Add `--verbose` to see every stage — Rollup bundling, QuickJS compilation, Clang
+flags, and optimization passes:
+
+```bash
+npx calimero-sdk build src/index.ts --verbose
+```
+
+## Runtime issues
+
+### Method not found
+
+A method isn't exported as a service function. Check that:
+
+1. It lives on the `@Logic`-decorated class (not on `@State`).
+2. It is not the `constructor` (and not the `@Init` static method).
+3. The build completed without errors.
+
+Every non-static method on the `@Logic` class is registered; static methods are
+not, aside from the `@Init` initializer.
+
+### "ABI manifest is required but not available"
+
+The embedded ABI is mandatory at runtime. It's generated automatically during
+`calimero-sdk build` — rebuild the service and reinstall the fresh WASM. Don't
+hand-edit or strip the bundle.
+
+### Event handler not running
+
+Common causes:
+
+1. The handler name doesn't match the string passed to `emitWithHandler`.
+2. You're checking the **author** node — the emitting node does not run its own
+   handler; only receivers do.
+3. The delta carrying the event hasn't been applied yet (missing parents).
+
+Add logging to confirm what's emitted:
+
+```typescript
+env.log(`emitting with handler: ${handlerName}`);
+```
+
+### Storage errors
+
+Check key/value serialization, that the value isn't unexpectedly `null`, and
+that you're mutating a rehydrated collection handle rather than a freshly
+constructed one (see [Collections → best practices](/guides/collections/#best-practices)).
+
+## Development issues
+
+### Cannot find module '@calimero-network/calimero-sdk-js'
+
+Install dependencies and build the SDK package before your service:
+
+```bash
+pnpm install
+pnpm build
+```
+
+### No hot reload
+
+There is no hot reload. Rebuild after changes; a watch build helps:
+
+```bash
+pnpm build --watch
+```
+
+## WASM size
+
+A JS service is roughly **~500 KB** (QuickJS runtime + your bundled code + ABI).
+To keep it small: build with optimization on (the default), remove unused
+imports, and lean on tree-shaking.
+
+## Getting help
+
+- [Getting Started](/get-started/getting-started/)
+- [GitHub issues](https://github.com/calimero-network/calimero-sdk-js/issues)
+- The `examples/` directory in the repository

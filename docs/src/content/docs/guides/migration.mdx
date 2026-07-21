@@ -1,0 +1,189 @@
+---
+title: Migrating from Rust
+description: Map a Calimero Rust service to its TypeScript equivalent — decorators vs macros, initialization, error handling, and the collection API — with common pitfalls and when to pick each SDK.
+sidebar:
+  order: 5
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+JavaScript and Rust services are fully interoperable: they run on the same
+network, sync state through the same CRDTs, and emit/receive the same events.
+This guide maps the Rust service model to its TypeScript equivalent.
+
+## Side by side
+
+### Rust
+
+```rust
+use calimero_sdk::app;
+use calimero_storage::collections::UnorderedMap;
+
+#[app::state]
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct KvStore {
+    items: UnorderedMap<String, String>,
+}
+
+#[app::logic]
+impl KvStore {
+    #[app::init]
+    pub fn init() -> KvStore {
+        KvStore { items: UnorderedMap::new() }
+    }
+
+    pub fn set(&mut self, key: String, value: String) {
+        self.items.insert(key, value).unwrap();
+    }
+
+    pub fn get(&self, key: &str) -> Option<String> {
+        self.items.get(key).unwrap()
+    }
+}
+```
+
+### TypeScript
+
+```typescript
+import { State, Logic, Init, View, createUnorderedMap } from '@calimero-network/calimero-sdk-js';
+import type { UnorderedMap } from '@calimero-network/calimero-sdk-js/collections';
+
+@State
+export class KvStore {
+  // Initialize CRDT fields inline with the factory helpers.
+  items: UnorderedMap<string, string> = createUnorderedMap();
+}
+
+@Logic(KvStore)
+export class KvStoreLogic {
+  @Init
+  static initialize(): KvStore {
+    return new KvStore();
+  }
+
+  set(key: string, value: string): void {
+    this.items.set(key, value);
+  }
+
+  @View()
+  get(key: string): string | null {
+    return this.items.get(key);
+  }
+}
+```
+
+## Key differences
+
+### Decorators vs macros
+
+| Rust            | TypeScript           |
+| --------------- | -------------------- |
+| `#[app::state]` | `@State`             |
+| `#[app::logic]` | `@Logic(StateClass)` |
+| `#[app::init]`  | `@Init`              |
+| `#[app::event]` | `@Event`             |
+| (read-only fn)  | `@View()`            |
+
+In Rust, state and logic live on one type. In TypeScript they are **two
+classes**: a `@State` data class and a separate `@Logic(StateClass)` class that
+holds the callable methods.
+
+### Initialization
+
+Prefer **inline field initializers** using the `create*` helpers
+(`items = createUnorderedMap()`) over assigning inside a constructor. The logic
+methods run with `this` bound to a hydrated state instance; inline defaults make
+the runtime reattach the persisted collection ID instead of allocating a new one
+on each call.
+
+```typescript
+@State
+export class MyApp {
+  items: UnorderedMap<string, string> = createUnorderedMap();
+  count: Counter = createCounter();
+}
+```
+
+### Error handling
+
+Rust uses `Result<T, E>` and `?`. In TypeScript, collection operations throw on
+failure — no explicit `Result`:
+
+```typescript
+set(key: string, value: string): void {
+  this.items.set(key, value); // throws on error
+}
+```
+
+### Read-only methods
+
+Rust distinguishes `&self` from `&mut self`. In TypeScript, mark read-only
+entry points with `@View()` so the dispatcher skips persistence — otherwise the
+method is assumed to mutate state and a (possibly empty) delta is produced.
+
+## Collection mapping
+
+| Rust                 | TypeScript           | Notes                          |
+| -------------------- | -------------------- | ------------------------------ |
+| `UnorderedMap<K, V>` | `UnorderedMap<K, V>` | JS `remove(key)` returns `void`|
+| `UnorderedSet<T>`    | `UnorderedSet<T>`    | JS removal is `delete(value)`  |
+| `Vector<T>`          | `Vector<T>`          | `len()`, `push()`, `pop()`     |
+| `Counter`            | `Counter`            | `value()` returns `bigint`     |
+| `LwwRegister<T>`     | `LwwRegister<T>`     | `timestamp()` is `number\|null`|
+
+See the [Collections guide](/guides/collections/) for full method lists.
+
+## Common pitfalls
+
+### Uninitialized state fields
+
+```typescript
+// ❌ BAD — field never initialized
+@State
+export class MyApp {
+  items: UnorderedMap<string, string>;
+}
+
+// ✅ GOOD — inline factory initializer
+@State
+export class MyApp {
+  items: UnorderedMap<string, string> = createUnorderedMap();
+}
+```
+
+### Putting methods on the state class
+
+```typescript
+// ❌ BAD — methods belong on @Logic, not @State
+@State
+export class MyApp {
+  items: UnorderedMap<string, string> = createUnorderedMap();
+  set(key: string, value: string) { this.items.set(key, value); }
+}
+
+// ✅ GOOD
+@State
+export class MyApp {
+  items: UnorderedMap<string, string> = createUnorderedMap();
+}
+
+@Logic(MyApp)
+export class MyAppLogic {
+  set(key: string, value: string) { this.items.set(key, value); }
+}
+```
+
+## Which SDK to choose
+
+<Aside type="tip">
+  Both SDKs are fully compatible and can interact on the same network — you can
+  mix Rust and JavaScript services.
+</Aside>
+
+**Use the Rust SDK** when performance is critical, you're building complex
+algorithms, or you need the smallest possible WASM (a Rust service is roughly an
+order of magnitude smaller than the ~500 KB QuickJS-based JS output).
+
+**Use the JavaScript SDK** for rapid prototyping, when your team knows
+TypeScript, when you want the npm ecosystem, or when developer experience is the
+priority.

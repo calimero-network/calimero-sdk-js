@@ -1,0 +1,272 @@
+---
+title: CRDT Collections
+description: The conflict-free replicated data types the JS SDK provides — UnorderedMap, UnorderedSet, Vector, Counter, LwwRegister, plus UserStorage and FrozenStorage — how they sync, how nested collections work, and best practices per type.
+sidebar:
+  order: 1
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import SeqDiagram from '../../../components/SeqDiagram.astro';
+
+Calimero provides conflict-free replicated data types (CRDTs) for automatic
+state synchronization. Values are encoded with Calimero's Borsh encoder, so data
+written from JavaScript matches the bytes produced by Rust services as long as
+both sides share the same Borsh schema.
+
+Import the collection classes from the `/collections` entry point, and the
+factory helpers from the package root:
+
+```typescript
+import { UnorderedMap, UnorderedSet, Vector } from '@calimero-network/calimero-sdk-js/collections';
+import { createUnorderedMap, createCounter } from '@calimero-network/calimero-sdk-js';
+```
+
+<Aside type="tip">
+  Inside a `@State` class, initialize CRDT fields inline with the `create*`
+  helpers (`count: Counter = createCounter()`). This keeps the persisted
+  collection ID stable across invocations.
+</Aside>
+
+## UnorderedMap&lt;K, V&gt;
+
+Last-write-wins map for key/value storage.
+
+```typescript
+const map = new UnorderedMap<string, string>();
+
+map.set('key', 'value');
+const value = map.get('key');   // 'value' | null
+const exists = map.has('key');  // boolean
+map.remove('key');              // void
+
+const entries = map.entries();  // Array<[K, V]>
+const keys = map.keys();        // K[]
+const values = map.values();    // V[]
+```
+
+<Aside type="note">
+  `UnorderedMap.remove(key)` returns `void`. Use `has(key)` first if you need to
+  know whether the key existed.
+</Aside>
+
+## UnorderedSet&lt;T&gt;
+
+Last-write-wins set for unique membership.
+
+```typescript
+const set = new UnorderedSet<string>();
+
+set.add('alice');            // true on first insert, false if already present
+const present = set.has('alice'); // boolean
+set.delete('alice');         // boolean — true if it was present
+set.clear();                 // void
+const count = set.size();    // number
+const all = set.toArray();   // T[]
+```
+
+<Aside type="note">
+  On the set, the removal method is `delete(value)` (returns `boolean`), whereas
+  on the map it is `remove(key)` (returns `void`). The APIs deliberately differ.
+</Aside>
+
+## Vector&lt;T&gt;
+
+Ordered list that maintains insertion order.
+
+```typescript
+const vec = new Vector<string>();
+
+vec.push('first');           // void
+vec.push('second');
+const item = vec.get(0);     // 'first' | null
+const len = vec.len();       // number
+const last = vec.pop();      // 'second' | null
+const all = vec.toArray();   // T[]
+
+// For initialization only:
+const seeded = Vector.fromArray(['a', 'b', 'c']);
+```
+
+## Counter
+
+Grow-only counter (G-Counter) for distributed counting. Each node tracks its own
+sub-count; the total is the sum across all nodes, so concurrent increments never
+conflict.
+
+```typescript
+const counter = new Counter();
+
+counter.increment();               // +1
+counter.incrementBy(5);            // +5 (accepts number | bigint)
+const total = counter.value();     // bigint
+
+// Optional: read a single node's contribution (hex executor id)
+const mine = counter.getExecutorCount();
+```
+
+<Aside type="note">
+  `Counter.value()` returns a `bigint`, not a `number`. `getExecutorCount()`
+  takes an optional hex-encoded executor id string and returns a `number`.
+</Aside>
+
+## LwwRegister&lt;T&gt;
+
+Last-write-wins register for a single value.
+
+```typescript
+const register = new LwwRegister<string>();
+
+register.set('hello');
+const value = register.get();       // 'hello' | null
+const ts = register.timestamp();    // number | null — when it was set
+register.clear();                   // void
+```
+
+## Conflict resolution
+
+For last-write-wins types (`UnorderedMap`, `UnorderedSet`, `LwwRegister`) a
+concurrent write to the same key is resolved by timestamp — the later write wins:
+
+```
+Node A: map.set('key', 'A') at t=1000
+Node B: map.set('key', 'B') at t=1001
+Result: key = 'B' (higher timestamp)
+```
+
+`Counter` is different: increments from different nodes are additive and never
+lost.
+
+## Nested collections
+
+Collections can be stored inside other collections, and the SDK tracks changes
+to the inner collection automatically — you do not need to re-`set` the parent
+after mutating a child.
+
+```typescript
+const reactions = new UnorderedMap<string, UnorderedMap<string, UnorderedSet<string>>>();
+
+function addReaction(messageId: string, emoji: string, userId: string) {
+  let byEmoji = reactions.get(messageId);
+  if (!byEmoji) {
+    byEmoji = new UnorderedMap<string, UnorderedSet<string>>();
+    reactions.set(messageId, byEmoji);
+  }
+
+  let users = byEmoji.get(emoji);
+  if (!users) {
+    users = new UnorderedSet<string>();
+    byEmoji.set(emoji, users);
+  }
+
+  users.add(userId); // propagates automatically — no manual re-serialization
+}
+```
+
+Supported patterns include any combination such as
+`UnorderedMap<K, UnorderedSet<V>>`, `UnorderedMap<K, Vector<V>>`, and
+`Vector<UnorderedMap<K, V>>`.
+
+### How rehydration works
+
+When a map value is itself a CRDT, the host stores a lightweight handle — a small
+JSON wrapper of the form `{"__calimeroCollection":"Vector","id":"…hex…"}` — not
+the full contents. Fetching that value **rehydrates** a handle that carries the
+CRDT ID; mutating the handle issues an incremental host call against that ID
+rather than replaying the whole structure. The full structure is only
+materialized in JS when you explicitly read it (`toArray()`, or returning the
+entire map from a view).
+
+<SeqDiagram id="d-crdt-rehydrate" title="Fetch → mutate → flush on a nested Vector"
+  lanes={[
+    { label: 'Service (QuickJS)', color: '#a371f7' },
+    { label: 'SDK bindings', color: '#58a6ff' },
+    { label: 'Host CRDT store', color: '#3fb950' },
+  ]}
+  steps={[
+    { from: 0, to: 1, label: "profiles.get('alice')" },
+    { from: 1, to: 2, label: 'js_crdt_map_get(mapId, key)' },
+    { from: 2, to: 1, label: '{__calimeroCollection:"Vector", id}', dashed: true },
+    { from: 1, to: 0, label: 'rehydrated Vector handle (holds id)', dashed: true },
+    { from: 0, to: 1, label: 'vec.push(item)' },
+    { from: 1, to: 2, label: 'js_crdt_vector_push(id, item)' },
+    { type: 'divider', label: 'on method completion' },
+    { from: 1, to: 2, label: 'flush_delta()' },
+    { from: 2, to: 2, label: 'record actions → broadcast causal delta', color: '#a5ff11' },
+  ]} />
+
+## Specialized storage collections
+
+### UserStorage&lt;V&gt;
+
+User-owned, signed storage keyed by the owner's 32-byte Ed25519 public key.
+Writes are signed by the executor and verified (with replay protection via a
+strictly-increasing nonce) on other nodes.
+
+```typescript
+import { createUserStorage } from '@calimero-network/calimero-sdk-js';
+
+interface UserProfile { displayName: string; score: number; }
+
+const profiles = createUserStorage<UserProfile>();
+
+profiles.insert({ displayName: 'Alice', score: 100 }); // key = current executor's PublicKey
+const mine = profiles.get();                            // current user's value | null
+const other = profiles.getForUser(somePublicKey);       // another user's value | null
+const hasMine = profiles.containsCurrentUser();          // boolean
+const hasOther = profiles.containsUser(somePublicKey);   // boolean
+profiles.remove();                                       // remove current user's value
+
+const all = profiles.entries();  // Array<[PublicKey, V]>
+const count = profiles.size();   // number
+```
+
+Use it for per-user settings, user-owned game data, or any value that must be
+verifiably owned by a specific user.
+
+### FrozenStorage&lt;T&gt;
+
+Immutable, content-addressable storage. Each value is keyed by the SHA-256 hash
+of its serialized bytes; once inserted, values cannot be updated or deleted.
+
+```typescript
+import { FrozenStorage } from '@calimero-network/calimero-sdk-js/collections';
+import { createFrozenStorage } from '@calimero-network/calimero-sdk-js';
+
+const documents = createFrozenStorage<Document>();
+
+const hash = documents.add({ title: 'Report', body: '…' }); // returns the Hash
+const doc = documents.get(hash);       // T | null
+const exists = documents.has(hash);    // boolean
+
+const all = documents.entries();       // Array<[Hash, T]>
+const hashes = documents.hashes();     // Hash[]
+
+// Compute a hash without storing (useful for deduplication)
+const wouldBe = FrozenStorage.computeHash(myValue);
+
+// documents.remove(hash); // throws — FrozenStorage is append-only
+```
+
+Values are wrapped in `FrozenValue<T>` (`new FrozenValue(value)`, `.value`),
+whose `merge` is a no-op so frozen entries never change. Use it for audit logs,
+document versioning, certificates, and content-addressable sharing.
+
+## Best practices
+
+- **Pick the right type**: `UnorderedMap` for key/value data, `Vector` for
+  ordered lists, `Counter` for totals, `LwwRegister` for single values,
+  `UserStorage` for per-user ownership, `FrozenStorage` for immutable records.
+- **Mutate the handle, don't replace it.** Fetch the existing entry
+  (`const v = map.get(key) ?? new …`) and mutate it. Assigning a brand-new CRDT
+  instance replaces the stored ID and falls back to whole-value last-write-wins.
+- **Mark selectors `@View()`.** Read-only methods (`get`, `list`, `len`) tagged
+  with `@View()` skip persistence, keeping the storage DAG compact.
+- **Avoid plain fields for shared state.** A plain `count: number = 0` is not a
+  CRDT and loses concurrent updates — use `Counter` instead.
+
+## See also
+
+- [Mergeable structs (experimental)](/guides/mergeable-js/) — deterministic
+  conflict resolution for custom structs stored inside collections.
+- [Architecture](/understand/architecture/) — the QuickJS↔host data flow in detail.
+- [API Reference](/reference/api/) — full method lists.

@@ -1,0 +1,121 @@
+---
+title: Client Generation
+description: Generate a type-safe TypeScript client from your service's abi.json using the repo's generate-client.js helper and @calimero-network/abi-codegen, then call your service with full type safety.
+sidebar:
+  order: 4
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import SeqDiagram from '../../../components/SeqDiagram.astro';
+
+When you build a service, the CLI emits an `abi.json` describing its methods,
+types, and events. You can turn that ABI into a type-safe TypeScript client that
+other applications use to call your service.
+
+The repository ships a helper, `scripts/generate-client.js`, which adapts the
+SDK's ABI to the client generator's format and runs
+[`@calimero-network/abi-codegen`](https://www.npmjs.com/package/@calimero-network/abi-codegen)
+for you.
+
+## Pipeline
+
+<SeqDiagram id="d-client-gen" title="From source to typed client"
+  lanes={[
+    { label: 'Developer', color: '#a371f7' },
+    { label: 'calimero-sdk build', color: '#58a6ff' },
+    { label: 'generate-client.js', color: '#3fb950' },
+    { label: 'abi-codegen', color: '#a5ff11' },
+  ]}
+  steps={[
+    { from: 0, to: 1, label: 'calimero-sdk build src/index.ts' },
+    { from: 1, to: 1, label: 'emit build/service.wasm + build/abi.json' },
+    { from: 0, to: 2, label: 'node scripts/generate-client.js build/abi.json <out> [Name]' },
+    { from: 2, to: 2, label: 'strip state_root, write filtered ABI to temp file' },
+    { from: 2, to: 3, label: 'npx @calimero-network/abi-codegen -i <tmp> -o <out> [--client-name Name]' },
+    { from: 3, to: 0, label: '<Name>.ts — typed client class + types', dashed: true },
+  ]} />
+
+## 1. Build your service
+
+```bash
+npx calimero-sdk build src/index.ts -o build/service.wasm
+```
+
+This creates `build/abi.json` next to `build/service.wasm`.
+
+## 2. Generate the client
+
+```bash
+node scripts/generate-client.js <abi-json-path> <output-dir> [client-name]
+```
+
+**Parameters**
+
+- `<abi-json-path>` — path to your ABI (default `build/abi.json`).
+- `<output-dir>` — where generated files are written (default `build/generated`).
+- `[client-name]` — optional class name for the generated client (passed through
+  as `--client-name`).
+
+**Example**
+
+```bash
+node scripts/generate-client.js build/abi.json src/generated CounterClient
+```
+
+<Aside type="note">
+  The helper strips the `state_root` field before invoking `abi-codegen` (which
+  doesn't accept it), writing a filtered ABI to a temp file. Your original
+  `abi.json` is left untouched for runtime use. It shells out with `npx`, so
+  `@calimero-network/abi-codegen` is fetched on demand.
+</Aside>
+
+There is also a thin shell wrapper, `scripts/generate-client.sh`, that forwards
+the same arguments.
+
+## 3. Use the generated client
+
+The generated file contains the client class plus the TypeScript types for your
+service. It talks to a node through `@calimero-network/calimero-client`:
+
+```typescript
+import { CounterClient } from './generated/CounterClient';
+import { CalimeroApp } from '@calimero-network/calimero-client';
+
+const app = new CalimeroApp({ /* your configuration */ });
+const context = app.getContext('your-context-id');
+const client = new CounterClient(app, context);
+
+await client.increment();
+const count = await client.getCount();
+```
+
+<Aside type="tip">
+  Method names in the generated client follow the ABI exactly. If a call doesn't
+  resolve, inspect `build/abi.json` (or the generated `.ts`) to confirm the
+  exported method name.
+</Aside>
+
+## Wire it into your build
+
+```json
+{
+  "scripts": {
+    "build": "calimero-sdk build src/index.ts -o build/service.wasm",
+    "generate:client": "node scripts/generate-client.js build/abi.json src/generated",
+    "build:all": "npm run build && npm run generate:client"
+  }
+}
+```
+
+Make sure the generated directory is included in your `tsconfig.json`
+`include` globs.
+
+## Troubleshooting
+
+- **"ABI file not found"** — build the service first and check the path
+  (`ls build/abi.json`).
+- **Client generation failed** — verify `abi.json` is valid JSON and that `npx`
+  can reach `@calimero-network/abi-codegen`; re-run with more output.
+- **Type errors in generated code** — ensure a compatible
+  `@calimero-network/calimero-client` version and that all service types are
+  well-defined.

@@ -1,0 +1,119 @@
+---
+title: Mergeable Structs
+description: The experimental @Mergeable decorator — opt custom structs stored inside CRDT collections into deterministic, field-aware conflict resolution, with an optional custom merge handler. Includes the current runtime limitations.
+sidebar:
+  order: 3
+  badge:
+    text: Experimental
+    variant: caution
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+<Aside type="caution" title="Experimental">
+  `@Mergeable` is experimental. Today it makes **local writes** safer by merging
+  on the node performing the write, and it records merge metadata for future
+  runtime support. The Rust host does **not** yet honor the metadata during
+  delta replay, so conflicts that arrive concurrently on other nodes still fall
+  back to whole-value last-write-wins. See [Limitations](#limitations-and-status).
+</Aside>
+
+## What it is
+
+Rust services reconcile concurrent updates to the same entity through the
+`Mergeable` trait. The JS SDK's `@Mergeable` decorator is the analogue: it marks
+a plain data class stored **inside** a CRDT collection (a map value, a register
+payload) so the runtime can reconcile two versions field-by-field instead of
+overwriting the whole value.
+
+Import it from the package root:
+
+```typescript
+import { Mergeable, type MergeableOptions } from '@calimero-network/calimero-sdk-js';
+```
+
+## Default behavior
+
+Applied with no options, `@Mergeable()` records the class name as its type
+identifier and derives a per-field strategy automatically:
+
+- **CRDT fields** (nested `UnorderedMap`, `Vector`, `Counter`, …) defer to the
+  host CRDT merge already in place.
+- **Scalar fields** fall back to last-writer-wins based on the entry's timestamp.
+
+```typescript
+import {
+  Mergeable,
+  State,
+  createUnorderedMap,
+  createVector,
+  createCounter,
+} from '@calimero-network/calimero-sdk-js';
+
+@Mergeable()
+export class MemberProfile {
+  displayName: string = '';
+  roles: Vector<string> = createVector();
+  contributions: Counter = createCounter();
+}
+
+@State
+export class TeamMetricsState {
+  memberProfiles: UnorderedMap<string, MemberProfile> = createUnorderedMap();
+  version: bigint = 0n;
+}
+```
+
+Here `displayName` resolves last-writer-wins, while `roles` and `contributions`
+use their CRDT semantics.
+
+## Custom merge handler
+
+Pass a `merge` function to take full control of reconciliation. It receives the
+local and remote values and returns the value to persist:
+
+```typescript
+import { Mergeable } from '@calimero-network/calimero-sdk-js';
+
+function mergeStats(local: Stats, remote: Stats): Stats {
+  return {
+    wins: Math.max(local.wins, remote.wins),
+    losses: Math.min(local.losses, remote.losses),
+  };
+}
+
+@Mergeable({ merge: mergeStats })
+export class Stats {
+  wins: number = 0;
+  losses: number = 0;
+}
+```
+
+`MergeableOptions` accepts:
+
+- **`merge?: (localValue, remoteValue) => value`** — a custom, pure,
+  deterministic reconciler run inside QuickJS during conflict resolution.
+- **`type?: string`** — override the recorded type identifier (defaults to the
+  class name).
+
+<Aside type="note">
+  Merge handlers must be pure and deterministic. Throwing aborts the merge,
+  mirroring Rust's `MergeError`.
+</Aside>
+
+## Limitations and status
+
+- **Leader-only merge.** The merge runs only on the node performing the write.
+  Other nodes replay the already-merged payload; they do not re-run the merge.
+- **Host is metadata-unaware.** The Rust storage layer currently ignores the
+  merge descriptor, so two deltas for the same entry that arrive concurrently on
+  a follower still resolve last-write-wins.
+- **Custom handlers don't replay.** There is no host-side registry to re-run a
+  custom handler on followers.
+- **No retrofit.** Metadata applies only to services built with the updated SDK;
+  adopt the decorator and redeploy with fresh state.
+
+Treat `@Mergeable` as a way to make local writes safer and to stage metadata for
+future host support, not as a full cross-network conflict-resolution guarantee.
+For guaranteed convergence today, model state with the built-in
+[CRDT collections](/guides/collections/).

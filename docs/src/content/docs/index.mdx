@@ -1,0 +1,49 @@
+---
+title: Calimero JS SDK
+description: Build Calimero P2P applications in JavaScript/TypeScript — decorators, CRDT collections, and a QuickJS→WASM build toolchain, with automatic conflict-free sync and full Rust-SDK interop.
+template: splash
+hero:
+  tagline: Write Calimero services in TypeScript. Mark your state and logic with decorators, store data in CRDT collections that converge automatically across nodes, and compile to WASM with a single command — fully interoperable with the Rust SDK on the same network.
+  actions:
+    - text: Get Started
+      link: /get-started/getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/calimero-network/calimero-sdk-js
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+{/* Audience-routed landing — pick your track. */}
+
+<CardGrid>
+  <Card title="Get Started" icon="rocket">
+    Scaffold a project, write a service with decorators, build it to WASM, and
+    call it on a node. [Build your first app →](/get-started/getting-started/)
+  </Card>
+  <Card title="Guides" icon="open-book">
+    Task guides: CRDT collections, events, experimental mergeable structs,
+    generating typed clients, and migrating from Rust.
+    [Browse the guides →](/guides/collections/)
+  </Card>
+  <Card title="Understand" icon="setting">
+    How the SDK works end to end — the TypeScript→Rollup→QuickJS→WASM build
+    pipeline and the QuickJS↔host runtime. [See the architecture →](/understand/architecture/)
+  </Card>
+  <Card title="Reference" icon="list-format">
+    Every decorator, `env` host function, and collection method, verified
+    against the SDK exports. [Open the reference →](/reference/api/)
+  </Card>
+</CardGrid>
+
+The SDK ships two packages: **`@calimero-network/calimero-sdk-js`** (decorators,
+CRDT collections, and `env` host bindings) and
+**`@calimero-network/calimero-cli-js`** (the `calimero-sdk` build toolchain).
+
+JavaScript services run inside a QuickJS interpreter compiled to WASM, so they
+share the same CRDT state, events, and cross-context calls as
+[Calimero Core](https://calimero-network.github.io/core/) Rust services on the
+same network.
