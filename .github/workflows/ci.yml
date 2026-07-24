@@ -223,24 +223,15 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Clone merobox
-        run: |
-          git clone https://github.com/calimero-network/merobox.git
-
       - name: Install merobox
         run: |
           python -m pip install --upgrade pip
-          pip install -e ./merobox
+          pip install merobox==0.6.43
 
       - name: Install jq
         run: |
           sudo apt-get update
           sudo apt-get install -y jq
-
-      - name: Download contracts
-        run: |
-          chmod +x scripts/download-contracts.sh
-          ./scripts/download-contracts.sh
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -277,8 +268,6 @@ jobs:
 
           WORKFLOW_COUNT=0
           FAILED_WORKFLOWS=()
-
-          CONTRACTS_DIR="$GITHUB_WORKSPACE/contracts/near"
 
           for workflow in "${WORKFLOW_FILES[@]}"; do
             WORKFLOW_COUNT=$((WORKFLOW_COUNT + 1))
