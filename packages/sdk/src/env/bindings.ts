@@ -73,19 +73,9 @@ export interface HostEnv {
   // Context
   context_id(register_id: bigint): void;
   executor_id(register_id: bigint): void;
-  // Context Management (PR 1663 & 1686)
-  context_add_member(publicKey: Uint8Array): void;
-  context_remove_member(publicKey: Uint8Array): void;
-  context_is_member(publicKey: Uint8Array): number; // Returns Bool (u32)
-  context_members(register_id: bigint): void;
-  context_create(
-    protocol: Uint8Array,
-    applicationId: Uint8Array,
-    initArgs: Uint8Array,
-    alias: Uint8Array
-  ): void;
-  context_delete(contextId: Uint8Array): void;
-  context_resolve_alias(alias: Uint8Array, register_id: bigint): number; // Returns Bool (u32): 1 if found, 0 if not
+  // NOTE: context membership/lifecycle host functions (add/remove/is_member/
+  // members/create/delete/resolve_alias) are intentionally absent — the node
+  // does not provide them. Importing them made JS modules fail to instantiate.
 
   // Events
   emit(kind: Uint8Array, data: Uint8Array): void;
