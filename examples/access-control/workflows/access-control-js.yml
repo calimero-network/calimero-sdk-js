@@ -18,10 +18,18 @@ steps:
     outputs:
       app_id: applicationId
 
+  - name: Create Access Control Namespace
+    type: create_namespace
+    node: access-control-node-1
+    application_id: '{{app_id}}'
+    outputs:
+      namespace_id: namespaceId
+
   - name: Create Access Control Context
     type: create_context
     node: access-control-node-1
     application_id: '{{app_id}}'
+    group_id: '{{namespace_id}}'
     params: '{}'
     outputs:
       context_id: contextId
@@ -58,10 +66,18 @@ steps:
       - 'is_set({{all_members_result}})'
       - 'contains({{all_members_result}}, {{member_public_key}})'
 
+  - name: Create Second Namespace
+    type: create_namespace
+    node: access-control-node-1
+    application_id: '{{app_id}}'
+    outputs:
+      second_namespace_id: namespaceId
+
   - name: Create Second Context Member
     type: create_context
     node: access-control-node-1
     application_id: '{{app_id}}'
+    group_id: '{{second_namespace_id}}'
     params: '{}'
     outputs:
       second_context_id: contextId
@@ -78,7 +94,7 @@ steps:
 
   - name: Wait For Member Addition
     type: wait
-    duration: 2s
+    seconds: 2
 
   - name: Verify Second Member
     type: call
@@ -123,7 +139,7 @@ steps:
 
   - name: Wait For Member Removal
     type: wait
-    duration: 2s
+    seconds: 2
 
   - name: Verify Second Member Removed
     type: call
@@ -154,7 +170,7 @@ steps:
 
   - name: Wait For Child Context Creation
     type: wait
-    duration: 10s
+    seconds: 10
 
 
   - name: Resolve Child Context Alias

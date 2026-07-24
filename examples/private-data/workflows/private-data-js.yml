@@ -18,10 +18,18 @@ steps:
     outputs:
       app_id: applicationId
 
+  - name: Create Private Data Namespace
+    type: create_namespace
+    node: private-data-node-1
+    application_id: '{{app_id}}'
+    outputs:
+      namespace_id: namespaceId
+
   - name: Create Private Data Context
     type: create_context
     node: private-data-node-1
     application_id: '{{app_id}}'
+    group_id: '{{namespace_id}}'
     params: '{}'
     outputs:
       context_id: contextId
@@ -31,32 +39,29 @@ steps:
     type: wait
     seconds: 1
 
-  - name: Create Node 2 Identity
-    type: create_identity
-    node: private-data-node-2
-    outputs:
-      node_2_member_public_key: publicKey
-
-  - name: Wait After Identity Creation
-    type: wait
-    seconds: 1
-
-  - name: Invite Node 2 To Context
-    type: invite_identity
+  - name: Invite Node 2 To Namespace
+    type: create_namespace_invitation
     node: private-data-node-1
-    context_id: '{{context_id}}'
-    grantee_id: '{{node_2_member_public_key}}'
-    granter_id: '{{member_public_key}}'
-    capability: member
+    namespace_id: '{{namespace_id}}'
     outputs:
       node_2_invitation: invitation
+
+  - name: Wait For Namespace Governance To Gossip
+    type: wait
+    seconds: 5
+
+  - name: Node 2 Join Namespace
+    type: join_namespace
+    node: private-data-node-2
+    namespace_id: '{{namespace_id}}'
+    invitation: '{{node_2_invitation}}'
 
   - name: Node 2 Join Context
     type: join_context
     node: private-data-node-2
     context_id: '{{context_id}}'
-    invitee_id: '{{node_2_member_public_key}}'
-    invitation: '{{node_2_invitation}}'
+    outputs:
+      node_2_member_public_key: memberPublicKey
 
   - name: Wait After Node 2 Join
     type: wait
