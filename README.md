@@ -10,12 +10,12 @@ Complex nested structures like `Map<K, Set<V>>` and `Map<K, Map<K2, V2>>` work s
 
 ## Quick Links
 
-- 📘 [Documentation index](docs/README.md) – roadmap of all guides
-- 📚 **Docs** – see `docs/` for detailed guides:
-  - [Getting Started](docs/getting-started.md)
-  - [Architecture](docs/architecture.md)
-  - [Collections & CRDTs](docs/collections.md)
-  - [Mergeable (experimental)](docs/mergeable-js.md)
+- 📘 [Documentation site](https://calimero-network.github.io/calimero-sdk-js/) – full guides and reference
+- 📚 **Docs** – detailed guides:
+  - [Getting Started](https://calimero-network.github.io/calimero-sdk-js/get-started/getting-started/)
+  - [Architecture](https://calimero-network.github.io/calimero-sdk-js/understand/architecture/)
+  - [Collections & CRDTs](https://calimero-network.github.io/calimero-sdk-js/guides/collections/)
+  - [Mergeable (experimental)](https://calimero-network.github.io/calimero-sdk-js/guides/mergeable-js/)
 - 🧪 **Examples** – full services under `examples/`:
   - `examples/counter`
   - `examples/kv-store`
@@ -226,14 +226,14 @@ flowchart TB
 
 ### Concepts Quick Reference
 
-| Topic                          | Summary                                                                                                                                   | Where to learn more                                                                |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| State & Logic                  | `@State` defines persisted data, `@Logic` exposes methods, `@Init` seeds the first snapshot.                                              | [docs/collections.md](docs/collections.md#best-practices-by-type)                  |
-| Views vs Mutations             | Decorate read-only entry points with `@View()` to skip persistence.                                                                       | [docs/collections.md](docs/collections.md#handles-not-deep-copies)                 |
-| CRDT collections               | `UnorderedMap`, `UnorderedSet`, `Vector`, `Counter`, `LwwRegister`. Nested collections work seamlessly with automatic change propagation. | [docs/collections.md](docs/collections.md)                                         |
-| Private storage                | Use `createPrivateEntry()` for node-local secrets; stored via `storage_write`, never broadcast.                                           | [docs/getting-started.md](docs/getting-started.md#private-storage-node-local-data) |
-| Mergeable state (experimental) | `@Mergeable()` records merge hints. Full conflict resolution still requires host support.                                                 | [docs/mergeable-js.md](docs/mergeable-js.md)                                       |
-| Architecture                   | TypeScript → Rollup → QuickJS → WASI → Calimero runtime.                                                                                  | [docs/architecture.md](docs/architecture.md)                                       |
+| Topic                          | Summary                                                                                                                                   | Where to learn more                                                                                                           |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| State & Logic                  | `@State` defines persisted data, `@Logic` exposes methods, `@Init` seeds the first snapshot.                                              | [Collections](https://calimero-network.github.io/calimero-sdk-js/guides/collections/#best-practices)                          |
+| Views vs Mutations             | Decorate read-only entry points with `@View()` to skip persistence.                                                                       | [Collections](https://calimero-network.github.io/calimero-sdk-js/guides/collections/#how-rehydration-works)                   |
+| CRDT collections               | `UnorderedMap`, `UnorderedSet`, `Vector`, `Counter`, `LwwRegister`. Nested collections work seamlessly with automatic change propagation. | [Collections](https://calimero-network.github.io/calimero-sdk-js/guides/collections/)                                         |
+| Private storage                | Use `createPrivateEntry()` for node-local secrets; stored via `storage_write`, never broadcast.                                           | [Getting Started](https://calimero-network.github.io/calimero-sdk-js/get-started/getting-started/#node-local-private-storage) |
+| Mergeable state (experimental) | `@Mergeable()` records merge hints. Full conflict resolution still requires host support.                                                 | [Mergeable](https://calimero-network.github.io/calimero-sdk-js/guides/mergeable-js/)                                          |
+| Architecture                   | TypeScript → Rollup → QuickJS → WASI → Calimero runtime.                                                                                  | [Architecture](https://calimero-network.github.io/calimero-sdk-js/understand/architecture/)                                   |
 
 ---
 
@@ -273,9 +273,11 @@ pnpm --filter @calimero-network/calimero-sdk-js exec jest --runInBand
 
 Useful docs:
 
-- [docs/troubleshooting.md](docs/troubleshooting.md) – common issues
-- [docs/events.md](docs/events.md) – event patterns
-- [docs/api-reference.md](docs/api-reference.md) – generated API listings
+- [Troubleshooting](https://calimero-network.github.io/calimero-sdk-js/guides/troubleshooting/) – common issues
+- [Events](https://calimero-network.github.io/calimero-sdk-js/guides/events/) – event patterns
+- [API Reference](https://calimero-network.github.io/calimero-sdk-js/reference/api/) – decorators, env functions, and collection APIs
+- [Client Generation](https://calimero-network.github.io/calimero-sdk-js/guides/client-generation/) – generate a typed client from your ABI
+- [Migrating from Rust](https://calimero-network.github.io/calimero-sdk-js/guides/migration/) – Rust → TypeScript mapping
 
 ---
 

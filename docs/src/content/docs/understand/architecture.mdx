@@ -1,0 +1,165 @@
+---
+title: Architecture
+description: How the JS SDK works end to end — the TypeScript→Rollup→QuickJS→WASI build pipeline, the ABI manifest, the QuickJS↔host runtime and its persist/flush/commit calls, and how it stays compatible with the Rust SDK.
+sidebar:
+  order: 1
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import SeqDiagram from '../../../components/SeqDiagram.astro';
+
+A JavaScript service runs inside a QuickJS interpreter compiled to WASM. Your
+TypeScript is bundled and turned into WASM ahead of time; at runtime the node
+loads that WASM, spins up QuickJS, and drives your methods through a dispatcher
+that keeps state, deltas, and events compatible with the Rust SDK.
+
+## System layers
+
+```
+┌─────────────────────────────────────────────┐
+│ Your service (TypeScript + decorators)        │
+├─────────────────────────────────────────────┤
+│ @calimero-network/calimero-sdk-js             │
+│   decorators · CRDT collections · env bindings│
+├─────────────────────────────────────────────┤
+│ QuickJS runtime (compiled into WASM)          │
+│   JS interpreter · ~450 KB overhead           │
+├─────────────────────────────────────────────┤
+│ Calimero host functions (env.*)               │
+│   storage_read/write · emit · commit · js_crdt│
+├─────────────────────────────────────────────┤
+│ Calimero node runtime (Wasmer)                │
+│   WASM execution · P2P sync · RocksDB storage │
+└─────────────────────────────────────────────┘
+```
+
+## Build pipeline
+
+`calimero-sdk build` runs your source through several stages (see
+`packages/cli/src/commands/build.ts`):
+
+```
+TypeScript source
+      │  generate ABI manifest (abi.json) + state schema
+      ▼
+ABI header (abi.h)      ── embeds abi.json as a C byte array
+      │  Rollup bundle (+ inject ABI manifest)
+      ▼
+JS bundle
+      │  extract service methods (methods.h)
+      ▼
+QuickJS qjsc → C bytecode (code.h)
+      │  Clang / WASI-SDK
+      ▼
+WASM binary (ABI embedded)
+      │  wasm-opt (unless --no-optimize)
+      ▼
+Final service (~500 KB) + build/abi.json
+```
+
+**The ABI manifest is mandatory.** It is generated automatically, embedded in
+both the JS bundle and the WASM binary, and drives ABI-aware serialization so
+data matches what Rust services produce. A service without an embedded ABI fails
+at runtime with an explicit error.
+
+<Aside type="note">
+  Optimization (`wasm-opt`) runs by default. Pass `--no-optimize` for faster dev
+  builds. There is no `--optimize` flag.
+</Aside>
+
+## Method call flow
+
+When a client calls a method, the node loads the WASM, creates a QuickJS
+instance, injects the ABI manifest, and dispatches. Mutating methods then persist
+state, flush a delta, and commit; `@View()` methods skip that pipeline entirely.
+
+<SeqDiagram id="d-method-call" title="One method invocation"
+  lanes={[
+    { label: 'Node (JSON-RPC)', color: '#58a6ff' },
+    { label: 'QuickJS service', color: '#a371f7' },
+    { label: 'Host storage', color: '#3fb950' },
+    { label: 'Network', color: '#a5ff11' },
+  ]}
+  steps={[
+    { from: 0, to: 1, label: 'load WASM, inject ABI, call method(json params)' },
+    { from: 1, to: 1, label: 'dispatcher converts params via ABI types' },
+    { from: 1, to: 2, label: 'CRDT ops: js_crdt_* / storage_write' },
+    { type: 'divider', label: 'on completion — mutating methods only' },
+    { from: 1, to: 2, label: 'persist_root_state(doc, createdAt, updatedAt)' },
+    { from: 1, to: 2, label: 'flush_delta()' },
+    { from: 1, to: 2, label: 'commit(rootHash, artifact)' },
+    { from: 2, to: 3, label: 'broadcast causal delta', color: '#a5ff11' },
+    { from: 1, to: 0, label: 'return value (JSON via ABI)', dashed: true },
+  ]} />
+
+### Mutating vs view dispatch
+
+- `@View()` methods run without touching persistence — no state snapshot, no
+  `flush_delta`, no commit. They can still read CRDT collections safely.
+- A method **without** `@View()` is assumed to mutate: even if nothing changed,
+  the runtime serializes the state snapshot and packages a (timestamped) delta.
+  This is why marking selectors `@View()` matters — it keeps the storage DAG
+  small and avoids gossiping redundant updates.
+
+## QuickJS ↔ host data flow
+
+QuickJS runs in an isolated VM and can only reach the node through `env.*`
+functions (`packages/sdk/src/env/api.ts`). Because it cannot mutate host storage
+directly the way a Rust service does, the JS SDK bridges the gap with three host
+calls after a mutating method returns:
+
+- **`persist_root_state(doc, createdAt, updatedAt)`** — hands the serialized root
+  document to the runtime through the same storage interface Rust uses, so
+  Merkle hashes and CRDT actions update. (`persistRootState`)
+- **`flush_delta()`** — turns the recorded CRDT actions into a causal delta, just
+  as the Rust SDK does automatically. Falls back to a legacy `commit` if the host
+  lacks the function. (`flushDelta`)
+- **`commit(rootHash, artifact)`** — reports the execution result the node needs
+  for receipts, event handling, and network broadcast.
+
+### CRDT handles, not deep copies
+
+CRDT values are stored as lightweight handles — a small JSON wrapper like
+`{"__calimeroCollection":"Vector","id":"…hex…"}`. The host keeps the real CRDT
+state keyed by the ID; fetching a value rehydrates a handle carrying that ID, and
+mutating it issues an incremental `js_crdt_*` call rather than replaying the
+whole structure. Only explicit full reads (`toArray()`, returning an entire map
+from a view) stream all entries back. See
+[Collections → rehydration](/guides/collections/#how-rehydration-works).
+
+### Node-local private storage
+
+`createPrivateEntry` routes through the same `storage_read` / `storage_write`
+bindings but its data never enters a CRDT delta, so it stays on the executing
+node.
+
+## Serialization summary
+
+| Path                | Format                                                             |
+| ------------------- | ------------------------------------------------------------------ |
+| Method parameters   | JSON from host → converted to ABI types (bigint, `Uint8Array`, Map)|
+| Return values       | ABI types → JSON (bigint → string, `Uint8Array` → number[])        |
+| State persistence   | ABI-aware Borsh: `[version:u8=1][state:borsh][collections][metadata]`|
+| Event payloads      | ABI-aware Borsh, per the event's payload type                       |
+| CRDT collections    | Handle metadata (`__calimeroCollection` + id); state kept in host   |
+
+## Compatibility with the Rust SDK
+
+Rust services execute storage collections **inside** the host runtime, so their
+data already lives there. QuickJS cannot, so the persist/flush/commit calls above
+reproduce the same Merkle roots, artifacts, and deltas the core runtime expects.
+The result: JS and Rust services can run on the same network, sync via CRDTs,
+exchange events, and call each other (`env.xcall`).
+
+## Why QuickJS?
+
+QuickJS gives full JavaScript/TypeScript support and npm-ecosystem
+compatibility, and is proven in production (NEAR). The trade-off is size
+(~450 KB of interpreter overhead vs ~50 KB for AssemblyScript) and some execution
+overhead — accepted in exchange for developer experience.
+
+## Sandboxing
+
+QuickJS runs in the WASM sandbox: no filesystem, no network, only the approved
+`env.*` host functions, all of which validate their inputs (buffer bounds,
+register and type checks).

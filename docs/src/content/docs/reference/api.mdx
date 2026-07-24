@@ -1,0 +1,211 @@
+---
+title: API Reference
+description: The public surface of @calimero-network/calimero-sdk-js — decorators, state factory helpers, the env host functions, events, and runtime exports — verified against the SDK's TypeScript exports.
+sidebar:
+  order: 1
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+This reference lists what the package exports. Collection method lists live in
+the [Collections guide](/guides/collections/).
+
+## Import surface
+
+```typescript
+// Decorators, helpers, events, runtime — the package root
+import { State, Logic, Init, Event, View, Mergeable } from '@calimero-network/calimero-sdk-js';
+import { createUnorderedMap, createCounter, createPrivateEntry } from '@calimero-network/calimero-sdk-js';
+import { emit, emitWithHandler, StateManager } from '@calimero-network/calimero-sdk-js';
+
+// CRDT collection classes
+import { UnorderedMap, Vector, Counter } from '@calimero-network/calimero-sdk-js/collections';
+
+// Host functions
+import * as env from '@calimero-network/calimero-sdk-js/env';
+// …or named:
+import { log, contextId, ed25519Verify } from '@calimero-network/calimero-sdk-js/env';
+```
+
+Subpath exports declared in `packages/sdk/package.json`: `.` (root),
+`./collections`, `./env`, `./borsh`, and `./runtime/dispatcher`.
+
+## Decorators
+
+### `@State`
+
+Marks the class that holds persisted, synced state. Registers it with the
+`StateManager`.
+
+```typescript
+@State
+export class MyApp {
+  items: UnorderedMap<string, string> = createUnorderedMap();
+}
+```
+
+### `@Logic(StateClass)`
+
+Links a logic class to its state class and registers every non-static method as
+a callable service function.
+
+```typescript
+@Logic(MyApp)
+export class MyAppLogic { /* methods */ }
+```
+
+### `@Init`
+
+Marks the **static** initializer that returns the first state instance.
+
+```typescript
+@Init
+static initialize(): MyApp {
+  return new MyApp();
+}
+```
+
+### `@Event`
+
+Marks an event class. Adds `serialize()` / `static deserialize(data)` and exposes
+`static eventName` (the class name used as the event kind).
+
+```typescript
+@Event
+export class ItemAdded {
+  constructor(public key: string, public value: string) {}
+}
+```
+
+### `@View()`
+
+Marks a method as read-only. The dispatcher skips persistence for it (no state
+snapshot, no delta). Note the trailing `()` — it's a decorator factory.
+
+```typescript
+@View()
+getCount(): bigint { return this.count.value(); }
+```
+
+### `@Mergeable(options?)`
+
+Experimental. Marks a data class stored inside a collection as mergeable.
+`options` is `MergeableOptions`: `{ merge?: (local, remote) => value; type?: string }`.
+See [Mergeable structs](/guides/mergeable-js/).
+
+## State factory helpers
+
+Prefer these over calling collection constructors inside a state-class
+constructor. All are exported from the package root.
+
+| Helper                         | Returns                | Options                                   |
+| ------------------------------ | ---------------------- | ----------------------------------------- |
+| `createUnorderedMap<K, V>()`   | `UnorderedMap<K, V>`   | `UnorderedMapOptions`                     |
+| `createUnorderedSet<T>()`      | `UnorderedSet<T>`      | `UnorderedSetOptions<T>`                  |
+| `createVector<T>()`            | `Vector<T>`            | `VectorOptions`                           |
+| `createCounter()`              | `Counter`              | `CounterOptions & { initialValue? }`      |
+| `createLwwRegister<T>()`       | `LwwRegister<T>`       | `LwwRegisterOptions<T>`                   |
+| `createUserStorage<V>()`       | `UserStorage<V>`       | `UserStorageOptions`                      |
+| `createFrozenStorage<T>()`     | `FrozenStorage<T>`     | `FrozenStorageOptions`                    |
+| `createPrivateEntry<T>(key)`   | `PrivateEntryHandle<T>`| key is `string \| Uint8Array`             |
+
+<Aside type="note">
+  `createCounter({ initialValue })` seeds the counter by calling `incrementBy`.
+</Aside>
+
+## Environment functions (`env`)
+
+All are exported from `@calimero-network/calimero-sdk-js/env`.
+
+### Logging & identity
+
+| Function | Signature | Description |
+| --- | --- | --- |
+| `log` | `(message: string) => void` | Log a message to the runtime. |
+| `contextId` | `() => Uint8Array` | Current context ID (32 bytes). |
+| `executorId` | `() => Uint8Array` | Current executor ID (32 bytes). |
+| `executorIdHex` | `() => string` | Executor ID as hex. |
+| `executorIdBase58` | `() => string` | Executor ID as base58. |
+
+### Context & membership
+
+| Function | Signature | Description |
+| --- | --- | --- |
+| `contextAddMember` | `(publicKey: Uint8Array) => void` | Add a member (32-byte key). Async — takes effect after execution. |
+| `contextRemoveMember` | `(publicKey: Uint8Array) => void` | Remove a member. Async. |
+| `contextIsMember` | `(publicKey: Uint8Array) => boolean` | Sync membership check against committed state. |
+| `contextMembers` | `() => Uint8Array[]` | All member public keys. |
+| `contextCreate` | `(protocol, applicationId, initArgs, alias: Uint8Array) => void` | Create a child context. `applicationId` 32 bytes; `alias` ≤ 64 bytes. |
+| `contextDelete` | `(contextId: Uint8Array) => void` | Delete a context (pass current ID to self-delete). Async. |
+| `contextResolveAlias` | `(alias: Uint8Array) => Uint8Array \| null` | Resolve an alias to a 32-byte context ID. |
+
+<Aside type="note">
+  The member/context mutations validate argument lengths and throw
+  `TypeError`/`RangeError` on bad input (e.g. a public key that isn't 32 bytes).
+</Aside>
+
+### Storage
+
+| Function | Signature | Description |
+| --- | --- | --- |
+| `storageRead` | `(key: Uint8Array) => Uint8Array \| null` | Read a raw value. |
+| `storageWrite` | `(key: Uint8Array, value: Uint8Array) => void` | Write a raw value. |
+| `storageRemove` | `(key: Uint8Array) => boolean` | Remove; returns whether the key existed. |
+
+<Aside type="tip">
+  For node-local data prefer `createPrivateEntry` over raw `storage*` calls — it
+  handles serialization and stays out of CRDT deltas.
+</Aside>
+
+### Crypto, time & randomness
+
+| Function | Signature | Description |
+| --- | --- | --- |
+| `timeNow` | `() => bigint` | Current time in nanoseconds. |
+| `ed25519Verify` | `(signature: Uint8Array, publicKey: Uint8Array, message: Uint8Array) => boolean` | Verify a signature. `signature` 64 bytes, `publicKey` 32 bytes. |
+| `randomBytes` | `(buffer: Uint8Array) => void` | Fill the buffer with host-provided random bytes. |
+
+### Blobs
+
+| Function | Signature | Description |
+| --- | --- | --- |
+| `blobCreate` | `() => bigint` | Open a new blob for writing; returns a file descriptor. |
+| `blobOpen` | `(blobId: Uint8Array) => bigint` | Open a blob for reading (0 if not found). |
+| `blobRead` | `(fd: bigint, buffer: Uint8Array) => bigint` | Read into the buffer; returns bytes read. |
+| `blobWrite` | `(fd: bigint, data: Uint8Array) => bigint` | Write data; returns bytes written. |
+| `blobClose` | `(fd: bigint) => Uint8Array` | Close and return the 32-byte blob ID. |
+| `blobAnnounceToContext` | `(blobId: Uint8Array, targetContextId: Uint8Array) => boolean` | Announce a blob to peers in the current context. |
+
+### Cross-context calls
+
+| Function | Signature | Description |
+| --- | --- | --- |
+| `xcall` | `(contextId: Uint8Array, functionName: string, params?: Uint8Array) => void` | Schedule a call into another context after the current execution finishes. `contextId` 32 bytes. |
+
+### Low-level & runtime plumbing
+
+These back the dispatcher and CRDT layer; application code rarely calls them
+directly: `input`, `panic`, `registerLen`, `readRegister`, `valueReturn`,
+`persistRootState`, `readRootState`, `flushDelta`, `applyStorageDelta`, and the
+`jsCrdt*` / `jsUserStorage*` / `jsFrozenStorage*` binding wrappers.
+
+## Events
+
+| Export | Signature | Description |
+| --- | --- | --- |
+| `emit` | `(event: AppEvent) => void` | Emit an event with no handler. |
+| `emitWithHandler` | `(event: AppEvent, handler: string) => void` | Emit and name a handler to run on receiving nodes. |
+| `AppEvent` | `interface { serialize?(): Uint8Array \| object \| string }` | Base event interface. |
+
+See the [Events guide](/guides/events/).
+
+## Runtime
+
+| Export | Description |
+| --- | --- |
+| `StateManager` | Manages the registered state class, hydration, and persistence. Used by the dispatcher; exported for advanced integrations. |
+
+## Types
+
+`SerializeOptions` and `DeserializeOptions` are re-exported from the package
+root for typing custom serialization.

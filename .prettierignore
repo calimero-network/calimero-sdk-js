@@ -24,3 +24,6 @@ pnpm-lock.yaml
 package-lock.json
 yarn.lock
 
+
+# Starlight docs subproject (own tooling)
+docs/
