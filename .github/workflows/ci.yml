@@ -266,12 +266,18 @@ jobs:
             exit 1
           fi
 
-          # Known-limitation: these workflows exercise concurrent writes from two
-          # nodes. A JS app's root entity is opaque to core (crdt_type: None) and
-          # currently merges via Last-Writer-Wins, which converges for a single
-          # writer but not for concurrent writers. Re-enable once the real JS
-          # root-state merge lands. Tracked in:
-          #   https://github.com/calimero-network/calimero-sdk-js/issues/83
+          # Known-limitation gating (diagnosed in #83):
+          #   * user-storage, frozen-storage: concurrent writes from two nodes.
+          #     A JS root is opaque to core (crdt_type: None) and merges via LWW,
+          #     which converges a single writer but not concurrent writers.
+          #     Fixed by the real JS root-state merge — core#3309 + JS side.
+          #     https://github.com/calimero-network/calimero-sdk-js/issues/83
+          #   * private-data: same convergence issue (#83) PLUS a node-side
+          #     setPrivateNote failure on the joined node — #85.
+          #     https://github.com/calimero-network/calimero-sdk-js/issues/85
+          #   * xcall: distinct functional bug — cross-context pong never
+          #     executes — unrelated to convergence — #84.
+          #     https://github.com/calimero-network/calimero-sdk-js/issues/84
           SKIP_WORKFLOWS=(
             "examples/kv-store-with-user-and-frozen-storage/workflows/test_user_storage.yml"
             "examples/kv-store-with-user-and-frozen-storage/workflows/test_frozen_storage.yml"
