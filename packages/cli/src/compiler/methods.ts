@@ -28,6 +28,7 @@ export async function generateMethodsHeader(jsFile: string, outputDir: string): 
     registrySnapshot.functions.forEach(fn => methodSet.add(fn));
     methodSet.add('__calimero_sync_next');
     methodSet.add('__calimero_register_merge');
+    methodSet.add('__calimero_merge_root_state');
     emitHeaders(outputDir, Array.from(methodSet).sort());
     return;
   }
@@ -91,6 +92,7 @@ export async function generateMethodsHeader(jsFile: string, outputDir: string): 
 
   methodSet.add('__calimero_sync_next');
   methodSet.add('__calimero_register_merge');
+  methodSet.add('__calimero_merge_root_state');
 
   emitHeaders(outputDir, Array.from(methodSet).sort());
 }

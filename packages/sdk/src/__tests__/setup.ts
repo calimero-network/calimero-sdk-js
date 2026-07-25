@@ -191,10 +191,59 @@ function getExecutorKey(executor?: Uint8Array): string {
   blob_write: (_fd: bigint, data: Uint8Array): bigint => BigInt(data.length),
   blob_close: (_fd: bigint, _blob_id_buf: Uint8Array): boolean => true,
 
+  register_js_sdk_root_merge: (): void => {
+    // no-op in tests
+  },
+
   js_crdt_map_new: (_register_id: bigint): number => {
     const id = generateId();
     maps.set(idToKey(id), { entries: new Map() });
     setRegister(id);
+    return 1;
+  },
+
+  // Deterministic-id constructors: register a backing store at the supplied id.
+  js_crdt_map_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
+    maps.set(idToKey(id), { entries: new Map() });
+    setRegister(new Uint8Array(id));
+    return 1;
+  },
+
+  js_crdt_vector_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
+    vectors.set(idToKey(id), { values: [] });
+    setRegister(new Uint8Array(id));
+    return 1;
+  },
+
+  js_crdt_set_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
+    sets.set(idToKey(id), { values: new Set() });
+    setRegister(new Uint8Array(id));
+    return 1;
+  },
+
+  js_crdt_lww_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
+    lwwRegisters.set(idToKey(id), {
+      value: null,
+      timestamp: 0n,
+      nodeId: mockExecutorId.slice(0, 16),
+    });
+    setRegister(new Uint8Array(id));
+    return 1;
+  },
+
+  js_crdt_counter_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
+    counters.set(idToKey(id), { totalsByExecutor: new Map() });
+    setRegister(new Uint8Array(id));
+    return 1;
+  },
+
+  js_user_storage_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
+    setRegister(new Uint8Array(id));
+    return 1;
+  },
+
+  js_frozen_storage_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
+    setRegister(new Uint8Array(id));
     return 1;
   },
 

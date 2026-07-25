@@ -3,15 +3,36 @@ import { StateManager } from './state-manager';
 import { runtimeLogicEntries } from './method-registry';
 import { getAbiManifest, getMethod } from '../abi/helpers';
 import type { TypeRef, AbiManifest, ScalarType, Variant } from '../abi/types';
+import { registerJsSdkRootMerge } from '../env/api';
+import { assignDeterministicIds } from './deterministic-ids';
+import { registerMergeTypes } from './merge';
 import './sync';
+// Installs globalThis.__calimero_merge_root_state (field-aware root merge).
+import './merge';
 
 type JsonObject = Record<string, unknown>;
 
 const REGISTER_ID = 0n;
 
-if (typeof (globalThis as any).__calimero_register_merge !== 'function') {
-  (globalThis as any).__calimero_register_merge = function __calimero_register_merge(): void {};
-}
+/**
+ * `__calimero_register_merge` opt-in hook.
+ *
+ * Registers `@Mergeable` descriptors and signals the host that this app root
+ * should be merged field-aware via `__calimero_merge_root_state` on sync
+ * (instead of being LWW-collapsed). Called by the host at module registration.
+ */
+(globalThis as any).__calimero_register_merge = function __calimero_register_merge(): void {
+  try {
+    registerMergeTypes();
+  } catch (error) {
+    log(`[dispatcher] register_merge: descriptor registration failed: ${String(error)}`);
+  }
+  try {
+    registerJsSdkRootMerge();
+  } catch (error) {
+    log(`[dispatcher] register_merge: register_js_sdk_root_merge failed: ${String(error)}`);
+  }
+};
 
 /**
  * Converts a JSON value to ABI-compatible format
@@ -540,6 +561,9 @@ function createLogicDispatcher(
 
       if (!state && stateCtor) {
         state = new stateCtor();
+        // Fresh (unpersisted) state: normalize top-level collection field ids
+        // to deterministic values so concurrent writers converge.
+        assignDeterministicIds(state);
       }
 
       if (state) {
@@ -624,6 +648,10 @@ function createInitDispatcher(
       if (logicCtor && state instanceof logicCtor === false) {
         Object.setPrototypeOf(state, logicCtor.prototype);
       }
+
+      // Fresh init: assign deterministic ids to top-level collection fields so
+      // concurrent writers on different nodes address the same CRDT entities.
+      assignDeterministicIds(state);
 
       StateManager.save(state);
       flushDelta();

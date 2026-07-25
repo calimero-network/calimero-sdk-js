@@ -539,8 +539,63 @@ export function storageRemove(key: Uint8Array): boolean {
   return existed;
 }
 
+/**
+ * Opt into JS SDK field-aware root-state merge.
+ *
+ * Signals the host that this app root should be merged via the guest
+ * `__calimero_merge_root_state` export on sync instead of being LWW-collapsed.
+ */
+export function registerJsSdkRootMerge(): void {
+  const host = env as unknown as { register_js_sdk_root_merge?: () => void };
+  if (typeof host.register_js_sdk_root_merge !== 'function') {
+    throw new Error('register_js_sdk_root_merge host function unavailable');
+  }
+  host.register_js_sdk_root_merge();
+}
+
+/**
+ * Returns raw bytes to the host verbatim (no JSON/ABI encoding).
+ *
+ * Used by `__calimero_merge_root_state`, which must return a borsh-encoded
+ * response rather than a JSON method return value.
+ */
+export function valueReturnRaw(value: Uint8Array): void {
+  if (!(value instanceof Uint8Array)) {
+    throw new TypeError('valueReturnRaw expects a Uint8Array');
+  }
+  env.value_return(value);
+}
+
 export function jsCrdtMapNew(register: bigint): number {
   return env.js_crdt_map_new(register);
+}
+
+export function jsCrdtMapNewWithId(id: Uint8Array, register: bigint): number {
+  return env.js_crdt_map_new_with_id(id, register);
+}
+
+export function jsCrdtVectorNewWithId(id: Uint8Array, register: bigint): number {
+  return env.js_crdt_vector_new_with_id(id, register);
+}
+
+export function jsCrdtSetNewWithId(id: Uint8Array, register: bigint): number {
+  return env.js_crdt_set_new_with_id(id, register);
+}
+
+export function jsCrdtLwwNewWithId(id: Uint8Array, register: bigint): number {
+  return env.js_crdt_lww_new_with_id(id, register);
+}
+
+export function jsCrdtCounterNewWithId(id: Uint8Array, register: bigint): number {
+  return env.js_crdt_counter_new_with_id(id, register);
+}
+
+export function jsUserStorageNewWithId(id: Uint8Array, register: bigint): number {
+  return env.js_user_storage_new_with_id(id, register);
+}
+
+export function jsFrozenStorageNewWithId(id: Uint8Array, register: bigint): number {
+  return env.js_frozen_storage_new_with_id(id, register);
 }
 
 export function jsCrdtMapGet(mapId: Uint8Array, key: Uint8Array, register: bigint): number {

@@ -155,6 +155,16 @@ extern int32_t js_frozen_storage_new(uint64_t register_id);
 extern int32_t js_frozen_storage_add(uint64_t storage_id_buffer_ptr, uint64_t value_buffer_ptr, uint64_t register_id);
 extern int32_t js_frozen_storage_get(uint64_t storage_id_buffer_ptr, uint64_t hash_buffer_ptr, uint64_t register_id);
 extern int32_t js_frozen_storage_contains(uint64_t storage_id_buffer_ptr, uint64_t hash_buffer_ptr);
+// Opt-in field-aware root merge + deterministic-id CRDT constructors
+// (concurrent-writer convergence). Provided by the node runtime.
+extern void register_js_sdk_root_merge(void);
+extern int32_t js_crdt_map_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_vector_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_set_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_lww_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_counter_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
+extern int32_t js_user_storage_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
+extern int32_t js_frozen_storage_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
 extern void commit(uint64_t root_hash_buffer_ptr, uint64_t artifact_buffer_ptr);
 extern void persist_root_state(uint64_t doc_buffer_ptr, uint64_t created_at, uint64_t updated_at);
 extern int32_t read_root_state(uint64_t register_id);
@@ -1688,6 +1698,44 @@ static JSValue js_ed25519_verify(JSContext *ctx, JSValueConst this_val, int argc
   return JS_NewBool(ctx, result);
 }
 
+// Wrapper: register_js_sdk_root_merge
+static JSValue js_register_js_sdk_root_merge(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  register_js_sdk_root_merge();
+  return JS_UNDEFINED;
+}
+
+// Deterministic-id CRDT constructors: (id: Uint8Array, register_id) -> int32
+// Shared body via macro since all seven host functions share the same shape.
+#define DEFINE_NEW_WITH_ID_WRAPPER(wrapper_name, host_fn, label)                       \
+  static JSValue wrapper_name(JSContext *ctx, JSValueConst this_val, int argc,         \
+                              JSValueConst *argv) {                                    \
+    if (argc < 2) {                                                                    \
+      JS_ThrowTypeError(ctx, label " expects id and register id");                     \
+      return JS_EXCEPTION;                                                             \
+    }                                                                                  \
+    size_t id_len;                                                                     \
+    uint8_t *id_ptr = JSValueToUint8Array(ctx, argv[0], &id_len);                      \
+    if (!id_ptr) {                                                                     \
+      JS_ThrowTypeError(ctx, label ": id must be Uint8Array");                         \
+      return JS_EXCEPTION;                                                             \
+    }                                                                                  \
+    int64_t register_id;                                                              \
+    if (js_to_i64(ctx, argv[1], &register_id)) {                                       \
+      return JS_EXCEPTION;                                                             \
+    }                                                                                  \
+    CalimeroBuffer id_buf = make_buffer(id_ptr, id_len);                               \
+    int32_t status = host_fn((uint64_t)&id_buf, (uint64_t)register_id);                \
+    return JS_NewInt32(ctx, status);                                                   \
+  }
+
+DEFINE_NEW_WITH_ID_WRAPPER(js_env_crdt_map_new_with_id, js_crdt_map_new_with_id, "js_crdt_map_new_with_id")
+DEFINE_NEW_WITH_ID_WRAPPER(js_env_crdt_vector_new_with_id, js_crdt_vector_new_with_id, "js_crdt_vector_new_with_id")
+DEFINE_NEW_WITH_ID_WRAPPER(js_env_crdt_set_new_with_id, js_crdt_set_new_with_id, "js_crdt_set_new_with_id")
+DEFINE_NEW_WITH_ID_WRAPPER(js_env_crdt_lww_new_with_id, js_crdt_lww_new_with_id, "js_crdt_lww_new_with_id")
+DEFINE_NEW_WITH_ID_WRAPPER(js_env_crdt_counter_new_with_id, js_crdt_counter_new_with_id, "js_crdt_counter_new_with_id")
+DEFINE_NEW_WITH_ID_WRAPPER(js_env_user_storage_new_with_id, js_user_storage_new_with_id, "js_user_storage_new_with_id")
+DEFINE_NEW_WITH_ID_WRAPPER(js_env_frozen_storage_new_with_id, js_frozen_storage_new_with_id, "js_frozen_storage_new_with_id")
+
 // ===========================
 // Register Host Functions
 // ===========================
@@ -1745,6 +1793,16 @@ void js_add_calimero_host_functions(JSContext *ctx) {
   JS_SetPropertyStr(ctx, env, "js_frozen_storage_add", JS_NewCFunction(ctx, js_env_frozen_storage_add, "js_frozen_storage_add", 3));
   JS_SetPropertyStr(ctx, env, "js_frozen_storage_get", JS_NewCFunction(ctx, js_env_frozen_storage_get, "js_frozen_storage_get", 3));
   JS_SetPropertyStr(ctx, env, "js_frozen_storage_contains", JS_NewCFunction(ctx, js_env_frozen_storage_contains, "js_frozen_storage_contains", 2));
+
+  // Opt-in root merge + deterministic-id CRDT constructors
+  JS_SetPropertyStr(ctx, env, "register_js_sdk_root_merge", JS_NewCFunction(ctx, js_register_js_sdk_root_merge, "register_js_sdk_root_merge", 0));
+  JS_SetPropertyStr(ctx, env, "js_crdt_map_new_with_id", JS_NewCFunction(ctx, js_env_crdt_map_new_with_id, "js_crdt_map_new_with_id", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_vector_new_with_id", JS_NewCFunction(ctx, js_env_crdt_vector_new_with_id, "js_crdt_vector_new_with_id", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_set_new_with_id", JS_NewCFunction(ctx, js_env_crdt_set_new_with_id, "js_crdt_set_new_with_id", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_lww_new_with_id", JS_NewCFunction(ctx, js_env_crdt_lww_new_with_id, "js_crdt_lww_new_with_id", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_counter_new_with_id", JS_NewCFunction(ctx, js_env_crdt_counter_new_with_id, "js_crdt_counter_new_with_id", 2));
+  JS_SetPropertyStr(ctx, env, "js_user_storage_new_with_id", JS_NewCFunction(ctx, js_env_user_storage_new_with_id, "js_user_storage_new_with_id", 2));
+  JS_SetPropertyStr(ctx, env, "js_frozen_storage_new_with_id", JS_NewCFunction(ctx, js_env_frozen_storage_new_with_id, "js_frozen_storage_new_with_id", 2));
   
   // Context
   JS_SetPropertyStr(ctx, env, "context_id", JS_NewCFunction(ctx, js_context_id, "context_id", 1));

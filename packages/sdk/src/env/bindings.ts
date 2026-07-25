@@ -19,6 +19,22 @@ export interface HostEnv {
   storage_write(key: Uint8Array, value: Uint8Array, register_id: bigint): bigint;
   storage_remove(key: Uint8Array, register_id: bigint): bigint;
   xcall(context_id: Uint8Array, function_name: Uint8Array, params: Uint8Array): void;
+
+  // Opt-in JS SDK root-state merge. When the guest calls this, core stamps the
+  // app root non-opaque so on sync it is routed to `__calimero_merge_root_state`
+  // (field-aware) instead of being LWW-collapsed.
+  register_js_sdk_root_merge(): void;
+
+  // Deterministic-id CRDT constructors (concurrent-writer convergence):
+  // create/re-open a collection at a caller-supplied 32-byte id.
+  js_crdt_map_new_with_id(id: Uint8Array, register_id: bigint): number;
+  js_crdt_vector_new_with_id(id: Uint8Array, register_id: bigint): number;
+  js_crdt_set_new_with_id(id: Uint8Array, register_id: bigint): number;
+  js_crdt_lww_new_with_id(id: Uint8Array, register_id: bigint): number;
+  js_crdt_counter_new_with_id(id: Uint8Array, register_id: bigint): number;
+  js_user_storage_new_with_id(id: Uint8Array, register_id: bigint): number;
+  js_frozen_storage_new_with_id(id: Uint8Array, register_id: bigint): number;
+
   js_crdt_map_new(register_id: bigint): number;
   js_crdt_map_get(mapId: Uint8Array, key: Uint8Array, register_id: bigint): number;
   js_crdt_map_insert(

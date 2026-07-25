@@ -18,6 +18,90 @@ interface PersistedStateDocument {
 }
 
 const ROOT_METADATA = Symbol.for('__calimeroRootMetadata');
+const ROOT_FORMAT_VERSION = 1;
+
+/**
+ * Decoded root document, independent of any live state instance.
+ *
+ * Shared by the persistence path ({@link saveRootState}/{@link loadRootState})
+ * and the field-aware sync merge ({@link parseRootDocument} /
+ * {@link serializeRootDocument}).
+ */
+export interface RootDocument {
+  values: Record<string, unknown>;
+  collections: Record<string, CollectionSnapshot>;
+  metadata: { createdAt: number; updatedAt: number };
+}
+
+function stateTypeRefFromAbi(): { stateTypeRef: TypeRef; abi: ReturnType<typeof getAbiManifest> } {
+  const abi = getAbiManifest();
+  if (!abi) {
+    throw new Error(
+      'ABI manifest is required but not available for root document (de)serialization'
+    );
+  }
+  const stateRootType = getStateRootType(abi);
+  if (!stateRootType || stateRootType.kind !== 'record') {
+    throw new Error('Invalid or missing state_root type in ABI');
+  }
+  const stateTypeRef: TypeRef = { kind: 'reference', name: abi.state_root };
+  return { stateTypeRef, abi };
+}
+
+/**
+ * Pure decode of the persisted root-document wire format into its parts.
+ *
+ * Wire format: `[u8 version=1][writeBytes(abi state)][writeBytes(collections+metadata)]`
+ */
+export function parseRootDocument(source: Uint8Array): RootDocument {
+  const reader = new BorshReader(source);
+  const formatVersion = reader.readU8();
+  if (formatVersion !== ROOT_FORMAT_VERSION) {
+    throw new Error(
+      `Unsupported state format version: ${formatVersion} (expected ${ROOT_FORMAT_VERSION})`
+    );
+  }
+
+  const { stateTypeRef, abi } = stateTypeRefFromAbi();
+  const stateBytes = reader.readBytes();
+  const values = deserializeWithAbi(stateBytes, stateTypeRef, abi!) as Record<string, unknown>;
+
+  const collectionsAndMetadataBytes = reader.readBytes();
+  const collectionsAndMetadata =
+    collectionsAndMetadataBytes.length > 0
+      ? deserialize<any>(collectionsAndMetadataBytes)
+      : { collections: {}, metadata: null };
+
+  const now = Number(env.timeNow());
+  return {
+    values,
+    collections: collectionsAndMetadata.collections || {},
+    metadata: collectionsAndMetadata.metadata || { createdAt: now, updatedAt: now },
+  };
+}
+
+/**
+ * Pure encode of a {@link RootDocument} back into the persisted wire format.
+ *
+ * Does NOT touch the host (no `persist_root_state`); the merge callback returns
+ * these bytes to core, which persists them.
+ */
+export function serializeRootDocument(doc: RootDocument): Uint8Array {
+  const { stateTypeRef, abi } = stateTypeRefFromAbi();
+  const statePayload = serializeWithAbi(doc.values, stateTypeRef, abi!);
+
+  const writer = new BorshWriter();
+  writer.writeU8(ROOT_FORMAT_VERSION);
+  writer.writeBytes(statePayload);
+
+  const collectionsAndMetadata = serialize({
+    collections: doc.collections,
+    metadata: doc.metadata,
+  });
+  writer.writeBytes(collectionsAndMetadata);
+
+  return writer.toBytes();
+}
 
 export function saveRootState(state: any): Uint8Array {
   if (!state || typeof state !== 'object') {
