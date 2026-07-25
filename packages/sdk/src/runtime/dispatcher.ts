@@ -579,11 +579,18 @@ function createLogicDispatcher(
       const result = logicInstance[methodName](...args);
 
       if (isMutating) {
-        // Flush CRDT delta changes to host storage
-        // This generates the delta that includes collection changes
-        flushDelta();
-        // Save state after flushing delta to ensure consistency
+        // Persist the root document FIRST, then flush the causal delta — the
+        // same order the @Init path uses. `StateManager.save()` writes the root
+        // doc (scalar fields + collection refs) via `persist_root_state`, which
+        // emits the root entity's storage action; `flushDelta()` then commits
+        // ALL pending actions (collection ops + that root action) into the delta
+        // the host broadcasts. The previous order (flush then save) left the
+        // root-doc change out of the delta, so a method that touched only the
+        // root doc — or persisted an unchanged doc on a joined node after a
+        // merge — produced `root_hash = Some` with an empty artifact, which the
+        // node rejects as `StateInconsistency` (the #84/#85 node-2 failures).
         StateManager.save(logicInstance);
+        flushDelta();
       }
 
       if (result !== undefined) {
