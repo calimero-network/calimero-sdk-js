@@ -136,7 +136,12 @@ steps:
 
   - name: Wait For Replication
     type: wait_for_sync
-    seconds: 30
+    context_id: '{{context_id}}'
+    nodes:
+      - crdt-conv-node-1
+      - crdt-conv-node-2
+    timeout: 60
+    check_interval: 2
 
   # --- Assert both nodes converged ---------------------------------------
   - name: Read Score On Node 1
