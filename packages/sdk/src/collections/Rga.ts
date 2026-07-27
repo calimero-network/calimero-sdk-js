@@ -67,7 +67,13 @@ export class Rga {
    * Inserts `text` at the given index. The bytes are stored as UTF-8 and can be
    * read back verbatim via {@link Rga.getText}.
    *
-   * @param index - Zero-based position to insert at (0..=len)
+   * `index` is a **Unicode codepoint offset** (0..={@link Rga.len}), NOT a
+   * JS-string (UTF-16 code-unit) offset — the two differ for astral-plane
+   * characters like emoji. Derive it from codepoints, e.g.
+   * `[...text].length` / `Array.from(text)`, not `text.length` or
+   * `text.indexOf(...)`.
+   *
+   * @param index - Zero-based codepoint position to insert at (0..=len)
    * @param text - Text to insert
    */
   insert(index: number, text: string): void {
@@ -78,9 +84,9 @@ export class Rga {
   }
 
   /**
-   * Deletes the element at the given index.
+   * Deletes the codepoint at the given index.
    *
-   * @param index - Zero-based position to delete
+   * @param index - Zero-based codepoint position to delete (see {@link Rga.insert})
    */
   delete(index: number): void {
     rgaDelete(this.rgaId, index);
@@ -97,7 +103,8 @@ export class Rga {
   }
 
   /**
-   * Returns the number of visible elements in the sequence.
+   * Returns the number of visible codepoints in the sequence. This is the
+   * upper bound for an {@link Rga.insert} index, and equals `[...getText()].length`.
    */
   len(): number {
     return rgaLen(this.rgaId);
