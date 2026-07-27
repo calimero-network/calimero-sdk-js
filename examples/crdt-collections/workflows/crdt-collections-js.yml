@@ -1,0 +1,166 @@
+description: CRDT Collections Demo Workflow (JavaScript SDK) - PNCounter / RGA / SortedMap / SortedSet
+name: CRDT Collections Demo (single node)
+
+# NOTE: This workflow requires the core host functions from
+# calimero-network/core#3318 (PNCounter / RGA / SortedMap / SortedSet). It can
+# only run once #3318 merges and the ghcr.io/calimero-network/merod:edge image
+# is rebuilt with those host functions. Until then, it is here for reference.
+
+force_pull_image: true
+
+nodes:
+  chain_id: testnet-1
+  count: 1
+  image: ghcr.io/calimero-network/merod:edge
+  prefix: crdt-node
+
+steps:
+  - name: Install CRDT Collections Application
+    type: install_application
+    node: crdt-node-1
+    path: 'examples/crdt-collections/build/service.wasm'
+    dev: true
+    outputs:
+      app_id: applicationId
+
+  - name: Create Namespace
+    type: create_namespace
+    node: crdt-node-1
+    application_id: '{{app_id}}'
+    outputs:
+      namespace_id: namespaceId
+
+  - name: Create Context
+    type: create_context
+    node: crdt-node-1
+    application_id: '{{app_id}}'
+    group_id: '{{namespace_id}}'
+    params: '{}'
+    outputs:
+      context_id: contextId
+      member_public_key: memberPublicKey
+
+  # --- PNCounter: 3 increments - 1 decrement = 2 -------------------------
+  - name: Add Point (1)
+    type: call
+    node: crdt-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: addPoint
+
+  - name: Add Point (2)
+    type: call
+    node: crdt-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: addPoint
+
+  - name: Add Point (3)
+    type: call
+    node: crdt-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: addPoint
+
+  - name: Remove Point (1)
+    type: call
+    node: crdt-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: removePoint
+
+  - name: Get Score
+    type: call
+    node: crdt-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getScore
+    outputs:
+      score_result: result.output
+
+  - name: Assert Score Is Two
+    type: json_assert
+    statements:
+      - 'equal({{score_result}}, 2)'
+
+  # --- RGA: insert text, read it back ------------------------------------
+  - name: Insert Text
+    type: call
+    node: crdt-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: insertText
+    args:
+      index: 0
+      text: hello
+
+  - name: Get Text
+    type: call
+    node: crdt-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getText
+    outputs:
+      text_result: result.output
+
+  - name: Assert Text Matches
+    type: json_assert
+    statements:
+      - 'json_equal({{text_result}}, "hello")'
+
+  # --- SortedMap: set and read back a value ------------------------------
+  - name: Set Points For Alice
+    type: call
+    node: crdt-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: setPoints
+    args:
+      name: alice
+      points: 42
+
+  - name: Get Points For Alice
+    type: call
+    node: crdt-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getPoints
+    args:
+      name: alice
+    outputs:
+      points_result: result.output
+
+  - name: Assert Points Match
+    type: json_assert
+    statements:
+      - 'equal({{points_result}}, 42)'
+
+  # --- SortedSet: add and check membership -------------------------------
+  - name: Add Tag
+    type: call
+    node: crdt-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: addTag
+    args:
+      tag: urgent
+
+  - name: Has Tag
+    type: call
+    node: crdt-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: hasTag
+    args:
+      tag: urgent
+    outputs:
+      has_tag_result: result.output
+
+  - name: Assert Tag Present
+    type: json_assert
+    statements:
+      - 'equal({{has_tag_result}}, true)'
+
+stop_all_nodes: false
+restart: true
+wait_timeout: 120

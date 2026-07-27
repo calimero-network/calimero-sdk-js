@@ -20,6 +20,10 @@ type CounterStore = {
   totalsByExecutor: Map<string, bigint>;
 };
 
+type RgaStore = {
+  elements: StoredValue[];
+};
+
 type LwwStore = {
   value: Uint8Array | null;
   timestamp: bigint;
@@ -33,6 +37,23 @@ const vectors = new Map<string, VectorStore>();
 const sets = new Map<string, SetStore>();
 const counters = new Map<string, CounterStore>();
 const lwwRegisters = new Map<string, LwwStore>();
+// Phase 1 CRDT types (PNCounter / RGA / SortedMap / SortedSet).
+// PN-Counter reuses CounterStore but totals may go negative.
+const pnCounters = new Map<string, CounterStore>();
+const rgas = new Map<string, RgaStore>();
+const sortedMaps = new Map<string, MapStore>();
+const sortedSets = new Map<string, SetStore>();
+
+// Lexicographic byte comparison for deterministic sorted iteration.
+function compareBytes(a: Uint8Array, b: Uint8Array): number {
+  const len = Math.min(a.length, b.length);
+  for (let i = 0; i < len; i += 1) {
+    if (a[i] !== b[i]) {
+      return a[i] - b[i];
+    }
+  }
+  return a.length - b.length;
+}
 
 // Register buffer
 let currentRegister: Uint8Array | null = null;
@@ -62,6 +83,13 @@ function writeU64ToRegister(value: bigint): void {
   const buffer = new Uint8Array(8);
   const view = new DataView(buffer.buffer);
   view.setBigUint64(0, value, true);
+  setRegister(buffer);
+}
+
+function writeI64ToRegister(value: bigint): void {
+  const buffer = new Uint8Array(8);
+  const view = new DataView(buffer.buffer);
+  view.setBigInt64(0, value, true);
   setRegister(buffer);
 }
 
@@ -233,6 +261,30 @@ function getExecutorKey(executor?: Uint8Array): string {
 
   js_crdt_counter_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
     counters.set(idToKey(id), { totalsByExecutor: new Map() });
+    setRegister(new Uint8Array(id));
+    return 1;
+  },
+
+  js_crdt_pncounter_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
+    pnCounters.set(idToKey(id), { totalsByExecutor: new Map() });
+    setRegister(new Uint8Array(id));
+    return 1;
+  },
+
+  js_crdt_rga_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
+    rgas.set(idToKey(id), { elements: [] });
+    setRegister(new Uint8Array(id));
+    return 1;
+  },
+
+  js_crdt_sorted_map_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
+    sortedMaps.set(idToKey(id), { entries: new Map() });
+    setRegister(new Uint8Array(id));
+    return 1;
+  },
+
+  js_crdt_sorted_set_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
+    sortedSets.set(idToKey(id), { values: new Set() });
     setRegister(new Uint8Array(id));
     return 1;
   },
@@ -536,6 +588,275 @@ function getExecutorKey(executor?: Uint8Array): string {
     writeU64ToRegister(total);
     return 1;
   },
+
+  // --- PNCounter (signed) ---------------------------------------------------
+
+  js_crdt_pncounter_new: (_register_id: bigint): number => {
+    const id = generateId();
+    pnCounters.set(idToKey(id), { totalsByExecutor: new Map() });
+    setRegister(id);
+    return 1;
+  },
+
+  js_crdt_pncounter_increment: (counterId: Uint8Array): number => {
+    const store = pnCounters.get(idToKey(counterId));
+    if (!store) {
+      return -1;
+    }
+    const executorKey = getExecutorKey();
+    const current = store.totalsByExecutor.get(executorKey) ?? 0n;
+    store.totalsByExecutor.set(executorKey, current + 1n);
+    return 1;
+  },
+
+  js_crdt_pncounter_decrement: (counterId: Uint8Array): number => {
+    const store = pnCounters.get(idToKey(counterId));
+    if (!store) {
+      return -1;
+    }
+    const executorKey = getExecutorKey();
+    const current = store.totalsByExecutor.get(executorKey) ?? 0n;
+    store.totalsByExecutor.set(executorKey, current - 1n);
+    return 1;
+  },
+
+  js_crdt_pncounter_value: (counterId: Uint8Array, _register_id: bigint): number => {
+    const store = pnCounters.get(idToKey(counterId));
+    if (!store) {
+      return -1;
+    }
+    const total = Array.from(store.totalsByExecutor.values()).reduce(
+      (acc, value) => acc + value,
+      0n
+    );
+    writeI64ToRegister(total);
+    return 1;
+  },
+
+  js_crdt_pncounter_get_executor_count: (
+    counterId: Uint8Array,
+    _register_id: bigint,
+    executorId?: Uint8Array
+  ): number => {
+    const store = pnCounters.get(idToKey(counterId));
+    if (!store) {
+      return -1;
+    }
+    const key = getExecutorKey(executorId);
+    const total = store.totalsByExecutor.get(key) ?? 0n;
+    writeI64ToRegister(total);
+    return 1;
+  },
+
+  // --- RGA (text sequence) --------------------------------------------------
+
+  js_crdt_rga_new: (_register_id: bigint): number => {
+    const id = generateId();
+    rgas.set(idToKey(id), { elements: [] });
+    setRegister(id);
+    return 1;
+  },
+
+  js_crdt_rga_insert: (rgaId: Uint8Array, index: number, value: Uint8Array): number => {
+    const store = rgas.get(idToKey(rgaId));
+    if (!store) {
+      return -1;
+    }
+    const at = Math.max(0, Math.min(index, store.elements.length));
+    store.elements.splice(at, 0, new Uint8Array(value));
+    return 1;
+  },
+
+  js_crdt_rga_delete: (rgaId: Uint8Array, index: number): number => {
+    const store = rgas.get(idToKey(rgaId));
+    if (!store) {
+      return -1;
+    }
+    if (index < 0 || index >= store.elements.length) {
+      return -1;
+    }
+    store.elements.splice(index, 1);
+    return 1;
+  },
+
+  js_crdt_rga_get_text: (rgaId: Uint8Array, _register_id: bigint): number => {
+    const store = rgas.get(idToKey(rgaId));
+    if (!store) {
+      return -1;
+    }
+    const total = store.elements.reduce((acc, element) => acc + element.length, 0);
+    const buffer = new Uint8Array(total);
+    let offset = 0;
+    for (const element of store.elements) {
+      buffer.set(element, offset);
+      offset += element.length;
+    }
+    setRegister(buffer);
+    return 1;
+  },
+
+  js_crdt_rga_len: (rgaId: Uint8Array, _register_id: bigint): number => {
+    const store = rgas.get(idToKey(rgaId));
+    if (!store) {
+      return -1;
+    }
+    writeU64ToRegister(BigInt(store.elements.length));
+    return 1;
+  },
+
+  // --- SortedMap (ordered iteration) ---------------------------------------
+
+  js_crdt_sorted_map_new: (_register_id: bigint): number => {
+    const id = generateId();
+    sortedMaps.set(idToKey(id), { entries: new Map() });
+    setRegister(id);
+    return 1;
+  },
+
+  js_crdt_sorted_map_get: (mapId: Uint8Array, key: Uint8Array, _register_id: bigint): number => {
+    const store = sortedMaps.get(idToKey(mapId));
+    if (!store) {
+      return -1;
+    }
+    const value = store.entries.get(Array.from(key).join(','));
+    if (!value) {
+      setRegister(null);
+      return 0;
+    }
+    setRegister(value);
+    return 1;
+  },
+
+  js_crdt_sorted_map_insert: (
+    mapId: Uint8Array,
+    key: Uint8Array,
+    value: Uint8Array,
+    _register_id: bigint
+  ): number => {
+    const store = sortedMaps.get(idToKey(mapId));
+    if (!store) {
+      return -1;
+    }
+    const entryKey = Array.from(key).join(',');
+    const previous = store.entries.get(entryKey);
+    store.entries.set(entryKey, new Uint8Array(value));
+    if (previous) {
+      setRegister(previous);
+      return 1;
+    }
+    setRegister(null);
+    return 0;
+  },
+
+  js_crdt_sorted_map_remove: (mapId: Uint8Array, key: Uint8Array, _register_id: bigint): number => {
+    const store = sortedMaps.get(idToKey(mapId));
+    if (!store) {
+      return -1;
+    }
+    const entryKey = Array.from(key).join(',');
+    const previous = store.entries.get(entryKey);
+    if (previous) {
+      store.entries.delete(entryKey);
+      setRegister(previous);
+      return 1;
+    }
+    setRegister(null);
+    return 0;
+  },
+
+  js_crdt_sorted_map_contains: (mapId: Uint8Array, key: Uint8Array): number => {
+    const store = sortedMaps.get(idToKey(mapId));
+    if (!store) {
+      return -1;
+    }
+    const entryKey = Array.from(key).join(',');
+    return store.entries.has(entryKey) ? 1 : 0;
+  },
+
+  js_crdt_sorted_map_iter: (mapId: Uint8Array, _register_id: bigint): number => {
+    const store = sortedMaps.get(idToKey(mapId));
+    if (!store) {
+      return -1;
+    }
+    const entries = Array.from(store.entries.entries()).map(([key, value]) => {
+      const keyBytes = Uint8Array.from(key.split(',').map(Number));
+      return [keyBytes, value] as [Uint8Array, Uint8Array];
+    });
+    // Ordered iteration: sort by key bytes.
+    entries.sort((a, b) => compareBytes(a[0], b[0]));
+    setRegister(serializeMapEntries(entries));
+    return 1;
+  },
+
+  // --- SortedSet (ordered iteration) ---------------------------------------
+
+  js_crdt_sorted_set_new: (_register_id: bigint): number => {
+    const id = generateId();
+    sortedSets.set(idToKey(id), { values: new Set() });
+    setRegister(id);
+    return 1;
+  },
+
+  js_crdt_sorted_set_insert: (setId: Uint8Array, value: Uint8Array): number => {
+    const store = sortedSets.get(idToKey(setId));
+    if (!store) {
+      return -1;
+    }
+    const key = Array.from(value).join(',');
+    const existed = store.values.has(key);
+    store.values.add(key);
+    return existed ? 0 : 1;
+  },
+
+  js_crdt_sorted_set_contains: (setId: Uint8Array, value: Uint8Array): number => {
+    const store = sortedSets.get(idToKey(setId));
+    if (!store) {
+      return -1;
+    }
+    const key = Array.from(value).join(',');
+    return store.values.has(key) ? 1 : 0;
+  },
+
+  js_crdt_sorted_set_remove: (setId: Uint8Array, value: Uint8Array): number => {
+    const store = sortedSets.get(idToKey(setId));
+    if (!store) {
+      return -1;
+    }
+    const key = Array.from(value).join(',');
+    return store.values.delete(key) ? 1 : 0;
+  },
+
+  js_crdt_sorted_set_len: (setId: Uint8Array, _register_id: bigint): number => {
+    const store = sortedSets.get(idToKey(setId));
+    if (!store) {
+      return -1;
+    }
+    writeU64ToRegister(BigInt(store.values.size));
+    return 1;
+  },
+
+  js_crdt_sorted_set_iter: (setId: Uint8Array, _register_id: bigint): number => {
+    const store = sortedSets.get(idToKey(setId));
+    if (!store) {
+      return -1;
+    }
+    const values = Array.from(store.values).map(value =>
+      Uint8Array.from(value.split(',').map(Number))
+    );
+    // Ordered iteration: sort by value bytes.
+    values.sort(compareBytes);
+    setRegister(serializeVec(values));
+    return 1;
+  },
+
+  js_crdt_sorted_set_clear: (setId: Uint8Array): number => {
+    const store = sortedSets.get(idToKey(setId));
+    if (!store) {
+      return -1;
+    }
+    store.values.clear();
+    return 1;
+  },
 };
 
 // Helper to clear storage between tests
@@ -546,6 +867,10 @@ export function clearStorage() {
   sets.clear();
   counters.clear();
   lwwRegisters.clear();
+  pnCounters.clear();
+  rgas.clear();
+  sortedMaps.clear();
+  sortedSets.clear();
   currentRegister = null;
 }
 

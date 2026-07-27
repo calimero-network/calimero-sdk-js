@@ -1,0 +1,188 @@
+description: CRDT Collections Concurrent-Writer Convergence (JavaScript SDK)
+name: CRDT Collections Convergence (two nodes)
+
+# NOTE: Bonus concurrent-writer workflow. Requires:
+#   1. core#3318 host functions (PNCounter / RGA / SortedMap / SortedSet), and
+#   2. the JS root-state merge + deterministic-id machinery (SDK #86 + core#3315),
+# both of which must be present in the merod:edge image. It can only run once
+# core#3318 merges and the image is rebuilt. Two independent writers each mutate
+# the PNCounter and SortedSet; on sync every replica must converge to the same
+# state (increments minus decrements sum; set union).
+
+force_pull_image: true
+
+nodes:
+  chain_id: testnet-1
+  count: 2
+  image: ghcr.io/calimero-network/merod:edge
+  prefix: crdt-conv-node
+
+steps:
+  - name: Install CRDT Collections Application
+    type: install_application
+    node: crdt-conv-node-1
+    path: 'examples/crdt-collections/build/service.wasm'
+    dev: true
+    outputs:
+      app_id: applicationId
+
+  - name: Create Namespace
+    type: create_namespace
+    node: crdt-conv-node-1
+    application_id: '{{app_id}}'
+    outputs:
+      namespace_id: namespaceId
+
+  - name: Create Context
+    type: create_context
+    node: crdt-conv-node-1
+    application_id: '{{app_id}}'
+    group_id: '{{namespace_id}}'
+    params: '{}'
+    outputs:
+      context_id: contextId
+      member_public_key: memberPublicKey
+
+  - name: Invite Node 2 To Namespace
+    type: create_namespace_invitation
+    node: crdt-conv-node-1
+    namespace_id: '{{namespace_id}}'
+    outputs:
+      node_2_invitation: invitation
+
+  - name: Wait For Namespace Governance To Gossip
+    type: wait
+    seconds: 5
+
+  - name: Node 2 Join Namespace
+    type: join_namespace
+    node: crdt-conv-node-2
+    namespace_id: '{{namespace_id}}'
+    invitation: '{{node_2_invitation}}'
+
+  - name: Node 2 Join Context
+    type: join_context
+    node: crdt-conv-node-2
+    context_id: '{{context_id}}'
+    outputs:
+      node_2_member_public_key: memberPublicKey
+
+  - name: Wait After Node 2 Join
+    type: wait
+    seconds: 2
+
+  # --- Concurrent PNCounter writes ---------------------------------------
+  # Node 1 net +2, Node 2 net +2  ->  converged value 4.
+  - name: Node 1 Add Point (1)
+    type: call
+    node: crdt-conv-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: addPoint
+
+  - name: Node 1 Add Point (2)
+    type: call
+    node: crdt-conv-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: addPoint
+
+  - name: Node 2 Add Point (1)
+    type: call
+    node: crdt-conv-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: addPoint
+
+  - name: Node 2 Add Point (2)
+    type: call
+    node: crdt-conv-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: addPoint
+
+  - name: Node 2 Add Point (3)
+    type: call
+    node: crdt-conv-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: addPoint
+
+  - name: Node 2 Remove Point (1)
+    type: call
+    node: crdt-conv-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: removePoint
+
+  # --- Concurrent SortedSet writes ---------------------------------------
+  - name: Node 1 Add Tag a
+    type: call
+    node: crdt-conv-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: addTag
+    args:
+      tag: a
+
+  - name: Node 2 Add Tag b
+    type: call
+    node: crdt-conv-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: addTag
+    args:
+      tag: b
+
+  - name: Wait For Replication
+    type: wait_for_sync
+    seconds: 30
+
+  # --- Assert both nodes converged ---------------------------------------
+  - name: Read Score On Node 1
+    type: call
+    node: crdt-conv-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getScore
+    outputs:
+      score_node_1: result.output
+
+  - name: Read Score On Node 2
+    type: call
+    node: crdt-conv-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: getScore
+    outputs:
+      score_node_2: result.output
+
+  - name: Read Tags On Node 1
+    type: call
+    node: crdt-conv-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: allTags
+    outputs:
+      tags_node_1: result.output
+
+  - name: Read Tags On Node 2
+    type: call
+    node: crdt-conv-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: allTags
+    outputs:
+      tags_node_2: result.output
+
+  - name: Assert Convergence
+    type: json_assert
+    statements:
+      - 'equal({{score_node_1}}, 4)'
+      - 'equal({{score_node_2}}, 4)'
+      - 'json_equal({{tags_node_1}}, ["a", "b"])'
+      - 'json_equal({{tags_node_2}}, ["a", "b"])'
+
+stop_all_nodes: false
+restart: true
+wait_timeout: 180

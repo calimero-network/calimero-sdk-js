@@ -45,6 +45,33 @@ import {
   jsCrdtCounterIncrement,
   jsCrdtCounterValue,
   jsCrdtCounterGetExecutorCount,
+  jsCrdtPncounterNew,
+  jsCrdtPncounterNewWithId,
+  jsCrdtPncounterIncrement,
+  jsCrdtPncounterDecrement,
+  jsCrdtPncounterValue,
+  jsCrdtPncounterGetExecutorCount,
+  jsCrdtRgaNew,
+  jsCrdtRgaNewWithId,
+  jsCrdtRgaInsert,
+  jsCrdtRgaDelete,
+  jsCrdtRgaGetText,
+  jsCrdtRgaLen,
+  jsCrdtSortedMapNew,
+  jsCrdtSortedMapNewWithId,
+  jsCrdtSortedMapGet,
+  jsCrdtSortedMapInsert,
+  jsCrdtSortedMapRemove,
+  jsCrdtSortedMapContains,
+  jsCrdtSortedMapIter,
+  jsCrdtSortedSetNew,
+  jsCrdtSortedSetNewWithId,
+  jsCrdtSortedSetInsert,
+  jsCrdtSortedSetContains,
+  jsCrdtSortedSetRemove,
+  jsCrdtSortedSetLen,
+  jsCrdtSortedSetIter,
+  jsCrdtSortedSetClear,
   jsUserStorageNew,
   jsUserStorageInsert,
   jsUserStorageGet,
@@ -150,6 +177,22 @@ export function lwwNewWithId(id: Uint8Array): Uint8Array {
 
 export function counterNewWithId(id: Uint8Array): Uint8Array {
   return newCollectionWithId(id, jsCrdtCounterNewWithId, 'counterNewWithId');
+}
+
+export function pncounterNewWithId(id: Uint8Array): Uint8Array {
+  return newCollectionWithId(id, jsCrdtPncounterNewWithId, 'pncounterNewWithId');
+}
+
+export function rgaNewWithId(id: Uint8Array): Uint8Array {
+  return newCollectionWithId(id, jsCrdtRgaNewWithId, 'rgaNewWithId');
+}
+
+export function sortedMapNewWithId(id: Uint8Array): Uint8Array {
+  return newCollectionWithId(id, jsCrdtSortedMapNewWithId, 'sortedMapNewWithId');
+}
+
+export function sortedSetNewWithId(id: Uint8Array): Uint8Array {
+  return newCollectionWithId(id, jsCrdtSortedSetNewWithId, 'sortedSetNewWithId');
 }
 
 export function userStorageNewWithId(id: Uint8Array): Uint8Array {
@@ -290,6 +333,15 @@ function readBigUint64(): bigint {
   }
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   return view.getBigUint64(0, true);
+}
+
+function readBigInt64(): bigint {
+  const bytes = readRegisterBytes();
+  if (bytes.length === 0) {
+    return 0n;
+  }
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return view.getBigInt64(0, true);
 }
 
 function readTimestampPayload(): { time: bigint; node: Uint8Array } {
@@ -585,6 +637,378 @@ export function counterGetExecutorCount(counterId: Uint8Array, executorId?: Uint
 
   const value = readBigUint64();
   return value;
+}
+
+// PNCounter functions (signed PN-Counter)
+
+export function pncounterNew(): Uint8Array {
+  const status = Number(jsCrdtPncounterNew(REGISTER_ID));
+  if (status < 0) {
+    decodeError('pncounterNew');
+  }
+
+  const id = readRegisterBytes();
+  if (id.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] pncounterNew returned invalid id length (${id.length})`);
+  }
+  return id;
+}
+
+export function pncounterIncrement(counterId: Uint8Array): void {
+  ensureCollectionId(counterId, 'counterId');
+
+  const status = Number(jsCrdtPncounterIncrement(counterId));
+  if (status < 0) {
+    decodeError('pncounterIncrement');
+  }
+}
+
+export function pncounterDecrement(counterId: Uint8Array): void {
+  ensureCollectionId(counterId, 'counterId');
+
+  const status = Number(jsCrdtPncounterDecrement(counterId));
+  if (status < 0) {
+    decodeError('pncounterDecrement');
+  }
+}
+
+export function pncounterValue(counterId: Uint8Array): bigint {
+  ensureCollectionId(counterId, 'counterId');
+
+  const status = Number(jsCrdtPncounterValue(counterId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('pncounterValue');
+  }
+
+  // PN-Counter values are signed (increments minus decrements).
+  return readBigInt64();
+}
+
+export function pncounterGetExecutorCount(counterId: Uint8Array, executorId?: Uint8Array): bigint {
+  ensureCollectionId(counterId, 'counterId');
+  if (executorId !== undefined && executorId !== null) {
+    ensureUint8Array(executorId, 'executorId');
+  }
+
+  const status = Number(
+    jsCrdtPncounterGetExecutorCount(counterId, REGISTER_ID, executorId ?? undefined)
+  );
+  if (status < 0) {
+    decodeError('pncounterGetExecutorCount');
+  }
+
+  // Per-executor net (positive - negative) is signed.
+  return readBigInt64();
+}
+
+// RGA functions (replicated growable array / text)
+
+export function rgaNew(): Uint8Array {
+  const status = Number(jsCrdtRgaNew(REGISTER_ID));
+  if (status < 0) {
+    decodeError('rgaNew');
+  }
+
+  const id = readRegisterBytes();
+  if (id.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] rgaNew returned invalid id length (${id.length})`);
+  }
+  return id;
+}
+
+export function rgaInsert(rgaId: Uint8Array, index: number, value: Uint8Array): void {
+  ensureCollectionId(rgaId, 'rgaId');
+  ensureUint8Array(value, 'value');
+  if (!Number.isInteger(index) || index < 0) {
+    throw new TypeError('index must be a non-negative integer');
+  }
+
+  const status = Number(jsCrdtRgaInsert(rgaId, index, value));
+  if (status < 0) {
+    decodeError('rgaInsert');
+  }
+}
+
+export function rgaDelete(rgaId: Uint8Array, index: number): void {
+  ensureCollectionId(rgaId, 'rgaId');
+  if (!Number.isInteger(index) || index < 0) {
+    throw new TypeError('index must be a non-negative integer');
+  }
+
+  const status = Number(jsCrdtRgaDelete(rgaId, index));
+  if (status < 0) {
+    decodeError('rgaDelete');
+  }
+}
+
+export function rgaGetText(rgaId: Uint8Array): Uint8Array {
+  ensureCollectionId(rgaId, 'rgaId');
+
+  const status = Number(jsCrdtRgaGetText(rgaId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('rgaGetText');
+  }
+
+  return readRegisterBytes();
+}
+
+export function rgaLen(rgaId: Uint8Array): number {
+  ensureCollectionId(rgaId, 'rgaId');
+
+  const status = Number(jsCrdtRgaLen(rgaId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('rgaLen');
+  }
+
+  return Number(readBigUint64());
+}
+
+// SortedMap functions (ordered iteration; same API as UnorderedMap)
+
+export function sortedMapNew(): Uint8Array {
+  const status = Number(jsCrdtSortedMapNew(REGISTER_ID));
+  if (status < 0) {
+    decodeError('sortedMapNew');
+  }
+
+  const id = readRegisterBytes();
+  if (id.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] sortedMapNew returned invalid id length (${id.length})`);
+  }
+  return id;
+}
+
+export function sortedMapGet(mapId: Uint8Array, key: Uint8Array): Uint8Array | null {
+  ensureCollectionId(mapId, 'mapId');
+  ensureUint8Array(key, 'key');
+
+  const status = Number(jsCrdtSortedMapGet(mapId, key, REGISTER_ID));
+  if (status < 0) {
+    decodeError('sortedMapGet');
+  }
+  if (status === 0) {
+    return null;
+  }
+
+  return readRegisterBytes();
+}
+
+export function sortedMapInsert(
+  mapId: Uint8Array,
+  key: Uint8Array,
+  value: Uint8Array
+): Uint8Array | null {
+  ensureCollectionId(mapId, 'mapId');
+  ensureUint8Array(key, 'key');
+  ensureUint8Array(value, 'value');
+
+  const status = Number(jsCrdtSortedMapInsert(mapId, key, value, REGISTER_ID));
+  if (status < 0) {
+    decodeError('sortedMapInsert');
+  }
+
+  if (status === 0) {
+    return null;
+  }
+
+  return readRegisterBytes();
+}
+
+export function sortedMapRemove(mapId: Uint8Array, key: Uint8Array): Uint8Array | null {
+  ensureCollectionId(mapId, 'mapId');
+  ensureUint8Array(key, 'key');
+
+  const status = Number(jsCrdtSortedMapRemove(mapId, key, REGISTER_ID));
+  if (status < 0) {
+    decodeError('sortedMapRemove');
+  }
+
+  if (status === 1) {
+    return readRegisterBytes();
+  }
+
+  return null;
+}
+
+export function sortedMapContains(mapId: Uint8Array, key: Uint8Array): boolean {
+  ensureCollectionId(mapId, 'mapId');
+  ensureUint8Array(key, 'key');
+
+  const status = Number(jsCrdtSortedMapContains(mapId, key));
+  if (status < 0) {
+    decodeError('sortedMapContains');
+  }
+  return status === 1;
+}
+
+export function sortedMapEntries(mapId: Uint8Array): Array<[Uint8Array, Uint8Array]> {
+  ensureCollectionId(mapId, 'mapId');
+
+  const status = Number(jsCrdtSortedMapIter(mapId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('sortedMapIter');
+  }
+
+  const payload = readRegisterBytes();
+  if (payload.length === 0) {
+    return [];
+  }
+  if (payload.length < 4) {
+    throw new Error('[storage] sortedMapIter payload too small');
+  }
+
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
+  let offset = 0;
+  const count = view.getUint32(offset, true);
+  offset += 4;
+
+  const entries: Array<[Uint8Array, Uint8Array]> = [];
+  for (let index = 0; index < count; index += 1) {
+    if (offset + 4 > payload.length) {
+      throw new Error('[storage] sortedMapIter payload truncated (key length)');
+    }
+    const keyLen = view.getUint32(offset, true);
+    offset += 4;
+    const keyEnd = offset + keyLen;
+    if (keyEnd > payload.length) {
+      throw new Error('[storage] sortedMapIter payload truncated (key bytes)');
+    }
+    const keyBytes = payload.slice(offset, keyEnd);
+    offset = keyEnd;
+
+    if (offset + 4 > payload.length) {
+      throw new Error('[storage] sortedMapIter payload truncated (value length)');
+    }
+    const valueLen = view.getUint32(offset, true);
+    offset += 4;
+    const valueEnd = offset + valueLen;
+    if (valueEnd > payload.length) {
+      throw new Error('[storage] sortedMapIter payload truncated (value bytes)');
+    }
+    const valueBytes = payload.slice(offset, valueEnd);
+    offset = valueEnd;
+
+    entries.push([keyBytes, valueBytes]);
+  }
+
+  if (offset !== payload.length) {
+    throw new Error('[storage] sortedMapIter payload has trailing bytes');
+  }
+
+  return entries;
+}
+
+// SortedSet functions (ordered iteration; same API as UnorderedSet)
+
+export function sortedSetNew(): Uint8Array {
+  const status = Number(jsCrdtSortedSetNew(REGISTER_ID));
+  if (status < 0) {
+    decodeError('sortedSetNew');
+  }
+
+  const id = readRegisterBytes();
+  if (id.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] sortedSetNew returned invalid id length (${id.length})`);
+  }
+  return id;
+}
+
+export function sortedSetInsert(setId: Uint8Array, value: Uint8Array): boolean {
+  ensureCollectionId(setId, 'setId');
+  ensureUint8Array(value, 'value');
+
+  const status = Number(jsCrdtSortedSetInsert(setId, value));
+  if (status < 0) {
+    decodeError('sortedSetInsert');
+  }
+  return status === 1;
+}
+
+export function sortedSetContains(setId: Uint8Array, value: Uint8Array): boolean {
+  ensureCollectionId(setId, 'setId');
+  ensureUint8Array(value, 'value');
+
+  const status = Number(jsCrdtSortedSetContains(setId, value));
+  if (status < 0) {
+    decodeError('sortedSetContains');
+  }
+  return status === 1;
+}
+
+export function sortedSetRemove(setId: Uint8Array, value: Uint8Array): boolean {
+  ensureCollectionId(setId, 'setId');
+  ensureUint8Array(value, 'value');
+
+  const status = Number(jsCrdtSortedSetRemove(setId, value));
+  if (status < 0) {
+    decodeError('sortedSetRemove');
+  }
+  return status === 1;
+}
+
+export function sortedSetLen(setId: Uint8Array): number {
+  ensureCollectionId(setId, 'setId');
+
+  const status = Number(jsCrdtSortedSetLen(setId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('sortedSetLen');
+  }
+
+  return Number(readBigUint64());
+}
+
+export function sortedSetValues(setId: Uint8Array): Uint8Array[] {
+  ensureCollectionId(setId, 'setId');
+
+  const status = Number(jsCrdtSortedSetIter(setId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('sortedSetIter');
+  }
+
+  const payload = readRegisterBytes();
+  if (payload.length === 0) {
+    return [];
+  }
+  if (payload.length < 4) {
+    throw new Error('[storage] sortedSetIter payload too small');
+  }
+
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
+  let offset = 0;
+  const count = view.getUint32(offset, true);
+  offset += 4;
+
+  const values: Uint8Array[] = [];
+  for (let index = 0; index < count; index += 1) {
+    if (offset + 4 > payload.length) {
+      throw new Error('[storage] sortedSetIter payload truncated (length header)');
+    }
+
+    const valueLen = view.getUint32(offset, true);
+    offset += 4;
+    const end = offset + valueLen;
+    if (end > payload.length) {
+      throw new Error('[storage] sortedSetIter payload truncated (value bytes)');
+    }
+
+    values.push(payload.slice(offset, end));
+    offset = end;
+  }
+
+  if (offset !== payload.length) {
+    throw new Error('[storage] sortedSetIter payload has trailing bytes');
+  }
+
+  return values;
+}
+
+export function sortedSetClear(setId: Uint8Array): void {
+  ensureCollectionId(setId, 'setId');
+
+  const status = Number(jsCrdtSortedSetClear(setId));
+  if (status < 0) {
+    decodeError('sortedSetClear');
+  }
 }
 
 // UserStorage functions
