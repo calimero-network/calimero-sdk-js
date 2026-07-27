@@ -13,6 +13,13 @@ import {
   registerLen,
   readRegister,
   jsCrdtMapNew,
+  jsCrdtMapNewWithId,
+  jsCrdtVectorNewWithId,
+  jsCrdtSetNewWithId,
+  jsCrdtLwwNewWithId,
+  jsCrdtCounterNewWithId,
+  jsUserStorageNewWithId,
+  jsFrozenStorageNewWithId,
   jsCrdtMapGet,
   jsCrdtMapInsert,
   jsCrdtMapRemove,
@@ -100,6 +107,57 @@ export function mapNew(): Uint8Array {
     throw new Error(`[storage] mapNew returned invalid map id length (${id.length})`);
   }
   return id;
+}
+
+// --- Deterministic-id constructors ---------------------------------------
+//
+// These create a collection *at a caller-supplied 32-byte id* via the host
+// `*_new_with_id` functions. Used for concurrent-writer convergence so two
+// nodes address the same entity for the same logical state field.
+
+function newCollectionWithId(
+  id: Uint8Array,
+  call: (id: Uint8Array, register: bigint) => number,
+  operation: string
+): Uint8Array {
+  ensureCollectionId(id, `${operation}.id`);
+  const status = Number(call(id, REGISTER_ID));
+  if (status < 0) {
+    decodeError(operation);
+  }
+  const returnedId = readRegisterBytes();
+  if (returnedId.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] ${operation} returned invalid id length (${returnedId.length})`);
+  }
+  return returnedId;
+}
+
+export function mapNewWithId(id: Uint8Array): Uint8Array {
+  return newCollectionWithId(id, jsCrdtMapNewWithId, 'mapNewWithId');
+}
+
+export function vectorNewWithId(id: Uint8Array): Uint8Array {
+  return newCollectionWithId(id, jsCrdtVectorNewWithId, 'vectorNewWithId');
+}
+
+export function setNewWithId(id: Uint8Array): Uint8Array {
+  return newCollectionWithId(id, jsCrdtSetNewWithId, 'setNewWithId');
+}
+
+export function lwwNewWithId(id: Uint8Array): Uint8Array {
+  return newCollectionWithId(id, jsCrdtLwwNewWithId, 'lwwNewWithId');
+}
+
+export function counterNewWithId(id: Uint8Array): Uint8Array {
+  return newCollectionWithId(id, jsCrdtCounterNewWithId, 'counterNewWithId');
+}
+
+export function userStorageNewWithId(id: Uint8Array): Uint8Array {
+  return newCollectionWithId(id, jsUserStorageNewWithId, 'userStorageNewWithId');
+}
+
+export function frozenStorageNewWithId(id: Uint8Array): Uint8Array {
+  return newCollectionWithId(id, jsFrozenStorageNewWithId, 'frozenStorageNewWithId');
 }
 
 export function mapGet(mapId: Uint8Array, key: Uint8Array): Uint8Array | null {

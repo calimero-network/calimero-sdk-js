@@ -3,15 +3,36 @@ import { StateManager } from './state-manager';
 import { runtimeLogicEntries } from './method-registry';
 import { getAbiManifest, getMethod } from '../abi/helpers';
 import type { TypeRef, AbiManifest, ScalarType, Variant } from '../abi/types';
+import { registerJsSdkRootMerge } from '../env/api';
+import { assignDeterministicIds } from './deterministic-ids';
+// Importing `registerMergeTypes` also runs ./merge's side effects, which
+// install globalThis.__calimero_merge_root_state (the field-aware root merge).
+import { registerMergeTypes } from './merge';
 import './sync';
 
 type JsonObject = Record<string, unknown>;
 
 const REGISTER_ID = 0n;
 
-if (typeof (globalThis as any).__calimero_register_merge !== 'function') {
-  (globalThis as any).__calimero_register_merge = function __calimero_register_merge(): void {};
-}
+/**
+ * `__calimero_register_merge` opt-in hook.
+ *
+ * Registers `@Mergeable` descriptors and signals the host that this app root
+ * should be merged field-aware via `__calimero_merge_root_state` on sync
+ * (instead of being LWW-collapsed). Called by the host at module registration.
+ */
+(globalThis as any).__calimero_register_merge = function __calimero_register_merge(): void {
+  try {
+    registerMergeTypes();
+  } catch (error) {
+    log(`[dispatcher] register_merge: descriptor registration failed: ${String(error)}`);
+  }
+  try {
+    registerJsSdkRootMerge();
+  } catch (error) {
+    log(`[dispatcher] register_merge: register_js_sdk_root_merge failed: ${String(error)}`);
+  }
+};
 
 /**
  * Converts a JSON value to ABI-compatible format
@@ -540,6 +561,9 @@ function createLogicDispatcher(
 
       if (!state && stateCtor) {
         state = new stateCtor();
+        // Fresh (unpersisted) state: normalize top-level collection field ids
+        // to deterministic values so concurrent writers converge.
+        assignDeterministicIds(state);
       }
 
       if (state) {
@@ -555,11 +579,18 @@ function createLogicDispatcher(
       const result = logicInstance[methodName](...args);
 
       if (isMutating) {
-        // Flush CRDT delta changes to host storage
-        // This generates the delta that includes collection changes
-        flushDelta();
-        // Save state after flushing delta to ensure consistency
+        // Persist the root document FIRST, then flush the causal delta — the
+        // same order the @Init path uses. `StateManager.save()` writes the root
+        // doc (scalar fields + collection refs) via `persist_root_state`, which
+        // emits the root entity's storage action; `flushDelta()` then commits
+        // ALL pending actions (collection ops + that root action) into the delta
+        // the host broadcasts. The previous order (flush then save) left the
+        // root-doc change out of the delta, so a method that touched only the
+        // root doc — or persisted an unchanged doc on a joined node after a
+        // merge — produced `root_hash = Some` with an empty artifact, which the
+        // node rejects as `StateInconsistency` (the #84/#85 node-2 failures).
         StateManager.save(logicInstance);
+        flushDelta();
       }
 
       if (result !== undefined) {
@@ -624,6 +655,10 @@ function createInitDispatcher(
       if (logicCtor && state instanceof logicCtor === false) {
         Object.setPrototypeOf(state, logicCtor.prototype);
       }
+
+      // Fresh init: assign deterministic ids to top-level collection fields so
+      // concurrent writers on different nodes address the same CRDT entities.
+      assignDeterministicIds(state);
 
       StateManager.save(state);
       flushDelta();

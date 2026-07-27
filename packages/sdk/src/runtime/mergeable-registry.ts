@@ -33,6 +33,13 @@ export function getMergeableDescriptor(type: string): MergeableDescriptor | unde
   return descriptors.get(type);
 }
 
+/**
+ * Number of `@Mergeable` types registered so far. Informational only.
+ */
+export function mergeableTypeCount(): number {
+  return descriptors.size;
+}
+
 export function cloneMergeableValue<T>(value: T): T {
   if (value === null || typeof value !== 'object') {
     return value;
