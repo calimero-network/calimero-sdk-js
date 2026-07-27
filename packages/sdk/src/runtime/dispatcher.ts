@@ -5,10 +5,10 @@ import { getAbiManifest, getMethod } from '../abi/helpers';
 import type { TypeRef, AbiManifest, ScalarType, Variant } from '../abi/types';
 import { registerJsSdkRootMerge } from '../env/api';
 import { assignDeterministicIds } from './deterministic-ids';
+// Importing `registerMergeTypes` also runs ./merge's side effects, which
+// install globalThis.__calimero_merge_root_state (the field-aware root merge).
 import { registerMergeTypes } from './merge';
 import './sync';
-// Installs globalThis.__calimero_merge_root_state (field-aware root merge).
-import './merge';
 
 type JsonObject = Record<string, unknown>;
 
