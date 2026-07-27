@@ -266,37 +266,17 @@ jobs:
             exit 1
           fi
 
-          # Known-limitation gating (diagnosed in #83):
-          #   * user-storage, frozen-storage: concurrent writes from two nodes.
-          #     A JS root is opaque to core (crdt_type: None) and merges via LWW,
-          #     which converges a single writer but not concurrent writers.
-          #     Fixed by the real JS root-state merge — core#3309 + JS side.
-          #     https://github.com/calimero-network/calimero-sdk-js/issues/83
-          #   * private-data: same convergence issue (#83) PLUS a node-side
-          #     setPrivateNote failure on the joined node — #85.
-          #     https://github.com/calimero-network/calimero-sdk-js/issues/85
-          #   * xcall: distinct functional bug — cross-context pong never
-          #     executes — unrelated to convergence — #84.
-          #     https://github.com/calimero-network/calimero-sdk-js/issues/84
-          SKIP_WORKFLOWS=(
-            "examples/kv-store-with-user-and-frozen-storage/workflows/test_user_storage.yml"
-            "examples/kv-store-with-user-and-frozen-storage/workflows/test_frozen_storage.yml"
-            "examples/private-data/workflows/private-data-js.yml"
-            "examples/xcall/workflows/xcall-js.yml"
-          )
-
+          # All example workflows run — no gating. The concurrent-writer
+          # convergence that previously failed (user-storage, frozen-storage,
+          # private-data, xcall) is fixed by core#3309/#3314/#3315 (JS root as a
+          # ROOT_ENTRY_ID leaf routed through the WASM root merge) plus the JS
+          # SDK's __calimero_merge_root_state + deterministic collection ids and
+          # the persist-then-flush ordering fix (which also cleared the
+          # joined-node StateInconsistency behind #84/#85). See #83.
           WORKFLOW_COUNT=0
           FAILED_WORKFLOWS=()
 
           for workflow in "${WORKFLOW_FILES[@]}"; do
-            skip=false
-            for s in "${SKIP_WORKFLOWS[@]}"; do
-              if [ "$workflow" = "$s" ]; then skip=true; break; fi
-            done
-            if [ "$skip" = true ]; then
-              echo "::notice::Skipping $workflow (concurrent-writer convergence, tracked in #83)"
-              continue
-            fi
             WORKFLOW_COUNT=$((WORKFLOW_COUNT + 1))
             if ! merobox bootstrap run "$workflow" \
                 --e2e-mode \
