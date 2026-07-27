@@ -18,10 +18,18 @@ steps:
     outputs:
       app_id: applicationId
 
+  - name: Create Counter Namespace
+    type: create_namespace
+    node: counter-node-1
+    application_id: '{{app_id}}'
+    outputs:
+      namespace_id: namespaceId
+
   - name: Create Counter Context
     type: create_context
     node: counter-node-1
     application_id: '{{app_id}}'
+    group_id: '{{namespace_id}}'
     params: '{}'
     outputs:
       context_id: contextId

@@ -18,11 +18,20 @@ steps:
     outputs:
       app_id: applicationId
 
-  # Step 2: Create a context for the Curb app
+  # Step 2: Create a namespace for the Curb app
+  - name: Create Curb Namespace
+    type: create_namespace
+    node: curb-node-1
+    application_id: '{{app_id}}'
+    outputs:
+      namespace_id: namespaceId
+
+  # Step 3: Create a context for the Curb app inside the namespace
   - name: Create Curb Context
     type: create_context
     node: curb-node-1
     application_id: '{{app_id}}'
+    group_id: '{{namespace_id}}'
     params: '{"ownerUsername": "testuser", "defaultChannels": [{"name": "general"}], "isDMchat": false}'
     outputs:
       context_id: contextId
