@@ -144,7 +144,11 @@ class NestedCollectionTracker {
     const parentSnapshot = snapshotCollection(parentCollection);
     if (!parentSnapshot) return;
 
-    if (parentSnapshot.type === 'UnorderedMap' && parentCollection.get && parentCollection.set) {
+    if (
+      (parentSnapshot.type === 'UnorderedMap' || parentSnapshot.type === 'AuthoredMap') &&
+      parentCollection.get &&
+      parentCollection.set
+    ) {
       const currentValue = parentCollection.get(key);
       if (currentValue) {
         // Temporarily unwrap to avoid infinite recursion
@@ -211,7 +215,7 @@ class NestedCollectionTracker {
       // FrozenStorage is immutable, nested collections shouldn't change
       // Just mark for update to ensure consistency
       this.markForUpdate(parentSnapshot.id);
-    } else if (parentSnapshot.type === 'Vector') {
+    } else if (parentSnapshot.type === 'Vector' || parentSnapshot.type === 'AuthoredVector') {
       // For Vector, we can't modify individual elements in-place since it's append-only.
       // The nested collection change will still be tracked and propagated through
       // the normal CRDT synchronization mechanism, but we mark the parent for update

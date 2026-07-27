@@ -1,0 +1,180 @@
+description: Attributed CRDT Collections Demo Workflow (JavaScript SDK) - AuthoredMap / AuthoredVector
+name: Authored Collections Demo (single node)
+
+# NOTE: This workflow requires the core host functions from
+# calimero-network/core#3321 (AuthoredMap / AuthoredVector). It can only run
+# once the ghcr.io/calimero-network/merod:edge image is rebuilt with those host
+# functions. Until then, it is here for reference.
+
+force_pull_image: true
+
+nodes:
+  chain_id: testnet-1
+  count: 1
+  image: ghcr.io/calimero-network/merod:edge
+  prefix: authored-node
+
+steps:
+  - name: Install Authored Collections Application
+    type: install_application
+    node: authored-node-1
+    path: 'examples/authored-collections/build/service.wasm'
+    dev: true
+    outputs:
+      app_id: applicationId
+
+  - name: Create Namespace
+    type: create_namespace
+    node: authored-node-1
+    application_id: '{{app_id}}'
+    outputs:
+      namespace_id: namespaceId
+
+  - name: Create Context
+    type: create_context
+    node: authored-node-1
+    application_id: '{{app_id}}'
+    group_id: '{{namespace_id}}'
+    params: '{}'
+    outputs:
+      context_id: contextId
+      member_public_key: memberPublicKey
+
+  # --- AuthoredMap: insert, read, and owner check ------------------------
+  - name: Set Profile For Alice
+    type: call
+    node: authored-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: setProfile
+    args:
+      name: alice
+      note: hello
+
+  - name: Get Profile For Alice
+    type: call
+    node: authored-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getProfile
+    args:
+      name: alice
+    outputs:
+      profile_result: result.output
+
+  - name: Assert Profile Matches
+    type: json_assert
+    statements:
+      - 'json_equal({{profile_result}}, "hello")'
+
+  - name: Profile Owned By Me
+    type: call
+    node: authored-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: profileOwnedByMe
+    args:
+      name: alice
+    outputs:
+      profile_owned_result: result.output
+
+  - name: Assert Profile Owned By Inserter
+    type: json_assert
+    statements:
+      - 'equal({{profile_owned_result}}, true)'
+
+  # --- AuthoredMap: owner can update -------------------------------------
+  - name: Update Profile For Alice
+    type: call
+    node: authored-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: updateProfile
+    args:
+      name: alice
+      note: updated
+
+  - name: Get Updated Profile
+    type: call
+    node: authored-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getProfile
+    args:
+      name: alice
+    outputs:
+      updated_profile_result: result.output
+
+  - name: Assert Profile Updated
+    type: json_assert
+    statements:
+      - 'json_equal({{updated_profile_result}}, "updated")'
+
+  # --- AuthoredVector: push, read, owner check, tombstone ----------------
+  - name: Add Post
+    type: call
+    node: authored-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: addPost
+    args:
+      text: first post
+
+  - name: Get Post
+    type: call
+    node: authored-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getPost
+    args:
+      index: 0
+    outputs:
+      post_result: result.output
+
+  - name: Assert Post Matches
+    type: json_assert
+    statements:
+      - 'json_equal({{post_result}}, "first post")'
+
+  - name: Post Owned By Me
+    type: call
+    node: authored-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: postOwnedByMe
+    args:
+      index: 0
+    outputs:
+      post_owned_result: result.output
+
+  - name: Assert Post Owned By Author
+    type: json_assert
+    statements:
+      - 'equal({{post_owned_result}}, true)'
+
+  - name: Delete Post
+    type: call
+    node: authored-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: deletePost
+    args:
+      index: 0
+
+  - name: Get Post Count
+    type: call
+    node: authored-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: allPosts
+    outputs:
+      all_posts_result: result.output
+
+  - name: Assert Post Tombstoned
+    type: json_assert
+    statements:
+      - 'json_equal({{all_posts_result}}, [])'
+
+stop_all_nodes: false
+restart: true
+wait_timeout: 120

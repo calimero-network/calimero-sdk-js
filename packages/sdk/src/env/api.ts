@@ -707,6 +707,133 @@ export function jsCrdtCounterGetExecutorCount(
   return env.js_crdt_counter_get_executor_count(counterId, register, executorId);
 }
 
+// --- AuthoredMap (attributed map) ---------------------------------------
+
+export function jsCrdtAuthoredMapNew(register: bigint): number {
+  return env.js_crdt_authored_map_new(register);
+}
+
+export function jsCrdtAuthoredMapNewWithId(id: Uint8Array, register: bigint): number {
+  return env.js_crdt_authored_map_new_with_id(id, register);
+}
+
+export function jsCrdtAuthoredMapInsert(
+  mapId: Uint8Array,
+  key: Uint8Array,
+  value: Uint8Array,
+  register: bigint
+): number {
+  return env.js_crdt_authored_map_insert(mapId, key, value, register);
+}
+
+export function jsCrdtAuthoredMapUpdate(
+  mapId: Uint8Array,
+  key: Uint8Array,
+  value: Uint8Array,
+  register: bigint
+): number {
+  return env.js_crdt_authored_map_update(mapId, key, value, register);
+}
+
+export function jsCrdtAuthoredMapRemove(
+  mapId: Uint8Array,
+  key: Uint8Array,
+  register: bigint
+): number {
+  return env.js_crdt_authored_map_remove(mapId, key, register);
+}
+
+export function jsCrdtAuthoredMapGet(mapId: Uint8Array, key: Uint8Array, register: bigint): number {
+  return env.js_crdt_authored_map_get(mapId, key, register);
+}
+
+export function jsCrdtAuthoredMapContains(mapId: Uint8Array, key: Uint8Array): number {
+  return env.js_crdt_authored_map_contains(mapId, key);
+}
+
+export function jsCrdtAuthoredMapOwnerOf(
+  mapId: Uint8Array,
+  key: Uint8Array,
+  register: bigint
+): number {
+  return env.js_crdt_authored_map_owner_of(mapId, key, register);
+}
+
+export function jsCrdtAuthoredMapOwnedByMe(mapId: Uint8Array, key: Uint8Array): number {
+  return env.js_crdt_authored_map_owned_by_me(mapId, key);
+}
+
+export function jsCrdtAuthoredMapIter(mapId: Uint8Array, register: bigint): number {
+  return env.js_crdt_authored_map_iter(mapId, register);
+}
+
+export function jsCrdtAuthoredMapLen(mapId: Uint8Array, register: bigint): number {
+  return env.js_crdt_authored_map_len(mapId, register);
+}
+
+// --- AuthoredVector (attributed ordered list) ---------------------------
+
+export function jsCrdtAuthoredVectorNew(register: bigint): number {
+  return env.js_crdt_authored_vector_new(register);
+}
+
+export function jsCrdtAuthoredVectorNewWithId(id: Uint8Array, register: bigint): number {
+  return env.js_crdt_authored_vector_new_with_id(id, register);
+}
+
+export function jsCrdtAuthoredVectorPush(
+  vectorId: Uint8Array,
+  value: Uint8Array,
+  register: bigint
+): number {
+  return env.js_crdt_authored_vector_push(vectorId, value, register);
+}
+
+export function jsCrdtAuthoredVectorUpdate(
+  vectorId: Uint8Array,
+  index: number,
+  value: Uint8Array,
+  register: bigint
+): number {
+  return env.js_crdt_authored_vector_update(vectorId, index, value, register);
+}
+
+export function jsCrdtAuthoredVectorTombstone(
+  vectorId: Uint8Array,
+  index: number,
+  register: bigint
+): number {
+  return env.js_crdt_authored_vector_tombstone(vectorId, index, register);
+}
+
+export function jsCrdtAuthoredVectorGet(
+  vectorId: Uint8Array,
+  index: number,
+  register: bigint
+): number {
+  return env.js_crdt_authored_vector_get(vectorId, index, register);
+}
+
+export function jsCrdtAuthoredVectorOwnerOf(
+  vectorId: Uint8Array,
+  index: number,
+  register: bigint
+): number {
+  return env.js_crdt_authored_vector_owner_of(vectorId, index, register);
+}
+
+export function jsCrdtAuthoredVectorOwnedByMe(vectorId: Uint8Array, index: number): number {
+  return env.js_crdt_authored_vector_owned_by_me(vectorId, index);
+}
+
+export function jsCrdtAuthoredVectorIter(vectorId: Uint8Array, register: bigint): number {
+  return env.js_crdt_authored_vector_iter(vectorId, register);
+}
+
+export function jsCrdtAuthoredVectorLen(vectorId: Uint8Array, register: bigint): number {
+  return env.js_crdt_authored_vector_len(vectorId, register);
+}
+
 export function jsUserStorageNew(register: bigint): number {
   return env.js_user_storage_new(register);
 }

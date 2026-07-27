@@ -1477,6 +1477,30 @@ export class AbiEmitter {
           } as any;
         }
         break;
+      case 'AuthoredMap':
+        // Attributed map: same logical shape as UnorderedMap (authorship is a
+        // storage concern, not part of the logical value type).
+        if (type.typeParameters?.params?.length >= 2) {
+          return {
+            kind: 'map',
+            key: this.extractTypeFromAnnotation({ typeAnnotation: type.typeParameters.params[0] }),
+            value: this.extractTypeFromAnnotation({
+              typeAnnotation: type.typeParameters.params[1],
+            }),
+          };
+        }
+        break;
+      case 'AuthoredVector':
+        // Attributed ordered list: same logical shape as Vector.
+        if (type.typeParameters?.params?.length >= 1) {
+          return {
+            kind: 'vector',
+            inner: this.extractTypeFromAnnotation({
+              typeAnnotation: type.typeParameters.params[0],
+            }),
+          } as any;
+        }
+        break;
       case 'Counter':
         // Counter returns u64 value, but is stored as collection reference (32 bytes)
         // ABI represents the logical type (u64), deserializer handles the storage format
@@ -2071,6 +2095,36 @@ export class AbiEmitter {
             kind: 'list',
             items: itemType,
             crdt_type: 'vector',
+          };
+        }
+        break;
+      }
+      case 'AuthoredMap': {
+        if (type.typeParameters?.params?.length >= 2) {
+          const keyType = this.serializeTypeRefWithCrdtMetadata({
+            typeAnnotation: type.typeParameters.params[0],
+          });
+          const valueType = this.serializeTypeRefWithCrdtMetadata({
+            typeAnnotation: type.typeParameters.params[1],
+          });
+          return {
+            kind: 'map',
+            key: keyType,
+            value: valueType,
+            crdt_type: 'authored_map',
+          };
+        }
+        break;
+      }
+      case 'AuthoredVector': {
+        if (type.typeParameters?.params?.length >= 1) {
+          const itemType = this.serializeTypeRefWithCrdtMetadata({
+            typeAnnotation: type.typeParameters.params[0],
+          });
+          return {
+            kind: 'list',
+            items: itemType,
+            crdt_type: 'authored_vector',
           };
         }
         break;

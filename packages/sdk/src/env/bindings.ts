@@ -70,6 +70,58 @@ export interface HostEnv {
     register_id: bigint,
     executorId?: Uint8Array
   ): number;
+  // AuthoredMap (attributed map; entries stamped with an owner)
+  js_crdt_authored_map_new(register_id: bigint): number;
+  js_crdt_authored_map_new_with_id(id: Uint8Array, register_id: bigint): number;
+  js_crdt_authored_map_insert(
+    mapId: Uint8Array,
+    key: Uint8Array,
+    value: Uint8Array,
+    register_id: bigint
+  ): number;
+  js_crdt_authored_map_update(
+    mapId: Uint8Array,
+    key: Uint8Array,
+    value: Uint8Array,
+    register_id: bigint
+  ): number;
+  js_crdt_authored_map_remove(mapId: Uint8Array, key: Uint8Array, register_id: bigint): number;
+  js_crdt_authored_map_get(mapId: Uint8Array, key: Uint8Array, register_id: bigint): number;
+  js_crdt_authored_map_contains(mapId: Uint8Array, key: Uint8Array): number;
+  js_crdt_authored_map_owner_of(mapId: Uint8Array, key: Uint8Array, register_id: bigint): number;
+  js_crdt_authored_map_owned_by_me(mapId: Uint8Array, key: Uint8Array): number;
+  js_crdt_authored_map_iter(mapId: Uint8Array, register_id: bigint): number;
+  js_crdt_authored_map_len(mapId: Uint8Array, register_id: bigint): number;
+
+  // AuthoredVector (attributed ordered list; slots stamped with an owner)
+  js_crdt_authored_vector_new(register_id: bigint): number;
+  js_crdt_authored_vector_new_with_id(id: Uint8Array, register_id: bigint): number;
+  js_crdt_authored_vector_push(
+    vectorId: Uint8Array,
+    value: Uint8Array,
+    register_id: bigint
+  ): number;
+  js_crdt_authored_vector_update(
+    vectorId: Uint8Array,
+    index: number,
+    value: Uint8Array,
+    register_id: bigint
+  ): number;
+  js_crdt_authored_vector_tombstone(
+    vectorId: Uint8Array,
+    index: number,
+    register_id: bigint
+  ): number;
+  js_crdt_authored_vector_get(vectorId: Uint8Array, index: number, register_id: bigint): number;
+  js_crdt_authored_vector_owner_of(
+    vectorId: Uint8Array,
+    index: number,
+    register_id: bigint
+  ): number;
+  js_crdt_authored_vector_owned_by_me(vectorId: Uint8Array, index: number): number;
+  js_crdt_authored_vector_iter(vectorId: Uint8Array, register_id: bigint): number;
+  js_crdt_authored_vector_len(vectorId: Uint8Array, register_id: bigint): number;
+
   js_user_storage_new(register_id: bigint): number;
   js_user_storage_insert(storageId: Uint8Array, value: Uint8Array, register_id: bigint): number;
   js_user_storage_get(storageId: Uint8Array, register_id: bigint): number;

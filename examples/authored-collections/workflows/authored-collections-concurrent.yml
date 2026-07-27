@@ -1,0 +1,186 @@
+description: Attributed CRDT Collections Concurrent-Writer Convergence (JavaScript SDK)
+name: Authored Collections Convergence (two nodes)
+
+# NOTE: Bonus concurrent-writer workflow. Requires:
+#   1. core#3321 host functions (AuthoredMap / AuthoredVector), and
+#   2. the JS root-state merge + deterministic-id machinery (SDK #86 + core#3315),
+# both of which must be present in the merod:edge image. It can only run once
+# the image is rebuilt with core#3321. Two independent writers each add an entry
+# they own; on sync every replica must converge to the union, and each entry's
+# owner is preserved (so a member can read but not mutate the other's entry).
+
+force_pull_image: true
+
+nodes:
+  chain_id: testnet-1
+  count: 2
+  image: ghcr.io/calimero-network/merod:edge
+  prefix: authored-conv-node
+
+steps:
+  - name: Install Authored Collections Application
+    type: install_application
+    node: authored-conv-node-1
+    path: 'examples/authored-collections/build/service.wasm'
+    dev: true
+    outputs:
+      app_id: applicationId
+
+  - name: Create Namespace
+    type: create_namespace
+    node: authored-conv-node-1
+    application_id: '{{app_id}}'
+    outputs:
+      namespace_id: namespaceId
+
+  - name: Create Context
+    type: create_context
+    node: authored-conv-node-1
+    application_id: '{{app_id}}'
+    group_id: '{{namespace_id}}'
+    params: '{}'
+    outputs:
+      context_id: contextId
+      member_public_key: memberPublicKey
+
+  - name: Invite Node 2 To Namespace
+    type: create_namespace_invitation
+    node: authored-conv-node-1
+    namespace_id: '{{namespace_id}}'
+    outputs:
+      node_2_invitation: invitation
+
+  - name: Wait For Namespace Governance To Gossip
+    type: wait
+    seconds: 5
+
+  - name: Node 2 Join Namespace
+    type: join_namespace
+    node: authored-conv-node-2
+    namespace_id: '{{namespace_id}}'
+    invitation: '{{node_2_invitation}}'
+
+  - name: Node 2 Join Context
+    type: join_context
+    node: authored-conv-node-2
+    context_id: '{{context_id}}'
+    outputs:
+      node_2_member_public_key: memberPublicKey
+
+  - name: Wait After Node 2 Join
+    type: wait
+    seconds: 2
+
+  # --- Concurrent AuthoredMap writes (distinct keys, distinct owners) ----
+  - name: Node 1 Set Profile alice
+    type: call
+    node: authored-conv-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: setProfile
+    args:
+      name: alice
+      note: from-node-1
+
+  - name: Node 2 Set Profile bob
+    type: call
+    node: authored-conv-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: setProfile
+    args:
+      name: bob
+      note: from-node-2
+
+  # --- Concurrent AuthoredVector writes ----------------------------------
+  - name: Node 1 Add Post
+    type: call
+    node: authored-conv-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: addPost
+    args:
+      text: post-from-node-1
+
+  - name: Node 2 Add Post
+    type: call
+    node: authored-conv-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: addPost
+    args:
+      text: post-from-node-2
+
+  - name: Wait For Replication
+    type: wait_for_sync
+    context_id: '{{context_id}}'
+    nodes:
+      - authored-conv-node-1
+      - authored-conv-node-2
+    timeout: 60
+    check_interval: 2
+
+  # --- Assert both nodes converged ---------------------------------------
+  - name: Read Alice Profile On Node 2
+    type: call
+    node: authored-conv-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: getProfile
+    args:
+      name: alice
+    outputs:
+      alice_on_node_2: result.output
+
+  - name: Read Bob Profile On Node 1
+    type: call
+    node: authored-conv-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getProfile
+    args:
+      name: bob
+    outputs:
+      bob_on_node_1: result.output
+
+  - name: Read Profile Names On Node 1
+    type: call
+    node: authored-conv-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: profileNames
+    outputs:
+      names_node_1: result.output
+
+  - name: Read Post Count On Node 2
+    type: call
+    node: authored-conv-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: postCount
+    outputs:
+      post_count_node_2: result.output
+
+  # Node 2 does not own alice's profile, so ownedByMe must be false there.
+  - name: Alice Owned By Node 2
+    type: call
+    node: authored-conv-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: profileOwnedByMe
+    args:
+      name: alice
+    outputs:
+      alice_owned_by_node_2: result.output
+
+  - name: Assert Convergence
+    type: json_assert
+    statements:
+      - 'json_equal({{alice_on_node_2}}, "from-node-1")'
+      - 'json_equal({{bob_on_node_1}}, "from-node-2")'
+      - 'equal({{post_count_node_2}}, 2)'
+      - 'equal({{alice_owned_by_node_2}}, false)'
+
+stop_all_nodes: false
+restart: true
+wait_timeout: 180
