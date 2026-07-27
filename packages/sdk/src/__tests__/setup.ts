@@ -277,13 +277,13 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 1;
   },
 
-  js_crdt_sorted_map_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
+  js_crdt_sortedmap_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
     sortedMaps.set(idToKey(id), { entries: new Map() });
     setRegister(new Uint8Array(id));
     return 1;
   },
 
-  js_crdt_sorted_set_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
+  js_crdt_sortedset_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
     sortedSets.set(idToKey(id), { values: new Set() });
     setRegister(new Uint8Array(id));
     return 1;
@@ -706,14 +706,14 @@ function getExecutorKey(executor?: Uint8Array): string {
 
   // --- SortedMap (ordered iteration) ---------------------------------------
 
-  js_crdt_sorted_map_new: (_register_id: bigint): number => {
+  js_crdt_sortedmap_new: (_register_id: bigint): number => {
     const id = generateId();
     sortedMaps.set(idToKey(id), { entries: new Map() });
     setRegister(id);
     return 1;
   },
 
-  js_crdt_sorted_map_get: (mapId: Uint8Array, key: Uint8Array, _register_id: bigint): number => {
+  js_crdt_sortedmap_get: (mapId: Uint8Array, key: Uint8Array, _register_id: bigint): number => {
     const store = sortedMaps.get(idToKey(mapId));
     if (!store) {
       return -1;
@@ -727,7 +727,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 1;
   },
 
-  js_crdt_sorted_map_insert: (
+  js_crdt_sortedmap_insert: (
     mapId: Uint8Array,
     key: Uint8Array,
     value: Uint8Array,
@@ -748,7 +748,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 0;
   },
 
-  js_crdt_sorted_map_remove: (mapId: Uint8Array, key: Uint8Array, _register_id: bigint): number => {
+  js_crdt_sortedmap_remove: (mapId: Uint8Array, key: Uint8Array, _register_id: bigint): number => {
     const store = sortedMaps.get(idToKey(mapId));
     if (!store) {
       return -1;
@@ -764,7 +764,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 0;
   },
 
-  js_crdt_sorted_map_contains: (mapId: Uint8Array, key: Uint8Array): number => {
+  js_crdt_sortedmap_contains: (mapId: Uint8Array, key: Uint8Array): number => {
     const store = sortedMaps.get(idToKey(mapId));
     if (!store) {
       return -1;
@@ -773,7 +773,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return store.entries.has(entryKey) ? 1 : 0;
   },
 
-  js_crdt_sorted_map_iter: (mapId: Uint8Array, _register_id: bigint): number => {
+  js_crdt_sortedmap_iter: (mapId: Uint8Array, _register_id: bigint): number => {
     const store = sortedMaps.get(idToKey(mapId));
     if (!store) {
       return -1;
@@ -790,14 +790,14 @@ function getExecutorKey(executor?: Uint8Array): string {
 
   // --- SortedSet (ordered iteration) ---------------------------------------
 
-  js_crdt_sorted_set_new: (_register_id: bigint): number => {
+  js_crdt_sortedset_new: (_register_id: bigint): number => {
     const id = generateId();
     sortedSets.set(idToKey(id), { values: new Set() });
     setRegister(id);
     return 1;
   },
 
-  js_crdt_sorted_set_insert: (setId: Uint8Array, value: Uint8Array): number => {
+  js_crdt_sortedset_insert: (setId: Uint8Array, value: Uint8Array): number => {
     const store = sortedSets.get(idToKey(setId));
     if (!store) {
       return -1;
@@ -808,7 +808,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return existed ? 0 : 1;
   },
 
-  js_crdt_sorted_set_contains: (setId: Uint8Array, value: Uint8Array): number => {
+  js_crdt_sortedset_contains: (setId: Uint8Array, value: Uint8Array): number => {
     const store = sortedSets.get(idToKey(setId));
     if (!store) {
       return -1;
@@ -817,7 +817,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return store.values.has(key) ? 1 : 0;
   },
 
-  js_crdt_sorted_set_remove: (setId: Uint8Array, value: Uint8Array): number => {
+  js_crdt_sortedset_remove: (setId: Uint8Array, value: Uint8Array): number => {
     const store = sortedSets.get(idToKey(setId));
     if (!store) {
       return -1;
@@ -826,7 +826,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return store.values.delete(key) ? 1 : 0;
   },
 
-  js_crdt_sorted_set_len: (setId: Uint8Array, _register_id: bigint): number => {
+  js_crdt_sortedset_len: (setId: Uint8Array, _register_id: bigint): number => {
     const store = sortedSets.get(idToKey(setId));
     if (!store) {
       return -1;
@@ -835,7 +835,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 1;
   },
 
-  js_crdt_sorted_set_iter: (setId: Uint8Array, _register_id: bigint): number => {
+  js_crdt_sortedset_iter: (setId: Uint8Array, _register_id: bigint): number => {
     const store = sortedSets.get(idToKey(setId));
     if (!store) {
       return -1;
@@ -849,7 +849,7 @@ function getExecutorKey(executor?: Uint8Array): string {
     return 1;
   },
 
-  js_crdt_sorted_set_clear: (setId: Uint8Array): number => {
+  js_crdt_sortedset_clear: (setId: Uint8Array): number => {
     const store = sortedSets.get(idToKey(setId));
     if (!store) {
       return -1;

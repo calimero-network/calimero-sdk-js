@@ -766,15 +766,15 @@ export function jsCrdtRgaLen(rgaId: Uint8Array, register: bigint): number {
 // --- SortedMap (ordered-iteration map) ----------------------------------
 
 export function jsCrdtSortedMapNew(register: bigint): number {
-  return env.js_crdt_sorted_map_new(register);
+  return env.js_crdt_sortedmap_new(register);
 }
 
 export function jsCrdtSortedMapNewWithId(id: Uint8Array, register: bigint): number {
-  return env.js_crdt_sorted_map_new_with_id(id, register);
+  return env.js_crdt_sortedmap_new_with_id(id, register);
 }
 
 export function jsCrdtSortedMapGet(mapId: Uint8Array, key: Uint8Array, register: bigint): number {
-  return env.js_crdt_sorted_map_get(mapId, key, register);
+  return env.js_crdt_sortedmap_get(mapId, key, register);
 }
 
 export function jsCrdtSortedMapInsert(
@@ -783,7 +783,7 @@ export function jsCrdtSortedMapInsert(
   value: Uint8Array,
   register: bigint
 ): number {
-  return env.js_crdt_sorted_map_insert(mapId, key, value, register);
+  return env.js_crdt_sortedmap_insert(mapId, key, value, register);
 }
 
 export function jsCrdtSortedMapRemove(
@@ -791,49 +791,49 @@ export function jsCrdtSortedMapRemove(
   key: Uint8Array,
   register: bigint
 ): number {
-  return env.js_crdt_sorted_map_remove(mapId, key, register);
+  return env.js_crdt_sortedmap_remove(mapId, key, register);
 }
 
 export function jsCrdtSortedMapContains(mapId: Uint8Array, key: Uint8Array): number {
-  return env.js_crdt_sorted_map_contains(mapId, key);
+  return env.js_crdt_sortedmap_contains(mapId, key);
 }
 
 export function jsCrdtSortedMapIter(mapId: Uint8Array, register: bigint): number {
-  return env.js_crdt_sorted_map_iter(mapId, register);
+  return env.js_crdt_sortedmap_iter(mapId, register);
 }
 
 // --- SortedSet (ordered-iteration set) ----------------------------------
 
 export function jsCrdtSortedSetNew(register: bigint): number {
-  return env.js_crdt_sorted_set_new(register);
+  return env.js_crdt_sortedset_new(register);
 }
 
 export function jsCrdtSortedSetNewWithId(id: Uint8Array, register: bigint): number {
-  return env.js_crdt_sorted_set_new_with_id(id, register);
+  return env.js_crdt_sortedset_new_with_id(id, register);
 }
 
 export function jsCrdtSortedSetInsert(setId: Uint8Array, value: Uint8Array): number {
-  return env.js_crdt_sorted_set_insert(setId, value);
+  return env.js_crdt_sortedset_insert(setId, value);
 }
 
 export function jsCrdtSortedSetContains(setId: Uint8Array, value: Uint8Array): number {
-  return env.js_crdt_sorted_set_contains(setId, value);
+  return env.js_crdt_sortedset_contains(setId, value);
 }
 
 export function jsCrdtSortedSetRemove(setId: Uint8Array, value: Uint8Array): number {
-  return env.js_crdt_sorted_set_remove(setId, value);
+  return env.js_crdt_sortedset_remove(setId, value);
 }
 
 export function jsCrdtSortedSetLen(setId: Uint8Array, register: bigint): number {
-  return env.js_crdt_sorted_set_len(setId, register);
+  return env.js_crdt_sortedset_len(setId, register);
 }
 
 export function jsCrdtSortedSetIter(setId: Uint8Array, register: bigint): number {
-  return env.js_crdt_sorted_set_iter(setId, register);
+  return env.js_crdt_sortedset_iter(setId, register);
 }
 
 export function jsCrdtSortedSetClear(setId: Uint8Array): number {
-  return env.js_crdt_sorted_set_clear(setId);
+  return env.js_crdt_sortedset_clear(setId);
 }
 
 export function jsUserStorageNew(register: bigint): number {

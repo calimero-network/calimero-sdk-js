@@ -168,20 +168,20 @@ extern int32_t js_crdt_rga_delete(uint64_t rga_id_buffer_ptr, uint64_t index);
 extern int32_t js_crdt_rga_get_text(uint64_t rga_id_buffer_ptr, uint64_t register_id);
 extern int32_t js_crdt_rga_len(uint64_t rga_id_buffer_ptr, uint64_t register_id);
 // SortedMap (ordered-iteration map). Provided by the node runtime (core#3318).
-extern int32_t js_crdt_sorted_map_new(uint64_t register_id);
-extern int32_t js_crdt_sorted_map_get(uint64_t map_id_buffer_ptr, uint64_t key_buffer_ptr, uint64_t register_id);
-extern int32_t js_crdt_sorted_map_insert(uint64_t map_id_buffer_ptr, uint64_t key_buffer_ptr, uint64_t value_buffer_ptr, uint64_t register_id);
-extern int32_t js_crdt_sorted_map_remove(uint64_t map_id_buffer_ptr, uint64_t key_buffer_ptr, uint64_t register_id);
-extern int32_t js_crdt_sorted_map_contains(uint64_t map_id_buffer_ptr, uint64_t key_buffer_ptr);
-extern int32_t js_crdt_sorted_map_iter(uint64_t map_id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_sortedmap_new(uint64_t register_id);
+extern int32_t js_crdt_sortedmap_get(uint64_t map_id_buffer_ptr, uint64_t key_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_sortedmap_insert(uint64_t map_id_buffer_ptr, uint64_t key_buffer_ptr, uint64_t value_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_sortedmap_remove(uint64_t map_id_buffer_ptr, uint64_t key_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_sortedmap_contains(uint64_t map_id_buffer_ptr, uint64_t key_buffer_ptr);
+extern int32_t js_crdt_sortedmap_iter(uint64_t map_id_buffer_ptr, uint64_t register_id);
 // SortedSet (ordered-iteration set). Provided by the node runtime (core#3318).
-extern int32_t js_crdt_sorted_set_new(uint64_t register_id);
-extern int32_t js_crdt_sorted_set_insert(uint64_t set_id_buffer_ptr, uint64_t value_buffer_ptr);
-extern int32_t js_crdt_sorted_set_contains(uint64_t set_id_buffer_ptr, uint64_t value_buffer_ptr);
-extern int32_t js_crdt_sorted_set_remove(uint64_t set_id_buffer_ptr, uint64_t value_buffer_ptr);
-extern int32_t js_crdt_sorted_set_len(uint64_t set_id_buffer_ptr, uint64_t register_id);
-extern int32_t js_crdt_sorted_set_iter(uint64_t set_id_buffer_ptr, uint64_t register_id);
-extern int32_t js_crdt_sorted_set_clear(uint64_t set_id_buffer_ptr);
+extern int32_t js_crdt_sortedset_new(uint64_t register_id);
+extern int32_t js_crdt_sortedset_insert(uint64_t set_id_buffer_ptr, uint64_t value_buffer_ptr);
+extern int32_t js_crdt_sortedset_contains(uint64_t set_id_buffer_ptr, uint64_t value_buffer_ptr);
+extern int32_t js_crdt_sortedset_remove(uint64_t set_id_buffer_ptr, uint64_t value_buffer_ptr);
+extern int32_t js_crdt_sortedset_len(uint64_t set_id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_sortedset_iter(uint64_t set_id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_sortedset_clear(uint64_t set_id_buffer_ptr);
 // Opt-in field-aware root merge + deterministic-id CRDT constructors
 // (concurrent-writer convergence). Provided by the node runtime.
 extern void register_js_sdk_root_merge(void);
@@ -192,8 +192,8 @@ extern int32_t js_crdt_lww_new_with_id(uint64_t id_buffer_ptr, uint64_t register
 extern int32_t js_crdt_counter_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
 extern int32_t js_crdt_pncounter_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
 extern int32_t js_crdt_rga_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
-extern int32_t js_crdt_sorted_map_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
-extern int32_t js_crdt_sorted_set_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_sortedmap_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_sortedset_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
 extern int32_t js_user_storage_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
 extern int32_t js_frozen_storage_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
 extern void commit(uint64_t root_hash_buffer_ptr, uint64_t artifact_buffer_ptr);
@@ -1363,32 +1363,32 @@ static JSValue js_env_crdt_rga_len(JSContext *ctx, JSValueConst this_val, int ar
 
 static JSValue js_env_crdt_sorted_map_new(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   if (argc < 1) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_map_new expects register id");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedmap_new expects register id");
     return JS_EXCEPTION;
   }
   int64_t register_id;
   if (js_to_i64(ctx, argv[0], &register_id)) {
     return JS_EXCEPTION;
   }
-  int32_t status = js_crdt_sorted_map_new((uint64_t)register_id);
+  int32_t status = js_crdt_sortedmap_new((uint64_t)register_id);
   return JS_NewInt32(ctx, status);
 }
 
 static JSValue js_env_crdt_sorted_map_get(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   if (argc < 3) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_map_get expects mapId, key and register id");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedmap_get expects mapId, key and register id");
     return JS_EXCEPTION;
   }
   size_t map_id_len;
   uint8_t *map_id_ptr = JSValueToUint8Array(ctx, argv[0], &map_id_len);
   if (!map_id_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_map_get: mapId must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedmap_get: mapId must be Uint8Array");
     return JS_EXCEPTION;
   }
   size_t key_len;
   uint8_t *key_ptr = JSValueToUint8Array(ctx, argv[1], &key_len);
   if (!key_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_map_get: key must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedmap_get: key must be Uint8Array");
     return JS_EXCEPTION;
   }
   int64_t register_id;
@@ -1397,31 +1397,31 @@ static JSValue js_env_crdt_sorted_map_get(JSContext *ctx, JSValueConst this_val,
   }
   CalimeroBuffer map_id_buf = make_buffer(map_id_ptr, map_id_len);
   CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
-  int32_t status = js_crdt_sorted_map_get((uint64_t)&map_id_buf, (uint64_t)&key_buf, (uint64_t)register_id);
+  int32_t status = js_crdt_sortedmap_get((uint64_t)&map_id_buf, (uint64_t)&key_buf, (uint64_t)register_id);
   return JS_NewInt32(ctx, status);
 }
 
 static JSValue js_env_crdt_sorted_map_insert(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   if (argc < 4) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_map_insert expects mapId, key, value and register id");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedmap_insert expects mapId, key, value and register id");
     return JS_EXCEPTION;
   }
   size_t map_id_len;
   uint8_t *map_id_ptr = JSValueToUint8Array(ctx, argv[0], &map_id_len);
   if (!map_id_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_map_insert: mapId must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedmap_insert: mapId must be Uint8Array");
     return JS_EXCEPTION;
   }
   size_t key_len;
   uint8_t *key_ptr = JSValueToUint8Array(ctx, argv[1], &key_len);
   if (!key_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_map_insert: key must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedmap_insert: key must be Uint8Array");
     return JS_EXCEPTION;
   }
   size_t value_len;
   uint8_t *value_ptr = JSValueToUint8Array(ctx, argv[2], &value_len);
   if (!value_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_map_insert: value must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedmap_insert: value must be Uint8Array");
     return JS_EXCEPTION;
   }
   int64_t register_id;
@@ -1431,25 +1431,25 @@ static JSValue js_env_crdt_sorted_map_insert(JSContext *ctx, JSValueConst this_v
   CalimeroBuffer map_id_buf = make_buffer(map_id_ptr, map_id_len);
   CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
   CalimeroBuffer value_buf = make_buffer(value_ptr, value_len);
-  int32_t status = js_crdt_sorted_map_insert((uint64_t)&map_id_buf, (uint64_t)&key_buf, (uint64_t)&value_buf, (uint64_t)register_id);
+  int32_t status = js_crdt_sortedmap_insert((uint64_t)&map_id_buf, (uint64_t)&key_buf, (uint64_t)&value_buf, (uint64_t)register_id);
   return JS_NewInt32(ctx, status);
 }
 
 static JSValue js_env_crdt_sorted_map_remove(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   if (argc < 3) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_map_remove expects mapId, key and register id");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedmap_remove expects mapId, key and register id");
     return JS_EXCEPTION;
   }
   size_t map_id_len;
   uint8_t *map_id_ptr = JSValueToUint8Array(ctx, argv[0], &map_id_len);
   if (!map_id_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_map_remove: mapId must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedmap_remove: mapId must be Uint8Array");
     return JS_EXCEPTION;
   }
   size_t key_len;
   uint8_t *key_ptr = JSValueToUint8Array(ctx, argv[1], &key_len);
   if (!key_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_map_remove: key must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedmap_remove: key must be Uint8Array");
     return JS_EXCEPTION;
   }
   int64_t register_id;
@@ -1458,42 +1458,42 @@ static JSValue js_env_crdt_sorted_map_remove(JSContext *ctx, JSValueConst this_v
   }
   CalimeroBuffer map_id_buf = make_buffer(map_id_ptr, map_id_len);
   CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
-  int32_t status = js_crdt_sorted_map_remove((uint64_t)&map_id_buf, (uint64_t)&key_buf, (uint64_t)register_id);
+  int32_t status = js_crdt_sortedmap_remove((uint64_t)&map_id_buf, (uint64_t)&key_buf, (uint64_t)register_id);
   return JS_NewInt32(ctx, status);
 }
 
 static JSValue js_env_crdt_sorted_map_contains(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   if (argc < 2) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_map_contains expects mapId and key");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedmap_contains expects mapId and key");
     return JS_EXCEPTION;
   }
   size_t map_id_len;
   uint8_t *map_id_ptr = JSValueToUint8Array(ctx, argv[0], &map_id_len);
   if (!map_id_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_map_contains: mapId must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedmap_contains: mapId must be Uint8Array");
     return JS_EXCEPTION;
   }
   size_t key_len;
   uint8_t *key_ptr = JSValueToUint8Array(ctx, argv[1], &key_len);
   if (!key_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_map_contains: key must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedmap_contains: key must be Uint8Array");
     return JS_EXCEPTION;
   }
   CalimeroBuffer map_id_buf = make_buffer(map_id_ptr, map_id_len);
   CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
-  int32_t status = js_crdt_sorted_map_contains((uint64_t)&map_id_buf, (uint64_t)&key_buf);
+  int32_t status = js_crdt_sortedmap_contains((uint64_t)&map_id_buf, (uint64_t)&key_buf);
   return JS_NewInt32(ctx, status);
 }
 
 static JSValue js_env_crdt_sorted_map_iter(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   if (argc < 2) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_map_iter expects mapId and register id");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedmap_iter expects mapId and register id");
     return JS_EXCEPTION;
   }
   size_t map_id_len;
   uint8_t *map_id_ptr = JSValueToUint8Array(ctx, argv[0], &map_id_len);
   if (!map_id_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_map_iter: mapId must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedmap_iter: mapId must be Uint8Array");
     return JS_EXCEPTION;
   }
   int64_t register_id;
@@ -1501,7 +1501,7 @@ static JSValue js_env_crdt_sorted_map_iter(JSContext *ctx, JSValueConst this_val
     return JS_EXCEPTION;
   }
   CalimeroBuffer map_id_buf = make_buffer(map_id_ptr, map_id_len);
-  int32_t status = js_crdt_sorted_map_iter((uint64_t)&map_id_buf, (uint64_t)register_id);
+  int32_t status = js_crdt_sortedmap_iter((uint64_t)&map_id_buf, (uint64_t)register_id);
   return JS_NewInt32(ctx, status);
 }
 
@@ -1511,95 +1511,95 @@ static JSValue js_env_crdt_sorted_map_iter(JSContext *ctx, JSValueConst this_val
 
 static JSValue js_env_crdt_sorted_set_new(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   if (argc < 1) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_set_new expects register id");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedset_new expects register id");
     return JS_EXCEPTION;
   }
   int64_t register_id;
   if (js_to_i64(ctx, argv[0], &register_id)) {
     return JS_EXCEPTION;
   }
-  int32_t status = js_crdt_sorted_set_new((uint64_t)register_id);
+  int32_t status = js_crdt_sortedset_new((uint64_t)register_id);
   return JS_NewInt32(ctx, status);
 }
 
 static JSValue js_env_crdt_sorted_set_insert(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   if (argc < 2) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_set_insert expects setId and value");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedset_insert expects setId and value");
     return JS_EXCEPTION;
   }
   size_t set_id_len;
   uint8_t *set_id_ptr = JSValueToUint8Array(ctx, argv[0], &set_id_len);
   if (!set_id_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_set_insert: setId must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedset_insert: setId must be Uint8Array");
     return JS_EXCEPTION;
   }
   size_t value_len;
   uint8_t *value_ptr = JSValueToUint8Array(ctx, argv[1], &value_len);
   if (!value_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_set_insert: value must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedset_insert: value must be Uint8Array");
     return JS_EXCEPTION;
   }
   CalimeroBuffer set_id_buf = make_buffer(set_id_ptr, set_id_len);
   CalimeroBuffer value_buf = make_buffer(value_ptr, value_len);
-  int32_t status = js_crdt_sorted_set_insert((uint64_t)&set_id_buf, (uint64_t)&value_buf);
+  int32_t status = js_crdt_sortedset_insert((uint64_t)&set_id_buf, (uint64_t)&value_buf);
   return JS_NewInt32(ctx, status);
 }
 
 static JSValue js_env_crdt_sorted_set_contains(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   if (argc < 2) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_set_contains expects setId and value");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedset_contains expects setId and value");
     return JS_EXCEPTION;
   }
   size_t set_id_len;
   uint8_t *set_id_ptr = JSValueToUint8Array(ctx, argv[0], &set_id_len);
   if (!set_id_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_set_contains: setId must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedset_contains: setId must be Uint8Array");
     return JS_EXCEPTION;
   }
   size_t value_len;
   uint8_t *value_ptr = JSValueToUint8Array(ctx, argv[1], &value_len);
   if (!value_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_set_contains: value must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedset_contains: value must be Uint8Array");
     return JS_EXCEPTION;
   }
   CalimeroBuffer set_id_buf = make_buffer(set_id_ptr, set_id_len);
   CalimeroBuffer value_buf = make_buffer(value_ptr, value_len);
-  int32_t status = js_crdt_sorted_set_contains((uint64_t)&set_id_buf, (uint64_t)&value_buf);
+  int32_t status = js_crdt_sortedset_contains((uint64_t)&set_id_buf, (uint64_t)&value_buf);
   return JS_NewInt32(ctx, status);
 }
 
 static JSValue js_env_crdt_sorted_set_remove(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   if (argc < 2) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_set_remove expects setId and value");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedset_remove expects setId and value");
     return JS_EXCEPTION;
   }
   size_t set_id_len;
   uint8_t *set_id_ptr = JSValueToUint8Array(ctx, argv[0], &set_id_len);
   if (!set_id_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_set_remove: setId must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedset_remove: setId must be Uint8Array");
     return JS_EXCEPTION;
   }
   size_t value_len;
   uint8_t *value_ptr = JSValueToUint8Array(ctx, argv[1], &value_len);
   if (!value_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_set_remove: value must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedset_remove: value must be Uint8Array");
     return JS_EXCEPTION;
   }
   CalimeroBuffer set_id_buf = make_buffer(set_id_ptr, set_id_len);
   CalimeroBuffer value_buf = make_buffer(value_ptr, value_len);
-  int32_t status = js_crdt_sorted_set_remove((uint64_t)&set_id_buf, (uint64_t)&value_buf);
+  int32_t status = js_crdt_sortedset_remove((uint64_t)&set_id_buf, (uint64_t)&value_buf);
   return JS_NewInt32(ctx, status);
 }
 
 static JSValue js_env_crdt_sorted_set_len(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   if (argc < 2) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_set_len expects setId and register id");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedset_len expects setId and register id");
     return JS_EXCEPTION;
   }
   size_t set_id_len;
   uint8_t *set_id_ptr = JSValueToUint8Array(ctx, argv[0], &set_id_len);
   if (!set_id_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_set_len: setId must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedset_len: setId must be Uint8Array");
     return JS_EXCEPTION;
   }
   int64_t register_id;
@@ -1607,19 +1607,19 @@ static JSValue js_env_crdt_sorted_set_len(JSContext *ctx, JSValueConst this_val,
     return JS_EXCEPTION;
   }
   CalimeroBuffer set_id_buf = make_buffer(set_id_ptr, set_id_len);
-  int32_t status = js_crdt_sorted_set_len((uint64_t)&set_id_buf, (uint64_t)register_id);
+  int32_t status = js_crdt_sortedset_len((uint64_t)&set_id_buf, (uint64_t)register_id);
   return JS_NewInt32(ctx, status);
 }
 
 static JSValue js_env_crdt_sorted_set_iter(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   if (argc < 2) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_set_iter expects setId and register id");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedset_iter expects setId and register id");
     return JS_EXCEPTION;
   }
   size_t set_id_len;
   uint8_t *set_id_ptr = JSValueToUint8Array(ctx, argv[0], &set_id_len);
   if (!set_id_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_set_iter: setId must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedset_iter: setId must be Uint8Array");
     return JS_EXCEPTION;
   }
   int64_t register_id;
@@ -1627,23 +1627,23 @@ static JSValue js_env_crdt_sorted_set_iter(JSContext *ctx, JSValueConst this_val
     return JS_EXCEPTION;
   }
   CalimeroBuffer set_id_buf = make_buffer(set_id_ptr, set_id_len);
-  int32_t status = js_crdt_sorted_set_iter((uint64_t)&set_id_buf, (uint64_t)register_id);
+  int32_t status = js_crdt_sortedset_iter((uint64_t)&set_id_buf, (uint64_t)register_id);
   return JS_NewInt32(ctx, status);
 }
 
 static JSValue js_env_crdt_sorted_set_clear(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   if (argc < 1) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_set_clear expects setId");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedset_clear expects setId");
     return JS_EXCEPTION;
   }
   size_t set_id_len;
   uint8_t *set_id_ptr = JSValueToUint8Array(ctx, argv[0], &set_id_len);
   if (!set_id_ptr) {
-    JS_ThrowTypeError(ctx, "js_crdt_sorted_set_clear: setId must be Uint8Array");
+    JS_ThrowTypeError(ctx, "js_crdt_sortedset_clear: setId must be Uint8Array");
     return JS_EXCEPTION;
   }
   CalimeroBuffer set_id_buf = make_buffer(set_id_ptr, set_id_len);
-  int32_t status = js_crdt_sorted_set_clear((uint64_t)&set_id_buf);
+  int32_t status = js_crdt_sortedset_clear((uint64_t)&set_id_buf);
   return JS_NewInt32(ctx, status);
 }
 
@@ -2266,8 +2266,8 @@ DEFINE_NEW_WITH_ID_WRAPPER(js_env_crdt_lww_new_with_id, js_crdt_lww_new_with_id,
 DEFINE_NEW_WITH_ID_WRAPPER(js_env_crdt_counter_new_with_id, js_crdt_counter_new_with_id, "js_crdt_counter_new_with_id")
 DEFINE_NEW_WITH_ID_WRAPPER(js_env_crdt_pncounter_new_with_id, js_crdt_pncounter_new_with_id, "js_crdt_pncounter_new_with_id")
 DEFINE_NEW_WITH_ID_WRAPPER(js_env_crdt_rga_new_with_id, js_crdt_rga_new_with_id, "js_crdt_rga_new_with_id")
-DEFINE_NEW_WITH_ID_WRAPPER(js_env_crdt_sorted_map_new_with_id, js_crdt_sorted_map_new_with_id, "js_crdt_sorted_map_new_with_id")
-DEFINE_NEW_WITH_ID_WRAPPER(js_env_crdt_sorted_set_new_with_id, js_crdt_sorted_set_new_with_id, "js_crdt_sorted_set_new_with_id")
+DEFINE_NEW_WITH_ID_WRAPPER(js_env_crdt_sorted_map_new_with_id, js_crdt_sortedmap_new_with_id, "js_crdt_sortedmap_new_with_id")
+DEFINE_NEW_WITH_ID_WRAPPER(js_env_crdt_sorted_set_new_with_id, js_crdt_sortedset_new_with_id, "js_crdt_sortedset_new_with_id")
 DEFINE_NEW_WITH_ID_WRAPPER(js_env_user_storage_new_with_id, js_user_storage_new_with_id, "js_user_storage_new_with_id")
 DEFINE_NEW_WITH_ID_WRAPPER(js_env_frozen_storage_new_with_id, js_frozen_storage_new_with_id, "js_frozen_storage_new_with_id")
 
@@ -2327,19 +2327,19 @@ void js_add_calimero_host_functions(JSContext *ctx) {
   JS_SetPropertyStr(ctx, env, "js_crdt_rga_delete", JS_NewCFunction(ctx, js_env_crdt_rga_delete, "js_crdt_rga_delete", 2));
   JS_SetPropertyStr(ctx, env, "js_crdt_rga_get_text", JS_NewCFunction(ctx, js_env_crdt_rga_get_text, "js_crdt_rga_get_text", 2));
   JS_SetPropertyStr(ctx, env, "js_crdt_rga_len", JS_NewCFunction(ctx, js_env_crdt_rga_len, "js_crdt_rga_len", 2));
-  JS_SetPropertyStr(ctx, env, "js_crdt_sorted_map_new", JS_NewCFunction(ctx, js_env_crdt_sorted_map_new, "js_crdt_sorted_map_new", 1));
-  JS_SetPropertyStr(ctx, env, "js_crdt_sorted_map_get", JS_NewCFunction(ctx, js_env_crdt_sorted_map_get, "js_crdt_sorted_map_get", 3));
-  JS_SetPropertyStr(ctx, env, "js_crdt_sorted_map_insert", JS_NewCFunction(ctx, js_env_crdt_sorted_map_insert, "js_crdt_sorted_map_insert", 4));
-  JS_SetPropertyStr(ctx, env, "js_crdt_sorted_map_remove", JS_NewCFunction(ctx, js_env_crdt_sorted_map_remove, "js_crdt_sorted_map_remove", 3));
-  JS_SetPropertyStr(ctx, env, "js_crdt_sorted_map_contains", JS_NewCFunction(ctx, js_env_crdt_sorted_map_contains, "js_crdt_sorted_map_contains", 2));
-  JS_SetPropertyStr(ctx, env, "js_crdt_sorted_map_iter", JS_NewCFunction(ctx, js_env_crdt_sorted_map_iter, "js_crdt_sorted_map_iter", 2));
-  JS_SetPropertyStr(ctx, env, "js_crdt_sorted_set_new", JS_NewCFunction(ctx, js_env_crdt_sorted_set_new, "js_crdt_sorted_set_new", 1));
-  JS_SetPropertyStr(ctx, env, "js_crdt_sorted_set_insert", JS_NewCFunction(ctx, js_env_crdt_sorted_set_insert, "js_crdt_sorted_set_insert", 2));
-  JS_SetPropertyStr(ctx, env, "js_crdt_sorted_set_contains", JS_NewCFunction(ctx, js_env_crdt_sorted_set_contains, "js_crdt_sorted_set_contains", 2));
-  JS_SetPropertyStr(ctx, env, "js_crdt_sorted_set_remove", JS_NewCFunction(ctx, js_env_crdt_sorted_set_remove, "js_crdt_sorted_set_remove", 2));
-  JS_SetPropertyStr(ctx, env, "js_crdt_sorted_set_len", JS_NewCFunction(ctx, js_env_crdt_sorted_set_len, "js_crdt_sorted_set_len", 2));
-  JS_SetPropertyStr(ctx, env, "js_crdt_sorted_set_iter", JS_NewCFunction(ctx, js_env_crdt_sorted_set_iter, "js_crdt_sorted_set_iter", 2));
-  JS_SetPropertyStr(ctx, env, "js_crdt_sorted_set_clear", JS_NewCFunction(ctx, js_env_crdt_sorted_set_clear, "js_crdt_sorted_set_clear", 1));
+  JS_SetPropertyStr(ctx, env, "js_crdt_sortedmap_new", JS_NewCFunction(ctx, js_env_crdt_sorted_map_new, "js_crdt_sortedmap_new", 1));
+  JS_SetPropertyStr(ctx, env, "js_crdt_sortedmap_get", JS_NewCFunction(ctx, js_env_crdt_sorted_map_get, "js_crdt_sortedmap_get", 3));
+  JS_SetPropertyStr(ctx, env, "js_crdt_sortedmap_insert", JS_NewCFunction(ctx, js_env_crdt_sorted_map_insert, "js_crdt_sortedmap_insert", 4));
+  JS_SetPropertyStr(ctx, env, "js_crdt_sortedmap_remove", JS_NewCFunction(ctx, js_env_crdt_sorted_map_remove, "js_crdt_sortedmap_remove", 3));
+  JS_SetPropertyStr(ctx, env, "js_crdt_sortedmap_contains", JS_NewCFunction(ctx, js_env_crdt_sorted_map_contains, "js_crdt_sortedmap_contains", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_sortedmap_iter", JS_NewCFunction(ctx, js_env_crdt_sorted_map_iter, "js_crdt_sortedmap_iter", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_sortedset_new", JS_NewCFunction(ctx, js_env_crdt_sorted_set_new, "js_crdt_sortedset_new", 1));
+  JS_SetPropertyStr(ctx, env, "js_crdt_sortedset_insert", JS_NewCFunction(ctx, js_env_crdt_sorted_set_insert, "js_crdt_sortedset_insert", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_sortedset_contains", JS_NewCFunction(ctx, js_env_crdt_sorted_set_contains, "js_crdt_sortedset_contains", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_sortedset_remove", JS_NewCFunction(ctx, js_env_crdt_sorted_set_remove, "js_crdt_sortedset_remove", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_sortedset_len", JS_NewCFunction(ctx, js_env_crdt_sorted_set_len, "js_crdt_sortedset_len", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_sortedset_iter", JS_NewCFunction(ctx, js_env_crdt_sorted_set_iter, "js_crdt_sortedset_iter", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_sortedset_clear", JS_NewCFunction(ctx, js_env_crdt_sorted_set_clear, "js_crdt_sortedset_clear", 1));
   JS_SetPropertyStr(ctx, env, "js_user_storage_new", JS_NewCFunction(ctx, js_env_user_storage_new, "js_user_storage_new", 1));
   JS_SetPropertyStr(ctx, env, "js_user_storage_insert", JS_NewCFunction(ctx, js_env_user_storage_insert, "js_user_storage_insert", 3));
   JS_SetPropertyStr(ctx, env, "js_user_storage_get", JS_NewCFunction(ctx, js_env_user_storage_get, "js_user_storage_get", 2));
@@ -2361,8 +2361,8 @@ void js_add_calimero_host_functions(JSContext *ctx) {
   JS_SetPropertyStr(ctx, env, "js_crdt_counter_new_with_id", JS_NewCFunction(ctx, js_env_crdt_counter_new_with_id, "js_crdt_counter_new_with_id", 2));
   JS_SetPropertyStr(ctx, env, "js_crdt_pncounter_new_with_id", JS_NewCFunction(ctx, js_env_crdt_pncounter_new_with_id, "js_crdt_pncounter_new_with_id", 2));
   JS_SetPropertyStr(ctx, env, "js_crdt_rga_new_with_id", JS_NewCFunction(ctx, js_env_crdt_rga_new_with_id, "js_crdt_rga_new_with_id", 2));
-  JS_SetPropertyStr(ctx, env, "js_crdt_sorted_map_new_with_id", JS_NewCFunction(ctx, js_env_crdt_sorted_map_new_with_id, "js_crdt_sorted_map_new_with_id", 2));
-  JS_SetPropertyStr(ctx, env, "js_crdt_sorted_set_new_with_id", JS_NewCFunction(ctx, js_env_crdt_sorted_set_new_with_id, "js_crdt_sorted_set_new_with_id", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_sortedmap_new_with_id", JS_NewCFunction(ctx, js_env_crdt_sorted_map_new_with_id, "js_crdt_sortedmap_new_with_id", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_sortedset_new_with_id", JS_NewCFunction(ctx, js_env_crdt_sorted_set_new_with_id, "js_crdt_sortedset_new_with_id", 2));
   JS_SetPropertyStr(ctx, env, "js_user_storage_new_with_id", JS_NewCFunction(ctx, js_env_user_storage_new_with_id, "js_user_storage_new_with_id", 2));
   JS_SetPropertyStr(ctx, env, "js_frozen_storage_new_with_id", JS_NewCFunction(ctx, js_env_frozen_storage_new_with_id, "js_frozen_storage_new_with_id", 2));
   

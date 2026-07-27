@@ -91,28 +91,28 @@ export interface HostEnv {
   js_crdt_rga_len(rgaId: Uint8Array, register_id: bigint): number;
 
   // SortedMap (ordered-iteration map)
-  js_crdt_sorted_map_new(register_id: bigint): number;
-  js_crdt_sorted_map_new_with_id(id: Uint8Array, register_id: bigint): number;
-  js_crdt_sorted_map_get(mapId: Uint8Array, key: Uint8Array, register_id: bigint): number;
-  js_crdt_sorted_map_insert(
+  js_crdt_sortedmap_new(register_id: bigint): number;
+  js_crdt_sortedmap_new_with_id(id: Uint8Array, register_id: bigint): number;
+  js_crdt_sortedmap_get(mapId: Uint8Array, key: Uint8Array, register_id: bigint): number;
+  js_crdt_sortedmap_insert(
     mapId: Uint8Array,
     key: Uint8Array,
     value: Uint8Array,
     register_id: bigint
   ): number;
-  js_crdt_sorted_map_remove(mapId: Uint8Array, key: Uint8Array, register_id: bigint): number;
-  js_crdt_sorted_map_contains(mapId: Uint8Array, key: Uint8Array): number;
-  js_crdt_sorted_map_iter(mapId: Uint8Array, register_id: bigint): number;
+  js_crdt_sortedmap_remove(mapId: Uint8Array, key: Uint8Array, register_id: bigint): number;
+  js_crdt_sortedmap_contains(mapId: Uint8Array, key: Uint8Array): number;
+  js_crdt_sortedmap_iter(mapId: Uint8Array, register_id: bigint): number;
 
   // SortedSet (ordered-iteration set)
-  js_crdt_sorted_set_new(register_id: bigint): number;
-  js_crdt_sorted_set_new_with_id(id: Uint8Array, register_id: bigint): number;
-  js_crdt_sorted_set_insert(setId: Uint8Array, value: Uint8Array): number;
-  js_crdt_sorted_set_contains(setId: Uint8Array, value: Uint8Array): number;
-  js_crdt_sorted_set_remove(setId: Uint8Array, value: Uint8Array): number;
-  js_crdt_sorted_set_len(setId: Uint8Array, register_id: bigint): number;
-  js_crdt_sorted_set_iter(setId: Uint8Array, register_id: bigint): number;
-  js_crdt_sorted_set_clear(setId: Uint8Array): number;
+  js_crdt_sortedset_new(register_id: bigint): number;
+  js_crdt_sortedset_new_with_id(id: Uint8Array, register_id: bigint): number;
+  js_crdt_sortedset_insert(setId: Uint8Array, value: Uint8Array): number;
+  js_crdt_sortedset_contains(setId: Uint8Array, value: Uint8Array): number;
+  js_crdt_sortedset_remove(setId: Uint8Array, value: Uint8Array): number;
+  js_crdt_sortedset_len(setId: Uint8Array, register_id: bigint): number;
+  js_crdt_sortedset_iter(setId: Uint8Array, register_id: bigint): number;
+  js_crdt_sortedset_clear(setId: Uint8Array): number;
 
   js_user_storage_new(register_id: bigint): number;
   js_user_storage_insert(storageId: Uint8Array, value: Uint8Array, register_id: bigint): number;
