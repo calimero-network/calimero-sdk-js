@@ -854,11 +854,14 @@ function getExecutorKey(executor?: Uint8Array): string {
       return -1;
     }
     const slot = store.slots[index];
-    if (!slot || slot.tombstoned) {
+    if (!slot) {
       setRegister(null);
       return 0;
     }
-    setRegister(slot.value);
+    // Match core: `tombstone` writes `V::default()`, so a tombstoned slot
+    // round-trips as a 0-byte value (not an absent/null slot). The wrapper is
+    // responsible for treating a 0-length value as tombstoned.
+    setRegister(slot.tombstoned ? new Uint8Array(0) : slot.value);
     return 1;
   },
 
@@ -899,9 +902,11 @@ function getExecutorKey(executor?: Uint8Array): string {
       setRegisterError('authored vector not found');
       return -1;
     }
-    const values = store.slots
-      .filter(slot => !slot.tombstoned)
-      .map(slot => new Uint8Array(slot.value));
+    // Match core: `iter` returns every slot including tombstoned ones, which
+    // round-trip as 0-byte values (`V::default()`). The wrapper filters them.
+    const values = store.slots.map(slot =>
+      slot.tombstoned ? new Uint8Array(0) : new Uint8Array(slot.value)
+    );
     setRegister(serializeVec(values));
     return 1;
   },

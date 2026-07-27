@@ -127,7 +127,10 @@ export class AuthoredVector<T> {
    */
   get(index: number): T | null {
     const raw = authoredVectorGet(this.vectorId, index);
-    return raw ? deserialize<T>(raw) : null;
+    // A tombstoned slot round-trips as a 0-byte value (core `tombstone` writes
+    // `V::default()`); a real serialized value is always >= 1 byte. An empty
+    // `Uint8Array` is truthy, so length must be checked explicitly.
+    return raw && raw.length > 0 ? deserialize<T>(raw) : null;
   }
 
   /**
@@ -156,7 +159,12 @@ export class AuthoredVector<T> {
    * Reads all live (non-tombstoned) values into a JavaScript array.
    */
   iter(): T[] {
-    return authoredVectorValues(this.vectorId).map(raw => deserialize<T>(raw));
+    // Skip tombstoned slots: core `iter` returns every slot including
+    // tombstones, which round-trip as 0-byte values. A real serialized value
+    // is always >= 1 byte, so a 0-length slot is unambiguously a tombstone.
+    return authoredVectorValues(this.vectorId)
+      .filter(raw => raw.length > 0)
+      .map(raw => deserialize<T>(raw));
   }
 
   /**
