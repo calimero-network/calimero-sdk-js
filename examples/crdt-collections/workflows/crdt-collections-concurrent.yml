@@ -180,6 +180,26 @@ steps:
     outputs:
       tags_node_2: result.output
 
+  # Diagnostic: hasTag/contains reads the children directly, while allTags/iter
+  # reads the node-local ordered index. Split them to localize the divergence:
+  # if node 2 contains 'a' (children synced) but allTags omits it, the bug is in
+  # the ordered-index rebuild, not data sync.
+  - name: Read Has Tag A On Node 2
+    type: call
+    node: crdt-conv-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: hasTag
+    args:
+      tag: a
+    outputs:
+      has_a_node_2: result.output
+
+  - name: Assert Node 2 Contains Tag A (children)
+    type: json_assert
+    statements:
+      - 'equal({{has_a_node_2}}, true)'
+
   - name: Assert Convergence
     type: json_assert
     statements:
