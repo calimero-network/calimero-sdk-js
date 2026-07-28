@@ -106,4 +106,12 @@ export class CrdtDemoLogic extends CrdtDemo {
     // Sorted order thanks to SortedSet.
     return this.tags.toArray();
   }
+
+  // Diagnostic: size() counts merkle children (enumeration), distinct from the
+  // ordered-index-backed allTags(). Used to localize the concurrent-convergence
+  // bug: children present but iteration missing => ordered-index rebuild issue.
+  @View()
+  tagCount(): number {
+    return this.tags.size();
+  }
 }
