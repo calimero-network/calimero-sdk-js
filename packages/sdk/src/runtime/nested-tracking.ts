@@ -149,6 +149,19 @@ class NestedCollectionTracker {
       parentCollection.get &&
       parentCollection.set
     ) {
+      // AuthoredMap.set() routes existing keys through the owner-only update(),
+      // which throws ActionNotAllowed when the current executor is not the
+      // entry's owner. A nested child's mutation propagates through the child's
+      // own entity regardless, so for a non-owned AuthoredMap entry we skip the
+      // parent re-set we cannot perform (mirrors the read-only UserStorage case
+      // below) rather than letting the throw abort propagation for all parents.
+      if (
+        parentSnapshot.type === 'AuthoredMap' &&
+        typeof parentCollection.ownedByMe === 'function' &&
+        !parentCollection.ownedByMe(key)
+      ) {
+        return;
+      }
       const currentValue = parentCollection.get(key);
       if (currentValue) {
         // Temporarily unwrap to avoid infinite recursion

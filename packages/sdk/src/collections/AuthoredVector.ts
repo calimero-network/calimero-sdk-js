@@ -90,11 +90,14 @@ export class AuthoredVector<T> {
    * owner. Returns the index of the new slot.
    */
   push(value: T): number {
-    if (hasRegisteredCollection(value)) {
-      nestedTracker.registerCollection(value, this, this.len());
-    }
-
+    // Register the nested collection only AFTER the host push succeeds, keyed
+    // by the actual index the host assigned (not a pre-push len()): the host is
+    // authoritative for the slot index, and a failed push must not leave stale
+    // tracker state. Mirrors AuthoredMap.insert / this.update.
     const index = authoredVectorPush(this.vectorId, serialize(value));
+    if (hasRegisteredCollection(value)) {
+      nestedTracker.registerCollection(value, this, index);
+    }
     nestedTracker.notifyCollectionModified(this);
     return index;
   }
@@ -128,8 +131,10 @@ export class AuthoredVector<T> {
   get(index: number): T | null {
     const raw = authoredVectorGet(this.vectorId, index);
     // A tombstoned slot round-trips as a 0-byte value (core `tombstone` writes
-    // `V::default()`); a real serialized value is always >= 1 byte. An empty
-    // `Uint8Array` is truthy, so length must be checked explicitly.
+    // `V::default()`). This is unambiguous: `serialize()` uses a self-describing
+    // encoding that always emits a leading 1-byte ValueKind tag (even for null /
+    // empty string / empty object — see utils/borsh-value.ts), so a live value
+    // is never 0 bytes. An empty `Uint8Array` is truthy, so check length.
     return raw && raw.length > 0 ? deserialize<T>(raw) : null;
   }
 
@@ -160,8 +165,10 @@ export class AuthoredVector<T> {
    */
   iter(): T[] {
     // Skip tombstoned slots: core `iter` returns every slot including
-    // tombstones, which round-trip as 0-byte values. A real serialized value
-    // is always >= 1 byte, so a 0-length slot is unambiguously a tombstone.
+    // tombstones, which round-trip as 0-byte values (`V::default()`). A live
+    // value is never 0 bytes because `serialize()` always emits a leading
+    // 1-byte ValueKind tag (see get() above), so a 0-length slot is
+    // unambiguously a tombstone.
     return authoredVectorValues(this.vectorId)
       .filter(raw => raw.length > 0)
       .map(raw => deserialize<T>(raw));
