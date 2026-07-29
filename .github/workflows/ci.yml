@@ -283,6 +283,21 @@ jobs:
                 --verbose; then
               FAILED_WORKFLOWS+=("$workflow")
             fi
+            # TRACE DIAGNOSTIC (core#3333): before tearing the containers down,
+            # dump the ordered-index / sync trace from every running node. Tiny,
+            # grepped output — only the SortedSet ordered-index and deferred-root-
+            # merge lines. Captured for ALL workflows but only the concurrent
+            # SortedSet one (nodes prefixed `crdt-conv-node`, log_level set in its
+            # YAML) emits sorted_index_dbg lines. Runs before stop/nuke so the
+            # containers still exist.
+            echo "===== [3333-trace] node logs for: $workflow ====="
+            for c in $(docker ps -a --format '{{.Names}}' | grep -E 'crdt-conv-node' || true); do
+              echo "----- [3333-trace] container: $c -----"
+              docker logs "$c" 2>&1 | grep -E \
+                'sorted_index_dbg|SortedIndexMeta|ensure_index|rebuild_index|APPLY_ADD|CHECK index|STAMP index|REBUILD index|write_pre_merged|deferred root merge|marker' \
+                || echo "  (no matching trace lines)"
+            done
+            echo "===== [3333-trace] end node logs ====="
             merobox stop --all || true
             merobox nuke -f || true
           done

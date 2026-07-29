@@ -11,6 +11,13 @@ name: CRDT Collections Convergence (two nodes)
 
 force_pull_image: true
 
+# TRACE DIAGNOSTIC (core#3333): passed verbatim to each node container as
+# RUST_LOG. Surfaces the JS-path ordered-index instrumentation carried by the
+# instrumented merod:edge image (calimero_storage::sorted_index_dbg:
+# APPLY_ADD / CHECK / REBUILD / STAMP), plus the storage merge/apply layer and
+# the node sync (HashComparison / deferred-root-merge) path #3333 localizes to.
+log_level: "info,calimero_storage::sorted_index_dbg=debug,calimero_storage=debug,calimero_node::sync=debug"
+
 nodes:
   chain_id: testnet-1
   count: 2
@@ -162,18 +169,44 @@ steps:
     outputs:
       score_node_2: result.output
 
-  # NOTE: concurrent-writer convergence of SortedSet/SortedMap ORDERED reads
-  # (allTags/iter) is gated on calimero-network/core#3333: after concurrent
-  # writes the element set converges (contains/size agree on every node) but the
-  # node-local ordered index serves a stale subset on the peer. Point/membership
-  # ops and PNCounter converge, so this workflow asserts PNCounter convergence;
-  # the SortedSet ordered-read convergence assertion is re-enabled once #3333
-  # lands. Single-writer SortedSet/SortedMap is covered by crdt-collections-js.yml.
+  # --- SortedSet ORDERED-READ convergence (the core#3333 discriminator) ------
+  # After concurrent adds ("a" on node-1, "b" on node-2), membership converges
+  # (contains/size agree cross-node) but the node-local ordered index can serve
+  # a stale subset on the peer. `allTags()` is index-backed (toArray -> host
+  # SortedSet::iter -> ensure_index -> index_marker_current), so each call also
+  # emits a `CHECK index marker` line into the node log. If the ordered index is
+  # stale (marker stamped ahead of the child set) the returned array is a subset
+  # — NOT ["a","b"] — even though membership agreed. Re-enabled to REPRODUCE
+  # #3333 and capture the decisive node-2 trace on the instrumented edge image.
+  - name: Read All Tags On Node 1
+    type: call
+    node: crdt-conv-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: allTags
+    outputs:
+      tags_node_1: result.output
+
+  - name: Read All Tags On Node 2
+    type: call
+    node: crdt-conv-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: allTags
+    outputs:
+      tags_node_2: result.output
+
   - name: Assert Convergence
     type: json_assert
     statements:
       - 'equal({{score_node_1}}, 4)'
       - 'equal({{score_node_2}}, 4)'
+      # core#3333 discriminator: ordered iteration must converge to the full set
+      # on BOTH nodes. Expected to FAIL on the stale-index peer until #3333 is
+      # fixed — the failure is the reproduction; node-2's grepped log is the
+      # decisive trace.
+      - 'equal({{tags_node_1}}, ["a", "b"])'
+      - 'equal({{tags_node_2}}, ["a", "b"])'
 
 stop_all_nodes: false
 restart: true
