@@ -1481,6 +1481,37 @@ export class AbiEmitter {
         // Counter returns u64 value, but is stored as collection reference (32 bytes)
         // ABI represents the logical type (u64), deserializer handles the storage format
         return { kind: 'u64' } as any;
+      case 'PNCounter':
+        // Signed counter (increment - decrement); logical type is i64, stored as
+        // a collection reference like Counter.
+        return { kind: 'i64' } as any;
+      case 'Rga':
+        // Replicated growable array (collaborative text); logical type is string
+        // (getText), stored as a collection reference.
+        return { kind: 'string' } as any;
+      case 'SortedMap':
+        // Same logical shape as UnorderedMap; iteration order differs only.
+        if (type.typeParameters?.params?.length >= 2) {
+          return {
+            kind: 'map',
+            key: this.extractTypeFromAnnotation({ typeAnnotation: type.typeParameters.params[0] }),
+            value: this.extractTypeFromAnnotation({
+              typeAnnotation: type.typeParameters.params[1],
+            }),
+          };
+        }
+        break;
+      case 'SortedSet':
+        // Rust schema has no "set"; represent as list like UnorderedSet.
+        if (type.typeParameters?.params?.length >= 1) {
+          return {
+            kind: 'vector',
+            inner: this.extractTypeFromAnnotation({
+              typeAnnotation: type.typeParameters.params[0],
+            }),
+          } as any;
+        }
+        break;
       case 'LwwRegister':
         if (type.typeParameters?.params?.length >= 1) {
           return this.extractTypeFromAnnotation({ typeAnnotation: type.typeParameters.params[0] });
@@ -2081,6 +2112,50 @@ export class AbiEmitter {
           fields: [],
           crdt_type: 'counter',
         };
+      }
+      case 'PNCounter': {
+        return {
+          kind: 'record',
+          fields: [],
+          crdt_type: 'pn_counter',
+        };
+      }
+      case 'Rga': {
+        return {
+          kind: 'record',
+          fields: [],
+          crdt_type: 'rga',
+        };
+      }
+      case 'SortedMap': {
+        if (type.typeParameters?.params?.length >= 2) {
+          const keyType = this.serializeTypeRefWithCrdtMetadata({
+            typeAnnotation: type.typeParameters.params[0],
+          });
+          const valueType = this.serializeTypeRefWithCrdtMetadata({
+            typeAnnotation: type.typeParameters.params[1],
+          });
+          return {
+            kind: 'map',
+            key: keyType,
+            value: valueType,
+            crdt_type: 'sorted_map',
+          };
+        }
+        break;
+      }
+      case 'SortedSet': {
+        if (type.typeParameters?.params?.length >= 1) {
+          const itemType = this.serializeTypeRefWithCrdtMetadata({
+            typeAnnotation: type.typeParameters.params[0],
+          });
+          return {
+            kind: 'list',
+            items: itemType,
+            crdt_type: 'sorted_set',
+          };
+        }
+        break;
       }
       case 'LwwRegister': {
         if (type.typeParameters?.params?.length >= 1) {

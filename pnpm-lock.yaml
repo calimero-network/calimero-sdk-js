@@ -82,6 +82,19 @@ importers:
         specifier: ^5.3.3
         version: 5.9.3
 
+  examples/crdt-collections:
+    dependencies:
+      '@calimero-network/calimero-sdk-js':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+    devDependencies:
+      '@calimero-network/calimero-cli-js':
+        specifier: workspace:*
+        version: link:../../packages/cli
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
   examples/curb-js:
     dependencies:
       '@calimero-network/calimero-sdk-js':

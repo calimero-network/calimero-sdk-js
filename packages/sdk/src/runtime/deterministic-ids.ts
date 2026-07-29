@@ -23,6 +23,10 @@ import {
   setNewWithId,
   lwwNewWithId,
   counterNewWithId,
+  pncounterNewWithId,
+  rgaNewWithId,
+  sortedMapNewWithId,
+  sortedSetNewWithId,
   userStorageNewWithId,
   frozenStorageNewWithId,
 } from './storage-wasm';
@@ -35,6 +39,10 @@ const WITH_ID: Record<string, WithIdFn> = {
   UnorderedSet: setNewWithId,
   LwwRegister: lwwNewWithId,
   Counter: counterNewWithId,
+  PNCounter: pncounterNewWithId,
+  Rga: rgaNewWithId,
+  SortedMap: sortedMapNewWithId,
+  SortedSet: sortedSetNewWithId,
   UserStorage: userStorageNewWithId,
   FrozenStorage: frozenStorageNewWithId,
 };
