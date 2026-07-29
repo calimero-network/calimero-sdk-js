@@ -278,9 +278,19 @@ jobs:
 
           for workflow in "${WORKFLOW_FILES[@]}"; do
             WORKFLOW_COUNT=$((WORKFLOW_COUNT + 1))
+            # DIAGNOSTIC (temporary): trace the concurrent SortedSet convergence
+            # path on the nodes to see how a synced child is applied on the peer
+            # and whether the ordered-index marker is cleared. Scoped to the one
+            # workflow to keep other logs small. Revert once root-caused.
+            LOG_ARGS=()
+            case "$workflow" in
+              *crdt-collections-concurrent*)
+                LOG_ARGS=(--log-level 'info,calimero_storage=trace,calimero_context=trace,calimero_node::sync=trace,runtime::host::storage=trace,calimero_runtime=debug') ;;
+            esac
             if ! merobox bootstrap run "$workflow" \
                 --e2e-mode \
-                --verbose; then
+                --verbose \
+                "${LOG_ARGS[@]}"; then
               FAILED_WORKFLOWS+=("$workflow")
             fi
             merobox stop --all || true
