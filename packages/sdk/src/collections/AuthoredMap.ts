@@ -87,11 +87,6 @@ export class AuthoredMap<K, V> {
   }
 
   /**
-   * Inserts a new key, stamping the current executor as the entry owner.
-   * Throws if the key already exists (use {@link AuthoredMap.update} or
-   * {@link AuthoredMap.set} to modify an owned entry).
-   */
-  /**
    * Registers a nested-collection value as a child of this map (keyed by
    * `key`) and marks this map dirty. Shared by insert/update so the tracking
    * sequence stays in one place.
@@ -103,6 +98,11 @@ export class AuthoredMap<K, V> {
     nestedTracker.notifyCollectionModified(this);
   }
 
+  /**
+   * Inserts a new key, stamping the current executor as the entry owner.
+   * Throws if the key already exists (use {@link AuthoredMap.update} or
+   * {@link AuthoredMap.set} to modify an owned entry).
+   */
   insert(key: K, value: V): void {
     const keyBytes = serialize(key);
     const valueBytes = serialize(value);
