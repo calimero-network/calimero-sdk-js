@@ -293,6 +293,18 @@ jobs:
                 "${LOG_ARGS[@]}"; then
               FAILED_WORKFLOWS+=("$workflow")
             fi
+            # DIAGNOSTIC (temporary): dump the exported node container logs for
+            # the traced workflow into the job output, BEFORE nuke wipes them.
+            case "$workflow" in
+              *crdt-collections-concurrent*)
+                echo "===== BEGIN NODE CONTAINER LOGS ($workflow) ====="
+                find data -type d -name 'container-logs' -exec sh -c 'for f; do echo "----- $f -----"; cat "$f"; done' _ {}/* \; 2>/dev/null || true
+                for c in $(docker ps -a --format '{{.Names}}' | grep crdt-conv || true); do
+                  echo "----- docker logs $c -----"; docker logs "$c" 2>&1 || true
+                done
+                echo "===== END NODE CONTAINER LOGS ====="
+                ;;
+            esac
             merobox stop --all || true
             merobox nuke -f || true
           done
