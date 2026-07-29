@@ -72,6 +72,26 @@ import {
   jsCrdtSortedSetLen,
   jsCrdtSortedSetIter,
   jsCrdtSortedSetClear,
+  jsCrdtAuthoredMapNew,
+  jsCrdtAuthoredMapNewWithId,
+  jsCrdtAuthoredMapInsert,
+  jsCrdtAuthoredMapUpdate,
+  jsCrdtAuthoredMapRemove,
+  jsCrdtAuthoredMapGet,
+  jsCrdtAuthoredMapContains,
+  jsCrdtAuthoredMapOwnerOf,
+  jsCrdtAuthoredMapOwnedByMe,
+  jsCrdtAuthoredMapIter,
+  jsCrdtAuthoredVectorNew,
+  jsCrdtAuthoredVectorNewWithId,
+  jsCrdtAuthoredVectorPush,
+  jsCrdtAuthoredVectorUpdate,
+  jsCrdtAuthoredVectorTombstone,
+  jsCrdtAuthoredVectorGet,
+  jsCrdtAuthoredVectorOwnerOf,
+  jsCrdtAuthoredVectorOwnedByMe,
+  jsCrdtAuthoredVectorIter,
+  jsCrdtAuthoredVectorLen,
   jsUserStorageNew,
   jsUserStorageInsert,
   jsUserStorageGet,
@@ -193,6 +213,14 @@ export function sortedMapNewWithId(id: Uint8Array): Uint8Array {
 
 export function sortedSetNewWithId(id: Uint8Array): Uint8Array {
   return newCollectionWithId(id, jsCrdtSortedSetNewWithId, 'sortedSetNewWithId');
+}
+
+export function authoredMapNewWithId(id: Uint8Array): Uint8Array {
+  return newCollectionWithId(id, jsCrdtAuthoredMapNewWithId, 'authoredMapNewWithId');
+}
+
+export function authoredVectorNewWithId(id: Uint8Array): Uint8Array {
+  return newCollectionWithId(id, jsCrdtAuthoredVectorNewWithId, 'authoredVectorNewWithId');
 }
 
 export function userStorageNewWithId(id: Uint8Array): Uint8Array {
@@ -1009,6 +1037,344 @@ export function sortedSetClear(setId: Uint8Array): void {
   if (status < 0) {
     decodeError('sortedSetClear');
   }
+}
+
+// AuthoredMap functions (attributed map; entries stamped with an owner)
+
+const OWNER_KEY_LENGTH = 32;
+
+// Reads a 32-byte owner public key from the register (mirrors how collection
+// ids are read back). Used by the authored `owner_of` wrappers.
+function readOwnerBytes(operation: string): Uint8Array {
+  const owner = readRegisterBytes();
+  if (owner.length !== OWNER_KEY_LENGTH) {
+    throw new Error(`[storage] ${operation} returned invalid owner length (${owner.length})`);
+  }
+  return owner;
+}
+
+export function authoredMapNew(): Uint8Array {
+  const status = Number(jsCrdtAuthoredMapNew(REGISTER_ID));
+  if (status < 0) {
+    decodeError('authoredMapNew');
+  }
+
+  const id = readRegisterBytes();
+  if (id.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] authoredMapNew returned invalid id length (${id.length})`);
+  }
+  return id;
+}
+
+// `insert` stamps the current executor as the entry owner and rejects an
+// already-present key (surfaced as a thrown error).
+export function authoredMapInsert(mapId: Uint8Array, key: Uint8Array, value: Uint8Array): void {
+  ensureCollectionId(mapId, 'mapId');
+  ensureUint8Array(key, 'key');
+  ensureUint8Array(value, 'value');
+
+  const status = Number(jsCrdtAuthoredMapInsert(mapId, key, value, REGISTER_ID));
+  if (status < 0) {
+    decodeError('authoredMapInsert');
+  }
+}
+
+// `update` is owner-only: a non-owner update surfaces as a thrown error.
+export function authoredMapUpdate(mapId: Uint8Array, key: Uint8Array, value: Uint8Array): void {
+  ensureCollectionId(mapId, 'mapId');
+  ensureUint8Array(key, 'key');
+  ensureUint8Array(value, 'value');
+
+  const status = Number(jsCrdtAuthoredMapUpdate(mapId, key, value, REGISTER_ID));
+  if (status < 0) {
+    decodeError('authoredMapUpdate');
+  }
+}
+
+// `remove` is owner-only: a non-owner remove surfaces as a thrown error; an
+// absent key returns null.
+export function authoredMapRemove(mapId: Uint8Array, key: Uint8Array): Uint8Array | null {
+  ensureCollectionId(mapId, 'mapId');
+  ensureUint8Array(key, 'key');
+
+  const status = Number(jsCrdtAuthoredMapRemove(mapId, key, REGISTER_ID));
+  if (status < 0) {
+    decodeError('authoredMapRemove');
+  }
+
+  if (status === 1) {
+    return readRegisterBytes();
+  }
+
+  return null;
+}
+
+export function authoredMapGet(mapId: Uint8Array, key: Uint8Array): Uint8Array | null {
+  ensureCollectionId(mapId, 'mapId');
+  ensureUint8Array(key, 'key');
+
+  const status = Number(jsCrdtAuthoredMapGet(mapId, key, REGISTER_ID));
+  if (status < 0) {
+    decodeError('authoredMapGet');
+  }
+  if (status === 0) {
+    return null;
+  }
+
+  return readRegisterBytes();
+}
+
+export function authoredMapContains(mapId: Uint8Array, key: Uint8Array): boolean {
+  ensureCollectionId(mapId, 'mapId');
+  ensureUint8Array(key, 'key');
+
+  const status = Number(jsCrdtAuthoredMapContains(mapId, key));
+  if (status < 0) {
+    decodeError('authoredMapContains');
+  }
+  return status === 1;
+}
+
+export function authoredMapOwnerOf(mapId: Uint8Array, key: Uint8Array): Uint8Array | null {
+  ensureCollectionId(mapId, 'mapId');
+  ensureUint8Array(key, 'key');
+
+  const status = Number(jsCrdtAuthoredMapOwnerOf(mapId, key, REGISTER_ID));
+  if (status < 0) {
+    decodeError('authoredMapOwnerOf');
+  }
+  if (status === 0) {
+    return null;
+  }
+
+  return readOwnerBytes('authoredMapOwnerOf');
+}
+
+export function authoredMapOwnedByMe(mapId: Uint8Array, key: Uint8Array): boolean {
+  ensureCollectionId(mapId, 'mapId');
+  ensureUint8Array(key, 'key');
+
+  const status = Number(jsCrdtAuthoredMapOwnedByMe(mapId, key));
+  if (status < 0) {
+    decodeError('authoredMapOwnedByMe');
+  }
+  return status === 1;
+}
+
+export function authoredMapEntries(mapId: Uint8Array): Array<[Uint8Array, Uint8Array]> {
+  ensureCollectionId(mapId, 'mapId');
+
+  const status = Number(jsCrdtAuthoredMapIter(mapId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('authoredMapIter');
+  }
+
+  const payload = readRegisterBytes();
+  if (payload.length === 0) {
+    return [];
+  }
+  if (payload.length < 4) {
+    throw new Error('[storage] authoredMapIter payload too small');
+  }
+
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
+  let offset = 0;
+  const count = view.getUint32(offset, true);
+  offset += 4;
+
+  const entries: Array<[Uint8Array, Uint8Array]> = [];
+  for (let index = 0; index < count; index += 1) {
+    if (offset + 4 > payload.length) {
+      throw new Error('[storage] authoredMapIter payload truncated (key length)');
+    }
+    const keyLen = view.getUint32(offset, true);
+    offset += 4;
+    const keyEnd = offset + keyLen;
+    if (keyEnd > payload.length) {
+      throw new Error('[storage] authoredMapIter payload truncated (key bytes)');
+    }
+    const keyBytes = payload.slice(offset, keyEnd);
+    offset = keyEnd;
+
+    if (offset + 4 > payload.length) {
+      throw new Error('[storage] authoredMapIter payload truncated (value length)');
+    }
+    const valueLen = view.getUint32(offset, true);
+    offset += 4;
+    const valueEnd = offset + valueLen;
+    if (valueEnd > payload.length) {
+      throw new Error('[storage] authoredMapIter payload truncated (value bytes)');
+    }
+    const valueBytes = payload.slice(offset, valueEnd);
+    offset = valueEnd;
+
+    entries.push([keyBytes, valueBytes]);
+  }
+
+  if (offset !== payload.length) {
+    throw new Error('[storage] authoredMapIter payload has trailing bytes');
+  }
+
+  return entries;
+}
+
+// AuthoredVector functions (attributed ordered list; slots stamped with owner)
+
+export function authoredVectorNew(): Uint8Array {
+  const status = Number(jsCrdtAuthoredVectorNew(REGISTER_ID));
+  if (status < 0) {
+    decodeError('authoredVectorNew');
+  }
+
+  const id = readRegisterBytes();
+  if (id.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] authoredVectorNew returned invalid id length (${id.length})`);
+  }
+  return id;
+}
+
+export function authoredVectorLen(vectorId: Uint8Array): number {
+  ensureCollectionId(vectorId, 'vectorId');
+
+  const status = Number(jsCrdtAuthoredVectorLen(vectorId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('authoredVectorLen');
+  }
+
+  return Number(readBigUint64());
+}
+
+// `push` stamps the current executor as the slot owner and returns the new
+// slot index.
+export function authoredVectorPush(vectorId: Uint8Array, value: Uint8Array): number {
+  ensureCollectionId(vectorId, 'vectorId');
+  ensureUint8Array(value, 'value');
+
+  const status = Number(jsCrdtAuthoredVectorPush(vectorId, value, REGISTER_ID));
+  if (status < 0) {
+    decodeError('authoredVectorPush');
+  }
+
+  return Number(readBigUint64());
+}
+
+// `update` is owner-only: a non-owner update surfaces as a thrown error.
+export function authoredVectorUpdate(vectorId: Uint8Array, index: number, value: Uint8Array): void {
+  ensureCollectionId(vectorId, 'vectorId');
+  ensureUint8Array(value, 'value');
+  if (!Number.isInteger(index) || index < 0) {
+    throw new TypeError('index must be a non-negative integer');
+  }
+
+  const status = Number(jsCrdtAuthoredVectorUpdate(vectorId, index, value, REGISTER_ID));
+  if (status < 0) {
+    decodeError('authoredVectorUpdate');
+  }
+}
+
+// `tombstone` is owner-only: a non-owner tombstone surfaces as a thrown error.
+export function authoredVectorTombstone(vectorId: Uint8Array, index: number): void {
+  ensureCollectionId(vectorId, 'vectorId');
+  if (!Number.isInteger(index) || index < 0) {
+    throw new TypeError('index must be a non-negative integer');
+  }
+
+  const status = Number(jsCrdtAuthoredVectorTombstone(vectorId, index, REGISTER_ID));
+  if (status < 0) {
+    decodeError('authoredVectorTombstone');
+  }
+}
+
+export function authoredVectorGet(vectorId: Uint8Array, index: number): Uint8Array | null {
+  ensureCollectionId(vectorId, 'vectorId');
+  if (!Number.isInteger(index) || index < 0) {
+    throw new TypeError('index must be a non-negative integer');
+  }
+
+  const status = Number(jsCrdtAuthoredVectorGet(vectorId, index, REGISTER_ID));
+  if (status < 0) {
+    decodeError('authoredVectorGet');
+  }
+  if (status === 0) {
+    return null;
+  }
+
+  return readRegisterBytes();
+}
+
+export function authoredVectorOwnerOf(vectorId: Uint8Array, index: number): Uint8Array | null {
+  ensureCollectionId(vectorId, 'vectorId');
+  if (!Number.isInteger(index) || index < 0) {
+    throw new TypeError('index must be a non-negative integer');
+  }
+
+  const status = Number(jsCrdtAuthoredVectorOwnerOf(vectorId, index, REGISTER_ID));
+  if (status < 0) {
+    decodeError('authoredVectorOwnerOf');
+  }
+  if (status === 0) {
+    return null;
+  }
+
+  return readOwnerBytes('authoredVectorOwnerOf');
+}
+
+export function authoredVectorOwnedByMe(vectorId: Uint8Array, index: number): boolean {
+  ensureCollectionId(vectorId, 'vectorId');
+  if (!Number.isInteger(index) || index < 0) {
+    throw new TypeError('index must be a non-negative integer');
+  }
+
+  const status = Number(jsCrdtAuthoredVectorOwnedByMe(vectorId, index));
+  if (status < 0) {
+    decodeError('authoredVectorOwnedByMe');
+  }
+  return status === 1;
+}
+
+export function authoredVectorValues(vectorId: Uint8Array): Uint8Array[] {
+  ensureCollectionId(vectorId, 'vectorId');
+
+  const status = Number(jsCrdtAuthoredVectorIter(vectorId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('authoredVectorIter');
+  }
+
+  const payload = readRegisterBytes();
+  if (payload.length === 0) {
+    return [];
+  }
+  if (payload.length < 4) {
+    throw new Error('[storage] authoredVectorIter payload too small');
+  }
+
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
+  let offset = 0;
+  const count = view.getUint32(offset, true);
+  offset += 4;
+
+  const values: Uint8Array[] = [];
+  for (let index = 0; index < count; index += 1) {
+    if (offset + 4 > payload.length) {
+      throw new Error('[storage] authoredVectorIter payload truncated (length header)');
+    }
+
+    const valueLen = view.getUint32(offset, true);
+    offset += 4;
+    const end = offset + valueLen;
+    if (end > payload.length) {
+      throw new Error('[storage] authoredVectorIter payload truncated (value bytes)');
+    }
+
+    values.push(payload.slice(offset, end));
+    offset = end;
+  }
+
+  if (offset !== payload.length) {
+    throw new Error('[storage] authoredVectorIter payload has trailing bytes');
+  }
+
+  return values;
 }
 
 // UserStorage functions

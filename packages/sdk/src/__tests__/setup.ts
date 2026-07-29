@@ -30,6 +30,23 @@ type LwwStore = {
   nodeId: Uint8Array;
 };
 
+// Attributed (authored) CRDT stores. Each entry/slot records its owner so the
+// mock can enforce owner-only update/remove/tombstone semantics.
+type AuthoredMapStore = {
+  entries: Map<string, StoredValue>;
+  owners: Map<string, Uint8Array>;
+};
+
+type AuthoredSlot = {
+  value: Uint8Array;
+  owner: Uint8Array;
+  tombstoned: boolean;
+};
+
+type AuthoredVectorStore = {
+  slots: AuthoredSlot[];
+};
+
 // In-memory backing stores
 const storage = new Map<string, Uint8Array>();
 const maps = new Map<string, MapStore>();
@@ -43,6 +60,10 @@ const pnCounters = new Map<string, CounterStore>();
 const rgas = new Map<string, RgaStore>();
 const sortedMaps = new Map<string, MapStore>();
 const sortedSets = new Map<string, SetStore>();
+
+// Phase 2a attributed (authored) CRDT stores.
+const authoredMaps = new Map<string, AuthoredMapStore>();
+const authoredVectors = new Map<string, AuthoredVectorStore>();
 
 // Lexicographic byte comparison for deterministic sorted iteration.
 function compareBytes(a: Uint8Array, b: Uint8Array): number {
@@ -61,6 +82,41 @@ let currentRegister: Uint8Array | null = null;
 // Executor & context IDs
 const mockExecutorId = new Uint8Array(32).fill(1);
 const mockContextId = new Uint8Array(32).fill(2);
+
+// Mutable "current executor" so tests can simulate a different caller and
+// exercise the owner-only paths of the authored collections.
+let currentExecutorId = mockExecutorId;
+
+/**
+ * Override the executor identity returned by the mock host. Tests use this to
+ * simulate a second member acting on an authored collection.
+ */
+export function setExecutorId(id: Uint8Array): void {
+  currentExecutorId = new Uint8Array(id);
+}
+
+/**
+ * Restore the default mock executor identity.
+ */
+export function resetExecutorId(): void {
+  currentExecutorId = mockExecutorId;
+}
+
+function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function setRegisterError(message: string): void {
+  setRegister(new TextEncoder().encode(message));
+}
 
 let nextId = 1;
 
@@ -131,7 +187,7 @@ function serializeMapEntries(entries: Array<[Uint8Array, Uint8Array]>): Uint8Arr
 }
 
 function getExecutorKey(executor?: Uint8Array): string {
-  const id = executor ?? mockExecutorId;
+  const id = executor ?? currentExecutorId;
   return Array.from(id).join(',');
 }
 
@@ -192,7 +248,7 @@ function getExecutorKey(executor?: Uint8Array): string {
   },
 
   executor_id: (_register_id: bigint): void => {
-    currentRegister = mockExecutorId;
+    currentRegister = new Uint8Array(currentExecutorId);
   },
 
   emit: (_kind: Uint8Array, _data: Uint8Array): void => {
@@ -297,6 +353,18 @@ function getExecutorKey(executor?: Uint8Array): string {
   js_frozen_storage_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
     setRegister(new Uint8Array(id));
     return 1;
+  },
+
+  js_crdt_authored_map_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
+    authoredMaps.set(idToKey(id), { entries: new Map(), owners: new Map() });
+    setRegister(new Uint8Array(id));
+    return 0;
+  },
+
+  js_crdt_authored_vector_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
+    authoredVectors.set(idToKey(id), { slots: [] });
+    setRegister(new Uint8Array(id));
+    return 0;
   },
 
   js_crdt_map_get: (mapId: Uint8Array, key: Uint8Array, _register_id: bigint): number => {
@@ -857,6 +925,323 @@ function getExecutorKey(executor?: Uint8Array): string {
     store.values.clear();
     return 1;
   },
+
+  // --- AuthoredMap (attributed map) ----------------------------------------
+
+  js_crdt_authored_map_new: (_register_id: bigint): number => {
+    const id = generateId();
+    authoredMaps.set(idToKey(id), { entries: new Map(), owners: new Map() });
+    setRegister(id);
+    return 0;
+  },
+
+  js_crdt_authored_map_insert: (
+    mapId: Uint8Array,
+    key: Uint8Array,
+    value: Uint8Array,
+    _register_id: bigint
+  ): number => {
+    const store = authoredMaps.get(idToKey(mapId));
+    if (!store) {
+      setRegisterError('authored map not found');
+      return -1;
+    }
+    const entryKey = Array.from(key).join(',');
+    if (store.entries.has(entryKey)) {
+      // `insert` rejects an already-present key.
+      setRegisterError('key already exists');
+      return -1;
+    }
+    store.entries.set(entryKey, new Uint8Array(value));
+    // Stamp the current executor as the entry owner.
+    store.owners.set(entryKey, new Uint8Array(currentExecutorId));
+    setRegister(null);
+    return 0;
+  },
+
+  js_crdt_authored_map_update: (
+    mapId: Uint8Array,
+    key: Uint8Array,
+    value: Uint8Array,
+    _register_id: bigint
+  ): number => {
+    const store = authoredMaps.get(idToKey(mapId));
+    if (!store) {
+      setRegisterError('authored map not found');
+      return -1;
+    }
+    const entryKey = Array.from(key).join(',');
+    const owner = store.owners.get(entryKey);
+    if (!owner) {
+      setRegisterError('key not found');
+      return -1;
+    }
+    // Owner-only: reject a non-owner executor (ActionNotAllowed).
+    if (!bytesEqual(owner, currentExecutorId)) {
+      setRegisterError('ActionNotAllowed: not the entry owner');
+      return -1;
+    }
+    store.entries.set(entryKey, new Uint8Array(value));
+    return 1;
+  },
+
+  js_crdt_authored_map_remove: (
+    mapId: Uint8Array,
+    key: Uint8Array,
+    _register_id: bigint
+  ): number => {
+    const store = authoredMaps.get(idToKey(mapId));
+    if (!store) {
+      setRegisterError('authored map not found');
+      return -1;
+    }
+    const entryKey = Array.from(key).join(',');
+    const previous = store.entries.get(entryKey);
+    if (!previous) {
+      setRegister(null);
+      return 0;
+    }
+    const owner = store.owners.get(entryKey);
+    // Owner-only: reject a non-owner executor (ActionNotAllowed).
+    if (owner && !bytesEqual(owner, currentExecutorId)) {
+      setRegisterError('ActionNotAllowed: not the entry owner');
+      return -1;
+    }
+    store.entries.delete(entryKey);
+    store.owners.delete(entryKey);
+    setRegister(previous);
+    return 1;
+  },
+
+  js_crdt_authored_map_get: (mapId: Uint8Array, key: Uint8Array, _register_id: bigint): number => {
+    const store = authoredMaps.get(idToKey(mapId));
+    if (!store) {
+      setRegisterError('authored map not found');
+      return -1;
+    }
+    const value = store.entries.get(Array.from(key).join(','));
+    if (!value) {
+      setRegister(null);
+      return 0;
+    }
+    setRegister(value);
+    return 1;
+  },
+
+  js_crdt_authored_map_contains: (mapId: Uint8Array, key: Uint8Array): number => {
+    const store = authoredMaps.get(idToKey(mapId));
+    if (!store) {
+      return -1;
+    }
+    return store.entries.has(Array.from(key).join(',')) ? 1 : 0;
+  },
+
+  js_crdt_authored_map_owner_of: (
+    mapId: Uint8Array,
+    key: Uint8Array,
+    _register_id: bigint
+  ): number => {
+    const store = authoredMaps.get(idToKey(mapId));
+    if (!store) {
+      setRegisterError('authored map not found');
+      return -1;
+    }
+    const owner = store.owners.get(Array.from(key).join(','));
+    if (!owner) {
+      setRegister(null);
+      return 0;
+    }
+    setRegister(new Uint8Array(owner));
+    return 1;
+  },
+
+  js_crdt_authored_map_owned_by_me: (mapId: Uint8Array, key: Uint8Array): number => {
+    const store = authoredMaps.get(idToKey(mapId));
+    if (!store) {
+      return -1;
+    }
+    const owner = store.owners.get(Array.from(key).join(','));
+    if (!owner) {
+      return 0;
+    }
+    return bytesEqual(owner, currentExecutorId) ? 1 : 0;
+  },
+
+  js_crdt_authored_map_iter: (mapId: Uint8Array, _register_id: bigint): number => {
+    const store = authoredMaps.get(idToKey(mapId));
+    if (!store) {
+      setRegisterError('authored map not found');
+      return -1;
+    }
+    const entries = Array.from(store.entries.entries()).map(([key, value]) => {
+      const keyBytes = Uint8Array.from(key.split(',').map(Number));
+      return [keyBytes, value] as [Uint8Array, Uint8Array];
+    });
+    setRegister(serializeMapEntries(entries));
+    return 1;
+  },
+
+  js_crdt_authored_map_len: (mapId: Uint8Array, _register_id: bigint): number => {
+    const store = authoredMaps.get(idToKey(mapId));
+    if (!store) {
+      return -1;
+    }
+    writeU64ToRegister(BigInt(store.entries.size));
+    return 1;
+  },
+
+  // --- AuthoredVector (attributed ordered list) ----------------------------
+
+  js_crdt_authored_vector_new: (_register_id: bigint): number => {
+    const id = generateId();
+    authoredVectors.set(idToKey(id), { slots: [] });
+    setRegister(id);
+    return 0;
+  },
+
+  js_crdt_authored_vector_push: (
+    vectorId: Uint8Array,
+    value: Uint8Array,
+    _register_id: bigint
+  ): number => {
+    const store = authoredVectors.get(idToKey(vectorId));
+    if (!store) {
+      setRegisterError('authored vector not found');
+      return -1;
+    }
+    store.slots.push({
+      value: new Uint8Array(value),
+      owner: new Uint8Array(currentExecutorId),
+      tombstoned: false,
+    });
+    // `push` returns the new slot index (u64 LE) in the register.
+    writeU64ToRegister(BigInt(store.slots.length - 1));
+    return 1;
+  },
+
+  js_crdt_authored_vector_update: (
+    vectorId: Uint8Array,
+    index: number,
+    value: Uint8Array,
+    _register_id: bigint
+  ): number => {
+    const store = authoredVectors.get(idToKey(vectorId));
+    if (!store) {
+      setRegisterError('authored vector not found');
+      return -1;
+    }
+    const slot = store.slots[index];
+    if (!slot || slot.tombstoned) {
+      setRegisterError('slot not found');
+      return -1;
+    }
+    if (!bytesEqual(slot.owner, currentExecutorId)) {
+      setRegisterError('ActionNotAllowed: not the slot owner');
+      return -1;
+    }
+    slot.value = new Uint8Array(value);
+    return 1;
+  },
+
+  js_crdt_authored_vector_tombstone: (
+    vectorId: Uint8Array,
+    index: number,
+    _register_id: bigint
+  ): number => {
+    const store = authoredVectors.get(idToKey(vectorId));
+    if (!store) {
+      setRegisterError('authored vector not found');
+      return -1;
+    }
+    const slot = store.slots[index];
+    if (!slot || slot.tombstoned) {
+      setRegisterError('slot not found');
+      return -1;
+    }
+    if (!bytesEqual(slot.owner, currentExecutorId)) {
+      setRegisterError('ActionNotAllowed: not the slot owner');
+      return -1;
+    }
+    slot.tombstoned = true;
+    return 1;
+  },
+
+  js_crdt_authored_vector_get: (
+    vectorId: Uint8Array,
+    index: number,
+    _register_id: bigint
+  ): number => {
+    const store = authoredVectors.get(idToKey(vectorId));
+    if (!store) {
+      setRegisterError('authored vector not found');
+      return -1;
+    }
+    const slot = store.slots[index];
+    if (!slot) {
+      setRegister(null);
+      return 0;
+    }
+    // Match core: `tombstone` writes `V::default()`, so a tombstoned slot
+    // round-trips as a 0-byte value (not an absent/null slot). The wrapper is
+    // responsible for treating a 0-length value as tombstoned.
+    setRegister(slot.tombstoned ? new Uint8Array(0) : slot.value);
+    return 1;
+  },
+
+  js_crdt_authored_vector_owner_of: (
+    vectorId: Uint8Array,
+    index: number,
+    _register_id: bigint
+  ): number => {
+    const store = authoredVectors.get(idToKey(vectorId));
+    if (!store) {
+      setRegisterError('authored vector not found');
+      return -1;
+    }
+    const slot = store.slots[index];
+    if (!slot) {
+      setRegister(null);
+      return 0;
+    }
+    setRegister(new Uint8Array(slot.owner));
+    return 1;
+  },
+
+  js_crdt_authored_vector_owned_by_me: (vectorId: Uint8Array, index: number): number => {
+    const store = authoredVectors.get(idToKey(vectorId));
+    if (!store) {
+      return -1;
+    }
+    const slot = store.slots[index];
+    if (!slot) {
+      return 0;
+    }
+    return bytesEqual(slot.owner, currentExecutorId) ? 1 : 0;
+  },
+
+  js_crdt_authored_vector_iter: (vectorId: Uint8Array, _register_id: bigint): number => {
+    const store = authoredVectors.get(idToKey(vectorId));
+    if (!store) {
+      setRegisterError('authored vector not found');
+      return -1;
+    }
+    // Match core: `iter` returns every slot including tombstoned ones, which
+    // round-trip as 0-byte values (`V::default()`). The wrapper filters them.
+    const values = store.slots.map(slot =>
+      slot.tombstoned ? new Uint8Array(0) : new Uint8Array(slot.value)
+    );
+    setRegister(serializeVec(values));
+    return 1;
+  },
+
+  js_crdt_authored_vector_len: (vectorId: Uint8Array, _register_id: bigint): number => {
+    const store = authoredVectors.get(idToKey(vectorId));
+    if (!store) {
+      return -1;
+    }
+    writeU64ToRegister(BigInt(store.slots.length));
+    return 1;
+  },
 };
 
 // Helper to clear storage between tests
@@ -871,6 +1256,9 @@ export function clearStorage() {
   rgas.clear();
   sortedMaps.clear();
   sortedSets.clear();
+  authoredMaps.clear();
+  authoredVectors.clear();
+  resetExecutorId();
   currentRegister = null;
 }
 

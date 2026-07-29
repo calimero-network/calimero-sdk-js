@@ -182,6 +182,27 @@ extern int32_t js_crdt_sortedset_remove(uint64_t set_id_buffer_ptr, uint64_t val
 extern int32_t js_crdt_sortedset_len(uint64_t set_id_buffer_ptr, uint64_t register_id);
 extern int32_t js_crdt_sortedset_iter(uint64_t set_id_buffer_ptr, uint64_t register_id);
 extern int32_t js_crdt_sortedset_clear(uint64_t set_id_buffer_ptr);
+// AuthoredMap (attributed map; entries stamped with an owner). Provided by the node runtime (core#3321).
+extern int32_t js_crdt_authored_map_new(uint64_t register_id);
+extern int32_t js_crdt_authored_map_insert(uint64_t map_id_buffer_ptr, uint64_t key_buffer_ptr, uint64_t value_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_authored_map_update(uint64_t map_id_buffer_ptr, uint64_t key_buffer_ptr, uint64_t value_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_authored_map_remove(uint64_t map_id_buffer_ptr, uint64_t key_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_authored_map_get(uint64_t map_id_buffer_ptr, uint64_t key_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_authored_map_contains(uint64_t map_id_buffer_ptr, uint64_t key_buffer_ptr);
+extern int32_t js_crdt_authored_map_owner_of(uint64_t map_id_buffer_ptr, uint64_t key_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_authored_map_owned_by_me(uint64_t map_id_buffer_ptr, uint64_t key_buffer_ptr);
+extern int32_t js_crdt_authored_map_iter(uint64_t map_id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_authored_map_len(uint64_t map_id_buffer_ptr, uint64_t register_id);
+// AuthoredVector (attributed ordered list; slots stamped with an owner). Provided by the node runtime (core#3321).
+extern int32_t js_crdt_authored_vector_new(uint64_t register_id);
+extern int32_t js_crdt_authored_vector_push(uint64_t vector_id_buffer_ptr, uint64_t value_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_authored_vector_update(uint64_t vector_id_buffer_ptr, uint64_t index, uint64_t value_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_authored_vector_tombstone(uint64_t vector_id_buffer_ptr, uint64_t index, uint64_t register_id);
+extern int32_t js_crdt_authored_vector_get(uint64_t vector_id_buffer_ptr, uint64_t index, uint64_t register_id);
+extern int32_t js_crdt_authored_vector_owner_of(uint64_t vector_id_buffer_ptr, uint64_t index, uint64_t register_id);
+extern int32_t js_crdt_authored_vector_owned_by_me(uint64_t vector_id_buffer_ptr, uint64_t index);
+extern int32_t js_crdt_authored_vector_iter(uint64_t vector_id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_authored_vector_len(uint64_t vector_id_buffer_ptr, uint64_t register_id);
 // Opt-in field-aware root merge + deterministic-id CRDT constructors
 // (concurrent-writer convergence). Provided by the node runtime.
 extern void register_js_sdk_root_merge(void);
@@ -194,6 +215,8 @@ extern int32_t js_crdt_pncounter_new_with_id(uint64_t id_buffer_ptr, uint64_t re
 extern int32_t js_crdt_rga_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
 extern int32_t js_crdt_sortedmap_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
 extern int32_t js_crdt_sortedset_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_authored_map_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_authored_vector_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
 extern int32_t js_user_storage_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
 extern int32_t js_frozen_storage_new_with_id(uint64_t id_buffer_ptr, uint64_t register_id);
 extern void commit(uint64_t root_hash_buffer_ptr, uint64_t artifact_buffer_ptr);
@@ -1647,6 +1670,465 @@ static JSValue js_env_crdt_sorted_set_clear(JSContext *ctx, JSValueConst this_va
   return JS_NewInt32(ctx, status);
 }
 
+// ---------------------------------------------------------------------------
+// AuthoredMap (attributed map; entries stamped with an owner) wrappers
+// ---------------------------------------------------------------------------
+
+static JSValue js_env_crdt_authored_map_new(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 1) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_new expects register id");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[0], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  int32_t status = js_crdt_authored_map_new((uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_authored_map_insert(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 4) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_insert expects mapId, key, value and register id");
+    return JS_EXCEPTION;
+  }
+  size_t map_id_len;
+  uint8_t *map_id_ptr = JSValueToUint8Array(ctx, argv[0], &map_id_len);
+  if (!map_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_insert: mapId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  size_t key_len;
+  uint8_t *key_ptr = JSValueToUint8Array(ctx, argv[1], &key_len);
+  if (!key_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_insert: key must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  size_t value_len;
+  uint8_t *value_ptr = JSValueToUint8Array(ctx, argv[2], &value_len);
+  if (!value_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_insert: value must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[3], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer map_id_buf = make_buffer(map_id_ptr, map_id_len);
+  CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
+  CalimeroBuffer value_buf = make_buffer(value_ptr, value_len);
+  int32_t status = js_crdt_authored_map_insert((uint64_t)&map_id_buf, (uint64_t)&key_buf, (uint64_t)&value_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_authored_map_update(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 4) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_update expects mapId, key, value and register id");
+    return JS_EXCEPTION;
+  }
+  size_t map_id_len;
+  uint8_t *map_id_ptr = JSValueToUint8Array(ctx, argv[0], &map_id_len);
+  if (!map_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_update: mapId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  size_t key_len;
+  uint8_t *key_ptr = JSValueToUint8Array(ctx, argv[1], &key_len);
+  if (!key_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_update: key must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  size_t value_len;
+  uint8_t *value_ptr = JSValueToUint8Array(ctx, argv[2], &value_len);
+  if (!value_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_update: value must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[3], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer map_id_buf = make_buffer(map_id_ptr, map_id_len);
+  CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
+  CalimeroBuffer value_buf = make_buffer(value_ptr, value_len);
+  int32_t status = js_crdt_authored_map_update((uint64_t)&map_id_buf, (uint64_t)&key_buf, (uint64_t)&value_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_authored_map_remove(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 3) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_remove expects mapId, key and register id");
+    return JS_EXCEPTION;
+  }
+  size_t map_id_len;
+  uint8_t *map_id_ptr = JSValueToUint8Array(ctx, argv[0], &map_id_len);
+  if (!map_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_remove: mapId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  size_t key_len;
+  uint8_t *key_ptr = JSValueToUint8Array(ctx, argv[1], &key_len);
+  if (!key_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_remove: key must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[2], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer map_id_buf = make_buffer(map_id_ptr, map_id_len);
+  CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
+  int32_t status = js_crdt_authored_map_remove((uint64_t)&map_id_buf, (uint64_t)&key_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_authored_map_get(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 3) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_get expects mapId, key and register id");
+    return JS_EXCEPTION;
+  }
+  size_t map_id_len;
+  uint8_t *map_id_ptr = JSValueToUint8Array(ctx, argv[0], &map_id_len);
+  if (!map_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_get: mapId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  size_t key_len;
+  uint8_t *key_ptr = JSValueToUint8Array(ctx, argv[1], &key_len);
+  if (!key_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_get: key must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[2], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer map_id_buf = make_buffer(map_id_ptr, map_id_len);
+  CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
+  int32_t status = js_crdt_authored_map_get((uint64_t)&map_id_buf, (uint64_t)&key_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_authored_map_contains(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_contains expects mapId and key");
+    return JS_EXCEPTION;
+  }
+  size_t map_id_len;
+  uint8_t *map_id_ptr = JSValueToUint8Array(ctx, argv[0], &map_id_len);
+  if (!map_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_contains: mapId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  size_t key_len;
+  uint8_t *key_ptr = JSValueToUint8Array(ctx, argv[1], &key_len);
+  if (!key_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_contains: key must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer map_id_buf = make_buffer(map_id_ptr, map_id_len);
+  CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
+  int32_t status = js_crdt_authored_map_contains((uint64_t)&map_id_buf, (uint64_t)&key_buf);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_authored_map_owner_of(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 3) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_owner_of expects mapId, key and register id");
+    return JS_EXCEPTION;
+  }
+  size_t map_id_len;
+  uint8_t *map_id_ptr = JSValueToUint8Array(ctx, argv[0], &map_id_len);
+  if (!map_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_owner_of: mapId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  size_t key_len;
+  uint8_t *key_ptr = JSValueToUint8Array(ctx, argv[1], &key_len);
+  if (!key_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_owner_of: key must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[2], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer map_id_buf = make_buffer(map_id_ptr, map_id_len);
+  CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
+  int32_t status = js_crdt_authored_map_owner_of((uint64_t)&map_id_buf, (uint64_t)&key_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_authored_map_owned_by_me(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_owned_by_me expects mapId and key");
+    return JS_EXCEPTION;
+  }
+  size_t map_id_len;
+  uint8_t *map_id_ptr = JSValueToUint8Array(ctx, argv[0], &map_id_len);
+  if (!map_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_owned_by_me: mapId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  size_t key_len;
+  uint8_t *key_ptr = JSValueToUint8Array(ctx, argv[1], &key_len);
+  if (!key_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_owned_by_me: key must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer map_id_buf = make_buffer(map_id_ptr, map_id_len);
+  CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
+  int32_t status = js_crdt_authored_map_owned_by_me((uint64_t)&map_id_buf, (uint64_t)&key_buf);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_authored_map_iter(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_iter expects mapId and register id");
+    return JS_EXCEPTION;
+  }
+  size_t map_id_len;
+  uint8_t *map_id_ptr = JSValueToUint8Array(ctx, argv[0], &map_id_len);
+  if (!map_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_iter: mapId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[1], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer map_id_buf = make_buffer(map_id_ptr, map_id_len);
+  int32_t status = js_crdt_authored_map_iter((uint64_t)&map_id_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_authored_map_len(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_len expects mapId and register id");
+    return JS_EXCEPTION;
+  }
+  size_t map_id_len;
+  uint8_t *map_id_ptr = JSValueToUint8Array(ctx, argv[0], &map_id_len);
+  if (!map_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_map_len: mapId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[1], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer map_id_buf = make_buffer(map_id_ptr, map_id_len);
+  int32_t status = js_crdt_authored_map_len((uint64_t)&map_id_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+// ---------------------------------------------------------------------------
+// AuthoredVector (attributed ordered list; slots stamped with an owner) wrappers
+// ---------------------------------------------------------------------------
+
+static JSValue js_env_crdt_authored_vector_new(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 1) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_vector_new expects register id");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[0], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  int32_t status = js_crdt_authored_vector_new((uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_authored_vector_push(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 3) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_vector_push expects vectorId, value and register id");
+    return JS_EXCEPTION;
+  }
+  size_t vector_id_len;
+  uint8_t *vector_id_ptr = JSValueToUint8Array(ctx, argv[0], &vector_id_len);
+  if (!vector_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_vector_push: vectorId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  size_t value_len;
+  uint8_t *value_ptr = JSValueToUint8Array(ctx, argv[1], &value_len);
+  if (!value_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_vector_push: value must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[2], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer vector_id_buf = make_buffer(vector_id_ptr, vector_id_len);
+  CalimeroBuffer value_buf = make_buffer(value_ptr, value_len);
+  int32_t status = js_crdt_authored_vector_push((uint64_t)&vector_id_buf, (uint64_t)&value_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_authored_vector_update(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 4) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_vector_update expects vectorId, index, value and register id");
+    return JS_EXCEPTION;
+  }
+  size_t vector_id_len;
+  uint8_t *vector_id_ptr = JSValueToUint8Array(ctx, argv[0], &vector_id_len);
+  if (!vector_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_vector_update: vectorId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  uint64_t index;
+  if (JS_ToIndex(ctx, &index, argv[1])) {
+    return JS_EXCEPTION;
+  }
+  size_t value_len;
+  uint8_t *value_ptr = JSValueToUint8Array(ctx, argv[2], &value_len);
+  if (!value_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_vector_update: value must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[3], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer vector_id_buf = make_buffer(vector_id_ptr, vector_id_len);
+  CalimeroBuffer value_buf = make_buffer(value_ptr, value_len);
+  int32_t status = js_crdt_authored_vector_update((uint64_t)&vector_id_buf, index, (uint64_t)&value_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_authored_vector_tombstone(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 3) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_vector_tombstone expects vectorId, index and register id");
+    return JS_EXCEPTION;
+  }
+  size_t vector_id_len;
+  uint8_t *vector_id_ptr = JSValueToUint8Array(ctx, argv[0], &vector_id_len);
+  if (!vector_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_vector_tombstone: vectorId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  uint64_t index;
+  if (JS_ToIndex(ctx, &index, argv[1])) {
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[2], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer vector_id_buf = make_buffer(vector_id_ptr, vector_id_len);
+  int32_t status = js_crdt_authored_vector_tombstone((uint64_t)&vector_id_buf, index, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_authored_vector_get(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 3) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_vector_get expects vectorId, index and register id");
+    return JS_EXCEPTION;
+  }
+  size_t vector_id_len;
+  uint8_t *vector_id_ptr = JSValueToUint8Array(ctx, argv[0], &vector_id_len);
+  if (!vector_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_vector_get: vectorId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  uint64_t index;
+  if (JS_ToIndex(ctx, &index, argv[1])) {
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[2], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer vector_id_buf = make_buffer(vector_id_ptr, vector_id_len);
+  int32_t status = js_crdt_authored_vector_get((uint64_t)&vector_id_buf, index, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_authored_vector_owner_of(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 3) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_vector_owner_of expects vectorId, index and register id");
+    return JS_EXCEPTION;
+  }
+  size_t vector_id_len;
+  uint8_t *vector_id_ptr = JSValueToUint8Array(ctx, argv[0], &vector_id_len);
+  if (!vector_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_vector_owner_of: vectorId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  uint64_t index;
+  if (JS_ToIndex(ctx, &index, argv[1])) {
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[2], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer vector_id_buf = make_buffer(vector_id_ptr, vector_id_len);
+  int32_t status = js_crdt_authored_vector_owner_of((uint64_t)&vector_id_buf, index, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_authored_vector_owned_by_me(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_vector_owned_by_me expects vectorId and index");
+    return JS_EXCEPTION;
+  }
+  size_t vector_id_len;
+  uint8_t *vector_id_ptr = JSValueToUint8Array(ctx, argv[0], &vector_id_len);
+  if (!vector_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_vector_owned_by_me: vectorId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  uint64_t index;
+  if (JS_ToIndex(ctx, &index, argv[1])) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer vector_id_buf = make_buffer(vector_id_ptr, vector_id_len);
+  int32_t status = js_crdt_authored_vector_owned_by_me((uint64_t)&vector_id_buf, index);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_authored_vector_iter(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_vector_iter expects vectorId and register id");
+    return JS_EXCEPTION;
+  }
+  size_t vector_id_len;
+  uint8_t *vector_id_ptr = JSValueToUint8Array(ctx, argv[0], &vector_id_len);
+  if (!vector_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_vector_iter: vectorId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[1], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer vector_id_buf = make_buffer(vector_id_ptr, vector_id_len);
+  int32_t status = js_crdt_authored_vector_iter((uint64_t)&vector_id_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
+static JSValue js_env_crdt_authored_vector_len(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (argc < 2) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_vector_len expects vectorId and register id");
+    return JS_EXCEPTION;
+  }
+  size_t vector_id_len;
+  uint8_t *vector_id_ptr = JSValueToUint8Array(ctx, argv[0], &vector_id_len);
+  if (!vector_id_ptr) {
+    JS_ThrowTypeError(ctx, "js_crdt_authored_vector_len: vectorId must be Uint8Array");
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[1], &register_id)) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer vector_id_buf = make_buffer(vector_id_ptr, vector_id_len);
+  int32_t status = js_crdt_authored_vector_len((uint64_t)&vector_id_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, status);
+}
+
 // Wrapper: context_id
 static JSValue js_context_id(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   int64_t register_id;
@@ -2268,6 +2750,8 @@ DEFINE_NEW_WITH_ID_WRAPPER(js_env_crdt_pncounter_new_with_id, js_crdt_pncounter_
 DEFINE_NEW_WITH_ID_WRAPPER(js_env_crdt_rga_new_with_id, js_crdt_rga_new_with_id, "js_crdt_rga_new_with_id")
 DEFINE_NEW_WITH_ID_WRAPPER(js_env_crdt_sorted_map_new_with_id, js_crdt_sortedmap_new_with_id, "js_crdt_sortedmap_new_with_id")
 DEFINE_NEW_WITH_ID_WRAPPER(js_env_crdt_sorted_set_new_with_id, js_crdt_sortedset_new_with_id, "js_crdt_sortedset_new_with_id")
+DEFINE_NEW_WITH_ID_WRAPPER(js_env_crdt_authored_map_new_with_id, js_crdt_authored_map_new_with_id, "js_crdt_authored_map_new_with_id")
+DEFINE_NEW_WITH_ID_WRAPPER(js_env_crdt_authored_vector_new_with_id, js_crdt_authored_vector_new_with_id, "js_crdt_authored_vector_new_with_id")
 DEFINE_NEW_WITH_ID_WRAPPER(js_env_user_storage_new_with_id, js_user_storage_new_with_id, "js_user_storage_new_with_id")
 DEFINE_NEW_WITH_ID_WRAPPER(js_env_frozen_storage_new_with_id, js_frozen_storage_new_with_id, "js_frozen_storage_new_with_id")
 
@@ -2340,6 +2824,25 @@ void js_add_calimero_host_functions(JSContext *ctx) {
   JS_SetPropertyStr(ctx, env, "js_crdt_sortedset_len", JS_NewCFunction(ctx, js_env_crdt_sorted_set_len, "js_crdt_sortedset_len", 2));
   JS_SetPropertyStr(ctx, env, "js_crdt_sortedset_iter", JS_NewCFunction(ctx, js_env_crdt_sorted_set_iter, "js_crdt_sortedset_iter", 2));
   JS_SetPropertyStr(ctx, env, "js_crdt_sortedset_clear", JS_NewCFunction(ctx, js_env_crdt_sorted_set_clear, "js_crdt_sortedset_clear", 1));
+  JS_SetPropertyStr(ctx, env, "js_crdt_authored_map_new", JS_NewCFunction(ctx, js_env_crdt_authored_map_new, "js_crdt_authored_map_new", 1));
+  JS_SetPropertyStr(ctx, env, "js_crdt_authored_map_insert", JS_NewCFunction(ctx, js_env_crdt_authored_map_insert, "js_crdt_authored_map_insert", 4));
+  JS_SetPropertyStr(ctx, env, "js_crdt_authored_map_update", JS_NewCFunction(ctx, js_env_crdt_authored_map_update, "js_crdt_authored_map_update", 4));
+  JS_SetPropertyStr(ctx, env, "js_crdt_authored_map_remove", JS_NewCFunction(ctx, js_env_crdt_authored_map_remove, "js_crdt_authored_map_remove", 3));
+  JS_SetPropertyStr(ctx, env, "js_crdt_authored_map_get", JS_NewCFunction(ctx, js_env_crdt_authored_map_get, "js_crdt_authored_map_get", 3));
+  JS_SetPropertyStr(ctx, env, "js_crdt_authored_map_contains", JS_NewCFunction(ctx, js_env_crdt_authored_map_contains, "js_crdt_authored_map_contains", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_authored_map_owner_of", JS_NewCFunction(ctx, js_env_crdt_authored_map_owner_of, "js_crdt_authored_map_owner_of", 3));
+  JS_SetPropertyStr(ctx, env, "js_crdt_authored_map_owned_by_me", JS_NewCFunction(ctx, js_env_crdt_authored_map_owned_by_me, "js_crdt_authored_map_owned_by_me", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_authored_map_iter", JS_NewCFunction(ctx, js_env_crdt_authored_map_iter, "js_crdt_authored_map_iter", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_authored_map_len", JS_NewCFunction(ctx, js_env_crdt_authored_map_len, "js_crdt_authored_map_len", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_authored_vector_new", JS_NewCFunction(ctx, js_env_crdt_authored_vector_new, "js_crdt_authored_vector_new", 1));
+  JS_SetPropertyStr(ctx, env, "js_crdt_authored_vector_push", JS_NewCFunction(ctx, js_env_crdt_authored_vector_push, "js_crdt_authored_vector_push", 3));
+  JS_SetPropertyStr(ctx, env, "js_crdt_authored_vector_update", JS_NewCFunction(ctx, js_env_crdt_authored_vector_update, "js_crdt_authored_vector_update", 4));
+  JS_SetPropertyStr(ctx, env, "js_crdt_authored_vector_tombstone", JS_NewCFunction(ctx, js_env_crdt_authored_vector_tombstone, "js_crdt_authored_vector_tombstone", 3));
+  JS_SetPropertyStr(ctx, env, "js_crdt_authored_vector_get", JS_NewCFunction(ctx, js_env_crdt_authored_vector_get, "js_crdt_authored_vector_get", 3));
+  JS_SetPropertyStr(ctx, env, "js_crdt_authored_vector_owner_of", JS_NewCFunction(ctx, js_env_crdt_authored_vector_owner_of, "js_crdt_authored_vector_owner_of", 3));
+  JS_SetPropertyStr(ctx, env, "js_crdt_authored_vector_owned_by_me", JS_NewCFunction(ctx, js_env_crdt_authored_vector_owned_by_me, "js_crdt_authored_vector_owned_by_me", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_authored_vector_iter", JS_NewCFunction(ctx, js_env_crdt_authored_vector_iter, "js_crdt_authored_vector_iter", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_authored_vector_len", JS_NewCFunction(ctx, js_env_crdt_authored_vector_len, "js_crdt_authored_vector_len", 2));
   JS_SetPropertyStr(ctx, env, "js_user_storage_new", JS_NewCFunction(ctx, js_env_user_storage_new, "js_user_storage_new", 1));
   JS_SetPropertyStr(ctx, env, "js_user_storage_insert", JS_NewCFunction(ctx, js_env_user_storage_insert, "js_user_storage_insert", 3));
   JS_SetPropertyStr(ctx, env, "js_user_storage_get", JS_NewCFunction(ctx, js_env_user_storage_get, "js_user_storage_get", 2));
@@ -2363,6 +2866,8 @@ void js_add_calimero_host_functions(JSContext *ctx) {
   JS_SetPropertyStr(ctx, env, "js_crdt_rga_new_with_id", JS_NewCFunction(ctx, js_env_crdt_rga_new_with_id, "js_crdt_rga_new_with_id", 2));
   JS_SetPropertyStr(ctx, env, "js_crdt_sortedmap_new_with_id", JS_NewCFunction(ctx, js_env_crdt_sorted_map_new_with_id, "js_crdt_sortedmap_new_with_id", 2));
   JS_SetPropertyStr(ctx, env, "js_crdt_sortedset_new_with_id", JS_NewCFunction(ctx, js_env_crdt_sorted_set_new_with_id, "js_crdt_sortedset_new_with_id", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_authored_map_new_with_id", JS_NewCFunction(ctx, js_env_crdt_authored_map_new_with_id, "js_crdt_authored_map_new_with_id", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_authored_vector_new_with_id", JS_NewCFunction(ctx, js_env_crdt_authored_vector_new_with_id, "js_crdt_authored_vector_new_with_id", 2));
   JS_SetPropertyStr(ctx, env, "js_user_storage_new_with_id", JS_NewCFunction(ctx, js_env_user_storage_new_with_id, "js_user_storage_new_with_id", 2));
   JS_SetPropertyStr(ctx, env, "js_frozen_storage_new_with_id", JS_NewCFunction(ctx, js_env_frozen_storage_new_with_id, "js_frozen_storage_new_with_id", 2));
   

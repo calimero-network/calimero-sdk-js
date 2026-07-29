@@ -145,10 +145,25 @@ class NestedCollectionTracker {
     if (!parentSnapshot) return;
 
     if (
-      (parentSnapshot.type === 'UnorderedMap' || parentSnapshot.type === 'SortedMap') &&
+      (parentSnapshot.type === 'UnorderedMap' ||
+        parentSnapshot.type === 'SortedMap' ||
+        parentSnapshot.type === 'AuthoredMap') &&
       parentCollection.get &&
       parentCollection.set
     ) {
+      // AuthoredMap.set() routes existing keys through the owner-only update(),
+      // which throws ActionNotAllowed when the current executor is not the
+      // entry's owner. A nested child's mutation propagates through the child's
+      // own entity regardless, so for a non-owned AuthoredMap entry we skip the
+      // parent re-set we cannot perform (mirrors the read-only UserStorage case
+      // below) rather than letting the throw abort propagation for all parents.
+      if (
+        parentSnapshot.type === 'AuthoredMap' &&
+        typeof parentCollection.ownedByMe === 'function' &&
+        !parentCollection.ownedByMe(key)
+      ) {
+        return;
+      }
       const currentValue = parentCollection.get(key);
       if (currentValue) {
         // Temporarily unwrap to avoid infinite recursion
@@ -215,7 +230,11 @@ class NestedCollectionTracker {
       // FrozenStorage is immutable, nested collections shouldn't change
       // Just mark for update to ensure consistency
       this.markForUpdate(parentSnapshot.id);
-    } else if (parentSnapshot.type === 'Vector' || parentSnapshot.type === 'Rga') {
+    } else if (
+      parentSnapshot.type === 'Vector' ||
+      parentSnapshot.type === 'Rga' ||
+      parentSnapshot.type === 'AuthoredVector'
+    ) {
       // For Vector, we can't modify individual elements in-place since it's append-only.
       // The nested collection change will still be tracked and propagated through
       // the normal CRDT synchronization mechanism, but we mark the parent for update

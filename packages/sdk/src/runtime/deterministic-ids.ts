@@ -27,6 +27,8 @@ import {
   rgaNewWithId,
   sortedMapNewWithId,
   sortedSetNewWithId,
+  authoredMapNewWithId,
+  authoredVectorNewWithId,
   userStorageNewWithId,
   frozenStorageNewWithId,
 } from './storage-wasm';
@@ -43,6 +45,8 @@ const WITH_ID: Record<string, WithIdFn> = {
   Rga: rgaNewWithId,
   SortedMap: sortedMapNewWithId,
   SortedSet: sortedSetNewWithId,
+  AuthoredMap: authoredMapNewWithId,
+  AuthoredVector: authoredVectorNewWithId,
   UserStorage: userStorageNewWithId,
   FrozenStorage: frozenStorageNewWithId,
 };
