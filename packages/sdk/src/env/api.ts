@@ -707,6 +707,135 @@ export function jsCrdtCounterGetExecutorCount(
   return env.js_crdt_counter_get_executor_count(counterId, register, executorId);
 }
 
+// --- PNCounter (signed PN-Counter) --------------------------------------
+
+export function jsCrdtPncounterNew(register: bigint): number {
+  return env.js_crdt_pncounter_new(register);
+}
+
+export function jsCrdtPncounterNewWithId(id: Uint8Array, register: bigint): number {
+  return env.js_crdt_pncounter_new_with_id(id, register);
+}
+
+export function jsCrdtPncounterIncrement(counterId: Uint8Array): number {
+  return env.js_crdt_pncounter_increment(counterId);
+}
+
+export function jsCrdtPncounterDecrement(counterId: Uint8Array): number {
+  return env.js_crdt_pncounter_decrement(counterId);
+}
+
+export function jsCrdtPncounterValue(counterId: Uint8Array, register: bigint): number {
+  return env.js_crdt_pncounter_value(counterId, register);
+}
+
+export function jsCrdtPncounterGetExecutorCount(
+  counterId: Uint8Array,
+  register: bigint,
+  executorId?: Uint8Array
+): number {
+  return env.js_crdt_pncounter_get_executor_count(counterId, register, executorId);
+}
+
+// --- RGA (replicated growable array / text) -----------------------------
+
+export function jsCrdtRgaNew(register: bigint): number {
+  return env.js_crdt_rga_new(register);
+}
+
+export function jsCrdtRgaNewWithId(id: Uint8Array, register: bigint): number {
+  return env.js_crdt_rga_new_with_id(id, register);
+}
+
+export function jsCrdtRgaInsert(rgaId: Uint8Array, index: number, value: Uint8Array): number {
+  return env.js_crdt_rga_insert(rgaId, index, value);
+}
+
+export function jsCrdtRgaDelete(rgaId: Uint8Array, index: number): number {
+  return env.js_crdt_rga_delete(rgaId, index);
+}
+
+export function jsCrdtRgaGetText(rgaId: Uint8Array, register: bigint): number {
+  return env.js_crdt_rga_get_text(rgaId, register);
+}
+
+export function jsCrdtRgaLen(rgaId: Uint8Array, register: bigint): number {
+  return env.js_crdt_rga_len(rgaId, register);
+}
+
+// --- SortedMap (ordered-iteration map) ----------------------------------
+
+export function jsCrdtSortedMapNew(register: bigint): number {
+  return env.js_crdt_sortedmap_new(register);
+}
+
+export function jsCrdtSortedMapNewWithId(id: Uint8Array, register: bigint): number {
+  return env.js_crdt_sortedmap_new_with_id(id, register);
+}
+
+export function jsCrdtSortedMapGet(mapId: Uint8Array, key: Uint8Array, register: bigint): number {
+  return env.js_crdt_sortedmap_get(mapId, key, register);
+}
+
+export function jsCrdtSortedMapInsert(
+  mapId: Uint8Array,
+  key: Uint8Array,
+  value: Uint8Array,
+  register: bigint
+): number {
+  return env.js_crdt_sortedmap_insert(mapId, key, value, register);
+}
+
+export function jsCrdtSortedMapRemove(
+  mapId: Uint8Array,
+  key: Uint8Array,
+  register: bigint
+): number {
+  return env.js_crdt_sortedmap_remove(mapId, key, register);
+}
+
+export function jsCrdtSortedMapContains(mapId: Uint8Array, key: Uint8Array): number {
+  return env.js_crdt_sortedmap_contains(mapId, key);
+}
+
+export function jsCrdtSortedMapIter(mapId: Uint8Array, register: bigint): number {
+  return env.js_crdt_sortedmap_iter(mapId, register);
+}
+
+// --- SortedSet (ordered-iteration set) ----------------------------------
+
+export function jsCrdtSortedSetNew(register: bigint): number {
+  return env.js_crdt_sortedset_new(register);
+}
+
+export function jsCrdtSortedSetNewWithId(id: Uint8Array, register: bigint): number {
+  return env.js_crdt_sortedset_new_with_id(id, register);
+}
+
+export function jsCrdtSortedSetInsert(setId: Uint8Array, value: Uint8Array): number {
+  return env.js_crdt_sortedset_insert(setId, value);
+}
+
+export function jsCrdtSortedSetContains(setId: Uint8Array, value: Uint8Array): number {
+  return env.js_crdt_sortedset_contains(setId, value);
+}
+
+export function jsCrdtSortedSetRemove(setId: Uint8Array, value: Uint8Array): number {
+  return env.js_crdt_sortedset_remove(setId, value);
+}
+
+export function jsCrdtSortedSetLen(setId: Uint8Array, register: bigint): number {
+  return env.js_crdt_sortedset_len(setId, register);
+}
+
+export function jsCrdtSortedSetIter(setId: Uint8Array, register: bigint): number {
+  return env.js_crdt_sortedset_iter(setId, register);
+}
+
+export function jsCrdtSortedSetClear(setId: Uint8Array): number {
+  return env.js_crdt_sortedset_clear(setId);
+}
+
 // --- AuthoredMap (attributed map) ---------------------------------------
 
 export function jsCrdtAuthoredMapNew(register: bigint): number {
