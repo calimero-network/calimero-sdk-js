@@ -285,7 +285,7 @@ jobs:
             LOG_ARGS=()
             case "$workflow" in
               *crdt-collections-concurrent*)
-                LOG_ARGS=(--log-level 'info,calimero_storage=trace,calimero_context=trace,calimero_node::sync=trace,runtime::host::storage=trace,calimero_runtime=debug') ;;
+                LOG_ARGS=(--log-level 'info,calimero_storage=trace,runtime::host::storage=trace,calimero_node::sync=debug') ;;
             esac
             if ! merobox bootstrap run "$workflow" \
                 --e2e-mode \
@@ -297,12 +297,14 @@ jobs:
             # the traced workflow into the job output, BEFORE nuke wipes them.
             case "$workflow" in
               *crdt-collections-concurrent*)
-                echo "===== BEGIN NODE CONTAINER LOGS ($workflow) ====="
-                find data -type d -name 'container-logs' -exec sh -c 'for f; do echo "----- $f -----"; cat "$f"; done' _ {}/* \; 2>/dev/null || true
+                echo "===== BEGIN NODE SortedSet TRACE (grepped) ====="
                 for c in $(docker ps -a --format '{{.Names}}' | grep crdt-conv || true); do
-                  echo "----- docker logs $c -----"; docker logs "$c" 2>&1 || true
+                  echo "----- $c -----"
+                  docker logs "$c" 2>&1 \
+                    | grep -iE 'index_meta|SortedIndexMeta|ensure_index|rebuild_index|apply_action|apply_delete_ref|merge_root_state|sorted_?set|deferred root|invalidat' \
+                    | tail -400 || true
                 done
-                echo "===== END NODE CONTAINER LOGS ====="
+                echo "===== END NODE SortedSet TRACE ====="
                 ;;
             esac
             merobox stop --all || true
