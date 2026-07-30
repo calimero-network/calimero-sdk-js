@@ -209,7 +209,7 @@ function splitWriterKeys(buffer: Uint8Array): Uint8Array[] {
 }
 
 function executorIsWriter(store: SharedCellStore): boolean {
-  return store.writers.some((writer) => bytesEqual(writer, currentExecutorId));
+  return store.writers.some(writer => bytesEqual(writer, currentExecutorId));
 }
 
 // Mock env

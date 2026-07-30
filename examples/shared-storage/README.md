@@ -3,7 +3,7 @@
 Demonstrates `SharedStorage<V>` — a **group-writable single value with a
 rotatable writer set** (Phase 2b of the JS SDK CRDT-type expansion).
 
-A `SharedStorage` cell holds one value that any member of its *writer set* may
+A `SharedStorage` cell holds one value that any member of its _writer set_ may
 overwrite. Writes from different writers converge last-write-wins, the writer set
 is managed at runtime, and the host rejects a non-writer's `set`/`rotateWriters`.
 
@@ -15,14 +15,14 @@ This app (`TeamConfig`) models a shared team configuration string:
 
 ## Methods
 
-| Method | Kind | Description |
-| --- | --- | --- |
-| `setConfig(value)` | call | Overwrite the shared value (writer-gated). |
-| `getConfig()` | view | Current value, or `null` before the first write. |
-| `configWriters()` | view | Current writer set as hex public keys. |
-| `canWrite()` | view | Whether the caller may write. |
-| `isConfigFrozen()` | view | Whether the cell is frozen (immutable). |
-| `addWriter(publicKeyHex)` | call | Add a writer (writer-gated). |
+| Method                    | Kind | Description                                      |
+| ------------------------- | ---- | ------------------------------------------------ |
+| `setConfig(value)`        | call | Overwrite the shared value (writer-gated).       |
+| `getConfig()`             | view | Current value, or `null` before the first write. |
+| `configWriters()`         | view | Current writer set as hex public keys.           |
+| `canWrite()`              | view | Whether the caller may write.                    |
+| `isConfigFrozen()`        | view | Whether the cell is frozen (immutable).          |
+| `addWriter(publicKeyHex)` | call | Add a writer (writer-gated).                     |
 
 ## Build
 

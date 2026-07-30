@@ -27,7 +27,7 @@ describe('SharedStorage', () => {
 
     it('accepts hex-string writer keys', () => {
       const hex = Array.from(ME)
-        .map((b) => b.toString(16).padStart(2, '0'))
+        .map(b => b.toString(16).padStart(2, '0'))
         .join('');
       const cell = new SharedStorage<string>({ writers: [hex] });
       expect(cell.writers()).toHaveLength(1);
