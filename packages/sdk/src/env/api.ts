@@ -395,7 +395,7 @@ export function executorIdBase58(): string {
   return bytesToBase58(id);
 }
 
-function bytesToBase58(bytes: Uint8Array): string {
+export function bytesToBase58(bytes: Uint8Array): string {
   const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
   if (bytes.length === 0) {
     return '';
@@ -425,6 +425,44 @@ function bytesToBase58(bytes: Uint8Array): string {
     .reverse()
     .map(digit => alphabet[digit])
     .join('');
+}
+
+/**
+ * Decode a base58 string into bytes — the inverse of the encoding used by
+ * {@link executorIdBase58}. Useful when a public key arrives as base58 (e.g. a
+ * member key surfaced by tooling) and must be handed to an API expecting raw
+ * bytes, such as a SharedStorage writer set. Throws on an invalid character.
+ */
+export function base58ToBytes(value: string): Uint8Array {
+  const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  if (value.length === 0) {
+    return new Uint8Array(0);
+  }
+
+  const bytes: number[] = [0];
+  for (let i = 0; i < value.length; i += 1) {
+    const digit = alphabet.indexOf(value[i]);
+    if (digit === -1) {
+      throw new Error(`base58ToBytes: invalid base58 character '${value[i]}'`);
+    }
+    let carry = digit;
+    for (let j = 0; j < bytes.length; j += 1) {
+      const x = bytes[j] * 58 + carry;
+      bytes[j] = x & 0xff;
+      carry = x >> 8;
+    }
+    while (carry > 0) {
+      bytes.push(carry & 0xff);
+      carry >>= 8;
+    }
+  }
+
+  // Each leading '1' in base58 encodes a leading zero byte.
+  for (let i = 0; i < value.length && value[i] === '1'; i += 1) {
+    bytes.push(0);
+  }
+
+  return new Uint8Array(bytes.reverse());
 }
 
 /**

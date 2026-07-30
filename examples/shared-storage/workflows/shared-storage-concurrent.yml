@@ -1,0 +1,162 @@
+description: SharedStorage concurrent multi-writer convergence (JavaScript SDK)
+name: SharedStorage convergence (two nodes)
+
+# Two-node convergence test for SharedStorage as a deterministic @State field:
+#   1. node 1 creates the context (sole initial writer),
+#   2. node 2 joins and node 1 rotates it into the writer set,
+#   3. both writers set a different value, and after sync every replica must
+#      converge to the same value (last-write-wins on the shared cell).
+#
+# Exercises the pieces the single-node workflow can't: writer-set rotation
+# syncing to a second node, and cross-node convergence of the SharedStorage
+# value addressed by its deterministic id. Requires calimero-network/core#3340
+# in merod:edge.
+
+force_pull_image: true
+
+nodes:
+  chain_id: testnet-1
+  count: 2
+  image: ghcr.io/calimero-network/merod:edge
+  prefix: shared-conv-node
+
+steps:
+  - name: Install SharedStorage Application
+    type: install_application
+    node: shared-conv-node-1
+    path: 'examples/shared-storage/build/service.wasm'
+    dev: true
+    outputs:
+      app_id: applicationId
+
+  - name: Create Namespace
+    type: create_namespace
+    node: shared-conv-node-1
+    application_id: '{{app_id}}'
+    outputs:
+      namespace_id: namespaceId
+
+  - name: Create Context
+    type: create_context
+    node: shared-conv-node-1
+    application_id: '{{app_id}}'
+    group_id: '{{namespace_id}}'
+    params: '{}'
+    outputs:
+      context_id: contextId
+      member_public_key: memberPublicKey
+
+  - name: Invite Node 2 To Namespace
+    type: create_namespace_invitation
+    node: shared-conv-node-1
+    namespace_id: '{{namespace_id}}'
+    outputs:
+      node_2_invitation: invitation
+
+  - name: Wait For Namespace Governance To Gossip
+    type: wait
+    seconds: 5
+
+  - name: Node 2 Join Namespace
+    type: join_namespace
+    node: shared-conv-node-2
+    namespace_id: '{{namespace_id}}'
+    invitation: '{{node_2_invitation}}'
+
+  - name: Node 2 Join Context
+    type: join_context
+    node: shared-conv-node-2
+    context_id: '{{context_id}}'
+    outputs:
+      node_2_member_public_key: memberPublicKey
+
+  - name: Wait After Node 2 Join
+    type: wait
+    seconds: 2
+
+  # --- Node 1 rotates node 2 into the writer set -------------------------
+  - name: Node 1 Adds Node 2 As Writer
+    type: call
+    node: shared-conv-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: addWriterBase58
+    args:
+      publicKeyBase58: '{{node_2_member_public_key}}'
+
+  - name: Wait For Writer Rotation To Sync
+    type: wait_for_sync
+    context_id: '{{context_id}}'
+    nodes:
+      - shared-conv-node-1
+      - shared-conv-node-2
+    timeout: 60
+    check_interval: 2
+
+  - name: Node 2 Is Now A Writer
+    type: call
+    node: shared-conv-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: canWrite
+    outputs:
+      node_2_can_write: result.output
+
+  # --- Both writers set a different value --------------------------------
+  - name: Node 1 Sets Config
+    type: call
+    node: shared-conv-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: setConfig
+    args:
+      value: from-node-1
+
+  - name: Node 2 Sets Config
+    type: call
+    node: shared-conv-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: setConfig
+    args:
+      value: from-node-2
+
+  - name: Wait For Convergence
+    type: wait_for_sync
+    context_id: '{{context_id}}'
+    nodes:
+      - shared-conv-node-1
+      - shared-conv-node-2
+    timeout: 60
+    check_interval: 2
+
+  # --- Assert both replicas converged ------------------------------------
+  - name: Read Config On Node 1
+    type: call
+    node: shared-conv-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getConfig
+    outputs:
+      config_node_1: result.output
+
+  - name: Read Config On Node 2
+    type: call
+    node: shared-conv-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: getConfig
+    outputs:
+      config_node_2: result.output
+
+  - name: Assert Convergence
+    type: json_assert
+    statements:
+      # node 2 was rotated into the writer set.
+      - 'equal({{node_2_can_write}}, true)'
+      # both replicas converged to the same SharedStorage value (LWW).
+      - 'equal({{config_node_1}}, {{config_node_2}})'
+
+stop_all_nodes: false
+restart: true
+wait_timeout: 180

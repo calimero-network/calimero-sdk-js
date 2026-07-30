@@ -112,4 +112,14 @@ export class TeamConfigLogic extends TeamConfig {
     this.config.rotateWriters([...current, publicKeyHex]);
     emit(new WriterAdded(publicKeyHex));
   }
+
+  /**
+   * Add a writer given a base58-encoded public key — the form node tooling and
+   * workflows surface member keys in. Decodes to raw bytes and delegates to the
+   * same writer-gated rotation as {@link addWriter}.
+   */
+  addWriterBase58(publicKeyBase58: string): void {
+    const bytes = env.base58ToBytes(publicKeyBase58);
+    this.addWriter(toHex(bytes));
+  }
 }
