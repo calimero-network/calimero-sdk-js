@@ -43,7 +43,7 @@
     "directory": "packages/cli"
   },
   "dependencies": {
-    "@babel/core": "^7.23.6",
+    "@babel/core": "^7.29.6",
     "@babel/parser": "^7.23.6",
     "@babel/preset-env": "^7.23.6",
     "@babel/traverse": "^7.23.6",
