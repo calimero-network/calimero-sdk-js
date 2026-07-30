@@ -97,7 +97,18 @@ export class TeamConfigLogic extends TeamConfig {
    */
   addWriter(publicKeyHex: string): void {
     env.log(`[shared-storage] addWriter(${publicKeyHex.slice(0, 16)}…)`);
+    const target = publicKeyHex.toLowerCase();
     const current = this.config.writers();
+    // Skip if already a writer — `rotateWriters` replaces the whole set, so a
+    // blind append would duplicate the key. Note this read-modify-write is not
+    // atomic across concurrent writers: `rotateWriters` is last-write-wins on
+    // the whole set, so two concurrent `addWriter` calls can drop one addition.
+    // A single admin performing rotations avoids that; a production app would
+    // serialise writer-set changes through one identity.
+    if (current.some(w => toHex(w) === target)) {
+      env.log('[shared-storage] addWriter: already a writer, skipping');
+      return;
+    }
     this.config.rotateWriters([...current, publicKeyHex]);
     emit(new WriterAdded(publicKeyHex));
   }

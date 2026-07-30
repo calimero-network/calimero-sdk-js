@@ -21,6 +21,13 @@ describe('SharedStorage', () => {
       expect(() => new SharedStorage<string>({})).toThrow(/writers/i);
     });
 
+    it('rejects an empty writer set at construction (would brick the cell)', () => {
+      expect(() => new SharedStorage<string>({ writers: [] })).toThrow(/empty/i);
+      expect(
+        () => new SharedStorage<string>({ writers: [], id: new Uint8Array(32).fill(7) })
+      ).toThrow(/empty/i);
+    });
+
     it('rejects a writer key that is not 32 bytes', () => {
       expect(() => new SharedStorage<string>({ writers: [new Uint8Array(16)] })).toThrow();
     });

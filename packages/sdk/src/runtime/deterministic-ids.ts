@@ -45,9 +45,17 @@ const SHARED_WRITER_KEY_LENGTH = 32;
  * collections, SharedStorage carries construction state (its writer set and the
  * frozen flag), so it cannot be created from an id alone — we read that state
  * off the freshly-constructed (random-id) cell and recreate it at the
- * deterministic id. Writer sets are identical public keys across nodes, so the
- * recreated cell converges. Runs only on fresh state, so the source cell is
- * empty and nothing is lost.
+ * deterministic id.
+ *
+ * Safety rests on the same contract {@link assignDeterministicIds} relies on for
+ * every collection: reassignment runs *only* on fresh state (genesis / first
+ * init), which in practice is the context creator. Joining nodes do not
+ * reconstruct the field — they hydrate it from the synced snapshot — so the
+ * creator's writer set is the single authoritative one and does not diverge
+ * across nodes (even though a per-node `executorId()` writer would differ if two
+ * nodes each ran init). And because the source cell is empty at this point (the
+ * fresh-state contract), carrying only the writer set / frozen flag — not a
+ * value — loses nothing.
  */
 function reopenSharedAt(currentHex: string, expectedId: Uint8Array): void {
   const currentId = hexToBytes(currentHex);

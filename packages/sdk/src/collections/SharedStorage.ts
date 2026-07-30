@@ -58,9 +58,15 @@ export interface SharedStorageOptions {
    */
   frozen?: boolean;
   /**
-   * Existing/deterministic cell identifier as a 32-byte Uint8Array or
-   * 64-character hex string. With `writers` present, the cell is (re)opened at
-   * this id; without `writers`, the id is wrapped as-is (snapshot rehydrate).
+   * A 32-byte Uint8Array or 64-character hex cell identifier.
+   *
+   * With `writers` present, a cell is **created/registered at this exact id**
+   * with the given writer set — use it for a stable, cross-node id at genesis
+   * (this is how deterministic `@State` fields are assigned). It is **not** a
+   * safe reopen of an existing cell: to reopen a cell that already holds data
+   * without touching its value or writer set, use {@link SharedStorage.fromId}
+   * (or `new SharedStorage({ id })` with no `writers`), which wraps the id with
+   * no host call.
    */
   id?: Uint8Array | string;
 }
@@ -74,9 +80,16 @@ function normalizeWriter(key: WriterKey): Uint8Array {
 
 /**
  * Concatenate normalized writer keys into the `count * 32` byte encoding the
- * host expects.
+ * host expects. Rejects an empty writer set: a cell with no writers could never
+ * be written to (`set`/`rotateWriters` are writer-gated) and `rotateWriters`
+ * refuses an empty set, so it could never be recovered — it would be bricked.
  */
 function encodeWriters(writers: WriterKey[]): Uint8Array {
+  if (writers.length === 0) {
+    throw new Error(
+      'SharedStorage: writer set must not be empty — a cell with no writers can never be written to or recovered'
+    );
+  }
   const normalized = writers.map(normalizeWriter);
   const buffer = new Uint8Array(normalized.length * PUBLIC_KEY_LENGTH);
   normalized.forEach((key, index) => {
