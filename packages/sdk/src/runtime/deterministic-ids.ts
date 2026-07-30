@@ -14,7 +14,7 @@
  */
 
 import * as env from '../env/api';
-import { bytesToHex } from '../utils/hex';
+import { bytesToHex, hexToBytes } from '../utils/hex';
 import { computeCollectionId, ROOT_ID } from '../utils/deterministic-id';
 import { snapshotCollection, instantiateCollection } from './collections';
 import {
@@ -31,9 +31,34 @@ import {
   authoredVectorNewWithId,
   userStorageNewWithId,
   frozenStorageNewWithId,
+  sharedNewWithId,
+  sharedWriters,
+  sharedIsFrozen,
 } from './storage-wasm';
 
 type WithIdFn = (id: Uint8Array) => Uint8Array;
+
+const SHARED_WRITER_KEY_LENGTH = 32;
+
+/**
+ * Re-open a SharedStorage cell at a deterministic id. Unlike the other
+ * collections, SharedStorage carries construction state (its writer set and the
+ * frozen flag), so it cannot be created from an id alone — we read that state
+ * off the freshly-constructed (random-id) cell and recreate it at the
+ * deterministic id. Writer sets are identical public keys across nodes, so the
+ * recreated cell converges. Runs only on fresh state, so the source cell is
+ * empty and nothing is lost.
+ */
+function reopenSharedAt(currentHex: string, expectedId: Uint8Array): void {
+  const currentId = hexToBytes(currentHex);
+  const keys = sharedWriters(currentId);
+  const frozen = sharedIsFrozen(currentId);
+  const encoded = new Uint8Array(keys.length * SHARED_WRITER_KEY_LENGTH);
+  keys.forEach((key, index) => {
+    encoded.set(key, index * SHARED_WRITER_KEY_LENGTH);
+  });
+  sharedNewWithId(expectedId, encoded, frozen);
+}
 
 const WITH_ID: Record<string, WithIdFn> = {
   UnorderedMap: mapNewWithId,
@@ -70,8 +95,9 @@ export function assignDeterministicIds(state: unknown): void {
       continue;
     }
 
+    const isShared = snapshot.type === 'SharedStorage';
     const withId = WITH_ID[snapshot.type];
-    if (!withId) {
+    if (!withId && !isShared) {
       // Unknown/unsupported collection type — leave it untouched.
       continue;
     }
@@ -85,8 +111,13 @@ export function assignDeterministicIds(state: unknown): void {
 
     // Create/re-open the entity at the deterministic id in the host, then swap
     // the field to a collection wrapping that id. The previous random-id entity
-    // is orphaned (safe: fresh collections are empty).
-    withId(expectedId);
+    // is orphaned (safe: fresh collections are empty). SharedStorage needs its
+    // writer set/frozen flag carried across; other collections re-open from id.
+    if (isShared) {
+      reopenSharedAt(snapshot.id, expectedId);
+    } else {
+      withId!(expectedId);
+    }
     target[key] = instantiateCollection({ type: snapshot.type, id: expectedHex });
     env.log(
       `[deterministic-ids] field '${key}' (${snapshot.type}) -> ${expectedHex.slice(0, 16)}…`

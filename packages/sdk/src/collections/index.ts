@@ -23,3 +23,4 @@ export { AuthoredVector, type AuthoredVectorOptions } from './AuthoredVector';
 // Specialized Storage Collections
 export { UserStorage, type UserStorageOptions, type PublicKey } from './UserStorage';
 export { FrozenStorage, FrozenValue, type FrozenStorageOptions, type Hash } from './FrozenStorage';
+export { SharedStorage, type SharedStorageOptions, type WriterKey } from './SharedStorage';

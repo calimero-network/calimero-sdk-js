@@ -1541,6 +1541,14 @@ export class AbiEmitter {
           return this.extractTypeFromAnnotation({ typeAnnotation: type.typeParameters.params[0] });
         }
         break;
+      case 'SharedStorage':
+        // SharedStorage<V> wraps LwwRegister<Option<V>>; logical type is the
+        // inner value V (get() returns V | null), stored as a collection
+        // reference. Writer-set gating is a runtime concern, not an ABI shape.
+        if (type.typeParameters?.params?.length >= 1) {
+          return this.extractTypeFromAnnotation({ typeAnnotation: type.typeParameters.params[0] });
+        }
+        break;
       case 'FrozenStorage':
         // FrozenStorage<T> is internally UnorderedMap<Hash, FrozenValue<T>>
         // Hash is a 32-byte Uint8Array (content-addressable key)
@@ -2220,6 +2228,22 @@ export class AbiEmitter {
             kind: 'record',
             fields: [],
             crdt_type: 'lww_register',
+            inner_type: innerType,
+          };
+        }
+        break;
+      }
+      case 'SharedStorage': {
+        // SharedStorage<V> wraps LwwRegister<Option<V>>; carry the inner value
+        // type through, tagged so the host deserializer resolves the register.
+        if (type.typeParameters?.params?.length >= 1) {
+          const innerType = this.serializeTypeRefWithCrdtMetadata({
+            typeAnnotation: type.typeParameters.params[0],
+          });
+          return {
+            kind: 'record',
+            fields: [],
+            crdt_type: 'shared_storage',
             inner_type: innerType,
           };
         }

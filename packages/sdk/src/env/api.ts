@@ -1023,6 +1023,43 @@ export function jsFrozenStorageContains(storageId: Uint8Array, hash: Uint8Array)
   return env.js_frozen_storage_contains(storageId, hash);
 }
 
+export function jsCrdtSharedNew(writers: Uint8Array, frozen: number, register: bigint): number {
+  return env.js_crdt_shared_new(writers, frozen, register);
+}
+
+export function jsCrdtSharedNewWithId(
+  id: Uint8Array,
+  writers: Uint8Array,
+  frozen: number,
+  register: bigint
+): number {
+  return env.js_crdt_shared_new_with_id(id, writers, frozen, register);
+}
+
+export function jsCrdtSharedSet(cellId: Uint8Array, value: Uint8Array): number {
+  return env.js_crdt_shared_set(cellId, value);
+}
+
+export function jsCrdtSharedGet(cellId: Uint8Array, register: bigint): number {
+  return env.js_crdt_shared_get(cellId, register);
+}
+
+export function jsCrdtSharedWriters(cellId: Uint8Array, register: bigint): number {
+  return env.js_crdt_shared_writers(cellId, register);
+}
+
+export function jsCrdtSharedWritableByMe(cellId: Uint8Array): number {
+  return env.js_crdt_shared_writable_by_me(cellId);
+}
+
+export function jsCrdtSharedIsFrozen(cellId: Uint8Array): number {
+  return env.js_crdt_shared_is_frozen(cellId);
+}
+
+export function jsCrdtSharedRotateWriters(cellId: Uint8Array, writers: Uint8Array): number {
+  return env.js_crdt_shared_rotate_writers(cellId, writers);
+}
+
 /**
  * Flush pending delta actions to the host.
  *

@@ -103,6 +103,14 @@ import {
   jsFrozenStorageAdd,
   jsFrozenStorageGet,
   jsFrozenStorageContains,
+  jsCrdtSharedNew,
+  jsCrdtSharedNewWithId,
+  jsCrdtSharedSet,
+  jsCrdtSharedGet,
+  jsCrdtSharedWriters,
+  jsCrdtSharedWritableByMe,
+  jsCrdtSharedIsFrozen,
+  jsCrdtSharedRotateWriters,
 } from '../env/api';
 
 const REGISTER_ID = 0n;
@@ -1552,4 +1560,111 @@ export function frozenStorageContains(storageId: Uint8Array, hash: Uint8Array): 
   }
 
   return status === 1;
+}
+
+// --- SharedStorage: group-writable single value with a rotatable writer set ---
+
+const SHARED_WRITER_KEY_LENGTH = 32;
+
+function ensureWriters(writers: Uint8Array): void {
+  ensureUint8Array(writers, 'writers');
+  if (writers.length === 0 || writers.length % SHARED_WRITER_KEY_LENGTH !== 0) {
+    throw new TypeError(
+      `writers must be a non-empty multiple of ${SHARED_WRITER_KEY_LENGTH} bytes (got ${writers.length})`
+    );
+  }
+}
+
+export function sharedNew(writers: Uint8Array, frozen: boolean): Uint8Array {
+  ensureWriters(writers);
+  const status = Number(jsCrdtSharedNew(writers, frozen ? 1 : 0, REGISTER_ID));
+  if (status < 0) {
+    decodeError('sharedNew');
+  }
+  const id = readRegisterBytes();
+  if (id.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] sharedNew returned invalid id length (${id.length})`);
+  }
+  return id;
+}
+
+export function sharedNewWithId(id: Uint8Array, writers: Uint8Array, frozen: boolean): Uint8Array {
+  ensureCollectionId(id, 'sharedNewWithId.id');
+  ensureWriters(writers);
+  const status = Number(jsCrdtSharedNewWithId(id, writers, frozen ? 1 : 0, REGISTER_ID));
+  if (status < 0) {
+    decodeError('sharedNewWithId');
+  }
+  const returnedId = readRegisterBytes();
+  if (returnedId.length !== COLLECTION_ID_LENGTH) {
+    throw new Error(`[storage] sharedNewWithId returned invalid id length (${returnedId.length})`);
+  }
+  return returnedId;
+}
+
+export function sharedSet(cellId: Uint8Array, value: Uint8Array): void {
+  ensureCollectionId(cellId, 'cellId');
+  ensureUint8Array(value, 'value');
+  const status = Number(jsCrdtSharedSet(cellId, value));
+  if (status < 0) {
+    decodeError('sharedSet');
+  }
+}
+
+export function sharedGet(cellId: Uint8Array): Uint8Array | null {
+  ensureCollectionId(cellId, 'cellId');
+  const status = Number(jsCrdtSharedGet(cellId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('sharedGet');
+  }
+  if (status === 0) {
+    return null;
+  }
+  return readRegisterBytes();
+}
+
+export function sharedWriters(cellId: Uint8Array): Uint8Array[] {
+  ensureCollectionId(cellId, 'cellId');
+  const status = Number(jsCrdtSharedWriters(cellId, REGISTER_ID));
+  if (status < 0) {
+    decodeError('sharedWriters');
+  }
+  const concatenated = readRegisterBytes();
+  if (concatenated.length % SHARED_WRITER_KEY_LENGTH !== 0) {
+    throw new Error(
+      `[storage] sharedWriters returned ${concatenated.length} bytes (not a multiple of ${SHARED_WRITER_KEY_LENGTH})`
+    );
+  }
+  const keys: Uint8Array[] = [];
+  for (let off = 0; off < concatenated.length; off += SHARED_WRITER_KEY_LENGTH) {
+    keys.push(concatenated.slice(off, off + SHARED_WRITER_KEY_LENGTH));
+  }
+  return keys;
+}
+
+export function sharedWritableByMe(cellId: Uint8Array): boolean {
+  ensureCollectionId(cellId, 'cellId');
+  const status = Number(jsCrdtSharedWritableByMe(cellId));
+  if (status < 0) {
+    decodeError('sharedWritableByMe');
+  }
+  return status === 1;
+}
+
+export function sharedIsFrozen(cellId: Uint8Array): boolean {
+  ensureCollectionId(cellId, 'cellId');
+  const status = Number(jsCrdtSharedIsFrozen(cellId));
+  if (status < 0) {
+    decodeError('sharedIsFrozen');
+  }
+  return status === 1;
+}
+
+export function sharedRotateWriters(cellId: Uint8Array, writers: Uint8Array): void {
+  ensureCollectionId(cellId, 'cellId');
+  ensureWriters(writers);
+  const status = Number(jsCrdtSharedRotateWriters(cellId, writers));
+  if (status < 0) {
+    decodeError('sharedRotateWriters');
+  }
 }

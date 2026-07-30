@@ -65,6 +65,15 @@ const sortedSets = new Map<string, SetStore>();
 const authoredMaps = new Map<string, AuthoredMapStore>();
 const authoredVectors = new Map<string, AuthoredVectorStore>();
 
+// Phase 2b SharedStorage: a group-writable single value with a rotatable writer
+// set. The mock enforces writer-gating against the current executor.
+type SharedCellStore = {
+  value: Uint8Array | null;
+  writers: Uint8Array[];
+  frozen: boolean;
+};
+const sharedCells = new Map<string, SharedCellStore>();
+
 // Lexicographic byte comparison for deterministic sorted iteration.
 function compareBytes(a: Uint8Array, b: Uint8Array): number {
   const len = Math.min(a.length, b.length);
@@ -189,6 +198,18 @@ function serializeMapEntries(entries: Array<[Uint8Array, Uint8Array]>): Uint8Arr
 function getExecutorKey(executor?: Uint8Array): string {
   const id = executor ?? currentExecutorId;
   return Array.from(id).join(',');
+}
+
+function splitWriterKeys(buffer: Uint8Array): Uint8Array[] {
+  const keys: Uint8Array[] = [];
+  for (let offset = 0; offset + 32 <= buffer.length; offset += 32) {
+    keys.push(buffer.slice(offset, offset + 32));
+  }
+  return keys;
+}
+
+function executorIsWriter(store: SharedCellStore): boolean {
+  return store.writers.some((writer) => bytesEqual(writer, currentExecutorId));
 }
 
 // Mock env
@@ -364,6 +385,118 @@ function getExecutorKey(executor?: Uint8Array): string {
   js_crdt_authored_vector_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
     authoredVectors.set(idToKey(id), { slots: [] });
     setRegister(new Uint8Array(id));
+    return 0;
+  },
+
+  // --- SharedStorage (Phase 2b) --------------------------------------------
+  js_crdt_shared_new: (writers: Uint8Array, frozen: number, _register_id: bigint): number => {
+    const id = generateId();
+    sharedCells.set(idToKey(id), {
+      value: null,
+      writers: splitWriterKeys(writers),
+      frozen: frozen !== 0,
+    });
+    setRegister(new Uint8Array(id));
+    return 0;
+  },
+
+  js_crdt_shared_new_with_id: (
+    id: Uint8Array,
+    writers: Uint8Array,
+    frozen: number,
+    _register_id: bigint
+  ): number => {
+    sharedCells.set(idToKey(id), {
+      value: null,
+      writers: splitWriterKeys(writers),
+      frozen: frozen !== 0,
+    });
+    setRegister(new Uint8Array(id));
+    return 0;
+  },
+
+  js_crdt_shared_set: (cellId: Uint8Array, value: Uint8Array): number => {
+    const store = sharedCells.get(idToKey(cellId));
+    if (!store) {
+      setRegisterError('shared cell not found');
+      return -1;
+    }
+    if (store.frozen) {
+      setRegisterError('shared cell is frozen');
+      return -1;
+    }
+    if (!executorIsWriter(store)) {
+      setRegisterError('executor is not a writer');
+      return -1;
+    }
+    store.value = new Uint8Array(value);
+    return 0;
+  },
+
+  js_crdt_shared_get: (cellId: Uint8Array, _register_id: bigint): number => {
+    const store = sharedCells.get(idToKey(cellId));
+    if (!store) {
+      setRegisterError('shared cell not found');
+      return -1;
+    }
+    if (store.value === null) {
+      setRegister(null);
+      return 0;
+    }
+    setRegister(store.value);
+    return 1;
+  },
+
+  js_crdt_shared_writers: (cellId: Uint8Array, _register_id: bigint): number => {
+    const store = sharedCells.get(idToKey(cellId));
+    if (!store) {
+      setRegisterError('shared cell not found');
+      return -1;
+    }
+    const buffer = new Uint8Array(store.writers.length * 32);
+    store.writers.forEach((writer, index) => buffer.set(writer, index * 32));
+    setRegister(buffer);
+    return 1;
+  },
+
+  js_crdt_shared_writable_by_me: (cellId: Uint8Array): number => {
+    const store = sharedCells.get(idToKey(cellId));
+    if (!store) {
+      setRegisterError('shared cell not found');
+      return -1;
+    }
+    return executorIsWriter(store) && !store.frozen ? 1 : 0;
+  },
+
+  js_crdt_shared_is_frozen: (cellId: Uint8Array): number => {
+    const store = sharedCells.get(idToKey(cellId));
+    if (!store) {
+      setRegisterError('shared cell not found');
+      return -1;
+    }
+    return store.frozen ? 1 : 0;
+  },
+
+  js_crdt_shared_rotate_writers: (cellId: Uint8Array, writers: Uint8Array): number => {
+    const store = sharedCells.get(idToKey(cellId));
+    if (!store) {
+      setRegisterError('shared cell not found');
+      return -1;
+    }
+    if (store.frozen) {
+      setRegisterError('shared cell is frozen');
+      return -1;
+    }
+    if (!executorIsWriter(store)) {
+      setRegisterError('executor is not a writer');
+      return -1;
+    }
+    const next = splitWriterKeys(writers);
+    if (next.length === 0) {
+      setRegisterError('writer set must be non-empty');
+      return -1;
+    }
+    store.writers = next;
     return 0;
   },
 
@@ -1258,6 +1391,7 @@ export function clearStorage() {
   sortedSets.clear();
   authoredMaps.clear();
   authoredVectors.clear();
+  sharedCells.clear();
   resetExecutorId();
   currentRegister = null;
 }
