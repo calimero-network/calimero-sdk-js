@@ -162,18 +162,35 @@ steps:
     outputs:
       score_node_2: result.output
 
-  # NOTE: concurrent-writer convergence of SortedSet/SortedMap ORDERED reads
-  # (allTags/iter) is gated on calimero-network/core#3333: after concurrent
-  # writes the element set converges (contains/size agree on every node) but the
-  # node-local ordered index serves a stale subset on the peer. Point/membership
-  # ops and PNCounter converge, so this workflow asserts PNCounter convergence;
-  # the SortedSet ordered-read convergence assertion is re-enabled once #3333
-  # lands. Single-writer SortedSet/SortedMap is covered by crdt-collections-js.yml.
+  - name: Read Tags On Node 1
+    type: call
+    node: crdt-conv-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: allTags
+    outputs:
+      tags_node_1: result.output
+
+  - name: Read Tags On Node 2
+    type: call
+    node: crdt-conv-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: allTags
+    outputs:
+      tags_node_2: result.output
+
+  # SortedSet ORDERED-read convergence re-enabled now that
+  # calimero-network/core#3333 is fixed (the ordered-index marker is no longer
+  # re-stamped over a stale index after sync). PNCounter (score) + SortedSet
+  # (tags, ordered iter) must both converge on every node.
   - name: Assert Convergence
     type: json_assert
     statements:
       - 'equal({{score_node_1}}, 4)'
       - 'equal({{score_node_2}}, 4)'
+      - 'json_equal({{tags_node_1}}, ["a", "b"])'
+      - 'json_equal({{tags_node_2}}, ["a", "b"])'
 
 stop_all_nodes: false
 restart: true
