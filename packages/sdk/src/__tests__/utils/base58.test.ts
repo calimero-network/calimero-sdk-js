@@ -16,7 +16,11 @@ describe('base58', () => {
     // covers every real public key (a 32-byte key is never all-zero). The
     // encoder's all-zero edge (e.g. [0]) is a pre-existing quirk irrelevant to
     // the writer-key path, so it is not exercised here.
-    for (const bytes of [[0, 0, 42], [0, 7, 0, 9], [0, 255, 0, 1]]) {
+    for (const bytes of [
+      [0, 0, 42],
+      [0, 7, 0, 9],
+      [0, 255, 0, 1],
+    ]) {
       const key = new Uint8Array(bytes);
       expect(Array.from(base58ToBytes(bytesToBase58(key)))).toEqual(bytes);
     }
