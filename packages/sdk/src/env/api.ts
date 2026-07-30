@@ -395,13 +395,19 @@ export function executorIdBase58(): string {
   return bytesToBase58(id);
 }
 
+/** Bitcoin/standard base58 alphabet (no 0, O, I, l). */
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
 export function bytesToBase58(bytes: Uint8Array): string {
-  const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  const alphabet = BASE58_ALPHABET;
   if (bytes.length === 0) {
     return '';
   }
 
-  const digits: number[] = [0];
+  // Standard base58: an empty accumulator, so a zero-valued number encodes to no
+  // digits and leading zero bytes are added separately as leading '1's below
+  // (an initial [0] would double-count an all-zero input).
+  const digits: number[] = [];
 
   for (let i = 0; i < bytes.length; i += 1) {
     let carry = bytes[i];
@@ -434,12 +440,15 @@ export function bytesToBase58(bytes: Uint8Array): string {
  * bytes, such as a SharedStorage writer set. Throws on an invalid character.
  */
 export function base58ToBytes(value: string): Uint8Array {
-  const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  const alphabet = BASE58_ALPHABET;
   if (value.length === 0) {
     return new Uint8Array(0);
   }
 
-  const bytes: number[] = [0];
+  // Standard base58: an empty accumulator so leading '1's map one-to-one to
+  // leading zero bytes. An initial [0] would over-count by one zero byte,
+  // mis-decoding externally-produced strings whose bytes are all zero.
+  const bytes: number[] = [];
   for (let i = 0; i < value.length; i += 1) {
     const digit = alphabet.indexOf(value[i]);
     if (digit === -1) {
