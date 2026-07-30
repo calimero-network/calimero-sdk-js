@@ -1,0 +1,99 @@
+---
+title: JS SDK vs. the Rust SDK
+description: How the JavaScript Service SDK relates to Calimero's native Rust SDK — the same programming model, CRDTs, ABI, and convergence, and where the two differ in language, tooling, performance, and feature coverage.
+sidebar:
+  order: 2
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Calimero apps can be written in **Rust** (the native `calimero-sdk`, part of
+[calimero-network/core](https://github.com/calimero-network/core)) or in
+**TypeScript/JavaScript** (this SDK). Both compile to a single WASM module that
+the node runs the same way. This page maps the two so you can move between them.
+
+The short version: the **programming model is the same** — the same app
+structure, the same CRDT collections, the same events, the same ABI, and the
+same convergence guarantees. The differences are in **language, tooling, and a
+few advanced features** that the Rust SDK, as the reference implementation, gets
+first.
+
+## What's the same
+
+Both SDKs target one runtime, so most of what you learn transfers directly:
+
+- **Same platform.** Your code compiles to WASM and runs inside the node's
+  runtime, reaching the node only through the Calimero host functions. The
+  storage layer, CRDT engine, causal DAG, P2P sync, and access control are
+  identical — they live in the node, not the SDK.
+- **Same app shape.** A state type, a logic block with methods, an initializer,
+  events, and read-only views — expressed with decorators in JS and attribute
+  macros in Rust (table below).
+- **Same CRDT collections.** `UnorderedMap`, `UnorderedSet`, `Vector`,
+  `Counter`, `PNCounter`, `LwwRegister`, `Rga`, `SortedMap`, `SortedSet`,
+  `AuthoredMap`, `AuthoredVector`, `UserStorage`, `FrozenStorage`, and
+  `SharedStorage` exist in both, with the same names and the same convergence
+  semantics. See [CRDT Collections](/guides/collections/).
+- **Same convergence.** Concurrent writes converge by the same rules on both —
+  last-write-wins by timestamp, additive counters, RGA interleaving, owner-gated
+  attributed entries — because the merge happens in the node, not the SDK.
+- **Same ABI, so clients don't care.** Both emit the mandatory `calimero_abi_v1`
+  manifest, and values use Calimero's Borsh encoding. A generated client works
+  the same against a JS or a Rust service, and a state written under one is
+  readable by the other given the same schema — which is what makes
+  [migrating a Rust app to JS](/guides/migration/) (or back) possible.
+
+## Side-by-side
+
+| Concept              | Rust SDK (`calimero-sdk`)                     | JS SDK (`@calimero-network/calimero-sdk-js`)         |
+| -------------------- | --------------------------------------------- | ---------------------------------------------------- |
+| Language / target    | Rust → native `wasm32`                        | TypeScript/JS → QuickJS compiled to WASM             |
+| Build                | `cargo mero build`                            | `calimero-sdk build` (Rollup → QuickJS → WASM)       |
+| State type           | `#[app::state]`                               | `@State`                                             |
+| Logic / methods      | `#[app::logic] impl`                          | `@Logic` class                                       |
+| Initializer          | `#[app::init]`                                | `@Init`                                              |
+| Events               | `#[app::event]` + `app::emit!`                | `@Event` + `emit()`                                  |
+| Read-only methods    | `&self` methods                               | `@View()`                                            |
+| Method result        | `app::Result<T>`                              | return a value, or `throw`                           |
+| Serialization        | `borsh` derive                                | ABI-driven `serialize`/`deserialize` (Borsh-compatible) |
+| Collection ids       | assigned via the state macro                  | `new Collection()` + runtime deterministic-id assignment |
+| Custom conflict rules | custom CRDT merge via a WASM callback         | [`@Mergeable` structs](/guides/mergeable-js/)        |
+
+## What differs
+
+- **Language and tooling.** Rust gives you a compiler-checked type system,
+  `cargo`, and crates; JS/TS gives you a faster edit loop and the npm ecosystem.
+  App structure is expressed with **attribute macros** in Rust and
+  **decorators** in JS, but they mean the same thing.
+- **Performance and size.** A Rust service compiles to compact native WASM. A JS
+  service ships the QuickJS interpreter inside its WASM and interprets your
+  bytecode, so it is larger and slower per call. For most collaborative apps this
+  is not the bottleneck (sync and storage dominate); for hot, compute-heavy paths
+  Rust is the better fit.
+- **How root state converges (internals).** Both converge to the same result,
+  but the mechanism differs: a Rust structured state merges in-guest, while a JS
+  state's root merge is driven host-side (`__calimero_merge_root_state`). You do
+  not write this code in either SDK — see the
+  [architecture](/understand/architecture/) for the JS data flow.
+- **Feature coverage.** The Rust SDK is the reference implementation, so a few
+  advanced capabilities land there first. For example, `SharedStorage`'s
+  per-writer capabilities and `SharedStorage<Collection>` nesting are not yet
+  exposed in JS. The core CRDT set and everyday app model are at parity.
+
+<Aside type="tip">
+  Choose **Rust** for maximum performance, the strongest type guarantees, or a
+  feature only it exposes yet. Choose **JS/TS** for a fast iteration loop, web
+  and Node developers, or sharing types with a TypeScript frontend. Because both
+  produce ABI-compatible services, you can also start in JS and rewrite the hot
+  parts (or the whole app) in Rust later — see
+  [Migrating from the Rust SDK](/guides/migration/).
+</Aside>
+
+## See also
+
+- [Architecture](/understand/architecture/) — the QuickJS ↔ host runtime and
+  build pipeline in detail.
+- [CRDT Collections](/guides/collections/) — every collection type and its
+  convergence behavior.
+- [Migrating from the Rust SDK](/guides/migration/) — moving an app between the
+  two.

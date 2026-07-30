@@ -70,7 +70,7 @@ export default defineConfig({
         },
         {
           label: 'Understand',
-          items: ['understand/architecture'],
+          items: ['understand/architecture', 'understand/rust-sdk-comparison'],
         },
         {
           label: 'Reference',
