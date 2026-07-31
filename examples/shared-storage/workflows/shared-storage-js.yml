@@ -5,11 +5,9 @@ name: SharedStorage (single node)
 # is the sole writer and can set/read the shared config value, LWW-overwrite it,
 # and observe writer membership.
 #
-# Requires calimero-network/core#3340 (the js_crdt_shared_* host functions) in
-# the merod:edge image; runnable once #3340 merges and the image is rebuilt.
-# A concurrent multi-writer convergence workflow is deferred: adding a second
-# node as a writer needs its public key decoded in-guest, which the SDK does not
-# yet expose.
+# Requires the js_crdt_shared_* host functions (calimero-network/core#3340) in
+# the merod:edge image. For cross-node convergence with two writers, see
+# shared-storage-concurrent.yml in this directory.
 
 force_pull_image: true
 
