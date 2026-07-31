@@ -55,7 +55,7 @@ export class KvStore {
 }
 
 @Logic(KvStore)
-export class KvStoreLogic {
+export class KvStoreLogic extends KvStore {
   @Init
   static initialize(): KvStore {
     return new KvStore();
@@ -168,7 +168,7 @@ export class MyApp {
 }
 
 @Logic(MyApp)
-export class MyAppLogic {
+export class MyAppLogic extends MyApp {
   set(key: string, value: string) { this.items.set(key, value); }
 }
 ```

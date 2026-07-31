@@ -49,6 +49,9 @@ import {
   createVector,
   createCounter,
 } from '@calimero-network/calimero-sdk-js';
+// Collection classes are used as type annotations below; import them from the
+// /collections entry point (they are not re-exported from the package root).
+import { UnorderedMap, Vector, Counter } from '@calimero-network/calimero-sdk-js/collections';
 
 @Mergeable()
 export class MemberProfile {
