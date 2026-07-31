@@ -1,7 +1,8 @@
 import './setup';
 import { computeCollectionId, computeEntryId, ROOT_ID } from '../utils/deterministic-id';
 import { assignDeterministicIds } from '../runtime/deterministic-ids';
-import { bytesToHex } from '../utils/hex';
+import { deleteCollection } from '../runtime/storage-wasm';
+import { bytesToHex, hexToBytes } from '../utils/hex';
 import { UnorderedMap } from '../collections/UnorderedMap';
 import { Vector } from '../collections/Vector';
 
@@ -54,6 +55,21 @@ describe('assignDeterministicIds', () => {
     expect((state.log as Vector<string>).id()).toBe(expectedLog);
     // Field was actually re-keyed off its original random id.
     expect((state.items as UnorderedMap<string, string>).id()).not.toBe(itemsRandomId);
+  });
+
+  it('deletes the orphaned random-id entity after re-keying', () => {
+    const map = new UnorderedMap<string, string>();
+    const randomId = map.id();
+    const state: Record<string, unknown> = { items: map };
+
+    assignDeterministicIds(state);
+
+    // The random-id orphan was reclaimed, so a delete now finds nothing.
+    expect(deleteCollection(hexToBytes(randomId))).toBe(false);
+    // Sanity: a live collection IS deletable (returns true), so the false above
+    // reflects a real deletion, not a broken probe.
+    const live = new UnorderedMap<string, string>();
+    expect(deleteCollection(hexToBytes(live.id()))).toBe(true);
   });
 
   it('is idempotent (a second pass leaves ids unchanged)', () => {

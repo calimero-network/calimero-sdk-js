@@ -1107,6 +1107,10 @@ export function jsCrdtSharedRotateWriters(cellId: Uint8Array, writers: Uint8Arra
   return env.js_crdt_shared_rotate_writers(cellId, writers);
 }
 
+export function jsCrdtDeleteCollection(id: Uint8Array, register: bigint): number {
+  return env.js_crdt_delete_collection(id, register);
+}
+
 /**
  * Flush pending delta actions to the host.
  *

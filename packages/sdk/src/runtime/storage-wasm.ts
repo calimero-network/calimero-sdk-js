@@ -111,6 +111,7 @@ import {
   jsCrdtSharedWritableByMe,
   jsCrdtSharedIsFrozen,
   jsCrdtSharedRotateWriters,
+  jsCrdtDeleteCollection,
 } from '../env/api';
 
 const REGISTER_ID = 0n;
@@ -1667,4 +1668,19 @@ export function sharedRotateWriters(cellId: Uint8Array, writers: Uint8Array): vo
   if (status < 0) {
     decodeError('sharedRotateWriters');
   }
+}
+
+/**
+ * Delete a root-level collection entity by id and unlink it from the root.
+ * Returns `true` if an entity was deleted, `false` if none existed at that id
+ * (idempotent). Used to reclaim the random-id collection orphaned when a
+ * top-level `@State` field is re-opened at its deterministic id.
+ */
+export function deleteCollection(id: Uint8Array): boolean {
+  ensureCollectionId(id, 'id');
+  const status = Number(jsCrdtDeleteCollection(id, REGISTER_ID));
+  if (status < 0) {
+    decodeError('deleteCollection');
+  }
+  return status === 1;
 }

@@ -34,6 +34,7 @@ import {
   sharedNewWithId,
   sharedWriters,
   sharedIsFrozen,
+  deleteCollection,
 } from './storage-wasm';
 
 type WithIdFn = (id: Uint8Array) => Uint8Array;
@@ -118,15 +119,25 @@ export function assignDeterministicIds(state: unknown): void {
     }
 
     // Create/re-open the entity at the deterministic id in the host, then swap
-    // the field to a collection wrapping that id. The previous random-id entity
-    // is orphaned (safe: fresh collections are empty). SharedStorage needs its
-    // writer set/frozen flag carried across; other collections re-open from id.
+    // the field to a collection wrapping that id. SharedStorage needs its writer
+    // set/frozen flag carried across; other collections re-open from id.
     if (isShared) {
       reopenSharedAt(snapshot.id, expectedId);
     } else {
       withId!(expectedId);
     }
     target[key] = instantiateCollection({ type: snapshot.type, id: expectedHex });
+
+    // Reclaim the random-id entity the field used to point at. This runs on
+    // fresh genesis state, so it is empty and the create+delete land in the same
+    // delta (every replica converges with no orphan). Best-effort: a benign
+    // leftover must never break init, so a cleanup failure is only logged.
+    try {
+      deleteCollection(hexToBytes(snapshot.id));
+    } catch (err) {
+      env.log(`[deterministic-ids] orphan cleanup skipped for '${key}': ${String(err)}`);
+    }
+
     env.log(
       `[deterministic-ids] field '${key}' (${snapshot.type}) -> ${expectedHex.slice(0, 16)}…`
     );
