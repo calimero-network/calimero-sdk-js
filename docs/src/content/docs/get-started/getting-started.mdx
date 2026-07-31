@@ -157,8 +157,9 @@ secrets.modify(
 ```
 
 `PrivateEntryHandle` also exposes `get()`, `set(value)`, `remove()`, and
-`getOrDefault(value)`. Entries are stored through `storageRead`/`storageWrite`
-directly, so they never appear in CRDT deltas or gossip.
+`getOrDefault(value)`. Entries are node-local — they never appear in CRDT deltas
+or gossip. See the [Private data guide](/guides/private-data/) for the full API
+and when to use it.
 
 ## Next steps
 
