@@ -1,21 +1,18 @@
 ---
 title: Mergeable Structs
-description: The experimental @Mergeable decorator — opt custom structs stored inside CRDT collections into deterministic, field-aware conflict resolution, with an optional custom merge handler. Includes the current runtime limitations.
+description: The @Mergeable decorator — opt custom structs stored inside CRDT collections into deterministic, field-aware conflict resolution, with an optional custom merge handler. Includes the current runtime limitations.
 sidebar:
   order: 3
-  badge:
-    text: Experimental
-    variant: caution
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
-<Aside type="caution" title="Experimental">
-  `@Mergeable` is experimental. Today it makes **local writes** safer by merging
-  on the node performing the write, and it records merge metadata for future
-  runtime support. The Rust host does **not** yet honor the metadata during
-  delta replay, so conflicts that arrive concurrently on other nodes still fall
-  back to whole-value last-write-wins. See [Limitations](#limitations-and-status).
+<Aside type="caution" title="Current limitation">
+  Today `@Mergeable` makes **local writes** safer by merging on the node
+  performing the write, and it records merge metadata for future runtime
+  support. The Rust host does **not** yet honor the metadata during delta
+  replay, so conflicts that arrive concurrently on other nodes still fall back
+  to whole-value last-write-wins. See [Limitations](#limitations-and-status).
 </Aside>
 
 ## What it is
