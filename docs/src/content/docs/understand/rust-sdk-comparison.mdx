@@ -96,10 +96,15 @@ capabilities are not exposed yet. Know these before you build:
   `writers` / `writableByMe` / `isFrozen` / `rotateWriters`. It does **not** yet
   expose per-writer capabilities (WRITE/DELETE/ADMIN op masks, scoped rotation)
   or `SharedStorage<Collection>` nesting — all of which Rust has.
-- **No generic access-control types.** Rust's `PermissionedStorage<T, Acl>`,
-  `AccessControl`, `Ownable`, and the pluggable `Authorizer`/ACL traits (plus the
-  `CompositeKey` / `NestedMap` helpers) have no JS equivalent; JS gets the one
-  concrete `SharedStorage`.
+- **Little access control beyond a writer set.** JS gets one concrete
+  membership primitive — `SharedStorage`, where *any* writer may do *anything*.
+  Rust has a whole authorization layer with no JS equivalent: `Ownable` (a
+  single-owner cell with authenticated `transfer_ownership`), `AccessControl`
+  (role-based access — grant/revoke roles, `has_role`, members-of, roles
+  projected onto per-writer capabilities), per-operation `OpMask` capabilities
+  (WRITE / DELETE / ADMIN, so a writer can be allowed to write but not delete),
+  and the generic `PermissionedStorage<T, Acl>` + pluggable `Authorizer`
+  policies (`guard`/`can`). Model authorization in your JS app logic instead.
 - **No app-version migrations.** Rust can upgrade a deployed app and migrate its
   existing state: `#[app::migrate]` defines a migration entrypoint the runtime
   runs on upgrade, `#[app::migration_check]` validates the migrated state (and
@@ -111,15 +116,24 @@ capabilities are not exposed yet. Know these before you build:
   schemas defensively (additive/optional fields) or redeploy with fresh state.
   (This is unrelated to the [Migrating from Rust](/guides/migration/) guide,
   which is about porting a Rust service to TypeScript.)
-- **A host function isn't wrapped in JS.** `xcall_origin()` (read which context
-  initiated a cross-context call) is available to Rust services but not the JS
-  `env`.
+- **Fewer app-lifecycle and cross-context hooks.** Rust has `#[app::destroy]` (a
+  teardown method run when a context/app is torn down) and `#[app::xcall]` (mark
+  a method as a cross-context entry point and restrict who may call it). JS can
+  *schedule* an outbound `xcall`, but cannot declare a method as an xcall target,
+  restrict its callers, or read the caller's origin context (`xcall_origin`) to
+  authorize it — and it has no teardown hook.
 - **`Counter` is grow-only.** JS `Counter` only increments — use `PNCounter`
   when a value also goes down. (Rust splits `GCounter` / `PNCounter`.)
 - **Borsh is a JS reimplementation.** JS encodes/decodes Borsh in TypeScript to
   match Calimero's ABI rather than using Rust's canonical `borsh` crate. State
   interoperates as long as both sides share the same schema — avoiding a schema
   mismatch is the app author's responsibility.
+- **Smaller gaps.** JS methods return a value or `throw` rather than Rust's typed
+  `app::Result<T, E>` (with `err!` / `bail!`); logging is a flat `env.log` rather
+  than leveled tracing; and `@View()` is a runtime marker only — it is not
+  emitted as read-only *intent* in the ABI, so the node treats a JS view method
+  as write-intent (it still works, but skips the read-lock concurrency
+  optimization Rust view methods get).
 
 Neither SDK can manage context membership, lifecycle, or governance from service
 code (those host functions are not exposed to any guest) — that is a
