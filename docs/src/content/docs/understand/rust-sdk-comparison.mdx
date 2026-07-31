@@ -100,9 +100,20 @@ capabilities are not exposed yet. Know these before you build:
   `AccessControl`, `Ownable`, and the pluggable `Authorizer`/ACL traits (plus the
   `CompositeKey` / `NestedMap` helpers) have no JS equivalent; JS gets the one
   concrete `SharedStorage`.
-- **A few host functions aren't wrapped in JS.** `xcall_origin()` (read which
-  context initiated a cross-context call) and `emit_migration_witness()` are
-  available to Rust services but not the JS `env`.
+- **No app-version migrations.** Rust can upgrade a deployed app and migrate its
+  existing state: `#[app::migrate]` defines a migration entrypoint the runtime
+  runs on upgrade, `#[app::migration_check]` validates the migrated state (and
+  can abort, leaving the old state intact), with built-in invariant helpers
+  (entity-count parity, no orphaned refs, conservation) and a state `version`.
+  The JS SDK has **no equivalent** — no migration entrypoint, no migration
+  check, and `emit_migration_witness` is not wrapped — so changing a JS app's
+  state schema on an existing context isn't supported through the SDK yet. Evolve
+  schemas defensively (additive/optional fields) or redeploy with fresh state.
+  (This is unrelated to the [Migrating from Rust](/guides/migration/) guide,
+  which is about porting a Rust service to TypeScript.)
+- **A host function isn't wrapped in JS.** `xcall_origin()` (read which context
+  initiated a cross-context call) is available to Rust services but not the JS
+  `env`.
 - **`Counter` is grow-only.** JS `Counter` only increments — use `PNCounter`
   when a value also goes down. (Rust splits `GCounter` / `PNCounter`.)
 - **Borsh is a JS reimplementation.** JS encodes/decodes Borsh in TypeScript to
