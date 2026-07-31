@@ -1,0 +1,91 @@
+---
+title: Private Data
+description: Store node-local secrets and per-node bookkeeping with createPrivateEntry — data that stays on the executing node and never replicates through CRDT deltas. The JS equivalent of the Rust SDK's private storage.
+sidebar:
+  order: 2
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Most service state is **replicated** — CRDT collections converge across every
+node in a context. Sometimes you need the opposite: data that stays **on one
+node** and is never shared — an API token, a cached credential, per-node
+bookkeeping. That is what **private data** is for.
+
+The JS SDK provides it through `createPrivateEntry`, the equivalent of the Rust
+SDK's private storage. Private entries are **node-local**: they are written to
+the executing node's own storage and never enter a CRDT delta or gossip, so
+other nodes in the same context cannot read them.
+
+## createPrivateEntry
+
+```typescript
+import { createPrivateEntry } from '@calimero-network/calimero-sdk-js';
+
+const secrets = createPrivateEntry<{ token: string }>('private:secrets');
+
+// Read-or-initialize (initialiser runs only when nothing is stored yet)
+const current = secrets.getOrInit(() => ({ token: '' }));
+
+// Mutate in place, then persist
+secrets.modify(
+  (value) => {
+    value.token = 'rotated-token';
+  },
+  () => ({ token: '' })
+);
+```
+
+`createPrivateEntry<T>(key)` returns a `PrivateEntryHandle<T>`. The `key` is a
+`string` or `Uint8Array` naming the entry on this node.
+
+## PrivateEntryHandle
+
+| Method | Signature | Description |
+| --- | --- | --- |
+| `get` | `() => T \| null` | Read the value, or `null` if unset. |
+| `set` | `(value: T) => void` | Write the value. |
+| `remove` | `() => boolean` | Delete it; returns whether it existed. |
+| `getOrInit` | `(initialiser: () => T) => T` | Return the value, creating it from `initialiser` if unset. |
+| `getOrDefault` | `(defaultValue: T) => T` | Return the value, or store and return `defaultValue` if unset. |
+| `modify` | `(mutator: (value: T) => void, initialiser: () => T) => T` | `getOrInit` → mutate in place → persist; returns the updated value. |
+
+Values are serialized with the SDK's Borsh encoder, the same as CRDT values.
+
+<Aside type="note">
+  Private entries are **node-scoped, not executor-scoped**: any executor running
+  on the same node reads the same key. They are not encrypted at rest — treat
+  them as node-local storage, not a secrets vault.
+</Aside>
+
+## Private vs. replicated state
+
+| | Replicated (CRDT collections) | Private (`createPrivateEntry`) |
+| --- | --- | --- |
+| Scope | Every node in the context | The executing node only |
+| Syncs? | Yes — via CRDT deltas | No — never leaves the node |
+| Conflict handling | Automatic convergence | N/A (single node) |
+| Use for | Shared app state | Secrets, caches, per-node bookkeeping |
+
+Reach for a [CRDT collection](/guides/collections/) whenever the data is part of
+the shared application state, and `createPrivateEntry` only for data that is
+genuinely local to one node.
+
+<Aside type="tip">
+  Prefer `createPrivateEntry` over raw `env.storageRead`/`storageWrite` for
+  node-local data — it handles serialization and gives you the read-or-init and
+  in-place-modify helpers.
+</Aside>
+
+## Example
+
+The [`private-data` example](https://github.com/calimero-network/calimero-sdk-js/tree/master/examples/private-data)
+keeps a replicated public note (an `UnorderedMap`) alongside a private note
+(`createPrivateEntry`), and its two-node test asserts the isolation: after sync,
+node 2 sees the public note but reads the private note as `null`.
+
+## See also
+
+- [CRDT Collections](/guides/collections/) — replicated, converging state.
+- [API Reference](/reference/api/) — `createPrivateEntry` and the `env` storage
+  functions.

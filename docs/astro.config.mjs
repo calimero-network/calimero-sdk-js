@@ -61,6 +61,7 @@ export default defineConfig({
           label: 'Guides',
           items: [
             'guides/collections',
+            'guides/private-data',
             'guides/events',
             'guides/mergeable-js',
             'guides/client-generation',
