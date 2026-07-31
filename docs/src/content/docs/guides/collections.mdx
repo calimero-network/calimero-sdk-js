@@ -24,8 +24,28 @@ import { createUnorderedMap, createCounter } from '@calimero-network/calimero-sd
 <Aside type="tip">
   Inside a `@State` class, initialize CRDT fields inline with the `create*`
   helpers (`count: Counter = createCounter()`). This keeps the persisted
-  collection ID stable across invocations.
+  collection ID stable across invocations. Factory helpers exist for seven
+  types — `createUnorderedMap`, `createUnorderedSet`, `createVector`,
+  `createCounter`, `createLwwRegister`, `createUserStorage`,
+  `createFrozenStorage`. For every other type (`PNCounter`, `Rga`, `SortedMap`,
+  `SortedSet`, `AuthoredMap`, `AuthoredVector`, `SharedStorage`) construct with
+  `new` (e.g. `new SortedMap()`).
 </Aside>
+
+## Common members
+
+Every collection exposes the same identity/serialization members:
+
+- `id(): string` — the collection's id as hex.
+- `idBytes(): Uint8Array` — a copy of the id bytes.
+- `toJSON()` — a `{ __calimeroCollection, id }` handle (how a collection is
+  stored inside another collection and rehydrated).
+
+Most collections also have a static `fromId(id)` that reopens an existing
+collection at a known id without a fresh host allocation — available on
+`UnorderedMap`, `SortedMap`, `AuthoredMap`, `AuthoredVector`, `UserStorage`,
+`FrozenStorage`, `SharedStorage` (and `Vector.fromArray` / `Rga.fromText` seed
+new collections from data).
 
 ## UnorderedMap&lt;K, V&gt;
 
@@ -55,6 +75,7 @@ Last-write-wins set for unique membership.
 
 ```typescript
 const set = new UnorderedSet<string>();
+// or seed values: new UnorderedSet<string>({ initialValues: ['alice', 'bob'] })
 
 set.add('alice');            // true on first insert, false if already present
 const present = set.has('alice'); // boolean
@@ -138,6 +159,7 @@ Last-write-wins register for a single value.
 
 ```typescript
 const register = new LwwRegister<string>();
+// or seed an initial value: new LwwRegister<string>({ initialValue: 'default' })
 
 register.set('hello');
 const value = register.get();       // 'hello' | null
@@ -191,11 +213,14 @@ by position, so two editors typing at once converge without losing characters.
 ```typescript
 const doc = new Rga();
 
-doc.insert(0, 'Hello'); // insert text at an index
+doc.insert(0, 'Hello'); // insert text at an index (Unicode codepoint offset)
 doc.insert(5, ' world'); // → 'Hello world'
 doc.delete(0); // remove one element at an index
 const text = doc.getText(); // current string
 const length = doc.len(); // number of elements
+
+// Seed a new RGA from an existing string:
+const seeded = Rga.fromText('Hello world');
 ```
 
 <Aside type="note">
@@ -222,6 +247,7 @@ claims.insert('seat-1', 'alice'); // owned by the current executor
 claims.update('seat-1', 'alice-2'); // ok only if you own 'seat-1' (throws otherwise)
 claims.set('seat-1', 'alice-2'); // insert-or-update, owner-checked on update
 claims.get('seat-1'); // V | null
+claims.has('seat-1'); // boolean (contains() is an alias)
 claims.ownerOf('seat-1'); // Uint8Array (owner public key) | null
 claims.ownedByMe('seat-1'); // boolean
 claims.remove('seat-1'); // owner-checked
@@ -338,14 +364,17 @@ interface UserProfile { displayName: string; score: number; }
 
 const profiles = createUserStorage<UserProfile>();
 
-profiles.insert({ displayName: 'Alice', score: 100 }); // key = current executor's PublicKey
+profiles.insert({ displayName: 'Alice', score: 100 }); // key = current executor's PublicKey; returns previous | null
 const mine = profiles.get();                            // current user's value | null
 const other = profiles.getForUser(somePublicKey);       // another user's value | null
+profiles.setForUser(somePublicKey, { displayName: 'Bob', score: 5 }); // write for a specific user; returns previous | null
 const hasMine = profiles.containsCurrentUser();          // boolean
 const hasOther = profiles.containsUser(somePublicKey);   // boolean
-profiles.remove();                                       // remove current user's value
+profiles.remove();                                       // remove current user's value; returns previous | null
 
 const all = profiles.entries();  // Array<[PublicKey, V]>
+const users = profiles.keys();   // PublicKey[]
+const vals = profiles.values();  // V[]
 const count = profiles.size();   // number
 ```
 
@@ -393,6 +422,7 @@ import { executorId } from '@calimero-network/calimero-sdk-js/env';
 
 // The creator is the sole initial writer.
 const config = new SharedStorage<string>({ writers: [executorId()] });
+// Pass `frozen: true` to create an immutable cell: new SharedStorage({ writers, frozen: true })
 
 config.set('hello'); // ok — caller is a writer (throws for a non-writer)
 config.get(); // 'hello' | null
@@ -437,7 +467,7 @@ set of members may change while everyone else reads. It differs from
 
 ## See also
 
-- [Mergeable structs (experimental)](/guides/mergeable-js/) — deterministic
+- [Mergeable structs](/guides/mergeable-js/) — deterministic
   conflict resolution for custom structs stored inside collections.
 - [Architecture](/understand/architecture/) — the QuickJS↔host data flow in detail.
 - [API Reference](/reference/api/) — full method lists.

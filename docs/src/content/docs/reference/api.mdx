@@ -89,7 +89,7 @@ getCount(): bigint { return this.count.value(); }
 
 ### `@Mergeable(options?)`
 
-Experimental. Marks a data class stored inside a collection as mergeable.
+Marks a data class stored inside a collection as mergeable.
 `options` is `MergeableOptions`: `{ merge?: (local, remote) => value; type?: string }`.
 See [Mergeable structs](/guides/mergeable-js/).
 
@@ -126,22 +126,15 @@ All are exported from `@calimero-network/calimero-sdk-js/env`.
 | `executorId` | `() => Uint8Array` | Current executor ID (32 bytes). |
 | `executorIdHex` | `() => string` | Executor ID as hex. |
 | `executorIdBase58` | `() => string` | Executor ID as base58. |
-
-### Context & membership
-
-| Function | Signature | Description |
-| --- | --- | --- |
-| `contextAddMember` | `(publicKey: Uint8Array) => void` | Add a member (32-byte key). Async — takes effect after execution. |
-| `contextRemoveMember` | `(publicKey: Uint8Array) => void` | Remove a member. Async. |
-| `contextIsMember` | `(publicKey: Uint8Array) => boolean` | Sync membership check against committed state. |
-| `contextMembers` | `() => Uint8Array[]` | All member public keys. |
-| `contextCreate` | `(protocol, applicationId, initArgs, alias: Uint8Array) => void` | Create a child context. `applicationId` 32 bytes; `alias` ≤ 64 bytes. |
-| `contextDelete` | `(contextId: Uint8Array) => void` | Delete a context (pass current ID to self-delete). Async. |
-| `contextResolveAlias` | `(alias: Uint8Array) => Uint8Array \| null` | Resolve an alias to a 32-byte context ID. |
+| `bytesToBase58` | `(bytes: Uint8Array) => string` | Encode bytes as base58. |
+| `base58ToBytes` | `(value: string) => Uint8Array` | Decode base58 to raw bytes (throws on an invalid character). Useful for turning a base58 member key into the raw bytes a `SharedStorage` writer set expects. |
 
 <Aside type="note">
-  The member/context mutations validate argument lengths and throw
-  `TypeError`/`RangeError` on bad input (e.g. a public key that isn't 32 bytes).
+  Context membership and lifecycle host functions (add/remove member, members,
+  create/delete/resolve-alias) are **not** exposed to service code — the node
+  provides no matching host functions, so a service that imported them would
+  fail to instantiate. Manage membership through the client/CLI, not from inside
+  a service.
 </Aside>
 
 ### Storage
@@ -186,15 +179,16 @@ All are exported from `@calimero-network/calimero-sdk-js/env`.
 
 These back the dispatcher and CRDT layer; application code rarely calls them
 directly: `input`, `panic`, `registerLen`, `readRegister`, `valueReturn`,
-`persistRootState`, `readRootState`, `flushDelta`, `applyStorageDelta`, and the
-`jsCrdt*` / `jsUserStorage*` / `jsFrozenStorage*` binding wrappers.
+`valueReturnRaw`, `persistRootState`, `readRootState`, `flushDelta`,
+`applyStorageDelta`, `registerJsSdkRootMerge`, and the `jsCrdt*` /
+`jsUserStorage*` / `jsFrozenStorage*` binding wrappers.
 
 ## Events
 
 | Export | Signature | Description |
 | --- | --- | --- |
-| `emit` | `(event: AppEvent) => void` | Emit an event with no handler. |
-| `emitWithHandler` | `(event: AppEvent, handler: string) => void` | Emit and name a handler to run on receiving nodes. |
+| `emit` | `(event: unknown) => void` | Emit an event with no handler. Pass an `@Event`-decorated instance (any value is accepted; it is serialized via its `serialize()`). |
+| `emitWithHandler` | `(event: unknown, handlerName: string) => void` | Emit and name a handler to run on receiving nodes. |
 | `AppEvent` | `interface { serialize?(): Uint8Array \| object \| string }` | Base event interface. |
 
 See the [Events guide](/guides/events/).

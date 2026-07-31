@@ -64,7 +64,7 @@ passed to `emitWithHandler`:
 
 ```typescript
 @Logic(MyApp)
-export class MyAppLogic {
+export class MyAppLogic extends MyApp {
   addItem(key: string, value: string): void {
     this.items.set(key, value);
     emitWithHandler(new ItemAdded(key, value, Date.now()), 'onItemAdded');

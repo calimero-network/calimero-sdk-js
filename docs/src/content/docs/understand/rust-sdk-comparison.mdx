@@ -59,33 +59,69 @@ Both SDKs target one runtime, so most of what you learn transfers directly:
 | Collection ids       | assigned via the state macro                  | `new Collection()` + runtime deterministic-id assignment |
 | Custom conflict rules | custom CRDT merge via a WASM callback         | [`@Mergeable` structs](/guides/mergeable-js/)        |
 
-## What differs
+## What differs (fundamentals)
 
 - **Language and tooling.** Rust gives you a compiler-checked type system,
   `cargo`, and crates; JS/TS gives you a faster edit loop and the npm ecosystem.
-  App structure is expressed with **attribute macros** in Rust and
-  **decorators** in JS, but they mean the same thing.
+  App structure is expressed with **attribute macros** in Rust and **decorators**
+  in JS, but they mean the same thing.
 - **Performance and size.** A Rust service compiles to compact native WASM. A JS
   service ships the QuickJS interpreter inside its WASM and interprets your
-  bytecode, so it is larger and slower per call. For most collaborative apps this
-  is not the bottleneck (sync and storage dominate); for hot, compute-heavy paths
-  Rust is the better fit.
-- **How root state converges (internals).** Both converge to the same result,
-  but the mechanism differs: a Rust structured state merges in-guest, while a JS
-  state's root merge is driven host-side (`__calimero_merge_root_state`). You do
-  not write this code in either SDK — see the
+  bytecode, so it is larger and slower per call. For most collaborative apps sync
+  and storage dominate, so this rarely matters; for hot, compute-heavy paths Rust
+  is the better fit.
+- **How the root document converges (internals).** Both converge, but through
+  different machinery: a Rust root is a native structure the merge engine walks
+  in-guest, while a JS root is opaque to the node and opts into a host-invoked
+  guest merge (`__calimero_merge_root_state`). You write this code in neither SDK
+  — but it is what shapes the `@Mergeable` limitation below. See the
   [architecture](/understand/architecture/) for the JS data flow.
-- **Feature coverage.** The Rust SDK is the reference implementation, so a few
-  advanced capabilities land there first. For example, `SharedStorage`'s
-  per-writer capabilities and `SharedStorage<Collection>` nesting are not yet
-  exposed in JS. The core CRDT set and everyday app model are at parity.
+
+## Limitations of the JS SDK
+
+The Rust SDK is the reference implementation; the JS SDK tracks it, and a few
+capabilities are not exposed yet. Know these before you build:
+
+- **Custom-struct conflict resolution is scoped (`@Mergeable`).** Field-aware and
+  custom merges run only for a struct that is a **direct field of your `@State`
+  root** — there, every replica re-runs your merge during sync. A `@Mergeable`
+  struct stored **inside a CRDT collection** (a map value, a register payload)
+  crosses to the host as opaque bytes, so concurrent edits to it on other nodes
+  resolve **last-write-wins**, and a custom handler does **not** replay there.
+  Rust re-runs a registered structural merge on every node regardless of nesting.
+  For guaranteed convergence in JS today, model shared state with the built-in
+  [CRDT collections](/guides/collections/) rather than custom structs. See
+  [Mergeable structs](/guides/mergeable-js/).
+- **`SharedStorage` is a single value.** JS supports create / `set` / `get` /
+  `writers` / `writableByMe` / `isFrozen` / `rotateWriters`. It does **not** yet
+  expose per-writer capabilities (WRITE/DELETE/ADMIN op masks, scoped rotation)
+  or `SharedStorage<Collection>` nesting — all of which Rust has.
+- **No generic access-control types.** Rust's `PermissionedStorage<T, Acl>`,
+  `AccessControl`, `Ownable`, and the pluggable `Authorizer`/ACL traits (plus the
+  `CompositeKey` / `NestedMap` helpers) have no JS equivalent; JS gets the one
+  concrete `SharedStorage`.
+- **A few host functions aren't wrapped in JS.** `xcall_origin()` (read which
+  context initiated a cross-context call) and `emit_migration_witness()` are
+  available to Rust services but not the JS `env`.
+- **`Counter` is grow-only.** JS `Counter` only increments — use `PNCounter`
+  when a value also goes down. (Rust splits `GCounter` / `PNCounter`.)
+- **Borsh is a JS reimplementation.** JS encodes/decodes Borsh in TypeScript to
+  match Calimero's ABI rather than using Rust's canonical `borsh` crate. State
+  interoperates as long as both sides share the same schema — avoiding a schema
+  mismatch is the app author's responsibility.
+
+Neither SDK can manage context membership, lifecycle, or governance from service
+code (those host functions are not exposed to any guest) — that is a
+platform-level boundary, not a JS-vs-Rust difference. Do it through the client or
+CLI.
 
 <Aside type="tip">
   Choose **Rust** for maximum performance, the strongest type guarantees, or a
-  feature only it exposes yet. Choose **JS/TS** for a fast iteration loop, web
-  and Node developers, or sharing types with a TypeScript frontend. Because both
-  produce ABI-compatible services, you can also start in JS and rewrite the hot
-  parts (or the whole app) in Rust later — see
+  capability only it exposes yet (custom-struct merge inside collections,
+  per-writer `SharedStorage` policies, generic access control). Choose **JS/TS**
+  for a fast iteration loop, web and Node developers, or sharing types with a
+  TypeScript frontend. Because both produce ABI-compatible services, you can
+  start in JS and rewrite the hot parts (or the whole app) in Rust later — see
   [Migrating from the Rust SDK](/guides/migration/).
 </Aside>
 

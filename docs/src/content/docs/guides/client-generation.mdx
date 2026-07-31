@@ -75,19 +75,24 @@ the same arguments.
 ## 3. Use the generated client
 
 The generated file contains the client class plus the TypeScript types for your
-service. It talks to a node through `@calimero-network/calimero-client`:
+service. It talks to a node through the Calimero client library — roughly:
 
 ```typescript
 import { CounterClient } from './generated/CounterClient';
-import { CalimeroApp } from '@calimero-network/calimero-client';
+// ...construct/connect a client per your generator + client-library version...
 
-const app = new CalimeroApp({ /* your configuration */ });
-const context = app.getContext('your-context-id');
-const client = new CounterClient(app, context);
+const client = new CounterClient(/* app/context wiring */);
 
 await client.increment();
 const count = await client.getCount();
 ```
+
+<Aside type="note">
+  The generator is the external `@calimero-network/abi-codegen` package, so the
+  exact import path and the client's constructor/connection shape depend on your
+  installed generator and client-library version. Treat the snippet above as
+  illustrative and follow the code your `abi-codegen` run emits.
+</Aside>
 
 <Aside type="tip">
   Method names in the generated client follow the ABI exactly. If a call doesn't

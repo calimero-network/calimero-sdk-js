@@ -1,21 +1,18 @@
 ---
 title: Mergeable Structs
-description: The experimental @Mergeable decorator — opt custom structs stored inside CRDT collections into deterministic, field-aware conflict resolution, with an optional custom merge handler. Includes the current runtime limitations.
+description: The @Mergeable decorator — opt custom structs stored inside CRDT collections into deterministic, field-aware conflict resolution, with an optional custom merge handler. Includes the current runtime limitations.
 sidebar:
   order: 3
-  badge:
-    text: Experimental
-    variant: caution
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
-<Aside type="caution" title="Experimental">
-  `@Mergeable` is experimental. Today it makes **local writes** safer by merging
-  on the node performing the write, and it records merge metadata for future
-  runtime support. The Rust host does **not** yet honor the metadata during
-  delta replay, so conflicts that arrive concurrently on other nodes still fall
-  back to whole-value last-write-wins. See [Limitations](#limitations-and-status).
+<Aside type="caution" title="Current limitation">
+  Today `@Mergeable` makes **local writes** safer by merging on the node
+  performing the write, and it records merge metadata for future runtime
+  support. The Rust host does **not** yet honor the metadata during delta
+  replay, so conflicts that arrive concurrently on other nodes still fall back
+  to whole-value last-write-wins. See [Limitations](#limitations-and-status).
 </Aside>
 
 ## What it is
@@ -49,6 +46,9 @@ import {
   createVector,
   createCounter,
 } from '@calimero-network/calimero-sdk-js';
+// Collection classes are used as type annotations below; import them from the
+// /collections entry point (they are not re-exported from the package root).
+import { UnorderedMap, Vector, Counter } from '@calimero-network/calimero-sdk-js/collections';
 
 @Mergeable()
 export class MemberProfile {
@@ -103,13 +103,16 @@ export class Stats {
 
 ## Limitations and status
 
-- **Leader-only merge.** The merge runs only on the node performing the write.
-  Other nodes replay the already-merged payload; they do not re-run the merge.
-- **Host is metadata-unaware.** The Rust storage layer currently ignores the
-  merge descriptor, so two deltas for the same entry that arrive concurrently on
-  a follower still resolve last-write-wins.
-- **Custom handlers don't replay.** There is no host-side registry to re-run a
-  custom handler on followers.
+- **Root fields re-merge; collection values don't.** A `@Mergeable` struct that
+  is a **direct field of your `@State` root** is re-merged field-aware on every
+  replica during sync (this path also runs your custom handler). The limitations
+  below apply to a `@Mergeable` struct stored **inside a CRDT collection** — the
+  case this guide targets — where its value crosses to the host as opaque bytes.
+- **Host is metadata-unaware (collection values).** For a struct nested in a
+  collection, the storage layer ignores the merge descriptor, so two deltas for
+  the same entry that arrive concurrently on a follower resolve last-write-wins.
+- **Custom handlers don't replay (collection values).** There is no host-side
+  registry to re-run a custom handler on followers for a nested value.
 - **No retrofit.** Metadata applies only to services built with the updated SDK;
   adopt the decorator and redeploy with fresh state.
 
