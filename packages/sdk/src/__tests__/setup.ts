@@ -500,6 +500,32 @@ function executorIsWriter(store: SharedCellStore): boolean {
     return 0;
   },
 
+  js_crdt_delete_collection: (id: Uint8Array, _register_id: bigint): number => {
+    const key = idToKey(id);
+    const stores = [
+      maps,
+      vectors,
+      sets,
+      counters,
+      lwwRegisters,
+      pnCounters,
+      rgas,
+      sortedMaps,
+      sortedSets,
+      authoredMaps,
+      authoredVectors,
+      sharedCells,
+    ];
+    let found = false;
+    for (const store of stores) {
+      if (store.has(key)) {
+        store.delete(key);
+        found = true;
+      }
+    }
+    return found ? 1 : 0;
+  },
+
   js_crdt_map_get: (mapId: Uint8Array, key: Uint8Array, _register_id: bigint): number => {
     const store = maps.get(idToKey(mapId));
     if (!store) {

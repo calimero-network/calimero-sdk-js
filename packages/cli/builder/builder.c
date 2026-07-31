@@ -163,6 +163,7 @@ extern int32_t js_crdt_shared_writers(uint64_t cell_id_buffer_ptr, uint64_t regi
 extern int32_t js_crdt_shared_writable_by_me(uint64_t cell_id_buffer_ptr);
 extern int32_t js_crdt_shared_is_frozen(uint64_t cell_id_buffer_ptr);
 extern int32_t js_crdt_shared_rotate_writers(uint64_t cell_id_buffer_ptr, uint64_t writers_buffer_ptr);
+extern int32_t js_crdt_delete_collection(uint64_t id_buffer_ptr, uint64_t register_id);
 // PNCounter (signed PN-Counter). Provided by the node runtime (core#3318).
 extern int32_t js_crdt_pncounter_new(uint64_t register_id);
 extern int32_t js_crdt_pncounter_increment(uint64_t counter_id_buffer_ptr);
@@ -2851,6 +2852,26 @@ static JSValue js_env_crdt_shared_rotate_writers(JSContext *ctx, JSValueConst th
   return JS_NewInt32(ctx, result);
 }
 
+// Wrapper: js_crdt_delete_collection
+static JSValue js_env_crdt_delete_collection(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 2) {
+    return JS_ThrowTypeError(ctx, "js_crdt_delete_collection expects id and register_id");
+  }
+  size_t id_len;
+  uint8_t *id_ptr = JSValueToUint8Array(ctx, argv[0], &id_len);
+  if (!id_ptr || id_len != 32) {
+    return JS_ThrowRangeError(ctx, "id must be 32 bytes");
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[1], &register_id) < 0) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer id_buf = make_buffer(id_ptr, id_len);
+  int32_t result = js_crdt_delete_collection((uint64_t)&id_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, result);
+}
+
 // Wrapper: ed25519_verify
 static JSValue js_ed25519_verify(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   if (argc < 3) {
@@ -3040,6 +3061,7 @@ void js_add_calimero_host_functions(JSContext *ctx) {
   JS_SetPropertyStr(ctx, env, "js_crdt_shared_writable_by_me", JS_NewCFunction(ctx, js_env_crdt_shared_writable_by_me, "js_crdt_shared_writable_by_me", 1));
   JS_SetPropertyStr(ctx, env, "js_crdt_shared_is_frozen", JS_NewCFunction(ctx, js_env_crdt_shared_is_frozen, "js_crdt_shared_is_frozen", 1));
   JS_SetPropertyStr(ctx, env, "js_crdt_shared_rotate_writers", JS_NewCFunction(ctx, js_env_crdt_shared_rotate_writers, "js_crdt_shared_rotate_writers", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_delete_collection", JS_NewCFunction(ctx, js_env_crdt_delete_collection, "js_crdt_delete_collection", 2));
 
   // Opt-in root merge + deterministic-id CRDT constructors
   JS_SetPropertyStr(ctx, env, "register_js_sdk_root_merge", JS_NewCFunction(ctx, js_register_js_sdk_root_merge, "register_js_sdk_root_merge", 0));

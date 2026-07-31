@@ -199,6 +199,11 @@ export interface HostEnv {
   js_crdt_shared_is_frozen(cellId: Uint8Array): number;
   js_crdt_shared_rotate_writers(cellId: Uint8Array, writers: Uint8Array): number;
 
+  // Deletes a root-level collection entity by id and unlinks it from the root.
+  // Used to reclaim the random-id collection orphaned by deterministic-id
+  // reassignment. Returns 1 if deleted, 0 if none existed, -1 on error.
+  js_crdt_delete_collection(id: Uint8Array, register_id: bigint): number;
+
   // Context
   context_id(register_id: bigint): void;
   executor_id(register_id: bigint): void;
