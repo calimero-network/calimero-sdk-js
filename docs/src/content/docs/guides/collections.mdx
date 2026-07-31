@@ -1,6 +1,6 @@
 ---
 title: CRDT Collections
-description: The conflict-free replicated data types the JS SDK provides — UnorderedMap, UnorderedSet, Vector, Counter, LwwRegister, plus UserStorage and FrozenStorage — how they sync, how nested collections work, and best practices per type.
+description: The conflict-free replicated data types the JS SDK provides — maps, sets, vectors, counters and registers, their sorted and attributed variants, an RGA text type, plus per-user, immutable, and group-writable storage — how they sync, how nested collections work, and best practices per type.
 sidebar:
   order: 1
 ---
@@ -109,6 +109,29 @@ const mine = counter.getExecutorCount();
   takes an optional hex-encoded executor id string and returns a `number`.
 </Aside>
 
+## PNCounter
+
+Positive-negative counter (PN-Counter) — like `Counter`, but it also supports
+`decrement`. Each node keeps a per-node increment and decrement tally; the value
+is the signed sum, so concurrent up/down changes from different nodes never
+conflict or lose updates.
+
+```typescript
+const votes = new PNCounter();
+
+votes.increment(); // +1
+votes.incrementBy(5); // +5
+votes.decrement(); // −1
+votes.decrementBy(2); // −2 (accepts number | bigint)
+const net = votes.value(); // bigint — can be negative
+```
+
+<Aside type="note">
+  Use `PNCounter` when a value goes both up and down (score, balance, stock).
+  Use `Counter` when it only ever grows — a grow-only counter is cheaper and
+  cannot be driven negative.
+</Aside>
+
 ## LwwRegister&lt;T&gt;
 
 Last-write-wins register for a single value.
@@ -122,10 +145,111 @@ const ts = register.timestamp();    // number | null — when it was set
 register.clear();                   // void
 ```
 
+## SortedMap&lt;K, V&gt;
+
+Same last-write-wins semantics and API as `UnorderedMap`, but iteration is in
+**sorted key order** instead of arbitrary order. Ordering is maintained by a
+node-local index, so `entries()`/`keys()`/`values()` are deterministic.
+
+```typescript
+const scores = new SortedMap<string, number>();
+
+scores.set('charlie', 3);
+scores.set('alice', 1);
+scores.set('bob', 2);
+
+const ordered = scores.keys(); // ['alice', 'bob', 'charlie'] — always sorted
+scores.get('bob'); // 2 | null
+scores.has('bob'); // boolean
+scores.remove('bob'); // void
+```
+
+## SortedSet&lt;T&gt;
+
+Sorted counterpart to `UnorderedSet` — union (add-wins) membership, but
+`toArray()` returns values in sorted order.
+
+```typescript
+const tags = new SortedSet<string>();
+
+tags.add('c'); // true on first insert, false if already present
+tags.add('a');
+tags.add('b');
+
+tags.toArray(); // ['a', 'b', 'c'] — always sorted
+tags.has('a'); // boolean
+tags.delete('a'); // boolean
+tags.size(); // number
+```
+
+## Rga&lt;T&gt;
+
+Replicated Growable Array — a sequence CRDT for **collaborative text**.
+Concurrent inserts and deletes from different nodes interleave deterministically
+by position, so two editors typing at once converge without losing characters.
+
+```typescript
+const doc = new Rga();
+
+doc.insert(0, 'Hello'); // insert text at an index
+doc.insert(5, ' world'); // → 'Hello world'
+doc.delete(0); // remove one element at an index
+const text = doc.getText(); // current string
+const length = doc.len(); // number of elements
+```
+
+<Aside type="note">
+  Prefer `Rga` over `LwwRegister<string>` when multiple writers edit the same
+  text concurrently — `LwwRegister` keeps only the last write, discarding the
+  other editor's changes, whereas `Rga` merges them character by character.
+</Aside>
+
+## Attributed collections
+
+Attributed (authored) collections record the **owner** of each entry — the
+executor that created it — and enforce that only that owner may update or remove
+it. Ownership travels with the entry and is verified on every node, so one
+member cannot overwrite another member's data.
+
+### AuthoredMap&lt;K, V&gt;
+
+Like `UnorderedMap`, but each key is owned by its first inserter.
+
+```typescript
+const claims = new AuthoredMap<string, string>();
+
+claims.insert('seat-1', 'alice'); // owned by the current executor
+claims.update('seat-1', 'alice-2'); // ok only if you own 'seat-1' (throws otherwise)
+claims.set('seat-1', 'alice-2'); // insert-or-update, owner-checked on update
+claims.get('seat-1'); // V | null
+claims.ownerOf('seat-1'); // Uint8Array (owner public key) | null
+claims.ownedByMe('seat-1'); // boolean
+claims.remove('seat-1'); // owner-checked
+```
+
+### AuthoredVector&lt;T&gt;
+
+Like `Vector`, but each slot is owned by whoever pushed it; updates and removals
+are owner-gated and removal is a **tombstone** (the slot index stays stable).
+
+```typescript
+const log = new AuthoredVector<string>();
+
+const index = log.push('entry'); // returns the slot index; owned by the caller
+log.update(index, 'edited'); // owner-only
+log.tombstone(index); // owner-only soft-delete
+log.get(index); // T | null (null once tombstoned)
+log.ownerOf(index); // Uint8Array | null
+log.ownedByMe(index); // boolean
+log.len(); // number of slots (including tombstones)
+log.toArray(); // live values
+```
+
 ## Conflict resolution
 
-For last-write-wins types (`UnorderedMap`, `UnorderedSet`, `LwwRegister`) a
-concurrent write to the same key is resolved by timestamp — the later write wins:
+For last-write-wins types (`UnorderedMap`, `UnorderedSet`, `LwwRegister`,
+`SortedMap`, `SortedSet`, and `SharedStorage`'s value) a concurrent write to the
+same key is resolved by timestamp — the later write wins:
 
 ```
 Node A: map.set('key', 'A') at t=1000
@@ -133,8 +257,13 @@ Node B: map.set('key', 'B') at t=1001
 Result: key = 'B' (higher timestamp)
 ```
 
-`Counter` is different: increments from different nodes are additive and never
-lost.
+The other types resolve differently and never lose concurrent updates:
+
+- `Counter` / `PNCounter` — per-node tallies are summed (additive).
+- `Rga` — concurrent inserts/deletes interleave by position (union of edits).
+- `AuthoredMap` / `AuthoredVector` — each entry is owner-gated, so only its owner
+  can change it; there is no cross-writer conflict on a single entry.
+- `FrozenStorage` — first write wins; entries are immutable.
 
 ## Nested collections
 
@@ -251,11 +380,53 @@ Values are wrapped in `FrozenValue<T>` (`new FrozenValue(value)`, `.value`),
 whose `merge` is a no-op so frozen entries never change. Use it for audit logs,
 document versioning, certificates, and content-addressable sharing.
 
+### SharedStorage&lt;V&gt;
+
+A single value that any member of a **rotatable writer set** may overwrite.
+Writes from different writers converge last-write-wins; the writer set is managed
+at runtime and enforced by the host — a non-writer's `set`/`rotateWriters` is
+rejected. Writers are 32-byte public keys (raw or hex).
+
+```typescript
+import { SharedStorage } from '@calimero-network/calimero-sdk-js/collections';
+import { executorId } from '@calimero-network/calimero-sdk-js/env';
+
+// The creator is the sole initial writer.
+const config = new SharedStorage<string>({ writers: [executorId()] });
+
+config.set('hello'); // ok — caller is a writer (throws for a non-writer)
+config.get(); // 'hello' | null
+config.writers(); // Uint8Array[] — current writer set
+config.writableByMe(); // boolean
+config.isFrozen(); // boolean — a frozen cell is immutable
+
+// Grant another member write access (writer-gated):
+config.rotateWriters([...config.writers(), otherKey]);
+```
+
+<Aside type="note">
+  The writer set must be non-empty — a cell with no writers can never be written
+  or recovered, so the SDK rejects it. Use `SharedStorage.fromId(id)` to reopen
+  an existing cell without touching its value or writers; passing `{ writers, id }`
+  **creates** a cell at that id (this is how deterministic `@State` fields get a
+  stable, cross-node id). Optional per-writer capabilities and
+  `SharedStorage<Collection>` nesting are not yet exposed in the JS SDK.
+</Aside>
+
+Use it for shared configuration, group-editable records, or any value a defined
+set of members may change while everyone else reads. It differs from
+`AuthoredMap`/`UserStorage` (which gate *per entry* by the entry's own owner):
+`SharedStorage` gates the *whole cell* by a single, rotatable writer set.
+
 ## Best practices
 
-- **Pick the right type**: `UnorderedMap` for key/value data, `Vector` for
-  ordered lists, `Counter` for totals, `LwwRegister` for single values,
-  `UserStorage` for per-user ownership, `FrozenStorage` for immutable records.
+- **Pick the right type**: `UnorderedMap`/`SortedMap` for key/value data
+  (sorted when you need ordered iteration), `Vector` for ordered lists,
+  `Counter` for grow-only totals and `PNCounter` when it also decreases,
+  `LwwRegister` for a single value, `Rga` for collaboratively-edited text,
+  `AuthoredMap`/`AuthoredVector` when each entry has a single owner,
+  `UserStorage` for per-user ownership, `FrozenStorage` for immutable records,
+  and `SharedStorage` for one value a rotatable set of writers may change.
 - **Mutate the handle, don't replace it.** Fetch the existing entry
   (`const v = map.get(key) ?? new …`) and mutate it. Assigning a brand-new CRDT
   instance replaces the stored ID and falls back to whole-value last-write-wins.

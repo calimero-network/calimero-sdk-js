@@ -395,13 +395,19 @@ export function executorIdBase58(): string {
   return bytesToBase58(id);
 }
 
-function bytesToBase58(bytes: Uint8Array): string {
-  const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+/** Bitcoin/standard base58 alphabet (no 0, O, I, l). */
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+export function bytesToBase58(bytes: Uint8Array): string {
+  const alphabet = BASE58_ALPHABET;
   if (bytes.length === 0) {
     return '';
   }
 
-  const digits: number[] = [0];
+  // Standard base58: an empty accumulator, so a zero-valued number encodes to no
+  // digits and leading zero bytes are added separately as leading '1's below
+  // (an initial [0] would double-count an all-zero input).
+  const digits: number[] = [];
 
   for (let i = 0; i < bytes.length; i += 1) {
     let carry = bytes[i];
@@ -425,6 +431,47 @@ function bytesToBase58(bytes: Uint8Array): string {
     .reverse()
     .map(digit => alphabet[digit])
     .join('');
+}
+
+/**
+ * Decode a base58 string into bytes — the inverse of the encoding used by
+ * {@link executorIdBase58}. Useful when a public key arrives as base58 (e.g. a
+ * member key surfaced by tooling) and must be handed to an API expecting raw
+ * bytes, such as a SharedStorage writer set. Throws on an invalid character.
+ */
+export function base58ToBytes(value: string): Uint8Array {
+  const alphabet = BASE58_ALPHABET;
+  if (value.length === 0) {
+    return new Uint8Array(0);
+  }
+
+  // Standard base58: an empty accumulator so leading '1's map one-to-one to
+  // leading zero bytes. An initial [0] would over-count by one zero byte,
+  // mis-decoding externally-produced strings whose bytes are all zero.
+  const bytes: number[] = [];
+  for (let i = 0; i < value.length; i += 1) {
+    const digit = alphabet.indexOf(value[i]);
+    if (digit === -1) {
+      throw new Error(`base58ToBytes: invalid base58 character '${value[i]}'`);
+    }
+    let carry = digit;
+    for (let j = 0; j < bytes.length; j += 1) {
+      const x = bytes[j] * 58 + carry;
+      bytes[j] = x & 0xff;
+      carry = x >> 8;
+    }
+    while (carry > 0) {
+      bytes.push(carry & 0xff);
+      carry >>= 8;
+    }
+  }
+
+  // Each leading '1' in base58 encodes a leading zero byte.
+  for (let i = 0; i < value.length && value[i] === '1'; i += 1) {
+    bytes.push(0);
+  }
+
+  return new Uint8Array(bytes.reverse());
 }
 
 /**
@@ -1021,6 +1068,43 @@ export function jsFrozenStorageGet(
 
 export function jsFrozenStorageContains(storageId: Uint8Array, hash: Uint8Array): number {
   return env.js_frozen_storage_contains(storageId, hash);
+}
+
+export function jsCrdtSharedNew(writers: Uint8Array, frozen: number, register: bigint): number {
+  return env.js_crdt_shared_new(writers, frozen, register);
+}
+
+export function jsCrdtSharedNewWithId(
+  id: Uint8Array,
+  writers: Uint8Array,
+  frozen: number,
+  register: bigint
+): number {
+  return env.js_crdt_shared_new_with_id(id, writers, frozen, register);
+}
+
+export function jsCrdtSharedSet(cellId: Uint8Array, value: Uint8Array): number {
+  return env.js_crdt_shared_set(cellId, value);
+}
+
+export function jsCrdtSharedGet(cellId: Uint8Array, register: bigint): number {
+  return env.js_crdt_shared_get(cellId, register);
+}
+
+export function jsCrdtSharedWriters(cellId: Uint8Array, register: bigint): number {
+  return env.js_crdt_shared_writers(cellId, register);
+}
+
+export function jsCrdtSharedWritableByMe(cellId: Uint8Array): number {
+  return env.js_crdt_shared_writable_by_me(cellId);
+}
+
+export function jsCrdtSharedIsFrozen(cellId: Uint8Array): number {
+  return env.js_crdt_shared_is_frozen(cellId);
+}
+
+export function jsCrdtSharedRotateWriters(cellId: Uint8Array, writers: Uint8Array): number {
+  return env.js_crdt_shared_rotate_writers(cellId, writers);
 }
 
 /**

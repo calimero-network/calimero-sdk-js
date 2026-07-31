@@ -182,6 +182,23 @@ export interface HostEnv {
   js_frozen_storage_get(storageId: Uint8Array, hash: Uint8Array, register_id: bigint): number;
   js_frozen_storage_contains(storageId: Uint8Array, hash: Uint8Array): number;
 
+  // SharedStorage (group-writable single value with a rotatable writer set).
+  // `writers` crosses as the concatenation of 32-byte public keys; `frozen` is a
+  // u32 bool. Set/rotate return -1 with the error in register 0 for a non-writer.
+  js_crdt_shared_new(writers: Uint8Array, frozen: number, register_id: bigint): number;
+  js_crdt_shared_new_with_id(
+    id: Uint8Array,
+    writers: Uint8Array,
+    frozen: number,
+    register_id: bigint
+  ): number;
+  js_crdt_shared_set(cellId: Uint8Array, value: Uint8Array): number;
+  js_crdt_shared_get(cellId: Uint8Array, register_id: bigint): number;
+  js_crdt_shared_writers(cellId: Uint8Array, register_id: bigint): number;
+  js_crdt_shared_writable_by_me(cellId: Uint8Array): number;
+  js_crdt_shared_is_frozen(cellId: Uint8Array): number;
+  js_crdt_shared_rotate_writers(cellId: Uint8Array, writers: Uint8Array): number;
+
   // Context
   context_id(register_id: bigint): void;
   executor_id(register_id: bigint): void;

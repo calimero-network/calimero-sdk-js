@@ -1,0 +1,122 @@
+description: SharedStorage single-writer flow (JavaScript SDK)
+name: SharedStorage (single node)
+
+# Single-node smoke test for the SharedStorage CRDT type: the context creator
+# is the sole writer and can set/read the shared config value, LWW-overwrite it,
+# and observe writer membership.
+#
+# Requires the js_crdt_shared_* host functions (calimero-network/core#3340) in
+# the merod:edge image. For cross-node convergence with two writers, see
+# shared-storage-concurrent.yml in this directory.
+
+force_pull_image: true
+
+nodes:
+  chain_id: testnet-1
+  count: 1
+  image: ghcr.io/calimero-network/merod:edge
+  prefix: shared-storage-node
+
+steps:
+  - name: Install SharedStorage Application
+    type: install_application
+    node: shared-storage-node-1
+    path: 'examples/shared-storage/build/service.wasm'
+    dev: true
+    outputs:
+      app_id: applicationId
+
+  - name: Create Namespace
+    type: create_namespace
+    node: shared-storage-node-1
+    application_id: '{{app_id}}'
+    outputs:
+      namespace_id: namespaceId
+
+  - name: Create Context
+    type: create_context
+    node: shared-storage-node-1
+    application_id: '{{app_id}}'
+    group_id: '{{namespace_id}}'
+    params: '{}'
+    outputs:
+      context_id: contextId
+      member_public_key: memberPublicKey
+
+  # --- Creator is the sole writer ----------------------------------------
+  - name: Config Is Empty Before First Write
+    type: call
+    node: shared-storage-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getConfig
+    outputs:
+      config_before: result.output
+
+  - name: Creator Can Write
+    type: call
+    node: shared-storage-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: canWrite
+    outputs:
+      can_write: result.output
+
+  - name: Set Config
+    type: call
+    node: shared-storage-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: setConfig
+    args:
+      value: hello
+
+  - name: Read Config
+    type: call
+    node: shared-storage-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getConfig
+    outputs:
+      config_after: result.output
+
+  # --- Last-write-wins overwrite -----------------------------------------
+  - name: Overwrite Config
+    type: call
+    node: shared-storage-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: setConfig
+    args:
+      value: world
+
+  - name: Read Config Again
+    type: call
+    node: shared-storage-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: getConfig
+    outputs:
+      config_final: result.output
+
+  - name: Config Is Not Frozen
+    type: call
+    node: shared-storage-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: isConfigFrozen
+    outputs:
+      is_frozen: result.output
+
+  - name: Assert Single-Writer Flow
+    type: json_assert
+    statements:
+      - 'equal({{config_before}}, null)'
+      - 'equal({{can_write}}, true)'
+      - 'equal({{config_after}}, "hello")'
+      - 'equal({{config_final}}, "world")'
+      - 'equal({{is_frozen}}, false)'
+
+stop_all_nodes: true
+restart: false
+wait_timeout: 120

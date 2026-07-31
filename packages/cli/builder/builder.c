@@ -155,6 +155,14 @@ extern int32_t js_frozen_storage_new(uint64_t register_id);
 extern int32_t js_frozen_storage_add(uint64_t storage_id_buffer_ptr, uint64_t value_buffer_ptr, uint64_t register_id);
 extern int32_t js_frozen_storage_get(uint64_t storage_id_buffer_ptr, uint64_t hash_buffer_ptr, uint64_t register_id);
 extern int32_t js_frozen_storage_contains(uint64_t storage_id_buffer_ptr, uint64_t hash_buffer_ptr);
+extern int32_t js_crdt_shared_new(uint64_t writers_buffer_ptr, uint32_t frozen, uint64_t register_id);
+extern int32_t js_crdt_shared_new_with_id(uint64_t id_buffer_ptr, uint64_t writers_buffer_ptr, uint32_t frozen, uint64_t register_id);
+extern int32_t js_crdt_shared_set(uint64_t cell_id_buffer_ptr, uint64_t value_buffer_ptr);
+extern int32_t js_crdt_shared_get(uint64_t cell_id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_shared_writers(uint64_t cell_id_buffer_ptr, uint64_t register_id);
+extern int32_t js_crdt_shared_writable_by_me(uint64_t cell_id_buffer_ptr);
+extern int32_t js_crdt_shared_is_frozen(uint64_t cell_id_buffer_ptr);
+extern int32_t js_crdt_shared_rotate_writers(uint64_t cell_id_buffer_ptr, uint64_t writers_buffer_ptr);
 // PNCounter (signed PN-Counter). Provided by the node runtime (core#3318).
 extern int32_t js_crdt_pncounter_new(uint64_t register_id);
 extern int32_t js_crdt_pncounter_increment(uint64_t counter_id_buffer_ptr);
@@ -2673,6 +2681,176 @@ static JSValue js_env_frozen_storage_contains(JSContext *ctx, JSValueConst this_
   return JS_NewInt32(ctx, result);
 }
 
+// Wrapper: js_crdt_shared_new
+static JSValue js_env_crdt_shared_new(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 3) {
+    return JS_ThrowTypeError(ctx, "js_crdt_shared_new expects writers, frozen, and register_id");
+  }
+  size_t writers_len;
+  uint8_t *writers_ptr = JSValueToUint8Array(ctx, argv[0], &writers_len);
+  if (!writers_ptr) {
+    return JS_EXCEPTION;
+  }
+  int64_t frozen;
+  if (js_to_i64(ctx, argv[1], &frozen) < 0) {
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[2], &register_id) < 0) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer writers_buf = make_buffer(writers_ptr, writers_len);
+  int32_t result = js_crdt_shared_new((uint64_t)&writers_buf, (uint32_t)frozen, (uint64_t)register_id);
+  return JS_NewInt32(ctx, result);
+}
+
+// Wrapper: js_crdt_shared_new_with_id
+static JSValue js_env_crdt_shared_new_with_id(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 4) {
+    return JS_ThrowTypeError(ctx, "js_crdt_shared_new_with_id expects id, writers, frozen, and register_id");
+  }
+  size_t id_len;
+  uint8_t *id_ptr = JSValueToUint8Array(ctx, argv[0], &id_len);
+  if (!id_ptr || id_len != 32) {
+    return JS_ThrowRangeError(ctx, "id must be 32 bytes");
+  }
+  size_t writers_len;
+  uint8_t *writers_ptr = JSValueToUint8Array(ctx, argv[1], &writers_len);
+  if (!writers_ptr) {
+    return JS_EXCEPTION;
+  }
+  int64_t frozen;
+  if (js_to_i64(ctx, argv[2], &frozen) < 0) {
+    return JS_EXCEPTION;
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[3], &register_id) < 0) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer id_buf = make_buffer(id_ptr, id_len);
+  CalimeroBuffer writers_buf = make_buffer(writers_ptr, writers_len);
+  int32_t result = js_crdt_shared_new_with_id((uint64_t)&id_buf, (uint64_t)&writers_buf, (uint32_t)frozen, (uint64_t)register_id);
+  return JS_NewInt32(ctx, result);
+}
+
+// Wrapper: js_crdt_shared_set
+static JSValue js_env_crdt_shared_set(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 2) {
+    return JS_ThrowTypeError(ctx, "js_crdt_shared_set expects cellId and value");
+  }
+  size_t cell_id_len;
+  uint8_t *cell_id_ptr = JSValueToUint8Array(ctx, argv[0], &cell_id_len);
+  if (!cell_id_ptr || cell_id_len != 32) {
+    return JS_ThrowRangeError(ctx, "cellId must be 32 bytes");
+  }
+  size_t value_len;
+  uint8_t *value_ptr = JSValueToUint8Array(ctx, argv[1], &value_len);
+  if (!value_ptr) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer cell_id_buf = make_buffer(cell_id_ptr, cell_id_len);
+  CalimeroBuffer value_buf = make_buffer(value_ptr, value_len);
+  int32_t result = js_crdt_shared_set((uint64_t)&cell_id_buf, (uint64_t)&value_buf);
+  return JS_NewInt32(ctx, result);
+}
+
+// Wrapper: js_crdt_shared_get
+static JSValue js_env_crdt_shared_get(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 2) {
+    return JS_ThrowTypeError(ctx, "js_crdt_shared_get expects cellId and register_id");
+  }
+  size_t cell_id_len;
+  uint8_t *cell_id_ptr = JSValueToUint8Array(ctx, argv[0], &cell_id_len);
+  if (!cell_id_ptr || cell_id_len != 32) {
+    return JS_ThrowRangeError(ctx, "cellId must be 32 bytes");
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[1], &register_id) < 0) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer cell_id_buf = make_buffer(cell_id_ptr, cell_id_len);
+  int32_t result = js_crdt_shared_get((uint64_t)&cell_id_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, result);
+}
+
+// Wrapper: js_crdt_shared_writers
+static JSValue js_env_crdt_shared_writers(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 2) {
+    return JS_ThrowTypeError(ctx, "js_crdt_shared_writers expects cellId and register_id");
+  }
+  size_t cell_id_len;
+  uint8_t *cell_id_ptr = JSValueToUint8Array(ctx, argv[0], &cell_id_len);
+  if (!cell_id_ptr || cell_id_len != 32) {
+    return JS_ThrowRangeError(ctx, "cellId must be 32 bytes");
+  }
+  int64_t register_id;
+  if (js_to_i64(ctx, argv[1], &register_id) < 0) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer cell_id_buf = make_buffer(cell_id_ptr, cell_id_len);
+  int32_t result = js_crdt_shared_writers((uint64_t)&cell_id_buf, (uint64_t)register_id);
+  return JS_NewInt32(ctx, result);
+}
+
+// Wrapper: js_crdt_shared_writable_by_me
+static JSValue js_env_crdt_shared_writable_by_me(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 1) {
+    return JS_ThrowTypeError(ctx, "js_crdt_shared_writable_by_me expects cellId");
+  }
+  size_t cell_id_len;
+  uint8_t *cell_id_ptr = JSValueToUint8Array(ctx, argv[0], &cell_id_len);
+  if (!cell_id_ptr || cell_id_len != 32) {
+    return JS_ThrowRangeError(ctx, "cellId must be 32 bytes");
+  }
+  CalimeroBuffer cell_id_buf = make_buffer(cell_id_ptr, cell_id_len);
+  int32_t result = js_crdt_shared_writable_by_me((uint64_t)&cell_id_buf);
+  return JS_NewInt32(ctx, result);
+}
+
+// Wrapper: js_crdt_shared_is_frozen
+static JSValue js_env_crdt_shared_is_frozen(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 1) {
+    return JS_ThrowTypeError(ctx, "js_crdt_shared_is_frozen expects cellId");
+  }
+  size_t cell_id_len;
+  uint8_t *cell_id_ptr = JSValueToUint8Array(ctx, argv[0], &cell_id_len);
+  if (!cell_id_ptr || cell_id_len != 32) {
+    return JS_ThrowRangeError(ctx, "cellId must be 32 bytes");
+  }
+  CalimeroBuffer cell_id_buf = make_buffer(cell_id_ptr, cell_id_len);
+  int32_t result = js_crdt_shared_is_frozen((uint64_t)&cell_id_buf);
+  return JS_NewInt32(ctx, result);
+}
+
+// Wrapper: js_crdt_shared_rotate_writers
+static JSValue js_env_crdt_shared_rotate_writers(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  (void)this_val;
+  if (argc < 2) {
+    return JS_ThrowTypeError(ctx, "js_crdt_shared_rotate_writers expects cellId and writers");
+  }
+  size_t cell_id_len;
+  uint8_t *cell_id_ptr = JSValueToUint8Array(ctx, argv[0], &cell_id_len);
+  if (!cell_id_ptr || cell_id_len != 32) {
+    return JS_ThrowRangeError(ctx, "cellId must be 32 bytes");
+  }
+  size_t writers_len;
+  uint8_t *writers_ptr = JSValueToUint8Array(ctx, argv[1], &writers_len);
+  if (!writers_ptr) {
+    return JS_EXCEPTION;
+  }
+  CalimeroBuffer cell_id_buf = make_buffer(cell_id_ptr, cell_id_len);
+  CalimeroBuffer writers_buf = make_buffer(writers_ptr, writers_len);
+  int32_t result = js_crdt_shared_rotate_writers((uint64_t)&cell_id_buf, (uint64_t)&writers_buf);
+  return JS_NewInt32(ctx, result);
+}
+
 // Wrapper: ed25519_verify
 static JSValue js_ed25519_verify(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
   if (argc < 3) {
@@ -2854,6 +3032,14 @@ void js_add_calimero_host_functions(JSContext *ctx) {
   JS_SetPropertyStr(ctx, env, "js_frozen_storage_add", JS_NewCFunction(ctx, js_env_frozen_storage_add, "js_frozen_storage_add", 3));
   JS_SetPropertyStr(ctx, env, "js_frozen_storage_get", JS_NewCFunction(ctx, js_env_frozen_storage_get, "js_frozen_storage_get", 3));
   JS_SetPropertyStr(ctx, env, "js_frozen_storage_contains", JS_NewCFunction(ctx, js_env_frozen_storage_contains, "js_frozen_storage_contains", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_shared_new", JS_NewCFunction(ctx, js_env_crdt_shared_new, "js_crdt_shared_new", 3));
+  JS_SetPropertyStr(ctx, env, "js_crdt_shared_new_with_id", JS_NewCFunction(ctx, js_env_crdt_shared_new_with_id, "js_crdt_shared_new_with_id", 4));
+  JS_SetPropertyStr(ctx, env, "js_crdt_shared_set", JS_NewCFunction(ctx, js_env_crdt_shared_set, "js_crdt_shared_set", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_shared_get", JS_NewCFunction(ctx, js_env_crdt_shared_get, "js_crdt_shared_get", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_shared_writers", JS_NewCFunction(ctx, js_env_crdt_shared_writers, "js_crdt_shared_writers", 2));
+  JS_SetPropertyStr(ctx, env, "js_crdt_shared_writable_by_me", JS_NewCFunction(ctx, js_env_crdt_shared_writable_by_me, "js_crdt_shared_writable_by_me", 1));
+  JS_SetPropertyStr(ctx, env, "js_crdt_shared_is_frozen", JS_NewCFunction(ctx, js_env_crdt_shared_is_frozen, "js_crdt_shared_is_frozen", 1));
+  JS_SetPropertyStr(ctx, env, "js_crdt_shared_rotate_writers", JS_NewCFunction(ctx, js_env_crdt_shared_rotate_writers, "js_crdt_shared_rotate_writers", 2));
 
   // Opt-in root merge + deterministic-id CRDT constructors
   JS_SetPropertyStr(ctx, env, "register_js_sdk_root_merge", JS_NewCFunction(ctx, js_register_js_sdk_root_merge, "register_js_sdk_root_merge", 0));
