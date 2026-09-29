@@ -48,6 +48,7 @@ export interface Method {
   returns?: TypeRef;
   is_init?: boolean;
   is_view?: boolean;
+  is_handler?: boolean;
 }
 
 export interface Parameter {
@@ -93,6 +94,7 @@ export class AbiEmitter {
   private methods: Method[] = [];
   private events: Event[] = [];
   private stateRoot?: string;
+  private namedHandlers: Set<string> = new Set(); // literal handler names passed to emitWithHandler
   private abstractClasses: Map<string, any> = new Map(); // Track abstract classes for variant analysis
 
   /**
@@ -113,6 +115,7 @@ export class AbiEmitter {
     this.methods = [];
     this.events = [];
     this.stateRoot = undefined;
+    this.namedHandlers.clear();
 
     // First pass: Extract all type aliases and interfaces from all files
     for (const filePath of filePaths) {
@@ -171,6 +174,7 @@ export class AbiEmitter {
             }
           }
         },
+        CallExpression: (nodePath: any) => this.recordNamedHandler(nodePath.node),
       });
     }
 
@@ -334,6 +338,7 @@ export class AbiEmitter {
     }
 
     this.addEventParamTypes();
+    this.checkNamedHandlers();
     return this.generateManifest();
   }
 
@@ -352,6 +357,7 @@ export class AbiEmitter {
     this.methods = [];
     this.events = [];
     this.stateRoot = undefined;
+    this.namedHandlers.clear();
 
     // First pass: Extract type aliases and interfaces, and store abstract classes
     traverse(ast, {
@@ -408,6 +414,7 @@ export class AbiEmitter {
           }
         }
       },
+      CallExpression: (nodePath: any) => this.recordNamedHandler(nodePath.node),
     });
 
     // Third pass: Analyze variant patterns (abstract classes with concrete subclasses)
@@ -867,6 +874,7 @@ export class AbiEmitter {
     }
 
     this.addEventParamTypes();
+    this.checkNamedHandlers();
     return this.generateManifest();
   }
 
@@ -1170,7 +1178,12 @@ export class AbiEmitter {
         const decorators = member.decorators || [];
         const isInit = decorators.some((d: any) => this.isCalimeroDecorator(d, 'Init'));
         const isView = decorators.some((d: any) => this.isCalimeroDecorator(d, 'View'));
+        const isHandler = decorators.some((d: any) => this.isCalimeroDecorator(d, 'Handler'));
         const isStatic = member.static;
+        if (isHandler && (isInit || isView)) {
+          const kind = isInit ? 'initializer' : 'read-only';
+          throw new Error(`@Handler() has no meaning on ${kind} '${methodName}'`);
+        }
 
         // Extract parameters
         // Babel uses 'params' directly, TypeScript uses 'value.params'
@@ -1290,6 +1303,7 @@ export class AbiEmitter {
           returns,
           is_init: isInit,
           is_view: isView,
+          is_handler: isHandler,
         });
       }
     });
@@ -1805,6 +1819,24 @@ export class AbiEmitter {
     }
   }
 
+  /**
+   * Records the handler an `emitWithHandler(event, 'name')` call names, when the
+   * name is a literal; a computed name is left to the SDK's emit-time warning.
+   */
+  private recordNamedHandler(call: any): void {
+    const callee = call.callee;
+    const calleeName = callee?.type === 'MemberExpression' ? callee.property?.name : callee?.name;
+    if (calleeName !== 'emitWithHandler') {
+      return;
+    }
+    const arg = call.arguments?.[1];
+    if (arg?.type === 'StringLiteral') {
+      this.namedHandlers.add(arg.value);
+    } else if (arg?.type === 'TemplateLiteral' && arg.expressions.length === 0) {
+      this.namedHandlers.add(arg.quasis[0].value.cooked);
+    }
+  }
+
   /** A handler takes the event instance, so a parameter typed by an @Event class needs it as a type. */
   private addEventParamTypes(): void {
     const events = new Map(this.events.map(event => [event.name, event]));
@@ -1812,6 +1844,19 @@ export class AbiEmitter {
       const event = param.type.kind === 'reference' ? events.get(param.type.name!) : undefined;
       if (event && !this.types.has(event.name)) {
         this.types.set(event.name, { kind: 'record', fields: event.fields });
+      }
+    }
+  }
+
+  /** The node runs an event's handler only if the ABI declares it, so fail the build instead. */
+  private checkNamedHandlers(): void {
+    const declared = new Set(this.methods.filter(m => m.is_handler).map(m => m.name));
+    for (const name of this.namedHandlers) {
+      if (!declared.has(name)) {
+        throw new Error(
+          `emitWithHandler names '${name}', which is not a @Handler() method of the @Logic class. ` +
+            'Peers run only declared handlers: add @Handler() to it.'
+        );
       }
     }
   }
@@ -1990,6 +2035,7 @@ export class AbiEmitter {
 
       // Note: is_init and is_view are not included in Rust ABI format
       if ((method.returns as any)?.nullable) result.returns_nullable = true;
+      if (method.is_handler) result.handler = true;
 
       return result;
     });
@@ -2053,13 +2099,20 @@ export class AbiEmitter {
    * Generate manifest in Rust ABI format
    */
   public generateManifestRustFormat(): any {
-    return {
+    const manifest = {
       schema_version: 'wasm-abi/1',
       types: this.serializeTypesToRustFormat(),
       methods: this.serializeMethodsToRustFormat(),
       events: this.serializeEventsToRustFormat(),
       state_root: this.stateRoot,
     };
+    const rejection = nodeRejection(manifest);
+    if (rejection && manifest.methods.some((method: any) => method.handler)) {
+      throw new Error(
+        `The node would ignore this ABI, so no @Handler() method would run: ${rejection}`
+      );
+    }
+    return manifest;
   }
 
   /**
@@ -2458,6 +2511,34 @@ export function generateAbiManifestRustFormatWithStateSchema(
   const emitter = new AbiEmitter();
   emitter.analyzeSource(sourceCode, sourceFile);
   return emitter.generateStateSchemaWithCrdtMetadata(sourceCode, stateRootTypeName);
+}
+
+/**
+ * Why the node would reject `manifest` as structurally invalid (and read the app
+ * as having no ABI), mirroring core's `validate_manifest` rules the emitter can break.
+ */
+function nodeRejection(manifest: { types: Record<string, unknown> }): string | undefined {
+  const visit = (node: unknown, path: string): string | undefined => {
+    if (!node || typeof node !== 'object') {
+      return undefined;
+    }
+    const obj = node as Record<string, any>;
+    if (typeof obj.$ref === 'string' && !(obj.$ref in manifest.types)) {
+      return `${path} references undefined type '${obj.$ref}'`;
+    }
+    if (obj.kind === 'map' && obj.key?.kind !== 'string') {
+      return `${path} is a map whose key is not a string`;
+    }
+    for (const [key, value] of Object.entries(obj)) {
+      const child = Array.isArray(obj) && typeof value?.name === 'string' ? value.name : key;
+      const found = visit(value, path ? `${path}.${child}` : child);
+      if (found) {
+        return found;
+      }
+    }
+    return undefined;
+  };
+  return visit(manifest, '');
 }
 
 /**

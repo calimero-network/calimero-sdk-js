@@ -18,6 +18,12 @@ steps:
     outputs:
       app_id: applicationId
 
+  - name: Install Simple Store Application On Node 2
+    type: install_application
+    node: simple-store-node-2
+    path: "examples/kv-store/build/service.wasm"
+    dev: true
+
   - name: Create Simple Store Namespace
     type: create_namespace
     node: simple-store-node-1
@@ -34,6 +40,34 @@ steps:
     outputs:
       context_id: contextId
       member_public_key: memberPublicKey
+
+  - name: Invite Node 2 To Namespace
+    type: create_namespace_invitation
+    node: simple-store-node-1
+    namespace_id: '{{namespace_id}}'
+    outputs:
+      node_2_invitation: invitation
+
+  - name: Wait For Namespace Governance To Gossip
+    type: wait
+    seconds: 5
+
+  - name: Node 2 Join Namespace
+    type: join_namespace
+    node: simple-store-node-2
+    namespace_id: '{{namespace_id}}'
+    invitation: '{{node_2_invitation}}'
+
+  - name: Node 2 Join Context
+    type: join_context
+    node: simple-store-node-2
+    context_id: '{{context_id}}'
+    outputs:
+      node_2_member_public_key: memberPublicKey
+
+  - name: Wait After Node 2 Join
+    type: wait
+    seconds: 2
 
   - name: Set Value
     type: call
@@ -60,6 +94,25 @@ steps:
     type: json_assert
     statements:
       - 'json_equal({{store_result}}, {"value":"hello-world"})'
+
+  # set emits ItemInserted naming insertHandler, so the peer must run it.
+  - name: Wait For The Event To Reach Node 2
+    type: wait
+    seconds: 5
+
+  - name: Node 2 Reads The Handlers It Ran
+    type: call
+    node: simple-store-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: getHandlersCalled
+    outputs:
+      handlers_result: result.output
+
+  - name: Assert Node 2 Ran insertHandler With The Event
+    type: json_assert
+    statements:
+      - 'json_equal({{handlers_result}}, {"handlers":["key=greeting,value=hello-world"]})'
 
 stop_all_nodes: false
 restart: true
