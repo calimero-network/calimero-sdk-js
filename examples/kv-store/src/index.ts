@@ -4,6 +4,7 @@ import {
   Init,
   Event,
   View,
+  Handler,
   emitWithHandler,
 } from '@calimero-network/calimero-sdk-js';
 import {
@@ -183,18 +184,22 @@ export class KvStoreLogic extends KvStore {
     return this.respond({ count: Number(this.handlerCounter.value()) });
   }
 
+  @Handler()
   insertHandler(event: ItemInserted): void {
     this.logHandlerCall('insert_handler', `key=${event.key},value=${event.value}`);
   }
 
+  @Handler()
   updateHandler(event: ItemUpdated): void {
     this.logHandlerCall('update_handler', `key=${event.key},value=${event.value}`);
   }
 
+  @Handler()
   removeHandler(event: ItemRemoved): void {
     this.logHandlerCall('remove_handler', `key=${event.key}`);
   }
 
+  @Handler()
   clearHandler(_event: StoreCleared): void {
     this.logHandlerCall('clear_handler', 'all items cleared');
   }
