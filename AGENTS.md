@@ -147,6 +147,7 @@ packages/
 │       │   ├── logic.ts                # @Logic decorator
 │       │   ├── init.ts                 # @Init decorator
 │       │   ├── view.ts                 # @View decorator
+│       │   ├── handler.ts              # @Handler decorator
 │       │   ├── event.ts                # @Event decorator
 │       │   └── mergeable.ts            # @Mergeable decorator (experimental)
 │       ├── collections/
@@ -247,6 +248,17 @@ getCount(): bigint {
 }
 ```
 
+### `@Handler()`
+
+Marks a method as an event handler that `emitWithHandler` may name; nodes run only declared handlers:
+
+```typescript
+@Handler()
+onItemAdded(event: ItemAdded): void {
+  this.counter.increment();
+}
+```
+
 ### `@Init`
 
 Marks a static method as the state initializer:
@@ -323,7 +335,7 @@ import { emit, emitWithHandler } from '@calimero-network/calimero-sdk-js';
 // Simple event
 emit({ type: 'ItemAdded', key: 'foo', value: 'bar' });
 
-// Event with handler
+// Event with handler: onItemAdded must be a @Handler() method, or the build fails
 emitWithHandler({ type: 'ItemAdded', key: 'foo' }, 'onItemAdded');
 ```
 
@@ -505,6 +517,7 @@ meroctl --node <NODE> call \
 - `@Logic(StateClass)` must extend the state class
 - `@Init` method must be static and return the state class instance
 - `@View()` decorator is required for read-only methods
+- A method named by `emitWithHandler` must be marked `@Handler()`; nodes run no other method as a handler
 - Methods without `@View()` trigger persistence (mutations)
 - Counter values are `bigint`, not `number`
 - Use `env.log()` not `console.log()` for logging
@@ -577,6 +590,7 @@ merobox bootstrap run examples/counter/workflows/counter-js.yml --log-level=trac
 | `@Logic(StateClass)`         | `#[app::logic]`                   |
 | `@Init`                      | `#[app::init]`                    |
 | `@View()`                    | Method without `&mut self`        |
+| `@Handler()`                 | `#[app::handler]`                 |
 | `Counter`                    | `Counter`                         |
 | `UnorderedMap<K, V>`         | `UnorderedMap<K, LwwRegister<V>>` |
 | `UnorderedSet<T>`            | `UnorderedSet<T>`                 |

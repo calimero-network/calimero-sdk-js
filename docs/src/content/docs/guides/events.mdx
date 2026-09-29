@@ -52,15 +52,15 @@ The event payload is serialized through the ABI manifest, so it is compatible
 with Rust services that observe the same event type.
 
 <Aside type="note">
-  `emitWithHandler(event, handlerName)` names a method on your `@Logic` class.
+  `emitWithHandler(event, handlerName)` names a `@Handler()` method on your `@Logic` class.
   The receiving node runs that method after applying the delta; the authoring
   node does **not** run its own handler.
 </Aside>
 
 ## Handle an event
 
-A handler is just a method on the logic class whose name matches the string
-passed to `emitWithHandler`:
+A handler is a method on the logic class marked `@Handler()`, whose name matches the string passed to `emitWithHandler`.
+The build records the mark in the ABI embedded in the WASM, and a node runs an event's handler only if that ABI declares it, so an unmarked method never runs as a handler:
 
 ```typescript
 @Logic(MyApp)
@@ -71,11 +71,16 @@ export class MyAppLogic extends MyApp {
   }
 
   // Runs on receiving nodes after the delta is applied
+  @Handler()
   onItemAdded(event: ItemAdded): void {
     this.itemCount.increment();
   }
 }
 ```
+
+`calimero-sdk build` fails when `emitWithHandler` names, as a string literal, a method that is not a `@Handler()`.
+When the name is computed at run time, the build cannot see it, so `emitWithHandler` logs a warning instead when the ABI does not declare it.
+`@Handler()` on a `@View()` or `@Init` method is a build error: a handler exists to change state.
 
 ## Event flow
 

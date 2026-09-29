@@ -292,6 +292,7 @@ The JavaScript SDK provides equivalent functionality to the [Rust SDK](https://g
 | `@Logic(StateClass)` | `#[app::logic]`                   |
 | `@Init`              | `#[app::init]`                    |
 | `@View()`            | Method without `&mut self`        |
+| `@Handler()`         | `#[app::handler]`                 |
 | `Counter`            | `Counter`                         |
 | `UnorderedMap<K, V>` | `UnorderedMap<K, LwwRegister<V>>` |
 | `env.log()`          | `app::log!()`                     |
