@@ -333,6 +333,7 @@ export class AbiEmitter {
       }
     }
 
+    this.addEventParamTypes();
     return this.generateManifest();
   }
 
@@ -865,6 +866,7 @@ export class AbiEmitter {
       }
     }
 
+    this.addEventParamTypes();
     return this.generateManifest();
   }
 
@@ -1156,7 +1158,12 @@ export class AbiEmitter {
         const methodName = member.key.name;
 
         // Skip private methods and constructor
-        if (methodName.startsWith('_') || methodName === 'constructor') {
+        if (
+          methodName.startsWith('_') ||
+          methodName === 'constructor' ||
+          member.accessibility === 'private' ||
+          member.accessibility === 'protected'
+        ) {
           return;
         }
 
@@ -1798,6 +1805,17 @@ export class AbiEmitter {
     }
   }
 
+  /** A handler takes the event instance, so a parameter typed by an @Event class needs it as a type. */
+  private addEventParamTypes(): void {
+    const events = new Map(this.events.map(event => [event.name, event]));
+    for (const param of this.methods.flatMap(method => method.params)) {
+      const event = param.type.kind === 'reference' ? events.get(param.type.name!) : undefined;
+      if (event && !this.types.has(event.name)) {
+        this.types.set(event.name, { kind: 'record', fields: event.fields });
+      }
+    }
+  }
+
   private isCalimeroDecorator(decorator: any, name: string): boolean {
     if (decorator.expression?.type === 'Identifier') {
       return decorator.expression.name === name;
@@ -1938,7 +1956,7 @@ export class AbiEmitter {
    * Serialize methods to Rust ABI format
    */
   private serializeMethodsToRustFormat(): any[] {
-    return this.methods.map(method => {
+    return sortByName(this.methods).map(method => {
       const result: any = {
         name: method.name,
         params: method.params.map(param => {
@@ -1955,7 +1973,10 @@ export class AbiEmitter {
       };
 
       if (method.returns) {
-        const serializedReturn = this.serializeTypeRefToRustFormat(method.returns);
+        // Nullability is `returns_nullable`; the node's schema allows no `nullable` on a type.
+        const { nullable: _nullable, ...serializedReturn } = this.serializeTypeRefToRustFormat(
+          method.returns
+        );
         // Rust uses "unit" kind for void, but we might have it as scalar
         if (serializedReturn.kind === 'unit') {
           result.returns = { kind: 'unit' };
@@ -1979,7 +2000,9 @@ export class AbiEmitter {
    */
   private serializeEventsToRustFormat(): any[] {
     // Remove duplicates
-    const uniqueEvents = Array.from(new Map(this.events.map(e => [e.name, e])).values());
+    const uniqueEvents = sortByName(
+      Array.from(new Map(this.events.map(e => [e.name, e])).values())
+    );
 
     return uniqueEvents.map(event => {
       // Rust format: events can have just name, or name + payload
@@ -2435,6 +2458,14 @@ export function generateAbiManifestRustFormatWithStateSchema(
   const emitter = new AbiEmitter();
   emitter.analyzeSource(sourceCode, sourceFile);
   return emitter.generateStateSchemaWithCrdtMetadata(sourceCode, stateRootTypeName);
+}
+
+/**
+ * Sorts by name in code-unit order, the byte order the node checks methods and
+ * events against (it rejects an unsorted manifest as if the app had none).
+ */
+function sortByName<T extends { name: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
 
 /**

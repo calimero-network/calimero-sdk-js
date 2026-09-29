@@ -660,6 +660,97 @@ describe('ABI Conformance Tests', () => {
     });
   });
 
+  describe('Node compatibility', () => {
+    // The node reads the embedded ABI only if it validates, so these shapes decide
+    // whether it sees the app's methods at all.
+    const logic = (body: string, events = '') => `
+      import { State, Logic, Init, Event } from '@calimero-network/calimero-sdk-js';
+
+      ${events}
+
+      @State
+      export class S {}
+
+      @Logic(S)
+      export class L extends S {
+        @Init
+        static init(): S {
+          return new S();
+        }
+
+        ${body}
+      }
+    `;
+
+    it('sorts methods and events by name', () => {
+      const abi = generateAbiFromSourceRust(
+        logic(
+          `
+          zeta(): void {}
+          Alpha(): void {}
+          beta(): void {}
+        `,
+          `
+          @Event
+          export class Zed {}
+
+          @Event
+          export class Pinged {}
+        `
+        )
+      );
+
+      const names = abi.methods.map((m: any) => m.name);
+      expect(names).toEqual(['Alpha', 'beta', 'init', 'zeta']);
+      expect(abi.events.map((e: any) => e.name)).toEqual(['Pinged', 'Zed']);
+    });
+
+    it('describes a parameter typed by an @Event class as a record of its fields', () => {
+      const abi = generateAbiFromSourceRust(
+        logic(
+          'onPinged(event: Pinged): void {}',
+          `
+          @Event
+          export class Pinged {
+            constructor(public who: string) {}
+          }
+        `
+        )
+      );
+
+      const method = abi.methods.find((m: any) => m.name === 'onPinged');
+      expect(method.params[0].type).toEqual({ $ref: 'Pinged' });
+      expect(abi.types.Pinged).toEqual({
+        kind: 'record',
+        fields: [{ name: 'who', type: { kind: 'string' } }],
+      });
+    });
+
+    it('leaves private and protected methods out', () => {
+      const abi = generateAbiFromSourceRust(
+        logic(`
+          visible(): void {}
+          private respond<T>(payload: T): string {
+            return '';
+          }
+          protected helper(): void {}
+        `)
+      );
+
+      expect(abi.methods.map((m: any) => m.name)).toEqual(['init', 'visible']);
+    });
+
+    it('records a nullable return as returns_nullable, not on the return type', () => {
+      const abi = generateAbiFromSourceRust(
+        logic('maybe(): { value: string } | null { return null; }')
+      );
+
+      const method = abi.methods.find((m: any) => m.name === 'maybe');
+      expect(method.returns).not.toHaveProperty('nullable');
+      expect(method.returns_nullable).toBe(true);
+    });
+  });
+
   describe('Multi-file Analysis', () => {
     it('should analyze multiple files', () => {
       const emitter = new AbiEmitter();
