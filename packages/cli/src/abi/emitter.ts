@@ -13,6 +13,9 @@ import * as path from 'path';
 
 const traverse = (traverseModule as any).default || traverseModule;
 
+const SDK_PACKAGE = '@calimero-network/calimero-sdk-js'; // where emitWithHandler is imported from
+const TEST_FILE = /\.(test|spec)\.[jt]s$|[\\/]__tests__[\\/]/; // never bundled, so never emits
+
 export interface AbiManifest {
   schema_version: string;
   types: Record<string, TypeDef>;
@@ -174,7 +177,7 @@ export class AbiEmitter {
             }
           }
         },
-        CallExpression: (nodePath: any) => this.recordNamedHandler(nodePath.node),
+        CallExpression: (nodePath: any) => this.recordNamedHandler(nodePath, filePath),
       });
     }
 
@@ -337,15 +340,13 @@ export class AbiEmitter {
       }
     }
 
-    this.addEventParamTypes();
-    this.checkNamedHandlers();
     return this.generateManifest();
   }
 
   /**
    * Analyze source code and generate ABI manifest
    */
-  public analyzeSource(sourceCode: string, _filePath?: string): AbiManifest {
+  public analyzeSource(sourceCode: string, filePath?: string): AbiManifest {
     const ast = parse(sourceCode, {
       sourceType: 'module',
       plugins: ['typescript', 'decorators-legacy', 'classProperties'],
@@ -414,7 +415,7 @@ export class AbiEmitter {
           }
         }
       },
-      CallExpression: (nodePath: any) => this.recordNamedHandler(nodePath.node),
+      CallExpression: (nodePath: any) => this.recordNamedHandler(nodePath, filePath),
     });
 
     // Third pass: Analyze variant patterns (abstract classes with concrete subclasses)
@@ -873,8 +874,6 @@ export class AbiEmitter {
       }
     }
 
-    this.addEventParamTypes();
-    this.checkNamedHandlers();
     return this.generateManifest();
   }
 
@@ -1820,16 +1819,14 @@ export class AbiEmitter {
   }
 
   /**
-   * Records the handler an `emitWithHandler(event, 'name')` call names, when the
+   * Records the handler an SDK `emitWithHandler(event, 'name')` call names, when the
    * name is a literal; a computed name is left to the SDK's emit-time warning.
    */
-  private recordNamedHandler(call: any): void {
-    const callee = call.callee;
-    const calleeName = callee?.type === 'MemberExpression' ? callee.property?.name : callee?.name;
-    if (calleeName !== 'emitWithHandler') {
+  private recordNamedHandler(nodePath: any, filePath?: string): void {
+    if ((filePath && TEST_FILE.test(filePath)) || !isSdkEmitWithHandler(nodePath)) {
       return;
     }
-    const arg = call.arguments?.[1];
+    const arg = nodePath.node.arguments?.[1];
     if (arg?.type === 'StringLiteral') {
       this.namedHandlers.add(arg.value);
     } else if (arg?.type === 'TemplateLiteral' && arg.expressions.length === 0) {
@@ -2099,6 +2096,8 @@ export class AbiEmitter {
    * Generate manifest in Rust ABI format
    */
   public generateManifestRustFormat(): any {
+    this.addEventParamTypes();
+    this.checkNamedHandlers();
     const manifest = {
       schema_version: 'wasm-abi/1',
       types: this.serializeTypesToRustFormat(),
@@ -2511,6 +2510,27 @@ export function generateAbiManifestRustFormatWithStateSchema(
   const emitter = new AbiEmitter();
   emitter.analyzeSource(sourceCode, sourceFile);
   return emitter.generateStateSchemaWithCrdtMetadata(sourceCode, stateRootTypeName);
+}
+
+/** Whether a call's callee is `emitWithHandler` imported from the SDK, by name or namespace. */
+function isSdkEmitWithHandler(nodePath: any): boolean {
+  const sdkImport = (name: string): any => {
+    const binding = nodePath.scope.getBinding(name);
+    return binding?.kind === 'module' && binding.path.parent.source?.value === SDK_PACKAGE
+      ? binding.path.node
+      : undefined;
+  };
+  const callee = nodePath.node.callee;
+  if (callee?.type === 'Identifier') {
+    const specifier = sdkImport(callee.name);
+    return specifier?.type === 'ImportSpecifier' && specifier.imported?.name === 'emitWithHandler';
+  }
+  return (
+    callee?.type === 'MemberExpression' &&
+    callee.property?.name === 'emitWithHandler' &&
+    callee.object?.type === 'Identifier' &&
+    sdkImport(callee.object.name)?.type === 'ImportNamespaceSpecifier'
+  );
 }
 
 /**
