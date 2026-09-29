@@ -167,14 +167,8 @@ jobs:
             cd "$dir" && pnpm build:manual && cd ../..
           done
 
-      - name: Verify WASM outputs
-        run: |
-          set -e
-          for dir in examples/*/; do
-            if [ -d "${dir}build/" ] && ls "${dir}build/"*.wasm 1> /dev/null 2>&1; then
-              :
-            fi
-          done
+      - name: Check the kv-store wasm declares its handlers
+        run: node scripts/check-abi-section.js examples/kv-store/build/service.wasm clearHandler insertHandler removeHandler updateHandler
 
       - name: Upload WASM artifacts
         uses: actions/upload-artifact@v4
