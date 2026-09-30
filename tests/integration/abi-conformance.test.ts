@@ -751,6 +751,100 @@ describe('ABI Conformance Tests', () => {
     });
   });
 
+  describe('Map keys the node accepts', () => {
+    const stateWith = (fields: string, prelude = '') => `
+      import { State, Logic, Init } from '@calimero-network/calimero-sdk-js';
+      import { UnorderedMap, UserStorage, FrozenStorage } from '@calimero-network/calimero-sdk-js/collections';
+
+      ${prelude}
+
+      @State
+      export class S {
+        ${fields}
+      }
+
+      @Logic(S)
+      export class L extends S {
+        @Init
+        static init(): S {
+          return new S();
+        }
+      }
+    `;
+
+    const stateFields = (abi: any) =>
+      Object.fromEntries(abi.types.S.fields.map((f: any) => [f.name, f.type]));
+
+    it('emits a string key for UserStorage and FrozenStorage', () => {
+      const fields = stateFields(
+        generateAbiFromSourceRust(
+          stateWith(`
+            users: UserStorage<string> = new UserStorage();
+            frozen: FrozenStorage<string> = new FrozenStorage();
+          `)
+        )
+      );
+
+      expect(fields.users.key).toEqual({ kind: 'string' });
+      expect(fields.frozen.key).toEqual({ kind: 'string' });
+    });
+
+    it('resolves a key aliased to string', () => {
+      const fields = stateFields(
+        generateAbiFromSourceRust(
+          stateWith(
+            'members: UnorderedMap<UserId, string> = new UnorderedMap();',
+            'type Id = string;\n type UserId = Id;'
+          )
+        )
+      );
+
+      expect(fields.members.key).toEqual({ kind: 'string' });
+    });
+
+    it('describes Record<string, V> as a map rather than a dangling reference', () => {
+      const abi = generateAbiFromSourceRust(`
+        import { State, Logic, Init, View } from '@calimero-network/calimero-sdk-js';
+
+        @State
+        export class S {}
+
+        @Logic(S)
+        export class L extends S {
+          @Init
+          static init(): S {
+            return new S();
+          }
+
+          @View()
+          entries(): Record<string, string> {
+            return {};
+          }
+        }
+      `);
+
+      const method = abi.methods.find((m: any) => m.name === 'entries');
+      expect(method.returns).toEqual({
+        kind: 'map',
+        key: { kind: 'string' },
+        value: { kind: 'string' },
+      });
+    });
+
+    it('leaves a key aliased to bytes as a reference', () => {
+      const fields = stateFields(
+        generateAbiFromSourceRust(
+          stateWith(
+            'members: UnorderedMap<Hash, string> = new UnorderedMap();',
+            'type Hash = Uint8Array;'
+          )
+        )
+      );
+
+      expect(fields.members.key).toEqual({ $ref: 'Hash' });
+    });
+  });
+
   describe('Multi-file Analysis', () => {
     it('should analyze multiple files', () => {
       const emitter = new AbiEmitter();
