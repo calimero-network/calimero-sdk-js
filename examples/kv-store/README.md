@@ -41,6 +41,11 @@ meroctl --node node1 call \
 
 Read methods such as `get`, `entries`, and `len` are decorated with `@View()` in `src/index.ts`. This ensures the runtime skips `flushDelta` when servicing pure reads, preventing redundant storage updates while still returning the latest CRDT data.
 
+## Upgrade to handlers
+
+`./build-upgrade-bundles.sh` (needs `mero-sign` on PATH) builds a v1 without `@Handler()` methods and the v2 as written, each in a dev-signed bundle.
+`workflows/upgrade-to-handlers.yml` upgrades a two-node context from v1 to v2 and checks that node 2 then runs `insertHandler`.
+
 ## Code
 
 See `src/index.ts` for the complete implementation.
