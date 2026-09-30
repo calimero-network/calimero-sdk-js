@@ -1,0 +1,146 @@
+description: Upgrade a JS app from a build without handlers to one with @Handler() methods
+name: KV Store Upgrade To Handlers
+
+# Bundles come from `examples/kv-store/build-upgrade-bundles.sh` (needs mero-sign).
+force_pull_image: true
+
+nodes:
+  chain_id: testnet-1
+  count: 2
+  image: ghcr.io/calimero-network/merod:edge
+  prefix: kv-upgrade-node
+
+steps:
+  - name: Install v1 (no handlers) On Node 1
+    type: install_application
+    node: kv-upgrade-node-1
+    path: "examples/kv-store/build/upgrade/kv-store-v1.mpk"
+    dev: true
+    outputs:
+      app_v1: applicationId
+
+  - name: Create Namespace
+    type: create_namespace
+    node: kv-upgrade-node-1
+    application_id: '{{app_v1}}'
+    outputs:
+      namespace_id: namespaceId
+
+  - name: Create Open Subgroup
+    type: create_group_in_namespace
+    node: kv-upgrade-node-1
+    namespace_id: '{{namespace_id}}'
+    group_name: kv-upgrade
+    outputs:
+      group_id: groupId
+
+  - name: Mark Subgroup Open
+    type: set_subgroup_visibility
+    node: kv-upgrade-node-1
+    group_id: '{{group_id}}'
+    visibility: open
+
+  - name: Create Context (v1)
+    type: create_context
+    node: kv-upgrade-node-1
+    application_id: '{{app_v1}}'
+    group_id: '{{group_id}}'
+    outputs:
+      context_id: contextId
+      member_public_key: memberPublicKey
+
+  - name: Invite Node 2 To Namespace
+    type: create_namespace_invitation
+    node: kv-upgrade-node-1
+    namespace_id: '{{namespace_id}}'
+    outputs:
+      node_2_invitation: invitation
+
+  - name: Node 2 Join Namespace
+    type: join_namespace
+    node: kv-upgrade-node-2
+    namespace_id: '{{namespace_id}}'
+    invitation: '{{node_2_invitation}}'
+
+  - name: Node 2 Inherit Subgroup Membership
+    type: join_subgroup_inheritance
+    node: kv-upgrade-node-2
+    group_id: '{{group_id}}'
+
+  - name: Node 2 Join Context
+    type: join_context
+    node: kv-upgrade-node-2
+    context_id: '{{context_id}}'
+    outputs:
+      node_2_member_public_key: memberPublicKey
+
+  - name: Install v2 (with handlers) On Node 1
+    type: install_application
+    node: kv-upgrade-node-1
+    path: "examples/kv-store/build/upgrade/kv-store-v2.mpk"
+    dev: true
+    outputs:
+      app_v2: applicationId
+
+  - name: Install v2 On Node 2
+    type: install_application
+    node: kv-upgrade-node-2
+    path: "examples/kv-store/build/upgrade/kv-store-v2.mpk"
+    dev: true
+
+  - name: Upgrade Subgroup To v2
+    type: upgrade_group
+    node: kv-upgrade-node-1
+    group_id: '{{group_id}}'
+    target_application_id: '{{app_v2}}'
+
+  - name: Wait For The Upgrade To Apply
+    type: wait
+    seconds: 15
+
+  # A read makes each node load v2 before the write below.
+  - name: Node 1 Loads v2
+    type: call
+    node: kv-upgrade-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: len
+
+  - name: Node 2 Loads v2
+    type: call
+    node: kv-upgrade-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: len
+
+  - name: Set Value With v2
+    type: call
+    node: kv-upgrade-node-1
+    context_id: '{{context_id}}'
+    executor_public_key: '{{member_public_key}}'
+    method: set
+    args:
+      key: greeting
+      value: hello-world
+
+  - name: Wait For The Event To Reach Node 2
+    type: wait
+    seconds: 5
+
+  - name: Node 2 Reads The Handlers It Ran
+    type: call
+    node: kv-upgrade-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: getHandlersCalled
+    outputs:
+      handlers_result: result.output
+
+  - name: Assert Node 2 Ran insertHandler After The Upgrade
+    type: json_assert
+    statements:
+      - 'json_equal({{handlers_result}}, {"handlers":["key=greeting,value=hello-world"]})'
+
+stop_all_nodes: false
+restart: true
+wait_timeout: 120
