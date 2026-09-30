@@ -1578,11 +1578,11 @@ export class AbiEmitter {
         break;
       case 'FrozenStorage':
         // FrozenStorage<T> is internally UnorderedMap<Hash, FrozenValue<T>>
-        // Hash is a 32-byte Uint8Array (content-addressable key)
+        // Hash is a 32-byte Uint8Array, described as a string key since the node requires one
         if (type.typeParameters?.params?.length >= 1) {
           return {
             kind: 'map',
-            key: { kind: 'scalar', scalar: 'bytes' } as any,
+            key: { kind: 'scalar', scalar: 'string' } as any,
             value: this.extractTypeFromAnnotation({
               typeAnnotation: type.typeParameters.params[0],
             }),
@@ -1591,19 +1591,20 @@ export class AbiEmitter {
         break;
       case 'UserStorage':
         // UserStorage<V> is internally UnorderedMap<PublicKey, V>
-        // PublicKey is a 32-byte Uint8Array
+        // PublicKey is a 32-byte Uint8Array, described as a string key since the node requires one
         if (type.typeParameters?.params?.length >= 1) {
           return {
             kind: 'map',
-            key: { kind: 'scalar', scalar: 'bytes' } as any,
+            key: { kind: 'scalar', scalar: 'string' } as any,
             value: this.extractTypeFromAnnotation({
               typeAnnotation: type.typeParameters.params[0],
             }),
           };
         }
         break;
+      case 'Record':
       case 'Map':
-        // Handle JavaScript native Map<K, V> type
+        // JavaScript native Map<K, V>, and Record<K, V> (a plain object at run time)
         if (type.typeParameters?.params?.length >= 2) {
           return {
             kind: 'map',
@@ -1919,7 +1920,7 @@ export class AbiEmitter {
     if (typeRef.kind === 'map' && typeRef.key && typeRef.value) {
       return {
         kind: 'map',
-        key: this.serializeTypeRefToRustFormat(typeRef.key),
+        key: this.serializeTypeRefToRustFormat(this.resolveStringAlias(typeRef.key)),
         value: this.serializeTypeRefToRustFormat(typeRef.value),
       };
     }
@@ -1956,6 +1957,19 @@ export class AbiEmitter {
     }
 
     return typeRef as any;
+  }
+
+  /** The node accepts only a literal string map key, so `type UserId = string` is inlined. */
+  private resolveStringAlias(typeRef: TypeRef): TypeRef {
+    let current = typeRef;
+    while (current.kind === 'reference' && current.name) {
+      const def = this.types.get(current.name);
+      if (def?.kind !== 'alias' || !def.target) {
+        return typeRef;
+      }
+      current = def.target;
+    }
+    return current.kind === 'scalar' && current.scalar === 'string' ? current : typeRef;
   }
 
   /**
