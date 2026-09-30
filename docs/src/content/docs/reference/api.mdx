@@ -91,7 +91,7 @@ getCount(): bigint { return this.count.value(); }
 
 Marks a method as an event handler that `emitWithHandler(event, 'method')` may name.
 The build records it as `handler: true` in the embedded ABI, and receiving nodes run only declared handlers.
-Not allowed on a `@View()` or `@Init` method.
+Not allowed on a `@View()` or `@Init` method, or on a `private`, `protected` or `_`-prefixed one.
 
 ```typescript
 @Handler()

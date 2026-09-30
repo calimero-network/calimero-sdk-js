@@ -81,6 +81,8 @@ export class MyAppLogic extends MyApp {
 `calimero-sdk build` fails when `emitWithHandler` names, as a string literal, a method that is not a `@Handler()`.
 When the name is computed at run time, the build cannot see it, so `emitWithHandler` logs a warning instead when the ABI does not declare it.
 `@Handler()` on a `@View()` or `@Init` method is a build error: a handler exists to change state.
+It is also a build error on a `private`, `protected` or `_`-prefixed method: handlers must be public methods.
+A `tee:` prefix on the name (`'tee:onPing'`) is ignored when the build checks it, so `onPing` must be the declared handler.
 
 ## Event flow
 
