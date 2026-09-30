@@ -45,4 +45,14 @@ describe('emitWithHandler', () => {
 
     expect(logged).toEqual([]);
   });
+
+  it('stays quiet for a tee: name whose method is a declared handler', () => {
+    (globalThis as any).__CALIMERO_ABI_MANIFEST__ = abiWith([
+      { name: 'onPinged', params: [], handler: true },
+    ]);
+
+    emitWithHandler(new Pinged(), 'tee:onPinged');
+
+    expect(logged).toEqual([]);
+  });
 });

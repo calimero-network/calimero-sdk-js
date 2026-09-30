@@ -32,7 +32,8 @@ export function emitWithHandler(event: unknown, handlerName: string): void {
 // The build rejects an undeclared literal name; this catches a computed one.
 function warnIfUndeclaredHandler(handlerName: string): void {
   const abi = getAbiManifest();
-  if (abi && !getMethod(abi, handlerName)?.handler) {
+  const method = handlerName.startsWith('tee:') ? handlerName.slice('tee:'.length) : handlerName;
+  if (abi && !getMethod(abi, method)?.handler) {
     log(
       `[calimero] emitWithHandler: '${handlerName}' is not declared with @Handler(), ` +
         'so peers will not run it'

@@ -1164,6 +1164,8 @@ export class AbiEmitter {
       ) {
         const methodName = member.key.name;
 
+        const decorators = member.decorators || [];
+
         // Skip private methods and constructor
         if (
           methodName.startsWith('_') ||
@@ -1171,10 +1173,15 @@ export class AbiEmitter {
           member.accessibility === 'private' ||
           member.accessibility === 'protected'
         ) {
+          if (decorators.some((d: any) => this.isCalimeroDecorator(d, 'Handler'))) {
+            throw new Error(
+              `@Handler() on '${methodName}': handlers must be public methods ` +
+                "(not private, protected or '_'-prefixed)"
+            );
+          }
           return;
         }
 
-        const decorators = member.decorators || [];
         const isInit = decorators.some((d: any) => this.isCalimeroDecorator(d, 'Init'));
         const isView = decorators.some((d: any) => this.isCalimeroDecorator(d, 'View'));
         const isHandler = decorators.some((d: any) => this.isCalimeroDecorator(d, 'Handler'));
@@ -1827,10 +1834,11 @@ export class AbiEmitter {
       return;
     }
     const arg = nodePath.node.arguments?.[1];
+    // The node runs "tee:<method>" as the TEE method <method>.
     if (arg?.type === 'StringLiteral') {
-      this.namedHandlers.add(arg.value);
+      this.namedHandlers.add(stripTeePrefix(arg.value));
     } else if (arg?.type === 'TemplateLiteral' && arg.expressions.length === 0) {
-      this.namedHandlers.add(arg.quasis[0].value.cooked);
+      this.namedHandlers.add(stripTeePrefix(arg.quasis[0].value.cooked));
     }
   }
 
@@ -2510,6 +2518,10 @@ export function generateAbiManifestRustFormatWithStateSchema(
   const emitter = new AbiEmitter();
   emitter.analyzeSource(sourceCode, sourceFile);
   return emitter.generateStateSchemaWithCrdtMetadata(sourceCode, stateRootTypeName);
+}
+
+function stripTeePrefix(name: string): string {
+  return name.startsWith('tee:') ? name.slice('tee:'.length) : name;
 }
 
 /** Whether a call's callee is `emitWithHandler` imported from the SDK, by name or namespace. */
