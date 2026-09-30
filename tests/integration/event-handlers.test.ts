@@ -123,6 +123,48 @@ describe('event handlers in the ABI', () => {
     expect(() => rustAbi(source)).toThrow(/@Handler\(\) has no meaning on initializer 'init'/);
   });
 
+  it.each([
+    ['private onPinged(event: Pinged): void {}', 'onPinged'],
+    ['protected onPinged(event: Pinged): void {}', 'onPinged'],
+    ['_onPinged(event: Pinged): void {}', '_onPinged'],
+  ])('rejects @Handler() on a non-public method: %s', (declaration, name) => {
+    const source = app(`
+      @Handler()
+      ${declaration}
+    `);
+
+    expect(() => rustAbi(source)).toThrow(
+      new RegExp(`@Handler\\(\\) on '${name}'.*handlers must be public methods`)
+    );
+  });
+
+  it('strips the tee: prefix before checking a handler name', () => {
+    const abi = rustAbi(
+      app(`
+        ping(who: string): void {
+          emitWithHandler(new Pinged(who), 'tee:onPinged');
+        }
+
+        @Handler()
+        onPinged(event: Pinged): void {}
+      `)
+    );
+
+    expect(abi.methods.find(m => m.name === 'onPinged')?.handler).toBe(true);
+  });
+
+  it('still fails a tee: name whose method is not a handler', () => {
+    const source = app(`
+      ping(who: string): void {
+        emitWithHandler(new Pinged(who), 'tee:onPinged');
+      }
+
+      onPinged(event: Pinged): void {}
+    `);
+
+    expect(() => rustAbi(source)).toThrow(/emitWithHandler names 'onPinged'/);
+  });
+
   it('fails the build when the node would ignore an ABI that declares handlers', () => {
     const source = app(`
       @Handler()
@@ -174,11 +216,11 @@ describe('event handlers in the ABI', () => {
     `)
       .replace(
         'import {',
-        "import { UserStorage } from '@calimero-network/calimero-sdk-js/collections';\n    import {"
+        "import { UnorderedMap } from '@calimero-network/calimero-sdk-js/collections';\n    type Hash = Uint8Array;\n    import {"
       )
       .replace(
         'export class S {}',
-        'export class S {\n      owned: UserStorage<string> = new UserStorage();\n    }'
+        'export class S {\n      owned: UnorderedMap<Hash, string> = new UnorderedMap();\n    }'
       );
 
     expect(() => rustAbi(source)).toThrow(
