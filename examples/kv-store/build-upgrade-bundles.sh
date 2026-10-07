@@ -2,7 +2,7 @@
 
 # Builds the two dev-signed bundles workflows/upgrade-to-handlers.yml upgrades between:
 # v1 is the example with its @Handler() methods stripped, v2 is the example as written.
-# Needs `mero-sign` on PATH.
+# Needs `cargo mero` on PATH.
 
 set -euo pipefail
 cd "$(dirname "$0")"
