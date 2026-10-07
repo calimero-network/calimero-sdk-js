@@ -21,7 +21,7 @@ steps:
   - name: Install CRDT Collections Application
     type: install_application
     node: crdt-conv-node-1
-    path: 'examples/crdt-collections/build/service.wasm'
+    path: 'examples/crdt-collections/build/service.mpk'
     dev: true
     outputs:
       app_id: applicationId

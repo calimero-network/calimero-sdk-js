@@ -18,7 +18,7 @@ steps:
   - name: Install Authored Collections Application
     type: install_application
     node: authored-node-1
-    path: 'examples/authored-collections/build/service.wasm'
+    path: 'examples/authored-collections/build/service.mpk'
     dev: true
     outputs:
       app_id: applicationId

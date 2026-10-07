@@ -13,7 +13,7 @@ steps:
   - name: Install Private Data Application
     type: install_application
     node: private-data-node-1
-    path: examples/private-data/build/service.wasm
+    path: examples/private-data/build/service.mpk
     dev: true
     outputs:
       app_id: applicationId
