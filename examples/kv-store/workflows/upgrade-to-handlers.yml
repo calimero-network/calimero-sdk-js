@@ -1,7 +1,7 @@
 description: Upgrade a JS app from a build without handlers to one with @Handler() methods
 name: KV Store Upgrade To Handlers
 
-# Bundles come from `examples/kv-store/build-upgrade-bundles.sh` (needs mero-sign).
+# Bundles come from `examples/kv-store/build-upgrade-bundles.sh` (needs cargo mero).
 force_pull_image: true
 
 nodes:

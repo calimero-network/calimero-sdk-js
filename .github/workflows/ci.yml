@@ -238,6 +238,9 @@ jobs:
       - name: Bundle examples
         run: pnpm bundle:examples
 
+      - name: Build the kv-store upgrade bundles
+        run: examples/kv-store/build-upgrade-bundles.sh
+
       - name: Install jq
         run: |
           sudo apt-get update

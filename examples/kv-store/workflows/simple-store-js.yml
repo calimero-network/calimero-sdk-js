@@ -21,7 +21,7 @@ steps:
   - name: Install Simple Store Application On Node 2
     type: install_application
     node: simple-store-node-2
-    path: "examples/kv-store/build/service.wasm"
+    path: "examples/kv-store/build/service.mpk"
     dev: true
 
   - name: Create Simple Store Namespace
