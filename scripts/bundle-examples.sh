@@ -4,9 +4,16 @@
 # the form the example workflows install. Needs `cargo mero` on PATH.
 
 set -euo pipefail
+shopt -s nullglob
 cd "$(dirname "$0")/.."
 
-for wasm in examples/*/build/*.wasm; do
+wasms=(examples/*/build/*.wasm)
+if [ ${#wasms[@]} -eq 0 ]; then
+  echo "No examples/*/build/*.wasm found; build the examples first." >&2
+  exit 1
+fi
+
+for wasm in "${wasms[@]}"; do
   example=$(basename "$(dirname "$(dirname "$wasm")")")
   node scripts/make-bundle.js "$wasm" "${wasm%.wasm}.mpk" 1.0.0 "com.calimero.js-$example" "$example"
 done

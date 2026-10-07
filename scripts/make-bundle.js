@@ -1,12 +1,7 @@
 #!/usr/bin/env node
 
-/**
- * Wraps a built wasm in a dev-signed application bundle (.mpk), the only form
- * current nodes install.
- *
- * Usage: node scripts/make-bundle.js <wasm> <out.mpk> <appVersion> <package> <name>
- * Needs `cargo mero` (core's cargo-mero) on PATH.
- */
+// Wraps a built wasm in a dev-signed application bundle (.mpk), the only form
+// current nodes install. Needs `cargo mero` on PATH.
 
 /* eslint-disable @typescript-eslint/no-var-requires */
 const { execFileSync } = require('child_process');
@@ -43,8 +38,11 @@ fs.writeFileSync(
   })
 );
 
-execFileSync('cargo', ['mero', 'sign', '--dev', path.join(dir, 'manifest.json')], {
-  stdio: 'inherit',
-});
-execFileSync('tar', ['czf', path.resolve(outPath), '-C', dir, 'manifest.json', 'app.wasm']);
-fs.rmSync(dir, { recursive: true });
+try {
+  execFileSync('cargo', ['mero', 'sign', '--dev', path.join(dir, 'manifest.json')], {
+    stdio: 'inherit',
+  });
+  execFileSync('tar', ['czf', path.resolve(outPath), '-C', dir, 'manifest.json', 'app.wasm']);
+} finally {
+  fs.rmSync(dir, { recursive: true, force: true });
+}
