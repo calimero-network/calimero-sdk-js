@@ -14,7 +14,7 @@ the [Collections guide](/guides/collections/).
 
 ```typescript
 // Decorators, helpers, events, runtime — the package root
-import { State, Logic, Init, Event, View, Mergeable } from '@calimero-network/calimero-sdk-js';
+import { State, Logic, Init, Event, View, Handler, Mergeable } from '@calimero-network/calimero-sdk-js';
 import { createUnorderedMap, createCounter, createPrivateEntry } from '@calimero-network/calimero-sdk-js';
 import { emit, emitWithHandler, StateManager } from '@calimero-network/calimero-sdk-js';
 
@@ -85,6 +85,17 @@ snapshot, no delta). Note the trailing `()` — it's a decorator factory.
 ```typescript
 @View()
 getCount(): bigint { return this.count.value(); }
+```
+
+### `@Handler()`
+
+Marks a method as an event handler that `emitWithHandler(event, 'method')` may name.
+The build records it as `handler: true` in the embedded ABI, and receiving nodes run only declared handlers.
+Not allowed on a `@View()` or `@Init` method, or on a `private`, `protected` or `_`-prefixed one.
+
+```typescript
+@Handler()
+onItemAdded(event: ItemAdded): void { this.itemCount.increment(); }
 ```
 
 ### `@Mergeable(options?)`
@@ -188,7 +199,7 @@ directly: `input`, `panic`, `registerLen`, `readRegister`, `valueReturn`,
 | Export | Signature | Description |
 | --- | --- | --- |
 | `emit` | `(event: unknown) => void` | Emit an event with no handler. Pass an `@Event`-decorated instance (any value is accepted; it is serialized via its `serialize()`). |
-| `emitWithHandler` | `(event: unknown, handlerName: string) => void` | Emit and name a handler to run on receiving nodes. |
+| `emitWithHandler` | `(event: unknown, handlerName: string) => void` | Emit and name a `@Handler()` method to run on receiving nodes. |
 | `AppEvent` | `interface { serialize?(): Uint8Array \| object \| string }` | Base event interface. |
 
 See the [Events guide](/guides/events/).

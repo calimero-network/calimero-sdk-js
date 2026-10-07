@@ -247,9 +247,10 @@ flowchart TB
 | `examples/private-data`                          | Public vs node-local storage (`createPrivateEntry`) | `examples/private-data/workflows/private-data-js.yml` |
 | `examples/kv-store-with-user-and-frozen-storage` | `UserStorage` and `FrozenStorage` examples          | See workflows in example directory                    |
 
-Run a workflow:
+Nodes install only signed bundles, so wrap the built examples first (needs `cargo mero` on PATH), then run a workflow:
 
 ```bash
+pnpm bundle:examples
 merobox bootstrap run examples/team-metrics/workflows/team-metrics-js.yml --log-level=trace
 ```
 
@@ -291,6 +292,7 @@ The JavaScript SDK provides equivalent functionality to the [Rust SDK](https://g
 | `@Logic(StateClass)` | `#[app::logic]`                   |
 | `@Init`              | `#[app::init]`                    |
 | `@View()`            | Method without `&mut self`        |
+| `@Handler()`         | `#[app::handler]`                 |
 | `Counter`            | `Counter`                         |
 | `UnorderedMap<K, V>` | `UnorderedMap<K, LwwRegister<V>>` |
 | `env.log()`          | `app::log!()`                     |

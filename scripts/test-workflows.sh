@@ -64,6 +64,8 @@ find_workflows() {
   printf '%s\n' "${workflows[@]}"
 }
 
+bash "$(dirname "$0")/bundle-examples.sh"
+
 # Get all workflow files
 if [ -n "$SPECIFIC_WORKFLOW" ]; then
   # Test specific workflow - try to find it by name

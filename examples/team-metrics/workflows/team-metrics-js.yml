@@ -13,7 +13,7 @@ steps:
   - name: Install Team Metrics Application
     type: install_application
     node: metrics-node-1
-    path: "examples/team-metrics/build/service.wasm"
+    path: "examples/team-metrics/build/service.mpk"
     dev: true
     outputs:
       app_id: applicationId

@@ -72,9 +72,10 @@ hand-edit or strip the bundle.
 Common causes:
 
 1. The handler name doesn't match the string passed to `emitWithHandler`.
-2. You're checking the **author** node — the emitting node does not run its own
+2. The method is not marked `@Handler()`. Nodes run only handlers the app's ABI declares; look for the `is not declared with @Handler()` warning in the emitting node's log.
+3. You're checking the **author** node - the emitting node does not run its own
    handler; only receivers do.
-3. The delta carrying the event hasn't been applied yet (missing parents).
+4. The delta carrying the event hasn't been applied yet (missing parents).
 
 Add logging to confirm what's emitted:
 
