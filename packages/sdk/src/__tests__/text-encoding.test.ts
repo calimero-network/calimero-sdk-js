@@ -25,14 +25,14 @@ const STRINGS = [
   'boɢ',
   'café',
   '中文',
-  '😀',
-  'a😀b𝄞c',
-  '\u0000\u007f\u0080߿ࠀ￿',
+  '\u{1d538}',
+  'a\u{20000}b\u{1d11e}c',
+  '\u0000\u007f\u0080\u07ff\u0800\uffff',
   '\ud800',
   '\udc00',
-  'x\ud83dy',
-  '\ude00\ud83d',
-  '😀\ud83d',
+  'x\ud835y',
+  '\udd38\ud835',
+  '\ud835\udd38\ud835',
 ];
 
 const BYTES = [
