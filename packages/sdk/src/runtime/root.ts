@@ -73,21 +73,34 @@ export function declaredCollectionFields(): string[] {
 }
 
 /**
- * Refuses a document that lacks a declared collection field, or whose collection
- * is not at its derived id or not of its declared type.
+ * The document's collections for the declared fields, each present, at its derived
+ * id and of its declared type; a field the app no longer declares is dropped.
  */
-function checkCollections(collections: Record<string, CollectionSnapshot>): void {
+function declaredCollections(
+  collections: Record<string, CollectionSnapshot>
+): Record<string, CollectionSnapshot> {
+  const declared: Record<string, CollectionSnapshot> = {};
   for (const field of declaredCollectionFields()) {
-    if (!(field in collections)) {
+    const snapshot = collections[field];
+    if (!snapshot) {
       throw new Error(`Collection field '${field}' is missing from the root document`);
     }
-  }
-  for (const [field, snapshot] of Object.entries(collections)) {
     if (snapshot.id !== bytesToHex(computeCollectionId(ROOT_ID, field))) {
       throw new Error(`Collection field '${field}' is not at the id derived from its name`);
     }
     if (snapshot.type !== stateCollectionType(field)) {
       throw new Error(`Collection field '${field}' is not of its declared collection type`);
+    }
+    declared[field] = snapshot;
+  }
+  return declared;
+}
+
+// Saving an undeclared collection field would persist one no load could reach.
+function refuseUndeclared(collections: Record<string, CollectionSnapshot>): void {
+  for (const field of Object.keys(collections)) {
+    if (!stateCollectionType(field)) {
+      throw new Error(`Collection field '${field}' is not declared with a collection type`);
     }
   }
 }
@@ -116,8 +129,7 @@ export function parseRootDocument(source: Uint8Array): RootDocument {
       ? deserialize<any>(collectionsAndMetadataBytes)
       : { collections: {}, metadata: null };
 
-  const collections = collectionsAndMetadata.collections || {};
-  checkCollections(collections);
+  const collections = declaredCollections(collectionsAndMetadata.collections || {});
 
   const now = Number(env.timeNow());
   return {
@@ -180,7 +192,8 @@ export function saveRootState(state: any): Uint8Array {
 
     doc.values[key] = value;
   }
-  checkCollections(doc.collections);
+  refuseUndeclared(doc.collections);
+  declaredCollections(doc.collections);
 
   // ABI-aware serialization is required
   const abi = getAbiManifest();
@@ -377,7 +390,7 @@ export function loadRootState<T>(stateClass: { new (...args: any[]): T }): T | n
   ) {
     throw new Error('Persisted state document missing required fields');
   }
-  checkCollections(doc.collections);
+  doc.collections = declaredCollections(doc.collections);
 
   const instance: any = typeof stateClass === 'function' ? Object.create(stateClass.prototype) : {};
   const target = instance as Record<string, unknown>;

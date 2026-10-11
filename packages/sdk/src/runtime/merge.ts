@@ -217,7 +217,13 @@ export function computeMergeResponse(requestBytes: Uint8Array): Uint8Array {
       return encodeMergeRootStateResponseOk(request.incoming);
     }
 
-    const existing = parseRootDocument(request.existing);
+    let existing: RootDocument;
+    try {
+      existing = parseRootDocument(request.existing);
+    } catch {
+      // A stored root this build refuses must not keep a valid peer root from healing it.
+      return encodeMergeRootStateResponseOk(request.incoming);
+    }
     const merged = mergeRootDocuments(existing, incoming);
     return encodeMergeRootStateResponseOk(serializeRootDocument(merged));
   } catch (error) {
