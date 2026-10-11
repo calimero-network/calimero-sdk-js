@@ -54,6 +54,11 @@ function isExportable(name: string | undefined): name is string {
   return !!name && name !== 'constructor' && !name.startsWith('_');
 }
 
+// Entry points are the methods the ABI emitter found public in the TS source; no manifest, none.
+function isAbiEntryPoint(name: string): boolean {
+  return isExportable(name) && !!getAbiManifest()?.methods.some(method => method.name === name);
+}
+
 function addMethodToEntry(entry: { methods: string[]; init?: string }, method: string): void {
   if (!entry.methods.includes(method)) {
     entry.methods.push(method);
@@ -164,11 +169,9 @@ export function registerLogic(
 
   const logicName = normalizeLogicName(target);
   const entry = ensureLogicEntry(logicName);
-  // Entry points are the methods the ABI emitter found public in the TS source; no manifest, none.
-  const abiMethods = new Set(getAbiManifest()?.methods.map(m => m.name) ?? []);
 
   for (const method of methods) {
-    if (isExportable(method) && abiMethods.has(method)) {
+    if (isAbiEntryPoint(method)) {
       addMethodToEntry(entry, method);
       if (entry.mutating[method] === undefined) {
         entry.mutating[method] = true;
@@ -188,7 +191,7 @@ export function registerLogic(
   }
 
   const initMethod = (target as any)._calimeroInitMethod;
-  if (typeof initMethod === 'string' && initMethod.length > 0) {
+  if (typeof initMethod === 'string' && isAbiEntryPoint(initMethod)) {
     entry.init = initMethod;
     updateRuntimeInit(target, stateClass, initMethod);
   }
@@ -219,6 +222,9 @@ export function markMethodNonMutating(
 
 export function registerInit(target: new (...args: any[]) => any, methodName: string): void {
   ensureGlobalRegistry();
+  if (!isAbiEntryPoint(methodName)) {
+    return;
+  }
 
   const logicName = normalizeLogicName(target);
   const entry = ensureLogicEntry(logicName);

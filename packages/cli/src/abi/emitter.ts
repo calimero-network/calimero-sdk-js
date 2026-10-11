@@ -99,6 +99,7 @@ export class AbiEmitter {
   private events: Event[] = [];
   private stateRoot?: string;
   private namedHandlers: Set<string> = new Set(); // literal handler names passed to emitWithHandler
+  private logicMethodNames: Set<string> = new Set(); // every method name declared on a @Logic class
   private abstractClasses: Map<string, any> = new Map(); // Track abstract classes for variant analysis
 
   /**
@@ -117,6 +118,7 @@ export class AbiEmitter {
     // Reset state
     this.types.clear();
     this.methods = [];
+    this.logicMethodNames.clear();
     this.events = [];
     this.stateRoot = undefined;
     this.namedHandlers.clear();
@@ -357,6 +359,7 @@ export class AbiEmitter {
     // Reset state
     this.types.clear();
     this.methods = [];
+    this.logicMethodNames.clear();
     this.events = [];
     this.stateRoot = undefined;
     this.namedHandlers.clear();
@@ -1156,6 +1159,22 @@ export class AbiEmitter {
     }
   }
 
+  /**
+   * The runtime matches entry points to the ABI by name alone, so an entry point's
+   * name must not be declared by any other @Logic method, accessor or initializer.
+   */
+  private claimLogicMethodName(name: string, isEntryPoint: boolean): void {
+    const clashes =
+      this.logicMethodNames.has(name) &&
+      (isEntryPoint || this.methods.some(method => method.name === name));
+    if (clashes) {
+      throw new Error(
+        `'${name}' is declared more than once across @Logic classes; an entry point's name must be unique`
+      );
+    }
+    this.logicMethodNames.add(name);
+  }
+
   private analyzeLogicClass(classNode: any): void {
     classNode.body.body.forEach((member: any) => {
       // Babel uses 'ClassMethod', TypeScript uses 'MethodDefinition'
@@ -1164,15 +1183,18 @@ export class AbiEmitter {
         member.key?.name
       ) {
         const methodName = member.key.name;
-
         const decorators = member.decorators || [];
+        const isInit = decorators.some((d: any) => this.isCalimeroDecorator(d, 'Init'));
+
         // TypeScript erases `private`/`protected`, so this list is what keeps them uncallable
-        if (
-          methodName.startsWith('_') ||
-          methodName === 'constructor' ||
-          member.accessibility === 'private' ||
-          member.accessibility === 'protected'
-        ) {
+        const isEntryPoint =
+          member.kind === 'method' &&
+          !methodName.startsWith('_') &&
+          member.accessibility !== 'private' &&
+          member.accessibility !== 'protected' &&
+          (!member.static || isInit);
+        this.claimLogicMethodName(methodName, isEntryPoint);
+        if (!isEntryPoint) {
           if (decorators.some((d: any) => this.isCalimeroDecorator(d, 'Handler'))) {
             throw new Error(
               `@Handler() on '${methodName}': handlers must be public methods ` +
@@ -1185,7 +1207,6 @@ export class AbiEmitter {
           return;
         }
 
-        const isInit = decorators.some((d: any) => this.isCalimeroDecorator(d, 'Init'));
         const isView = decorators.some((d: any) => this.isCalimeroDecorator(d, 'View'));
         const isHandler = decorators.some((d: any) => this.isCalimeroDecorator(d, 'Handler'));
         const xcall = this.xcallPolicy(methodName, decorators);
