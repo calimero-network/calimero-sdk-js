@@ -6,6 +6,8 @@ import { serializeWithAbi, deserializeWithAbi } from '../utils/abi-serialize';
 import { BorshWriter } from '../borsh/encoder';
 import { BorshReader } from '../borsh/decoder';
 import type { TypeRef } from '../abi/types';
+import { computeCollectionId, ROOT_ID } from '../utils/deterministic-id';
+import { bytesToHex } from '../utils/hex';
 
 interface PersistedStateDocument {
   className: string;
@@ -49,6 +51,18 @@ function stateTypeRefFromAbi(): { stateTypeRef: TypeRef; abi: ReturnType<typeof 
 }
 
 /**
+ * Refuses collections not at the id derived from their field name, so no root
+ * document can point a field at a collection of a writer's choosing.
+ */
+function checkCollectionIds(collections: Record<string, CollectionSnapshot>): void {
+  for (const [field, snapshot] of Object.entries(collections)) {
+    if (snapshot.id !== bytesToHex(computeCollectionId(ROOT_ID, field))) {
+      throw new Error(`Collection field '${field}' is not at the id derived from its name`);
+    }
+  }
+}
+
+/**
  * Pure decode of the persisted root-document wire format into its parts.
  *
  * Wire format: `[u8 version=1][writeBytes(abi state)][writeBytes(collections+metadata)]`
@@ -72,10 +86,13 @@ export function parseRootDocument(source: Uint8Array): RootDocument {
       ? deserialize<any>(collectionsAndMetadataBytes)
       : { collections: {}, metadata: null };
 
+  const collections = collectionsAndMetadata.collections || {};
+  checkCollectionIds(collections);
+
   const now = Number(env.timeNow());
   return {
     values,
-    collections: collectionsAndMetadata.collections || {},
+    collections,
     metadata: collectionsAndMetadata.metadata || { createdAt: now, updatedAt: now },
   };
 }
@@ -133,6 +150,7 @@ export function saveRootState(state: any): Uint8Array {
 
     doc.values[key] = value;
   }
+  checkCollectionIds(doc.collections);
 
   // ABI-aware serialization is required
   const abi = getAbiManifest();
@@ -329,6 +347,7 @@ export function loadRootState<T>(stateClass: { new (...args: any[]): T }): T | n
   ) {
     throw new Error('Persisted state document missing required fields');
   }
+  checkCollectionIds(doc.collections);
 
   const instance: any = typeof stateClass === 'function' ? Object.create(stateClass.prototype) : {};
   const target = instance as Record<string, unknown>;
