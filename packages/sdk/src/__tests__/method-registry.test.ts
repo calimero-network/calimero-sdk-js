@@ -1,7 +1,7 @@
 import './setup';
 import { Init } from '../decorators/init';
 import { Logic } from '../decorators/logic';
-import { runtimeLogicEntries, snapshot } from '../runtime/method-registry';
+import { registerInit, runtimeLogicEntries, snapshot } from '../runtime/method-registry';
 
 const abiWithMethods = (...names: string[]) => ({
   schema_version: 'wasm-abi/1',
@@ -55,6 +55,14 @@ describe('method registry', () => {
 
     expect(snapshot().logic['Till'].init).toBeUndefined();
     expect(runtimeLogicEntries().find(e => e.target === Till)?.init).toBeUndefined();
+  });
+
+  it('ignores an initializer registered under a non-string name', () => {
+    (globalThis as any).__CALIMERO_ABI_MANIFEST__ = abiWithMethods('init');
+    function init(): void {}
+    // TC39 decorators hand a method decorator a context object, not a property key.
+    expect(() => registerInit(init as any, { kind: 'method', name: 'init' } as any)).not.toThrow();
+    expect(snapshot().logic['init']?.init).toBeUndefined();
   });
 
   it('exports nothing without an ABI manifest', () => {
