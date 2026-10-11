@@ -23,8 +23,8 @@
     "build": "tsc",
     "clean": "rm -rf lib",
     "test": "jest --passWithNoTests",
-    "install-deps": "bash scripts/install-deps.sh",
-    "postinstall": "bash scripts/postinstall.sh",
+    "install-deps": "node scripts/install-deps.js",
+    "postinstall": "node scripts/install-deps.js",
     "prepublishOnly": "pnpm build"
   },
   "keywords": [
