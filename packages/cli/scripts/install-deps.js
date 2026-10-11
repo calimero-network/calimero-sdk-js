@@ -1,11 +1,19 @@
 /**
  * Installs the build toolchain (qjsc, QuickJS source, WASI-SDK, Binaryen) into ../deps.
- * Every asset is pinned by sha256 in toolchain.json and verified before it is written to disk.
+ * Every asset is pinned by sha256 in toolchain.json; all are verified before deps/ is replaced.
  */
 
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -50,25 +58,40 @@ async function fetchVerified({ url, sha256 }) {
   return bytes;
 }
 
-function extract(bytes, name, stripComponents) {
-  const archive = join(DEPS_DIR, `${name}.tar.gz`);
-  const target = join(DEPS_DIR, name);
+function extract(dir, bytes, name, stripComponents) {
+  const archive = join(dir, `${name}.tar.gz`);
+  const target = join(dir, name);
   writeFileSync(archive, bytes);
   mkdirSync(target);
   execFileSync('tar', ['xzf', archive, `--strip-components=${stripComponents}`, '-C', target]);
   rmSync(archive);
 }
 
+function install(dir, bytes) {
+  writeFileSync(join(dir, 'qjsc'), bytes.qjsc, { mode: 0o755 });
+  extract(dir, bytes.quickjs, 'quickjs', 1);
+  extract(dir, bytes['wasi-sdk'], 'wasi-sdk', 1);
+  extract(dir, bytes.binaryen, 'binaryen', 0);
+}
+
 async function main() {
-  const assets = Object.fromEntries(Object.keys(MANIFEST).map(tool => [tool, pinnedAsset(tool)]));
+  const tools = Object.keys(MANIFEST);
+  const assets = tools.map(pinnedAsset);
+  const bytes = {};
+  for (const [i, tool] of tools.entries()) {
+    bytes[tool] = await fetchVerified(assets[i]);
+  }
 
-  rmSync(DEPS_DIR, { recursive: true, force: true });
-  mkdirSync(DEPS_DIR, { recursive: true });
-
-  writeFileSync(join(DEPS_DIR, 'qjsc'), await fetchVerified(assets.qjsc), { mode: 0o755 });
-  extract(await fetchVerified(assets.quickjs), 'quickjs', 1);
-  extract(await fetchVerified(assets['wasi-sdk']), 'wasi-sdk', 1);
-  extract(await fetchVerified(assets.binaryen), 'binaryen', 0);
+  // Staged next to deps/ so the final rename stays on one filesystem.
+  const staging = mkdtempSync(join(dirname(DEPS_DIR), '.deps-'));
+  try {
+    chmodSync(staging, 0o755);
+    install(staging, bytes);
+    rmSync(DEPS_DIR, { recursive: true, force: true });
+    renameSync(staging, DEPS_DIR);
+  } finally {
+    rmSync(staging, { recursive: true, force: true });
+  }
 
   console.log(`Build toolchain installed in ${DEPS_DIR}`);
 }
