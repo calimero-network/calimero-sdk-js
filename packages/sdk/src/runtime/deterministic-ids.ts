@@ -17,7 +17,6 @@ import * as env from '../env/api';
 import { bytesToHex, hexToBytes } from '../utils/hex';
 import { computeCollectionId, ROOT_ID } from '../utils/deterministic-id';
 import { snapshotCollection, instantiateCollection } from './collections';
-import { declaredCollectionFields, stateCollectionType } from './root';
 import {
   mapNewWithId,
   vectorNewWithId,
@@ -98,102 +97,49 @@ export function assignDeterministicIds(state: unknown): void {
 
   const target = state as Record<string, unknown>;
   for (const key of Object.keys(target)) {
-    assignDeterministicId(target, key);
-  }
-}
+    const value = target[key];
 
-/**
- * Gives a loaded state the collection fields its stored document lacks, such as
- * one added in an upgrade, at their derived ids. An entity already at that id is
- * reopened as is; only a missing shared cell is created, from the constructor.
- */
-export function addMissingCollections(
-  state: Record<string, unknown>,
-  stateClass: new () => Record<string, unknown>
-): void {
-  let fresh: Record<string, unknown> | undefined;
-  for (const field of declaredCollectionFields()) {
-    if (snapshotCollection(state[field])) {
+    const snapshot = snapshotCollection(value);
+    if (!snapshot) {
       continue;
     }
-    const type = stateCollectionType(field)!;
-    const id = computeCollectionId(ROOT_ID, field);
-    if (type === 'SharedStorage' && !sharedCellExists(id)) {
-      fresh ??= new stateClass();
-      assignDeterministicId(fresh, field);
+
+    const isShared = snapshot.type === 'SharedStorage';
+    const withId = WITH_ID[snapshot.type];
+    if (!withId && !isShared) {
+      // Unknown/unsupported collection type — leave it untouched.
+      continue;
     }
-    state[field] = instantiateCollection({ type, id: bytesToHex(id) });
-  }
-  if (fresh) {
-    discardUnassigned(fresh);
-  }
-}
 
-// A shared cell carries its writer set, so it is created only where none exists.
-function sharedCellExists(id: Uint8Array): boolean {
-  try {
-    sharedWriters(id);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// Deletes the random-id collections a throwaway constructor run created.
-function discardUnassigned(fresh: Record<string, unknown>): void {
-  for (const key of Object.keys(fresh)) {
-    const snapshot = snapshotCollection(fresh[key]);
-    if (snapshot && snapshot.id !== bytesToHex(computeCollectionId(ROOT_ID, key))) {
-      try {
-        deleteCollection(hexToBytes(snapshot.id));
-      } catch (err) {
-        env.log(`[deterministic-ids] cleanup skipped for '${key}': ${String(err)}`);
-      }
+    const expectedId = computeCollectionId(ROOT_ID, key);
+    const expectedHex = bytesToHex(expectedId);
+    if (snapshot.id === expectedHex) {
+      // Already at the deterministic id (e.g. hydrated from a prior snapshot).
+      continue;
     }
+
+    // Create/re-open the entity at the deterministic id in the host, then swap
+    // the field to a collection wrapping that id. SharedStorage needs its writer
+    // set/frozen flag carried across; other collections re-open from id.
+    if (isShared) {
+      reopenSharedAt(snapshot.id, expectedId);
+    } else {
+      withId!(expectedId);
+    }
+    target[key] = instantiateCollection({ type: snapshot.type, id: expectedHex });
+
+    // Reclaim the random-id entity the field used to point at. This runs on
+    // fresh genesis state, so it is empty and the create+delete land in the same
+    // delta (every replica converges with no orphan). Best-effort: a benign
+    // leftover must never break init, so a cleanup failure is only logged.
+    try {
+      deleteCollection(hexToBytes(snapshot.id));
+    } catch (err) {
+      env.log(`[deterministic-ids] orphan cleanup skipped for '${key}': ${String(err)}`);
+    }
+
+    env.log(
+      `[deterministic-ids] field '${key}' (${snapshot.type}) -> ${expectedHex.slice(0, 16)}…`
+    );
   }
-}
-
-function assignDeterministicId(target: Record<string, unknown>, key: string): void {
-  const value = target[key];
-
-  const snapshot = snapshotCollection(value);
-  if (!snapshot) {
-    return;
-  }
-
-  const isShared = snapshot.type === 'SharedStorage';
-  const withId = WITH_ID[snapshot.type];
-  if (!withId && !isShared) {
-    // Unknown/unsupported collection type — leave it untouched.
-    return;
-  }
-
-  const expectedId = computeCollectionId(ROOT_ID, key);
-  const expectedHex = bytesToHex(expectedId);
-  if (snapshot.id === expectedHex) {
-    // Already at the deterministic id (e.g. hydrated from a prior snapshot).
-    return;
-  }
-
-  // Create/re-open the entity at the deterministic id in the host, then swap
-  // the field to a collection wrapping that id. SharedStorage needs its writer
-  // set/frozen flag carried across; other collections re-open from id.
-  if (isShared) {
-    reopenSharedAt(snapshot.id, expectedId);
-  } else {
-    withId!(expectedId);
-  }
-  target[key] = instantiateCollection({ type: snapshot.type, id: expectedHex });
-
-  // Reclaim the random-id entity the field used to point at. This runs on
-  // fresh genesis state, so it is empty and the create+delete land in the same
-  // delta (every replica converges with no orphan). Best-effort: a benign
-  // leftover must never break init, so a cleanup failure is only logged.
-  try {
-    deleteCollection(hexToBytes(snapshot.id));
-  } catch (err) {
-    env.log(`[deterministic-ids] orphan cleanup skipped for '${key}': ${String(err)}`);
-  }
-
-  env.log(`[deterministic-ids] field '${key}' (${snapshot.type}) -> ${expectedHex.slice(0, 16)}…`);
 }
