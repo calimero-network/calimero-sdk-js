@@ -116,4 +116,55 @@ describe('logic entry points', () => {
       )
     ).toThrow(/setup/);
   });
+
+  it('lists a non-public initializer in the ABI', () => {
+    const abi = emitFrom(
+      'private-init.ts',
+      `
+      @Logic(S)
+      export class App {
+        @Init
+        private static setup(): S { return new S(); }
+        ping(): void {}
+      }
+      `
+    );
+    expect(abi.methods.map((m: { name: string }) => m.name).sort()).toEqual(['ping', 'setup']);
+  });
+
+  it('fails the build when two @Logic classes share a name', () => {
+    const first = path.join(appDir, 'v1.ts');
+    const second = path.join(appDir, 'v2.ts');
+    fs.writeFileSync(first, `@Logic(S)\nexport class App { adminReset(): void {} }\n`);
+    fs.writeFileSync(second, `@Logic(S)\nexport class App { private adminReset(): void {} }\n`);
+    expect(() => new AbiEmitter().analyzeFiles([first, second])).toThrow(/App/);
+  });
+
+  it('checks string-literal method names like identifiers', () => {
+    expect(() =>
+      emitFrom(
+        'string-key.ts',
+        `
+        @Logic(S)
+        export class Admin { private ['reset'](): void {} }
+
+        @Logic(S)
+        export class Public { reset(): void {} }
+        `
+      )
+    ).toThrow(/reset/);
+  });
+
+  it('fails the build on a computed method name', () => {
+    expect(() =>
+      emitFrom(
+        'computed-key.ts',
+        `
+        const name = 'reset';
+        @Logic(S)
+        export class App { [name](): void {} }
+        `
+      )
+    ).toThrow(/computed/);
+  });
 });

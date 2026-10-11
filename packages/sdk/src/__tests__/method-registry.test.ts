@@ -39,8 +39,8 @@ describe('method registry', () => {
     expect(exportedMethods(Vault)).toEqual(['withdraw']);
   });
 
-  it('registers no initializer the ABI manifest does not list', () => {
-    (globalThis as any).__CALIMERO_ABI_MANIFEST__ = abiWithMethods('deposit');
+  it('registers a non-public initializer the ABI manifest lists', () => {
+    (globalThis as any).__CALIMERO_ABI_MANIFEST__ = abiWithMethods('deposit', 'setup');
 
     class TillState {}
 
@@ -53,8 +53,8 @@ describe('method registry', () => {
       deposit(): void {}
     }
 
-    expect(snapshot().logic['Till'].init).toBeUndefined();
-    expect(runtimeLogicEntries().find(e => e.target === Till)?.init).toBeUndefined();
+    expect(snapshot().logic['Till'].init).toBe('setup');
+    expect(runtimeLogicEntries().find(e => e.target === Till)?.init).toBe('setup');
   });
 
   it('ignores an initializer registered under a non-string name', () => {
@@ -63,6 +63,13 @@ describe('method registry', () => {
     // TC39 decorators hand a method decorator a context object, not a property key.
     expect(() => registerInit(init as any, { kind: 'method', name: 'init' } as any)).not.toThrow();
     expect(snapshot().logic['init']?.init).toBeUndefined();
+  });
+
+  it('refuses @Init applied as a TC39 decorator', () => {
+    function init(): void {}
+    expect(() =>
+      Init(init as any, { kind: 'method', name: 'init' } as any, undefined as any)
+    ).toThrow(/experimentalDecorators/);
   });
 
   it('exports nothing without an ABI manifest', () => {
