@@ -32,6 +32,15 @@ import { createUnorderedMap, createCounter } from '@calimero-network/calimero-sd
   `new` (e.g. `new SortedMap()`).
 </Aside>
 
+Annotate every top-level collection field with its collection type
+(`items: UnorderedMap<string, string>`).
+The build records that type, and the runtime refuses a stored root document
+whose field names another collection id or another collection type.
+Each top-level collection lives at an id derived from its field name, so assign
+collection fields in the constructor or inline, never in a method.
+A collection field added in an upgrade is created at its derived id the first
+time the upgraded app loads its state.
+
 ## Common members
 
 Every collection exposes the same identity/serialization members:

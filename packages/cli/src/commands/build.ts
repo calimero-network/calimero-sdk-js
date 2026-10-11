@@ -15,6 +15,7 @@ import {
   generateStateSchema,
 } from '../compiler/abi.js';
 import { embedAbiSection } from '../compiler/embed-abi.js';
+import { generateStateFieldTypes } from '../abi/emitter.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -76,6 +77,7 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
       verbose: options.verbose,
       outputDir,
       abiManifest,
+      stateFieldTypes: generateStateFieldTypes(source),
     });
     signale.success('JavaScript bundled');
 
