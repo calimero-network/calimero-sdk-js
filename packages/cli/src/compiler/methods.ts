@@ -17,39 +17,52 @@ export interface MethodRegistrySnapshot {
   functions: string[];
 }
 
-export async function generateMethodsHeader(jsFile: string, outputDir: string): Promise<void> {
+export async function generateMethodsHeader(
+  jsFile: string,
+  outputDir: string,
+  abiMethods: string[]
+): Promise<void> {
   const jsCode = fs.readFileSync(jsFile, 'utf-8');
 
   fs.writeFileSync(path.join(outputDir, 'bundle.js'), jsCode, 'utf-8');
 
-  emitHeaders(outputDir, exportedMethods(await loadMethodRegistry(jsFile)));
+  emitHeaders(outputDir, exportedMethods(await loadMethodRegistry(jsFile), abiMethods));
 }
 
 /**
  * The wasm exports for a bundle: what its method registry holds, plus the
- * runtime's internal exports. Refuses a bundle that registers no entry point.
+ * runtime's internal exports. Refuses a registry that differs from the ABI methods.
  */
-export function exportedMethods(registry: MethodRegistrySnapshot | null): string[] {
+export function exportedMethods(
+  registry: MethodRegistrySnapshot | null,
+  abiMethods: string[]
+): string[] {
   if (!registry) {
     throw new Error('The bundle registered no method registry; is the @Logic class imported?');
   }
-  const methodSet = new Set<string>(INTERNAL_EXPORTS);
-  let entryPoints = 0;
+  const entryPoints = new Set<string>();
   Object.values(registry.logic).forEach(entry => {
-    entry.methods.forEach(method => methodSet.add(method));
-    entryPoints += entry.methods.length;
+    entry.methods.forEach(method => entryPoints.add(method));
     if (entry.init) {
-      methodSet.add(entry.init);
-      entryPoints += 1;
+      entryPoints.add(entry.init);
     }
   });
-  if (entryPoints === 0) {
+  registry.functions.forEach(fn => entryPoints.add(fn));
+  if (entryPoints.size === 0) {
     throw new Error(
       'The method registry holds no logic methods or initializer; nothing would be callable'
     );
   }
-  registry.functions.forEach(fn => methodSet.add(fn));
-  return Array.from(methodSet).sort();
+  const abi = new Set(abiMethods);
+  const unlisted = [...entryPoints].filter(name => !abi.has(name));
+  const unregistered = abiMethods.filter(name => !entryPoints.has(name));
+  if (unlisted.length > 0 || unregistered.length > 0) {
+    throw new Error(
+      `The runtime registry and the ABI disagree: registered but not in the ABI [${unlisted.join(', ')}], ` +
+        `in the ABI but not registered [${unregistered.join(', ')}]`
+    );
+  }
+  return [...INTERNAL_EXPORTS, ...entryPoints].sort();
 }
 
 async function loadMethodRegistry(jsFile: string): Promise<MethodRegistrySnapshot | null> {
