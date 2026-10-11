@@ -197,7 +197,26 @@ describe('top-level collections in the root document', () => {
     expect(persisted).toEqual([]);
   });
 
-  it('adds a collection field the stored document predates, at its derived id', () => {
+  it('refuses to merge an incoming document that lacks a declared collection field', () => {
+    const response = computeMergeResponse(
+      mergeRequest(rootWith({}, 200), rootWithout(), 100n, 200n)
+    );
+    expect(responseTag(response)).toBe(REFUSED);
+  });
+
+  it('surfaces a refused stored document instead of starting from fresh state', () => {
+    class Notes {
+      title = '';
+      items = new UnorderedMap<string, string>();
+    }
+    hostHoldsRoot(rootWith({ id: otherId }, 200));
+    StateManager.setStateClass(Notes);
+    StateManager.setCurrent(null);
+
+    expect(() => StateManager.load()).toThrow(/items/);
+  });
+
+  it('refuses a stored document that lacks a collection field added in an upgrade', () => {
     class NotesV2 {
       title = '';
       items = new UnorderedMap<string, string>();
@@ -211,32 +230,25 @@ describe('top-level collections in the root document', () => {
     StateManager.setStateClass(NotesV2);
     StateManager.setCurrent(null);
 
-    const state = StateManager.load();
-
-    expect(state.items.id()).toBe(derivedId('items'));
-    expect(state.tags.id()).toBe(derivedId('tags'));
-    expect(() => saveRootState(state)).not.toThrow();
-    expect(persisted).toHaveLength(1);
+    expect(() => StateManager.load()).toThrow(/tags/);
   });
 
-  it("reopens, without resetting, a collection already at a dropped field's derived id", () => {
+  it('refuses, without touching it, a missing field whose id a collection already holds', () => {
     class Notes {
       title = '';
       items = new UnorderedMap<string, string>();
     }
     mapNewWithId(hexToBytes(derivedId('items')));
-    new UnorderedMap<string, string>({ id: derivedId('items') }).set('kept', 'yes');
+    new UnorderedMap<string, string>({ id: derivedId('items') }).set('planted', 'yes');
     hostHoldsRoot(rootWithout());
     StateManager.setStateClass(Notes);
     StateManager.setCurrent(null);
 
-    const state = StateManager.load();
-
-    expect(state.items.id()).toBe(derivedId('items'));
-    expect(state.items.get('kept')).toBe('yes');
+    expect(() => StateManager.load()).toThrow(/items/);
+    expect(new UnorderedMap<string, string>({ id: derivedId('items') }).get('planted')).toBe('yes');
   });
 
-  it("keeps the writer set of a shared cell already at a dropped field's derived id", () => {
+  it('refuses, without touching it, a missing shared field whose id a cell already holds', () => {
     const owner = new Uint8Array(32).fill(7);
     const caller = new Uint8Array(32).fill(9);
     class Settings {
@@ -245,16 +257,12 @@ describe('top-level collections in the root document', () => {
     }
     (globalThis as any).__CALIMERO_STATE_FIELD_TYPES__ = { config: 'SharedStorage' };
     const cellId = hexToBytes(derivedId('config'));
-    const ownerOnly = new Uint8Array(32);
-    ownerOnly.set(owner);
-    sharedNewWithId(cellId, ownerOnly, false);
+    sharedNewWithId(cellId, owner, false);
     hostHoldsRoot(rootWithout());
     StateManager.setStateClass(Settings);
     StateManager.setCurrent(null);
 
-    const state = StateManager.load();
-
-    expect(state.config.id()).toBe(derivedId('config'));
+    expect(() => StateManager.load()).toThrow(/config/);
     expect(sharedWriters(cellId)).toEqual([owner]);
   });
 });
