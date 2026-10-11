@@ -27,23 +27,26 @@ export async function generateMethodsHeader(jsFile: string, outputDir: string): 
 
 /**
  * The wasm exports for a bundle: what its method registry holds, plus the
- * runtime's internal exports. Refuses a bundle that registers no logic method.
+ * runtime's internal exports. Refuses a bundle that registers no entry point.
  */
 export function exportedMethods(registry: MethodRegistrySnapshot | null): string[] {
   if (!registry) {
     throw new Error('The bundle registered no method registry; is the @Logic class imported?');
   }
   const methodSet = new Set<string>(INTERNAL_EXPORTS);
-  let logicMethods = 0;
+  let entryPoints = 0;
   Object.values(registry.logic).forEach(entry => {
     entry.methods.forEach(method => methodSet.add(method));
-    logicMethods += entry.methods.length;
+    entryPoints += entry.methods.length;
     if (entry.init) {
       methodSet.add(entry.init);
+      entryPoints += 1;
     }
   });
-  if (logicMethods === 0) {
-    throw new Error('The method registry holds no logic methods; nothing would be callable');
+  if (entryPoints === 0) {
+    throw new Error(
+      'The method registry holds no logic methods or initializer; nothing would be callable'
+    );
   }
   registry.functions.forEach(fn => methodSet.add(fn));
   return Array.from(methodSet).sort();

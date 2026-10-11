@@ -178,7 +178,7 @@ jobs:
             if ! grep -q '"build:manual"' "$dir/package.json" 2>/dev/null; then
               continue
             fi
-            cd "$dir" && pnpm build:manual && cd ../..
+            (cd "$dir" && pnpm build:manual)
           done
 
       - name: Check the kv-store wasm declares its handlers
