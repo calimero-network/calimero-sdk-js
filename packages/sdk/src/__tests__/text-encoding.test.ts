@@ -92,4 +92,17 @@ describe('TextEncoder/TextDecoder polyfill', () => {
     const view = new Uint8Array([0x61, 0xc3, 0xa9, 0x62]).subarray(1, 3);
     expect(new Decoder().decode(view)).toBe('é');
   });
+
+  it('round-trips a large non-ASCII string', () => {
+    const str = ('aé中' + String.fromCodePoint(0x1d538)).repeat(50_000);
+    const bytes = new Encoder().encode(str);
+    expect(Array.from(bytes)).toEqual(Array.from(new NativeTextEncoder().encode(str)));
+    expect(new Decoder().decode(bytes)).toBe(str);
+  });
+
+  it('coerces a non-string argument like the native encoder', () => {
+    const encode = (value: unknown) => Array.from(new Encoder().encode(value as string));
+    expect(encode(123)).toEqual(Array.from(new NativeTextEncoder().encode('123')));
+    expect(encode(null)).toEqual(Array.from(new NativeTextEncoder().encode('null')));
+  });
 });
