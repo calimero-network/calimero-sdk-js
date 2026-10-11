@@ -50,12 +50,12 @@ function normalizeLogicName(target: new (...args: any[]) => any): string {
   return LOGIC_FALLBACK_NAME;
 }
 
-function isExportable(name: string | undefined): name is string {
-  return !!name && name !== 'constructor' && !name.startsWith('_');
+function isExportable(name: unknown): name is string {
+  return typeof name === 'string' && name !== '' && name !== 'constructor' && !name.startsWith('_');
 }
 
 // Entry points are the methods the ABI emitter found public in the TS source; no manifest, none.
-function isAbiEntryPoint(name: string): boolean {
+function isAbiEntryPoint(name: unknown): boolean {
   return isExportable(name) && !!getAbiManifest()?.methods.some(method => method.name === name);
 }
 
