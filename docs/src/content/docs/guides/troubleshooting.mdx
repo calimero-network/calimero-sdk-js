@@ -56,10 +56,13 @@ A method isn't exported as a service function. Check that:
 
 1. It lives on the `@Logic`-decorated class (not on `@State`).
 2. It is not the `constructor` (and not the `@Init` static method).
-3. The build completed without errors.
+3. It is public: not `private`, not `protected`, and not named with a leading `_`.
+4. The build completed without errors.
 
-Every non-static method on the `@Logic` class is registered; static methods are
-not, aside from the `@Init` initializer.
+Every non-static, public method on the `@Logic` class is registered; static methods
+are not, aside from the `@Init` initializer.
+The build's ABI manifest is the list of entry points, and the runtime exports
+exactly the methods it names.
 
 ### "ABI manifest is required but not available"
 

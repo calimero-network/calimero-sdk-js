@@ -1,3 +1,5 @@
+import { getAbiManifest } from '../abi/helpers';
+
 export interface MethodRegistrySnapshot {
   logic: Record<string, { methods: string[]; init?: string; mutating: Record<string, boolean> }>;
   functions: string[];
@@ -162,9 +164,11 @@ export function registerLogic(
 
   const logicName = normalizeLogicName(target);
   const entry = ensureLogicEntry(logicName);
+  // Entry points are the methods the ABI emitter found public in the TS source; no manifest, none.
+  const abiMethods = new Set(getAbiManifest()?.methods.map(m => m.name) ?? []);
 
   for (const method of methods) {
-    if (isExportable(method)) {
+    if (isExportable(method) && abiMethods.has(method)) {
       addMethodToEntry(entry, method);
       if (entry.mutating[method] === undefined) {
         entry.mutating[method] = true;

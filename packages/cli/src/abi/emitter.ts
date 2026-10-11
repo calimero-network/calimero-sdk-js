@@ -1166,8 +1166,7 @@ export class AbiEmitter {
         const methodName = member.key.name;
 
         const decorators = member.decorators || [];
-
-        // Skip private methods and constructor
+        // TypeScript erases `private`/`protected`, so this list is what keeps them uncallable
         if (
           methodName.startsWith('_') ||
           methodName === 'constructor' ||
