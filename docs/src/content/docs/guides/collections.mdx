@@ -41,8 +41,10 @@ collection fields in the constructor or inline, never in a method.
 Adding a top-level collection field to an app that already holds state is
 refused at load: any member can write to the new field's derived id before the
 upgrade lands, so the runtime will not adopt whatever collection sits there.
-Removing a top-level collection field is fine: the stored entry for a field the
-app no longer declares is ignored.
+Removing a top-level collection field loads fine, but the first save or merge
+drops the field from the root document for good.
+Re-adding it later, or rolling back to a version that still declares it, is then
+refused, and the old collection's data stays unreachable.
 Renaming a field removes the old one and adds a new one, so it is refused, and so
 is changing a field's collection type.
 
