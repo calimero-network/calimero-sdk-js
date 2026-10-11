@@ -158,6 +158,7 @@ export class AbiEmitter {
 
       traverse(ast, {
         ClassDeclaration: (nodePath: any) => this.analyzeClassOnce(nodePath.node, analyzedClasses),
+        ClassExpression: (nodePath: any) => this.analyzeClassOnce(nodePath.node, analyzedClasses),
         ExportNamedDeclaration: (nodePath: any) => {
           if (nodePath.node.declaration?.type === 'ClassDeclaration') {
             this.analyzeClassOnce(nodePath.node.declaration, analyzedClasses);
@@ -385,6 +386,7 @@ export class AbiEmitter {
     // First, analyze decorated classes (State, Logic, Event)
     traverse(ast, {
       ClassDeclaration: (nodePath: any) => this.analyzeClassOnce(nodePath.node, analyzedClasses),
+      ClassExpression: (nodePath: any) => this.analyzeClassOnce(nodePath.node, analyzedClasses),
       ExportNamedDeclaration: (nodePath: any) => {
         if (nodePath.node.declaration?.type === 'ClassDeclaration') {
           this.analyzeClassOnce(nodePath.node.declaration, analyzedClasses);
@@ -852,19 +854,23 @@ export class AbiEmitter {
   }
 
   /**
-   * Analyzes each class name once; a second @Logic class of the same name would
-   * register its methods under the first one's ABI entries, so it fails the build.
+   * Analyzes each class declaration name once. A @Logic class the ABI cannot name,
+   * or a second one of the same name, would hide its methods, so it fails the build.
    */
   private analyzeClassOnce(classNode: any, analyzed: Map<string, any>): void {
+    const isLogic = this.isLogicClass(classNode);
+    if (isLogic && (classNode.type !== 'ClassDeclaration' || !classNode.id)) {
+      throw new Error('A @Logic class must be a named class declaration');
+    }
     const className = classNode.id?.name;
-    if (!className) {
+    if (!className || classNode.type !== 'ClassDeclaration') {
       return;
     }
     const seen = analyzed.get(className);
     if (seen === undefined) {
       analyzed.set(className, classNode);
       this.analyzeClass(classNode);
-    } else if (seen !== classNode && (this.isLogicClass(seen) || this.isLogicClass(classNode))) {
+    } else if (seen !== classNode && (this.isLogicClass(seen) || isLogic)) {
       throw new Error(`@Logic class '${className}' is declared more than once`);
     }
   }

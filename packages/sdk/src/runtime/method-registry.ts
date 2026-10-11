@@ -66,6 +66,15 @@ function isAbiMethod(name: unknown): name is string {
   );
 }
 
+// Dispatchers are keyed by method name alone, so two @Logic classes cannot share one.
+function claimEntryPoint(target: new (...args: any[]) => any, name: string): void {
+  for (const entry of runtimeLogic.values()) {
+    if (entry.target !== target && (entry.methods.has(name) || entry.init === name)) {
+      throw new Error(`Entry point '${name}' is already registered by another @Logic class`);
+    }
+  }
+}
+
 function addMethodToEntry(entry: { methods: string[]; init?: string }, method: string): void {
   if (!entry.methods.includes(method)) {
     entry.methods.push(method);
@@ -179,6 +188,7 @@ export function registerLogic(
 
   for (const method of methods) {
     if (isAbiEntryPoint(method)) {
+      claimEntryPoint(target, method);
       addMethodToEntry(entry, method);
       if (entry.mutating[method] === undefined) {
         entry.mutating[method] = true;
@@ -199,6 +209,7 @@ export function registerLogic(
 
   const initMethod = (target as any)._calimeroInitMethod;
   if (isAbiMethod(initMethod)) {
+    claimEntryPoint(target, initMethod);
     entry.init = initMethod;
     updateRuntimeInit(target, stateClass, initMethod);
   }
@@ -232,6 +243,7 @@ export function registerInit(target: new (...args: any[]) => any, methodName: st
   if (!isAbiMethod(methodName)) {
     return;
   }
+  claimEntryPoint(target, methodName);
 
   const logicName = normalizeLogicName(target);
   const entry = ensureLogicEntry(logicName);
