@@ -24,9 +24,15 @@ describe('Method Extraction', () => {
     expect(() => exportedMethods(null)).toThrow(/registry/);
   });
 
-  it('fails when the registry holds no logic methods', () => {
+  it('exports an initializer-only app', () => {
+    expect(
+      exportedMethods({ logic: { SchemaLogic: { methods: [], init: 'init' } }, functions: [] })
+    ).toEqual([...INTERNAL_EXPORTS, 'init'].sort());
+  });
+
+  it('fails when the registry holds no logic methods or initializer', () => {
     expect(() =>
-      exportedMethods({ logic: { CounterLogic: { methods: [], init: 'init' } }, functions: [] })
+      exportedMethods({ logic: { CounterLogic: { methods: [] } }, functions: [] })
     ).toThrow(/no logic methods/);
   });
 });
