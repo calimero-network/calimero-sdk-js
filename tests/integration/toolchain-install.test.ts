@@ -82,6 +82,29 @@ describe('toolchain installer', () => {
     expect(fs.existsSync(path.join(cliDir, 'deps/quickjs/bin/clang'))).toBe(true);
     expect(fs.existsSync(path.join(cliDir, 'deps/wasi-sdk/bin/clang'))).toBe(true);
     expect(fs.existsSync(path.join(cliDir, 'deps/binaryen/top/bin/clang'))).toBe(true);
+    expect(fs.readdirSync(cliDir).sort()).toEqual(['deps', 'package.json', 'scripts']);
+  });
+
+  it('leaves an existing deps directory untouched when a later asset fails its hash', () => {
+    const sha256 = createHash('sha256').update(fs.readFileSync(asset)).digest('hex');
+    for (const [tool, builds] of Object.entries(realManifest)) {
+      for (const build of Object.values(builds)) {
+        if (tool !== 'quickjs') {
+          build.sha256 = sha256;
+        }
+      }
+    }
+    writeManifest(realManifest);
+    fs.mkdirSync(path.join(cliDir, 'deps'));
+    fs.writeFileSync(path.join(cliDir, 'deps/qjsc'), 'previous');
+
+    const result = install();
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('sha256 mismatch');
+    expect(fs.readdirSync(path.join(cliDir, 'deps'))).toEqual(['qjsc']);
+    expect(fs.readFileSync(path.join(cliDir, 'deps/qjsc'), 'utf8')).toBe('previous');
+    expect(fs.readdirSync(cliDir).sort()).toEqual(['deps', 'package.json', 'scripts']);
   });
 
   it('fails before downloading when the platform has no pinned build', () => {
