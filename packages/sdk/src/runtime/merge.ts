@@ -151,9 +151,9 @@ export function mergeRootValues(
 }
 
 /**
- * Pick a single collection reference. Equal ids (the deterministic-id case)
- * unify to the same entity; unequal ids fall back to the lexicographically
- * smaller id so both nodes agree.
+ * Pick a single collection reference. Parsed documents always carry the id
+ * derived from the field name; the smaller-id tiebreak only keeps this pure
+ * helper symmetric for arbitrary input.
  */
 function pickCollection(
   local: CollectionSnapshot | undefined,
@@ -209,13 +209,14 @@ export function computeMergeResponse(requestBytes: Uint8Array): Uint8Array {
   try {
     const request = decodeMergeRootStateRequest(requestBytes);
 
+    const incoming = parseRootDocument(request.incoming);
+
     // Bootstrap fast-path: existing side never written -> take incoming.
     if (request.existingCreatedAt === request.existingTs) {
       return encodeMergeRootStateResponseOk(request.incoming);
     }
 
     const existing = parseRootDocument(request.existing);
-    const incoming = parseRootDocument(request.incoming);
     const merged = mergeRootDocuments(existing, incoming);
     return encodeMergeRootStateResponseOk(serializeRootDocument(merged));
   } catch (error) {
