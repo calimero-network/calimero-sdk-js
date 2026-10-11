@@ -49,12 +49,19 @@ if (typeof TextDecoder === 'undefined') {
     readonly fatal: boolean;
     readonly ignoreBOM: boolean;
 
-    constructor(_label = 'utf-8', options: { fatal?: boolean; ignoreBOM?: boolean } = {}) {
+    constructor(label = 'utf-8', options: { fatal?: boolean; ignoreBOM?: boolean } = {}) {
+      const normalized = String(label).trim().toLowerCase();
+      if (normalized !== 'utf-8' && normalized !== 'utf8') {
+        throw new RangeError(`Unsupported encoding: ${label}`);
+      }
       this.fatal = options.fatal === true;
       this.ignoreBOM = options.ignoreBOM === true;
     }
 
-    decode(input?: ArrayBuffer | ArrayBufferView): string {
+    decode(input?: ArrayBuffer | ArrayBufferView, options: { stream?: boolean } = {}): string {
+      if (options.stream) {
+        throw new TypeError('Streaming decode is not supported');
+      }
       const bytes =
         input === undefined
           ? new Uint8Array(0)

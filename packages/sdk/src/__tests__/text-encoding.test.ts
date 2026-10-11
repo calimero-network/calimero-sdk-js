@@ -100,6 +100,20 @@ describe('TextEncoder/TextDecoder polyfill', () => {
     expect(new Decoder().decode(bytes)).toBe(str);
   });
 
+  it('accepts only UTF-8 labels', () => {
+    for (const label of ['utf-8', 'UTF-8', ' utf8 ', 'Utf8']) {
+      expect(new Decoder(label).encoding).toBe('utf-8');
+    }
+    for (const label of ['latin1', 'utf-16le', 'ascii', '']) {
+      expect(() => new Decoder(label)).toThrow(RangeError);
+    }
+  });
+
+  it('refuses streaming decode instead of ignoring it', () => {
+    expect(() => new Decoder().decode(new Uint8Array([0xc3]), { stream: true })).toThrow();
+    expect(new Decoder().decode(new Uint8Array([0x61]), { stream: false })).toBe('a');
+  });
+
   it('coerces a non-string argument like the native encoder', () => {
     const encode = (value: unknown) => Array.from(new Encoder().encode(value as string));
     expect(encode(123)).toEqual(Array.from(new NativeTextEncoder().encode('123')));
