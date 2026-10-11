@@ -148,7 +148,7 @@ export class AbiEmitter {
 
     // Second pass: Find decorated classes from all files
     // Track analyzed classes to avoid duplicates (exported classes appear in both ClassDeclaration and ExportNamedDeclaration)
-    const analyzedClasses = new Set<string>();
+    const analyzedClasses = new Map<string, any>();
     for (const filePath of filePaths) {
       const sourceCode = fs.readFileSync(filePath, 'utf-8');
       const ast = parse(sourceCode, {
@@ -157,20 +157,10 @@ export class AbiEmitter {
       });
 
       traverse(ast, {
-        ClassDeclaration: (nodePath: any) => {
-          const className = nodePath.node.id?.name;
-          if (className && !analyzedClasses.has(className)) {
-            analyzedClasses.add(className);
-            this.analyzeClass(nodePath.node);
-          }
-        },
+        ClassDeclaration: (nodePath: any) => this.analyzeClassOnce(nodePath.node, analyzedClasses),
         ExportNamedDeclaration: (nodePath: any) => {
           if (nodePath.node.declaration?.type === 'ClassDeclaration') {
-            const className = nodePath.node.declaration.id?.name;
-            if (className && !analyzedClasses.has(className)) {
-              analyzedClasses.add(className);
-              this.analyzeClass(nodePath.node.declaration);
-            }
+            this.analyzeClassOnce(nodePath.node.declaration, analyzedClasses);
           }
         },
       });
@@ -390,24 +380,14 @@ export class AbiEmitter {
 
     // Second pass: Find all classes (decorated and referenced)
     // Track analyzed classes to avoid duplicates (exported classes appear in both ClassDeclaration and ExportNamedDeclaration)
-    const analyzedClasses = new Set<string>();
+    const analyzedClasses = new Map<string, any>();
 
     // First, analyze decorated classes (State, Logic, Event)
     traverse(ast, {
-      ClassDeclaration: (nodePath: any) => {
-        const className = nodePath.node.id?.name;
-        if (className && !analyzedClasses.has(className)) {
-          analyzedClasses.add(className);
-          this.analyzeClass(nodePath.node);
-        }
-      },
+      ClassDeclaration: (nodePath: any) => this.analyzeClassOnce(nodePath.node, analyzedClasses),
       ExportNamedDeclaration: (nodePath: any) => {
         if (nodePath.node.declaration?.type === 'ClassDeclaration') {
-          const className = nodePath.node.declaration.id?.name;
-          if (className && !analyzedClasses.has(className)) {
-            analyzedClasses.add(className);
-            this.analyzeClass(nodePath.node.declaration);
-          }
+          this.analyzeClassOnce(nodePath.node.declaration, analyzedClasses);
         }
       },
     });
@@ -871,6 +851,28 @@ export class AbiEmitter {
     return this.generateManifest();
   }
 
+  /**
+   * Analyzes each class name once; a second @Logic class of the same name would
+   * register its methods under the first one's ABI entries, so it fails the build.
+   */
+  private analyzeClassOnce(classNode: any, analyzed: Map<string, any>): void {
+    const className = classNode.id?.name;
+    if (!className) {
+      return;
+    }
+    const seen = analyzed.get(className);
+    if (seen === undefined) {
+      analyzed.set(className, classNode);
+      this.analyzeClass(classNode);
+    } else if (seen !== classNode && (this.isLogicClass(seen) || this.isLogicClass(classNode))) {
+      throw new Error(`@Logic class '${className}' is declared more than once`);
+    }
+  }
+
+  private isLogicClass(classNode: any): boolean {
+    return (classNode.decorators || []).some((d: any) => this.isCalimeroDecorator(d, 'Logic'));
+  }
+
   private analyzeClass(classNode: any): void {
     const className = classNode.id?.name;
     if (!className) return;
@@ -1165,24 +1167,36 @@ export class AbiEmitter {
     this.logicMethodNames.add(name);
   }
 
+  /**
+   * A @Logic method's runtime name: an identifier or a string literal, written
+   * `name()`, `'name'()` or `['name']()`. Any other computed name fails the build.
+   */
+  private logicMethodName(member: any): string {
+    if (member.key?.type === 'StringLiteral' || member.key?.type === 'Literal') {
+      return String(member.key.value);
+    }
+    if (member.computed || typeof member.key?.name !== 'string') {
+      throw new Error('@Logic classes cannot declare methods with computed names');
+    }
+    return member.key.name;
+  }
+
   private analyzeLogicClass(classNode: any): void {
     classNode.body.body.forEach((member: any) => {
       // Babel uses 'ClassMethod', TypeScript uses 'MethodDefinition'
-      if (
-        (member.type === 'MethodDefinition' || member.type === 'ClassMethod') &&
-        member.key?.name
-      ) {
-        const methodName = member.key.name;
+      if (member.type === 'MethodDefinition' || member.type === 'ClassMethod') {
+        const methodName = this.logicMethodName(member);
         const decorators = member.decorators || [];
         const isInit = decorators.some((d: any) => this.isCalimeroDecorator(d, 'Init'));
 
         // TypeScript erases `private`/`protected`, so this list is what keeps them uncallable
         const isEntryPoint =
-          member.kind === 'method' &&
-          !methodName.startsWith('_') &&
-          member.accessibility !== 'private' &&
-          member.accessibility !== 'protected' &&
-          (!member.static || isInit);
+          isInit ||
+          (member.kind === 'method' &&
+            !methodName.startsWith('_') &&
+            member.accessibility !== 'private' &&
+            member.accessibility !== 'protected' &&
+            !member.static);
         this.claimLogicMethodName(methodName, isEntryPoint);
         if (!isEntryPoint) {
           return;

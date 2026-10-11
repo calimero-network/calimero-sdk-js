@@ -21,6 +21,9 @@ export function Init(target: any, propertyKey: string, _descriptor: PropertyDesc
   if (typeof target !== 'function') {
     throw new Error('@Init decorator can only be used on static methods');
   }
+  if (typeof propertyKey !== 'string') {
+    throw new Error('@Init needs legacy decorators; enable experimentalDecorators in tsconfig');
+  }
 
   target._calimeroInitMethod = propertyKey;
 

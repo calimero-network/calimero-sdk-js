@@ -56,7 +56,14 @@ function isExportable(name: unknown): name is string {
 
 // Entry points are the methods the ABI emitter found public in the TS source; no manifest, none.
 function isAbiEntryPoint(name: unknown): boolean {
-  return isExportable(name) && !!getAbiManifest()?.methods.some(method => method.name === name);
+  return isExportable(name) && isAbiMethod(name);
+}
+
+// An initializer is an entry point whatever its accessibility; the dispatcher refuses re-entry.
+function isAbiMethod(name: unknown): name is string {
+  return (
+    typeof name === 'string' && !!getAbiManifest()?.methods.some(method => method.name === name)
+  );
 }
 
 function addMethodToEntry(entry: { methods: string[]; init?: string }, method: string): void {
@@ -191,7 +198,7 @@ export function registerLogic(
   }
 
   const initMethod = (target as any)._calimeroInitMethod;
-  if (typeof initMethod === 'string' && isAbiEntryPoint(initMethod)) {
+  if (isAbiMethod(initMethod)) {
     entry.init = initMethod;
     updateRuntimeInit(target, stateClass, initMethod);
   }
@@ -222,7 +229,7 @@ export function markMethodNonMutating(
 
 export function registerInit(target: new (...args: any[]) => any, methodName: string): void {
   ensureGlobalRegistry();
-  if (!isAbiEntryPoint(methodName)) {
+  if (!isAbiMethod(methodName)) {
     return;
   }
 

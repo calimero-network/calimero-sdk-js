@@ -80,7 +80,11 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
 
     // Step 5: Generate methods header
     signale.await('Extracting service methods...');
-    await generateMethodsHeader(jsBundle, outputDir);
+    await generateMethodsHeader(
+      jsBundle,
+      outputDir,
+      abiManifest.methods.map((method: { name: string }) => method.name)
+    );
     signale.success('Methods extracted');
 
     // Step 6: Compile to C with QuickJS
