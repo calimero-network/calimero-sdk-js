@@ -16,7 +16,7 @@
  *
  * Bootstrap fast-path: if `existing_created_at == existing_ts` the existing
  * side was created but never written, so the incoming doc, once it parses, is
- * returned verbatim.
+ * returned in its declared-only form.
  */
 
 import * as env from '../env/api';
@@ -212,18 +212,13 @@ export function computeMergeResponse(requestBytes: Uint8Array): Uint8Array {
 
     const incoming = parseRootDocument(request.incoming);
 
-    // Bootstrap fast-path: existing side never written -> take incoming.
+    // Bootstrap fast-path: existing side never written -> take incoming, re-encoded so
+    // only declared fields are persisted.
     if (request.existingCreatedAt === request.existingTs) {
-      return encodeMergeRootStateResponseOk(request.incoming);
+      return encodeMergeRootStateResponseOk(serializeRootDocument(incoming));
     }
 
-    let existing: RootDocument;
-    try {
-      existing = parseRootDocument(request.existing);
-    } catch {
-      // A stored root this build refuses must not keep a valid peer root from healing it.
-      return encodeMergeRootStateResponseOk(request.incoming);
-    }
+    const existing = parseRootDocument(request.existing);
     const merged = mergeRootDocuments(existing, incoming);
     return encodeMergeRootStateResponseOk(serializeRootDocument(merged));
   } catch (error) {
