@@ -1,4 +1,5 @@
 import './setup';
+import { Init } from '../decorators/init';
 import { Logic } from '../decorators/logic';
 import { runtimeLogicEntries, snapshot } from '../runtime/method-registry';
 
@@ -36,6 +37,24 @@ describe('method registry', () => {
 
     expect(snapshot().logic['Vault'].methods).toEqual(['withdraw']);
     expect(exportedMethods(Vault)).toEqual(['withdraw']);
+  });
+
+  it('registers no initializer the ABI manifest does not list', () => {
+    (globalThis as any).__CALIMERO_ABI_MANIFEST__ = abiWithMethods('deposit');
+
+    class TillState {}
+
+    @Logic(TillState)
+    class Till extends TillState {
+      @Init
+      private static setup(): TillState {
+        return new TillState();
+      }
+      deposit(): void {}
+    }
+
+    expect(snapshot().logic['Till'].init).toBeUndefined();
+    expect(runtimeLogicEntries().find(e => e.target === Till)?.init).toBeUndefined();
   });
 
   it('exports nothing without an ABI manifest', () => {
