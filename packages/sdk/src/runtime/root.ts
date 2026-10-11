@@ -1,6 +1,11 @@
 import * as env from '../env/api';
 import { serialize, deserialize } from '../utils/serialize';
-import { CollectionSnapshot, instantiateCollection, snapshotCollection } from './collections';
+import {
+  CollectionSnapshot,
+  instantiateCollection,
+  isRegisteredCollectionType,
+  snapshotCollection,
+} from './collections';
 import { getAbiManifest, getStateRootType } from '../abi/helpers';
 import { serializeWithAbi, deserializeWithAbi } from '../utils/abi-serialize';
 import { BorshWriter } from '../borsh/encoder';
@@ -51,13 +56,33 @@ function stateTypeRefFromAbi(): { stateTypeRef: TypeRef; abi: ReturnType<typeof 
 }
 
 /**
- * Refuses collections not at the id derived from their field name, so no root
- * document can point a field at a collection of a writer's choosing.
+ * The collection type the build recorded for a @State field, if it holds one.
  */
-function checkCollectionIds(collections: Record<string, CollectionSnapshot>): void {
+export function stateCollectionType(field: string): string | undefined {
+  const type = (globalThis as any).__CALIMERO_STATE_FIELD_TYPES__?.[field];
+  return typeof type === 'string' && isRegisteredCollectionType(type) ? type : undefined;
+}
+
+/**
+ * The @State fields the build recorded as holding a collection.
+ */
+export function declaredCollectionFields(): string[] {
+  return Object.keys((globalThis as any).__CALIMERO_STATE_FIELD_TYPES__ ?? {}).filter(field =>
+    stateCollectionType(field)
+  );
+}
+
+/**
+ * Refuses a collection field whose id is not derived from its name or whose type
+ * is not the field's declared one, so no writer can repoint or retype it.
+ */
+function checkCollections(collections: Record<string, CollectionSnapshot>): void {
   for (const [field, snapshot] of Object.entries(collections)) {
     if (snapshot.id !== bytesToHex(computeCollectionId(ROOT_ID, field))) {
       throw new Error(`Collection field '${field}' is not at the id derived from its name`);
+    }
+    if (snapshot.type !== stateCollectionType(field)) {
+      throw new Error(`Collection field '${field}' is not of its declared collection type`);
     }
   }
 }
@@ -87,7 +112,7 @@ export function parseRootDocument(source: Uint8Array): RootDocument {
       : { collections: {}, metadata: null };
 
   const collections = collectionsAndMetadata.collections || {};
-  checkCollectionIds(collections);
+  checkCollections(collections);
 
   const now = Number(env.timeNow());
   return {
@@ -150,7 +175,7 @@ export function saveRootState(state: any): Uint8Array {
 
     doc.values[key] = value;
   }
-  checkCollectionIds(doc.collections);
+  checkCollections(doc.collections);
 
   // ABI-aware serialization is required
   const abi = getAbiManifest();
@@ -347,7 +372,7 @@ export function loadRootState<T>(stateClass: { new (...args: any[]): T }): T | n
   ) {
     throw new Error('Persisted state document missing required fields');
   }
-  checkCollectionIds(doc.collections);
+  checkCollections(doc.collections);
 
   const instance: any = typeof stateClass === 'function' ? Object.create(stateClass.prototype) : {};
   const target = instance as Record<string, unknown>;
@@ -376,7 +401,7 @@ export function loadRootState<T>(stateClass: { new (...args: any[]): T }): T | n
 
   const values = doc.values ?? {};
   for (const [key, value] of Object.entries(values)) {
-    if (value === undefined) {
+    if (value === undefined || key in collections) {
       continue;
     }
     const current = target[key];

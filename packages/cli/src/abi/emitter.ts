@@ -93,6 +93,7 @@ export class AbiEmitter {
   private methods: Method[] = [];
   private events: Event[] = [];
   private stateRoot?: string;
+  private stateFields: Record<string, string> = {}; // @State field -> annotated type name
   private abstractClasses: Map<string, any> = new Map(); // Track abstract classes for variant analysis
 
   /**
@@ -113,6 +114,7 @@ export class AbiEmitter {
     this.methods = [];
     this.events = [];
     this.stateRoot = undefined;
+    this.stateFields = {};
 
     // First pass: Extract all type aliases and interfaces from all files
     for (const filePath of filePaths) {
@@ -351,6 +353,7 @@ export class AbiEmitter {
     this.methods = [];
     this.events = [];
     this.stateRoot = undefined;
+    this.stateFields = {};
 
     // First pass: Extract type aliases and interfaces, and store abstract classes
     traverse(ast, {
@@ -885,7 +888,7 @@ export class AbiEmitter {
 
     if (hasStateDecorator) {
       this.stateRoot = className;
-      this.analyzeStateClass(classNode);
+      this.analyzeStateClass(classNode, true);
     }
 
     if (hasLogicDecorator) {
@@ -926,7 +929,7 @@ export class AbiEmitter {
     }
   }
 
-  private analyzeStateClass(classNode: any): void {
+  private analyzeStateClass(classNode: any, isStateRoot = false): void {
     const className = classNode.id?.name;
     if (!className) return;
 
@@ -942,6 +945,14 @@ export class AbiEmitter {
             name: fieldName,
             type: typeRef,
           });
+          const annotated = member.typeAnnotation?.typeAnnotation;
+          if (
+            isStateRoot &&
+            annotated?.type === 'TSTypeReference' &&
+            annotated.typeName?.type === 'Identifier'
+          ) {
+            this.stateFields[fieldName] = annotated.typeName.name;
+          }
         }
       }
     });
@@ -2029,6 +2040,14 @@ export class AbiEmitter {
   /**
    * Generate manifest in Rust ABI format
    */
+  /**
+   * The annotated type name of each @State field; the runtime checks a stored
+   * collection field's type against it.
+   */
+  public stateFieldTypes(): Record<string, string> {
+    return { ...this.stateFields };
+  }
+
   public generateManifestRustFormat(): any {
     return {
       schema_version: 'wasm-abi/1',
@@ -2493,6 +2512,17 @@ export function generateAbiManifest(filePath: string): AbiManifest {
  * Generate ABI manifest in Rust-compatible format
  */
 export function generateAbiManifestRustFormat(filePath: string): any {
+  return analyzeProject(filePath).generateManifestRustFormat();
+}
+
+/**
+ * The annotated type name of each @State field in the project of `filePath`.
+ */
+export function generateStateFieldTypes(filePath: string): Record<string, string> {
+  return analyzeProject(filePath).stateFieldTypes();
+}
+
+function analyzeProject(filePath: string): AbiEmitter {
   const emitter = new AbiEmitter();
 
   // Get the directory containing the entry file
@@ -2505,7 +2535,7 @@ export function generateAbiManifestRustFormat(filePath: string): any {
   if (allTsFiles.length === 0) {
     // Fallback to single file if no other files found
     emitter.analyzeFile(filePath);
-    return emitter.generateManifestRustFormat();
+    return emitter;
   }
 
   // Ensure the entry file is included
@@ -2516,7 +2546,7 @@ export function generateAbiManifestRustFormat(filePath: string): any {
 
   // Process all files
   emitter.analyzeFiles(allTsFiles);
-  return emitter.generateManifestRustFormat();
+  return emitter;
 }
 
 /**

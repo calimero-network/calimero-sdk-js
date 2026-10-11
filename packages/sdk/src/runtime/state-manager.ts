@@ -6,6 +6,7 @@
 
 import * as env from '../env/api';
 import { saveRootState, loadRootState } from './root';
+import { addMissingCollections } from './deterministic-ids';
 
 export class StateManager {
   private static currentState: any = null;
@@ -31,6 +32,7 @@ export class StateManager {
       try {
         const state = loadRootState(this.stateClass);
         if (state) {
+          addMissingCollections(state as Record<string, unknown>, this.stateClass);
           env.log('[state-manager] restored state from persisted snapshot');
           this.currentState = state;
           return state;

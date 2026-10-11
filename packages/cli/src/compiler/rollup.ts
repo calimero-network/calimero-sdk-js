@@ -16,6 +16,18 @@ interface RollupOptions {
   verbose: boolean;
   outputDir: string;
   abiManifest: any; // Required ABI manifest to inject
+  stateFieldTypes: Record<string, string>; // @State field -> annotated type name
+}
+
+/**
+ * Code prepended to the bundle so the ABI manifest and the state field types are
+ * set before any app code runs.
+ */
+export function bundlePrelude(
+  abiManifest: unknown,
+  stateFieldTypes: Record<string, string>
+): string {
+  return `\n// Injected ABI manifest and state field types\nif (typeof globalThis !== 'undefined') {\n  globalThis.__CALIMERO_ABI_MANIFEST__ = ${JSON.stringify(abiManifest)};\n  globalThis.__CALIMERO_STATE_FIELD_TYPES__ = ${JSON.stringify(stateFieldTypes)};\n}\n`;
 }
 
 /**
@@ -58,8 +70,7 @@ export async function bundleWithRollup(source: string, options: RollupOptions): 
     return {
       name: 'abi-inject',
       generateBundle(_options, bundle) {
-        // Inject ABI manifest as a global variable (required)
-        const abiCode = `\n// Injected ABI manifest\nif (typeof globalThis !== 'undefined') {\n  globalThis.__CALIMERO_ABI_MANIFEST__ = ${JSON.stringify(options.abiManifest)};\n}\n`;
+        const abiCode = bundlePrelude(options.abiManifest, options.stateFieldTypes);
 
         // Find the main bundle chunk and prepend ABI code
         for (const fileName in bundle) {

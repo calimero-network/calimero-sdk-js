@@ -12,10 +12,11 @@
  *       existing_created_at: u64, existing_ts: u64, incoming_ts: u64 }
  *   Output (valueReturn): borsh `MergeRootStateResponse` enum
  *     variant 0 = Ok(Vec<u8>)  -> merged root-doc bytes
- *     variant 1 = Err(String)
+ *     variant 2 = Refused(String) -> core keeps the stored root
  *
  * Bootstrap fast-path: if `existing_created_at == existing_ts` the existing
- * side was created but never written, so the incoming doc is returned verbatim.
+ * side was created but never written, so the incoming doc, once it parses, is
+ * returned verbatim.
  */
 
 import * as env from '../env/api';
@@ -56,9 +57,10 @@ export function encodeMergeRootStateResponseOk(bytes: Uint8Array): Uint8Array {
   return writer.toBytes();
 }
 
-export function encodeMergeRootStateResponseErr(message: string): Uint8Array {
+// Refused, not Err: core answers a guest Err by last-writer-wins, installing the root anyway.
+export function encodeMergeRootStateResponseRefused(message: string): Uint8Array {
   const writer = new BorshWriter();
-  writer.writeU8(1); // Err
+  writer.writeU8(2);
   writer.writeString(message);
   return writer.toBytes();
 }
@@ -151,9 +153,8 @@ export function mergeRootValues(
 }
 
 /**
- * Pick a single collection reference. Parsed documents always carry the id
- * derived from the field name; the smaller-id tiebreak only keeps this pure
- * helper symmetric for arbitrary input.
+ * Pick a single collection reference. Parsed documents carry the derived id and
+ * declared type, so the smaller-id tiebreak only keeps this helper symmetric.
  */
 function pickCollection(
   local: CollectionSnapshot | undefined,
@@ -221,7 +222,7 @@ export function computeMergeResponse(requestBytes: Uint8Array): Uint8Array {
     return encodeMergeRootStateResponseOk(serializeRootDocument(merged));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return encodeMergeRootStateResponseErr(message);
+    return encodeMergeRootStateResponseRefused(message);
   }
 }
 
@@ -247,7 +248,7 @@ export function handleMergeRootState(): void {
     const message = error instanceof Error ? error.message : String(error);
     env.log(`[merge] __calimero_merge_root_state error=${message}`);
     try {
-      env.valueReturnRaw(encodeMergeRootStateResponseErr(message));
+      env.valueReturnRaw(encodeMergeRootStateResponseRefused(message));
     } catch {
       // Nothing more we can do if even the error response fails.
     }
