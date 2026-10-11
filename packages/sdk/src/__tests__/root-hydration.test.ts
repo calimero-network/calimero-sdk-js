@@ -1,6 +1,6 @@
 import './setup';
 import type { AbiManifest } from '../abi/types';
-import { registerLogic } from '../runtime/method-registry';
+import { markMethodNonMutating, registerLogic } from '../runtime/method-registry';
 import { StateManager } from '../runtime/state-manager';
 
 const ABI: AbiManifest = {
@@ -8,6 +8,7 @@ const ABI: AbiManifest = {
   methods: [
     { name: 'init', params: [], is_init: true },
     { name: 'claim', params: [] },
+    { name: 'getOwner', params: [], is_view: true },
   ],
   events: [],
   types: {
@@ -33,9 +34,17 @@ class StoreLogic extends Store {
   claim(): void {
     this.owner = 'mallory';
   }
+
+  getOwner(): string {
+    return this.owner;
+  }
 }
 
-const UNDECODABLE_ROOT = new Uint8Array([2, 0, 0, 0, 0]);
+const UNDECODABLE_ROOTS: [string, Uint8Array][] = [
+  ['an unknown format version', new Uint8Array([2, 0, 0, 0, 0])],
+  ['an empty root', new Uint8Array(0)],
+  ['a body truncated after the version byte', new Uint8Array([1, 5, 0, 0, 0, 1])],
+];
 
 let root: Uint8Array | null = null;
 let register: Uint8Array | null = null;
@@ -70,7 +79,8 @@ describe('root hydration', () => {
     (globalThis as any).__CALIMERO_ABI_MANIFEST__ = ABI;
     (StoreLogic as any)._calimeroInitMethod = 'init';
     StateManager.setStateClass(Store);
-    registerLogic(StoreLogic, ['claim'], Store);
+    registerLogic(StoreLogic, ['claim', 'getOwner'], Store);
+    markMethodNonMutating(StoreLogic, 'getOwner');
     require('../runtime/dispatcher');
   });
 
@@ -84,24 +94,29 @@ describe('root hydration', () => {
     expect(persists).toBe(1);
 
     call('claim');
+    call('getOwner');
     expect(persists).toBe(2);
     expect(() => call('init')).toThrow('Contract state already initialized');
     expect(persists).toBe(2);
   });
 
-  it('aborts a call when the stored root cannot be decoded, leaving it untouched', () => {
-    root = UNDECODABLE_ROOT;
+  it.each(
+    UNDECODABLE_ROOTS.flatMap(([name, bytes]) =>
+      ['claim', 'getOwner'].map(method => [method, name, bytes] as const)
+    )
+  )('%s aborts on %s, leaving the root untouched', (method, _, bytes) => {
+    root = bytes;
 
-    expect(() => call('claim')).toThrow('Unsupported state format version');
+    expect(() => call(method)).toThrow();
     expect(persists).toBe(0);
-    expect(root).toBe(UNDECODABLE_ROOT);
+    expect(root).toBe(bytes);
   });
 
-  it('refuses init when a root exists, even an undecodable one', () => {
-    root = UNDECODABLE_ROOT;
+  it.each(UNDECODABLE_ROOTS)('refuses init on %s', (_, bytes) => {
+    root = bytes;
 
     expect(() => call('init')).toThrow('Contract state already initialized');
     expect(persists).toBe(0);
-    expect(root).toBe(UNDECODABLE_ROOT);
+    expect(root).toBe(bytes);
   });
 });
