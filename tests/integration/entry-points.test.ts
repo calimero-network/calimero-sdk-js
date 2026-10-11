@@ -167,4 +167,16 @@ describe('logic entry points', () => {
       )
     ).toThrow(/computed/);
   });
+
+  it('fails the build on a @Logic class it cannot name', () => {
+    for (const [name, source] of [
+      [
+        'class-expression.ts',
+        `export const Hidden = @Logic(S) class { private reset(): void {} };`,
+      ],
+      ['anonymous.ts', `export default @Logic(S) class { reset(): void {} }`],
+    ]) {
+      expect(() => emitFrom(name, source)).toThrow(/@Logic/);
+    }
+  });
 });

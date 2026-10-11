@@ -72,6 +72,26 @@ describe('method registry', () => {
     ).toThrow(/experimentalDecorators/);
   });
 
+  it('refuses a method name another @Logic class already registered', () => {
+    (globalThis as any).__CALIMERO_ABI_MANIFEST__ = abiWithMethods('reset');
+
+    class DeskState {}
+
+    @Logic(DeskState)
+    class FrontDesk extends DeskState {
+      reset(): void {}
+    }
+    void FrontDesk;
+
+    expect(() => {
+      @Logic(DeskState)
+      class BackOffice extends DeskState {
+        private reset(): void {}
+      }
+      void BackOffice;
+    }).toThrow(/reset/);
+  });
+
   it('exports nothing without an ABI manifest', () => {
     class LedgerState {}
 
