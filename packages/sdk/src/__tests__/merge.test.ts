@@ -4,8 +4,7 @@ import { BorshReader } from '../borsh/decoder';
 import {
   decodeMergeRootStateRequest,
   encodeMergeRootStateResponseOk,
-  encodeMergeRootStateResponseErr,
-  computeMergeResponse,
+  encodeMergeRootStateResponseRefused,
   mergeField,
   mergeRootValues,
   mergeRootCollections,
@@ -58,25 +57,11 @@ describe('MergeRootStateRequest / Response codec', () => {
     expect(bytesEqual(reader.readBytes(), payload)).toBe(true);
   });
 
-  it('encodes Err as [1][string]', () => {
-    const encoded = encodeMergeRootStateResponseErr('boom');
+  it('encodes Refused as [2][string]', () => {
+    const encoded = encodeMergeRootStateResponseRefused('boom');
     const reader = new BorshReader(encoded);
-    expect(reader.readU8()).toBe(1);
+    expect(reader.readU8()).toBe(2);
     expect(reader.readString()).toBe('boom');
-  });
-});
-
-describe('computeMergeResponse bootstrap fast-path', () => {
-  it('does NOT take the fast-path when timestamps differ (falls through to parse)', () => {
-    // existing/incoming are not valid root docs -> parse fails -> Err response,
-    // which proves the fast-path was skipped.
-    const existing = new Uint8Array([1, 1, 1]);
-    const incoming = new Uint8Array([2, 2, 2]);
-    const request = buildRequest(existing, incoming, 42n, 43n, 99n);
-
-    const response = computeMergeResponse(request);
-    const reader = new BorshReader(response);
-    expect(reader.readU8()).toBe(1); // Err (no ABI / invalid doc)
   });
 });
 
