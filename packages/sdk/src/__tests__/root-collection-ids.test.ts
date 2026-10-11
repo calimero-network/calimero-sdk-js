@@ -1,4 +1,5 @@
 import './setup';
+import '../collections/UnorderedSet';
 import { BorshWriter } from '../borsh/encoder';
 import { BorshReader } from '../borsh/decoder';
 import { computeMergeResponse } from '../runtime/merge';
@@ -9,6 +10,7 @@ import {
   serializeRootDocument,
   type RootDocument,
 } from '../runtime/root';
+import { StateManager } from '../runtime/state-manager';
 import { computeCollectionId, ROOT_ID } from '../utils/deterministic-id';
 import { bytesToHex } from '../utils/hex';
 
@@ -25,13 +27,40 @@ const ABI = {
   state_root: 'State',
 };
 
-const derivedId = bytesToHex(computeCollectionId(ROOT_ID, 'items'));
+// The same state, with a value field named like the collection field and shaped like its wrapper.
+const SHADOWING_ABI = {
+  ...ABI,
+  types: {
+    State: {
+      kind: 'record',
+      fields: [
+        { name: 'title', type: { kind: 'scalar', scalar: 'string' } },
+        { name: 'items', type: { kind: 'reference', name: 'Shadow' } },
+      ],
+    },
+    Shadow: {
+      kind: 'record',
+      fields: [{ name: 'mapId', type: { kind: 'scalar', scalar: 'string' } }],
+    },
+  },
+};
+
+const OK = 0;
+const REFUSED = 2;
+
+const derivedId = (field: string) => bytesToHex(computeCollectionId(ROOT_ID, field));
 const otherId = '00'.repeat(31) + '01';
 
-function rootWithItemsAt(id: string, updatedAt: number): Uint8Array {
+function rootWith(
+  items: { type?: string; id?: string },
+  updatedAt: number,
+  values: Record<string, unknown> = { title: 'notes' }
+): Uint8Array {
   const doc: RootDocument = {
-    values: { title: 'notes' },
-    collections: { items: { type: 'UnorderedMap', id } },
+    values,
+    collections: {
+      items: { type: items.type ?? 'UnorderedMap', id: items.id ?? derivedId('items') },
+    },
     metadata: { createdAt: 100, updatedAt },
   };
   return serializeRootDocument(doc);
@@ -64,64 +93,119 @@ function hostHoldsRoot(bytes: Uint8Array): void {
   };
 }
 
-describe('top-level collection ids in the root document', () => {
+describe('top-level collections in the root document', () => {
+  const persisted: Uint8Array[] = [];
+
   beforeAll(() => {
     (globalThis as any).__CALIMERO_ABI_MANIFEST__ = ABI;
+    (globalThis as any).env.persist_root_state = (doc: Uint8Array) => persisted.push(doc);
+  });
+
+  beforeEach(() => {
+    persisted.length = 0;
+    (globalThis as any).__CALIMERO_STATE_FIELD_TYPES__ = { items: 'UnorderedMap' };
   });
 
   afterAll(() => {
     delete (globalThis as any).__CALIMERO_ABI_MANIFEST__;
+    delete (globalThis as any).__CALIMERO_STATE_FIELD_TYPES__;
     delete (globalThis as any).env.read_root_state;
     delete (globalThis as any).env.persist_root_state;
   });
 
-  it('merges documents whose collection ids derive from the field name', () => {
+  it('merges documents whose collections match their fields', () => {
     const response = computeMergeResponse(
-      mergeRequest(rootWithItemsAt(derivedId, 200), rootWithItemsAt(derivedId, 300), 100n, 200n)
+      mergeRequest(rootWith({}, 200), rootWith({}, 300), 100n, 200n)
     );
-    expect(responseTag(response)).toBe(0);
+    expect(responseTag(response)).toBe(OK);
   });
 
   it('refuses to merge an incoming document that points a field at another collection', () => {
     const response = computeMergeResponse(
-      mergeRequest(rootWithItemsAt(derivedId, 200), rootWithItemsAt(otherId, 300), 100n, 200n)
+      mergeRequest(rootWith({}, 200), rootWith({ id: otherId }, 300), 100n, 200n)
     );
-    expect(responseTag(response)).toBe(1);
+    expect(responseTag(response)).toBe(REFUSED);
+  });
+
+  it('refuses to merge an incoming document that gives a field another collection type', () => {
+    const response = computeMergeResponse(
+      mergeRequest(rootWith({}, 200), rootWith({ type: 'UnorderedSet' }, 300), 100n, 200n)
+    );
+    expect(responseTag(response)).toBe(REFUSED);
   });
 
   it('takes a valid incoming document verbatim on the bootstrap path', () => {
-    const incoming = rootWithItemsAt(derivedId, 300);
+    const incoming = rootWith({}, 300);
     const response = new BorshReader(
-      computeMergeResponse(mergeRequest(rootWithItemsAt(derivedId, 100), incoming, 100n, 100n))
+      computeMergeResponse(mergeRequest(rootWith({}, 100), incoming, 100n, 100n))
     );
-    expect(response.readU8()).toBe(0);
+    expect(response.readU8()).toBe(OK);
     expect(Array.from(response.readBytes())).toEqual(Array.from(incoming));
   });
 
-  it('refuses such a document on the bootstrap path too', () => {
-    const response = computeMergeResponse(
-      mergeRequest(rootWithItemsAt(derivedId, 100), rootWithItemsAt(otherId, 300), 100n, 100n)
-    );
-    expect(responseTag(response)).toBe(1);
+  it('refuses a mismatched document on the bootstrap path too', () => {
+    for (const items of [{ id: otherId }, { type: 'UnorderedSet' }]) {
+      const response = computeMergeResponse(
+        mergeRequest(rootWith({}, 100), rootWith(items, 300), 100n, 100n)
+      );
+      expect(responseTag(response)).toBe(REFUSED);
+    }
   });
 
   it('loads a field at the id derived from its name', () => {
-    hostHoldsRoot(rootWithItemsAt(derivedId, 200));
+    hostHoldsRoot(rootWith({}, 200));
     const state: any = loadRootState(class State {});
-    expect(state.items.id()).toBe(derivedId);
+    expect(state.items.id()).toBe(derivedId('items'));
   });
 
   it('refuses to load a stored document that points a field at another collection', () => {
-    hostHoldsRoot(rootWithItemsAt(otherId, 200));
+    hostHoldsRoot(rootWith({ id: otherId }, 200));
     expect(() => loadRootState(class State {})).toThrow(/items/);
   });
 
+  it('refuses to load a stored document that gives a field another collection type', () => {
+    hostHoldsRoot(rootWith({ type: 'UnorderedSet' }, 200));
+    expect(() => loadRootState(class State {})).toThrow(/items/);
+  });
+
+  it('never copies stored values onto a collection field', () => {
+    (globalThis as any).__CALIMERO_ABI_MANIFEST__ = SHADOWING_ABI;
+    try {
+      hostHoldsRoot(rootWith({}, 200, { title: 'notes', items: { mapId: otherId } }));
+      const state: any = loadRootState(class State {});
+      expect(state.items.mapId).not.toBe(otherId);
+      expect(state.items.id()).toBe(derivedId('items'));
+    } finally {
+      (globalThis as any).__CALIMERO_ABI_MANIFEST__ = ABI;
+    }
+  });
+
   it('refuses to save a field that holds a collection created at another id', () => {
-    const persisted: Uint8Array[] = [];
-    (globalThis as any).env.persist_root_state = (doc: Uint8Array) => persisted.push(doc);
     const state = { title: 'notes', items: new UnorderedMap<string, string>() };
 
     expect(() => saveRootState(state)).toThrow(/items/);
     expect(persisted).toEqual([]);
+  });
+
+  it('adds a collection field the stored document predates, at its derived id', () => {
+    class NotesV2 {
+      title = '';
+      items = new UnorderedMap<string, string>();
+      tags = new UnorderedMap<string, string>();
+    }
+    (globalThis as any).__CALIMERO_STATE_FIELD_TYPES__ = {
+      items: 'UnorderedMap',
+      tags: 'UnorderedMap',
+    };
+    hostHoldsRoot(rootWith({}, 200));
+    StateManager.setStateClass(NotesV2);
+    StateManager.setCurrent(null);
+
+    const state = StateManager.load();
+
+    expect(state.items.id()).toBe(derivedId('items'));
+    expect(state.tags.id()).toBe(derivedId('tags'));
+    expect(() => saveRootState(state)).not.toThrow();
+    expect(persisted).toHaveLength(1);
   });
 });
