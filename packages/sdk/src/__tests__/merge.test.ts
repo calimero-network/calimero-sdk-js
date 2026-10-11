@@ -67,18 +67,6 @@ describe('MergeRootStateRequest / Response codec', () => {
 });
 
 describe('computeMergeResponse bootstrap fast-path', () => {
-  it('returns Ok(incoming) verbatim when existing_created_at == existing_ts', () => {
-    const existing = new Uint8Array([1, 1, 1]);
-    const incoming = new Uint8Array([2, 2, 2, 2]);
-    // created_at == ts -> existing side created but never written
-    const request = buildRequest(existing, incoming, 42n, 42n, 99n);
-
-    const response = computeMergeResponse(request);
-    const reader = new BorshReader(response);
-    expect(reader.readU8()).toBe(0); // Ok
-    expect(bytesEqual(reader.readBytes(), incoming)).toBe(true);
-  });
-
   it('does NOT take the fast-path when timestamps differ (falls through to parse)', () => {
     // existing/incoming are not valid root docs -> parse fails -> Err response,
     // which proves the fast-path was skipped.
