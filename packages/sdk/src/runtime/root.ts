@@ -91,7 +91,7 @@ function declaredCollections(
     if (snapshot.type !== stateCollectionType(field)) {
       throw new Error(`Collection field '${field}' is not of its declared collection type`);
     }
-    declared[field] = snapshot;
+    declared[field] = { type: snapshot.type, id: snapshot.id };
   }
   return declared;
 }
@@ -103,6 +103,14 @@ function refuseUndeclared(collections: Record<string, CollectionSnapshot>): void
       throw new Error(`Collection field '${field}' is not declared with a collection type`);
     }
   }
+}
+
+// Only the two numeric stamps survive, so a peer's extra or non-numeric fields never persist.
+function rootMetadata(metadata: any): { createdAt: number; updatedAt: number } {
+  const now = Number(env.timeNow());
+  const stamp = (value: unknown) =>
+    typeof value === 'number' && Number.isFinite(value) ? value : now;
+  return { createdAt: stamp(metadata?.createdAt), updatedAt: stamp(metadata?.updatedAt) };
 }
 
 /**
@@ -131,12 +139,7 @@ export function parseRootDocument(source: Uint8Array): RootDocument {
 
   const collections = declaredCollections(collectionsAndMetadata.collections || {});
 
-  const now = Number(env.timeNow());
-  return {
-    values,
-    collections,
-    metadata: collectionsAndMetadata.metadata || { createdAt: now, updatedAt: now },
-  };
+  return { values, collections, metadata: rootMetadata(collectionsAndMetadata.metadata) };
 }
 
 /**
