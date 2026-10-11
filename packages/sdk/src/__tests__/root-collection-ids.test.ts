@@ -153,7 +153,7 @@ describe('top-level collections in the root document', () => {
     expect(responseTag(response)).toBe(REFUSED);
   });
 
-  it('takes a valid incoming document verbatim on the bootstrap path', () => {
+  it('takes a valid incoming document on the bootstrap path in its declared-only form', () => {
     const incoming = rootWith({}, 300);
     const response = new BorshReader(
       computeMergeResponse(mergeRequest(rootWith({}, 100), incoming, 100n, 100n))
@@ -337,5 +337,24 @@ describe('top-level collections in the root document', () => {
     };
     expect(() => saveRootState(state)).toThrow(/extra/);
     expect(persisted).toEqual([]);
+  });
+
+  it('persists only well-formed snapshots and metadata from a bootstrap root', () => {
+    const malformed = serializeRootDocument({
+      values: { title: 'notes' },
+      collections: { items: { type: 'UnorderedMap', id: derivedId('items'), extra: 'y' } },
+      metadata: { createdAt: 'x', updatedAt: 200, extra: 1 },
+    } as any);
+    const reader = new BorshReader(
+      computeMergeResponse(mergeRequest(rootWith({}, 100), malformed, 100n, 100n))
+    );
+    expect(reader.readU8()).toBe(OK);
+    const persisted = reader.readBytes();
+
+    const doc = parseRootDocument(persisted);
+    expect(doc.collections.items).toEqual({ type: 'UnorderedMap', id: derivedId('items') });
+    expect(Object.keys(doc.metadata).sort()).toEqual(['createdAt', 'updatedAt']);
+    hostHoldsRoot(persisted);
+    expect(() => loadRootState(class State {})).not.toThrow();
   });
 });
