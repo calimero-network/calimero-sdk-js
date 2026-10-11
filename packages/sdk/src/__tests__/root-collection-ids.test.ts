@@ -8,6 +8,7 @@ import { UnorderedMap } from '../collections/UnorderedMap';
 import { mapNewWithId, sharedNewWithId, sharedWriters } from '../runtime/storage-wasm';
 import {
   loadRootState,
+  parseRootDocument,
   saveRootState,
   serializeRootDocument,
   type RootDocument,
@@ -66,6 +67,14 @@ function rootWith(
     metadata: { createdAt: 100, updatedAt },
   };
   return serializeRootDocument(doc);
+}
+
+function rootWithExtra(extra: Record<string, { type?: string; id: string }>): Uint8Array {
+  return serializeRootDocument({
+    values: { title: 'notes' },
+    collections: { items: { type: 'UnorderedMap', id: derivedId('items') }, ...extra } as any,
+    metadata: { createdAt: 100, updatedAt: 200 },
+  });
 }
 
 function rootWithout(): Uint8Array {
@@ -264,5 +273,52 @@ describe('top-level collections in the root document', () => {
 
     expect(() => StateManager.load()).toThrow(/config/);
     expect(sharedWriters(cellId)).toEqual([owner]);
+  });
+
+  it('heals from a valid incoming root when the stored one is refused', () => {
+    const incoming = rootWith({}, 300);
+    for (const existing of [rootWith({ id: otherId }, 200), new Uint8Array([1, 2, 3])]) {
+      const response = new BorshReader(
+        computeMergeResponse(mergeRequest(existing, incoming, 100n, 200n))
+      );
+      expect(response.readU8()).toBe(OK);
+      expect(Array.from(response.readBytes())).toEqual(Array.from(incoming));
+    }
+  });
+
+  it('keeps the stored root when only the incoming one is refused', () => {
+    const response = computeMergeResponse(
+      mergeRequest(rootWith({}, 200), rootWith({ id: otherId }, 300), 100n, 200n)
+    );
+    expect(responseTag(response)).toBe(REFUSED);
+  });
+
+  it('drops stored collections whose field the app no longer declares', () => {
+    const stored = rootWithExtra({
+      removed: { type: 'UnorderedMap', id: derivedId('removed') },
+      untyped: { id: otherId },
+    });
+
+    hostHoldsRoot(stored);
+    const state: any = loadRootState(class State {});
+    expect(state.items.id()).toBe(derivedId('items'));
+    expect(state.removed).toBeUndefined();
+    expect(state.untyped).toBeUndefined();
+
+    const response = new BorshReader(
+      computeMergeResponse(mergeRequest(stored, rootWith({}, 300), 100n, 200n))
+    );
+    expect(response.readU8()).toBe(OK);
+    expect(Object.keys(parseRootDocument(response.readBytes()).collections)).toEqual(['items']);
+  });
+
+  it('refuses to save a collection field the app does not declare', () => {
+    const state = {
+      title: 'notes',
+      items: new UnorderedMap<string, string>({ id: derivedId('items') }),
+      extra: new UnorderedMap<string, string>({ id: derivedId('extra') }),
+    };
+    expect(() => saveRootState(state)).toThrow(/extra/);
+    expect(persisted).toEqual([]);
   });
 });
