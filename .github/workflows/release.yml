@@ -18,8 +18,7 @@ jobs:
     permissions:
       contents: write # Required to create releases and tags
       id-token: write # Required for OIDC/trusted publishers
-      issues: write # Required for commenting on issues
-      pull-requests: write # Required for commenting on PRs
+      issues: write # Required for semantic-release failure issues
 
     steps:
       - name: Checkout code
@@ -40,8 +39,9 @@ jobs:
         with:
           version: 9
 
+      # No lifecycle scripts in the job that can mint an npm token; build and publish need none.
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Build packages
         run: pnpm build
