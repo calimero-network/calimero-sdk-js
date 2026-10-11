@@ -38,8 +38,9 @@ The build records that type, and the runtime refuses a stored root document
 whose field names another collection id or another collection type.
 Each top-level collection lives at an id derived from its field name, so assign
 collection fields in the constructor or inline, never in a method.
-A collection field added in an upgrade is created at its derived id the first
-time the upgraded app loads its state.
+Adding a top-level collection field to an app that already holds state is
+refused at load: any member can write to the new field's derived id before the
+upgrade lands, so the runtime will not adopt whatever collection sits there.
 
 ## Common members
 

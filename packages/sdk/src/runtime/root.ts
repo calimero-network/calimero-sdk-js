@@ -73,10 +73,15 @@ export function declaredCollectionFields(): string[] {
 }
 
 /**
- * Refuses a collection field whose id is not derived from its name or whose type
- * is not the field's declared one, so no writer can repoint or retype it.
+ * Refuses a document that lacks a declared collection field, or whose collection
+ * is not at its derived id or not of its declared type.
  */
 function checkCollections(collections: Record<string, CollectionSnapshot>): void {
+  for (const field of declaredCollectionFields()) {
+    if (!(field in collections)) {
+      throw new Error(`Collection field '${field}' is missing from the root document`);
+    }
+  }
   for (const [field, snapshot] of Object.entries(collections)) {
     if (snapshot.id !== bytesToHex(computeCollectionId(ROOT_ID, field))) {
       throw new Error(`Collection field '${field}' is not at the id derived from its name`);
