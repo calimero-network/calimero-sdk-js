@@ -17,7 +17,7 @@ import * as env from '../env/api';
 import { bytesToHex, hexToBytes } from '../utils/hex';
 import { computeCollectionId, ROOT_ID } from '../utils/deterministic-id';
 import { snapshotCollection, instantiateCollection } from './collections';
-import { declaredCollectionFields } from './root';
+import { declaredCollectionFields, stateCollectionType } from './root';
 import {
   mapNewWithId,
   vectorNewWithId,
@@ -103,29 +103,52 @@ export function assignDeterministicIds(state: unknown): void {
 }
 
 /**
- * Gives a loaded state the collection fields its stored document predates, such
- * as one added in an upgrade, built by the state constructor at derived ids.
+ * Gives a loaded state the collection fields its stored document lacks, such as
+ * one added in an upgrade, at their derived ids. An entity already at that id is
+ * reopened as is; only a missing shared cell is created, from the constructor.
  */
 export function addMissingCollections(
   state: Record<string, unknown>,
   stateClass: new () => Record<string, unknown>
 ): void {
-  const missing = declaredCollectionFields().filter(field => !snapshotCollection(state[field]));
-  if (missing.length === 0) {
-    return;
-  }
-
-  const fresh = new stateClass();
-  for (const key of Object.keys(fresh)) {
-    const snapshot = snapshotCollection(fresh[key]);
-    if (!snapshot) {
+  let fresh: Record<string, unknown> | undefined;
+  for (const field of declaredCollectionFields()) {
+    if (snapshotCollection(state[field])) {
       continue;
     }
-    if (missing.includes(key)) {
-      assignDeterministicId(fresh, key);
-      state[key] = fresh[key];
-    } else {
-      deleteCollection(hexToBytes(snapshot.id));
+    const type = stateCollectionType(field)!;
+    const id = computeCollectionId(ROOT_ID, field);
+    if (type === 'SharedStorage' && !sharedCellExists(id)) {
+      fresh ??= new stateClass();
+      assignDeterministicId(fresh, field);
+    }
+    state[field] = instantiateCollection({ type, id: bytesToHex(id) });
+  }
+  if (fresh) {
+    discardUnassigned(fresh);
+  }
+}
+
+// A shared cell carries its writer set, so it is created only where none exists.
+function sharedCellExists(id: Uint8Array): boolean {
+  try {
+    sharedWriters(id);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Deletes the random-id collections a throwaway constructor run created.
+function discardUnassigned(fresh: Record<string, unknown>): void {
+  for (const key of Object.keys(fresh)) {
+    const snapshot = snapshotCollection(fresh[key]);
+    if (snapshot && snapshot.id !== bytesToHex(computeCollectionId(ROOT_ID, key))) {
+      try {
+        deleteCollection(hexToBytes(snapshot.id));
+      } catch (err) {
+        env.log(`[deterministic-ids] cleanup skipped for '${key}': ${String(err)}`);
+      }
     }
   }
 }
