@@ -32,6 +32,18 @@ export class Vault extends VaultState {
     return note;
   }
 
+  get peek(): number {
+    return this.balance;
+  }
+
+  set peek(value: number) {
+    this.balance = value;
+  }
+
+  static helper(): void {}
+
+  private helper(): void {}
+
   _internal(): void {}
 }
 `;
@@ -39,6 +51,14 @@ export class Vault extends VaultState {
 describe('logic entry points', () => {
   const appDir = path.join(__dirname, 'entry-points-app');
   const appFile = path.join(appDir, 'app.ts');
+
+  function emitFrom(name: string, source: string) {
+    const file = path.join(appDir, name);
+    fs.writeFileSync(file, source);
+    const emitter = new AbiEmitter();
+    emitter.analyzeFile(file);
+    return emitter.generateManifestRustFormat();
+  }
 
   beforeAll(() => {
     fs.mkdirSync(appDir, { recursive: true });
@@ -64,5 +84,36 @@ describe('logic entry points', () => {
 
     expect(abiMethods).toEqual(['withdraw']);
     expect(registryMethods).toEqual(abiMethods);
+  });
+
+  it('fails the build when a public method shares its name with a private one in another class', () => {
+    expect(() =>
+      emitFrom(
+        'cross-class.ts',
+        `
+        @Logic(S)
+        export class Admin { private reset(): void {} }
+
+        @Logic(S)
+        export class Public { reset(): void {} }
+        `
+      )
+    ).toThrow(/reset/);
+  });
+
+  it('fails the build when the initializer shares its name with an instance method', () => {
+    expect(() =>
+      emitFrom(
+        'init-clash.ts',
+        `
+        @Logic(S)
+        export class App {
+          @Init
+          static setup(): S { return new S(); }
+          private setup(): void {}
+        }
+        `
+      )
+    ).toThrow(/setup/);
   });
 });
