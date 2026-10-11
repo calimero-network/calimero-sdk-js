@@ -3,8 +3,8 @@ import { registerLogic } from '../runtime/method-registry';
 /**
  * @Logic decorator
  *
- * Links a logic class to its state class and registers all methods
- * for export as service functions.
+ * Links a logic class to its state class and registers its public instance
+ * methods, as listed in the build's ABI, for export as service functions.
  *
  * @example
  * ```typescript
