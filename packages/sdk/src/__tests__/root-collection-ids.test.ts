@@ -275,14 +275,31 @@ describe('top-level collections in the root document', () => {
     expect(sharedWriters(cellId)).toEqual([owner]);
   });
 
-  it('heals from a valid incoming root when the stored one is refused', () => {
+  it('keeps refusing when the stored root is refused, even with a valid incoming root', () => {
     const incoming = rootWith({}, 300);
     for (const existing of [rootWith({ id: otherId }, 200), new Uint8Array([1, 2, 3])]) {
-      const response = new BorshReader(
-        computeMergeResponse(mergeRequest(existing, incoming, 100n, 200n))
-      );
-      expect(response.readU8()).toBe(OK);
-      expect(Array.from(response.readBytes())).toEqual(Array.from(incoming));
+      const response = computeMergeResponse(mergeRequest(existing, incoming, 100n, 200n));
+      expect(responseTag(response)).toBe(REFUSED);
+    }
+  });
+
+  it('never persists an undeclared collection a later version could adopt', () => {
+    const squatted = rootWithExtra({ added: { type: 'UnorderedMap', id: derivedId('added') } });
+    const persistedByV1 = [
+      computeMergeResponse(mergeRequest(rootWith({}, 100), squatted, 100n, 100n)),
+      computeMergeResponse(mergeRequest(rootWith({}, 200), squatted, 100n, 200n)),
+    ].map(response => {
+      const reader = new BorshReader(response);
+      expect(reader.readU8()).toBe(OK);
+      return reader.readBytes();
+    });
+
+    (globalThis as any).__CALIMERO_STATE_FIELD_TYPES__ = {
+      items: 'UnorderedMap',
+      added: 'UnorderedMap',
+    };
+    for (const stored of persistedByV1) {
+      expect(() => parseRootDocument(stored)).toThrow(/added/);
     }
   });
 
