@@ -144,9 +144,6 @@ All are exported from `@calimero-network/calimero-sdk-js/env`.
 | `storageRead` | `(key: Uint8Array) => Uint8Array \| null` | Read a raw value. |
 | `storageWrite` | `(key: Uint8Array, value: Uint8Array) => void` | Write a raw value. |
 | `storageRemove` | `(key: Uint8Array) => boolean` | Remove; returns whether the key existed. |
-| `privateStorageRead` | `(key: Uint8Array) => Uint8Array \| null` | Read a raw value from node-local private storage. |
-| `privateStorageWrite` | `(key: Uint8Array, value: Uint8Array) => void` | Write a raw value to node-local private storage. |
-| `privateStorageRemove` | `(key: Uint8Array) => boolean` | Remove from node-local private storage; returns whether the key existed. |
 
 <Aside type="tip">
   For node-local data prefer `createPrivateEntry` over raw `storage*` calls — it
