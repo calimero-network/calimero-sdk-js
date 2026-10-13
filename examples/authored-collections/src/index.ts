@@ -53,6 +53,12 @@ export class AuthoredDemoLogic extends AuthoredDemo {
     return this.profiles.ownedByMe(name);
   }
 
+  // Keyed reads see only the caller's own entry; entries() spans every owner.
+  @View()
+  profileNotes(): string[] {
+    return this.profiles.values().sort();
+  }
+
   @View()
   profileNames(): string[] {
     return this.profiles.keys();
