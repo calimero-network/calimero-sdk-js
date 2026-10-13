@@ -121,27 +121,24 @@ steps:
     check_interval: 2
 
   # --- Assert both nodes converged ---------------------------------------
-  - name: Read Alice Profile On Node 2
-    type: call
-    node: authored-conv-node-2
-    context_id: '{{context_id}}'
-    executor_public_key: '{{node_2_member_public_key}}'
-    method: getProfile
-    args:
-      name: alice
-    outputs:
-      alice_on_node_2: result.output
-
-  - name: Read Bob Profile On Node 1
+  # Keyed reads act on the caller's own entry, so cross-owner values are read via entries.
+  - name: Read Profile Notes On Node 1
     type: call
     node: authored-conv-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
-    method: getProfile
-    args:
-      name: bob
+    method: profileNotes
     outputs:
-      bob_on_node_1: result.output
+      notes_node_1: result.output
+
+  - name: Read Profile Notes On Node 2
+    type: call
+    node: authored-conv-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: profileNotes
+    outputs:
+      notes_node_2: result.output
 
   - name: Read Profile Names On Node 1
     type: call
@@ -176,8 +173,8 @@ steps:
   - name: Assert Convergence
     type: json_assert
     statements:
-      - 'json_equal({{alice_on_node_2}}, "from-node-1")'
-      - 'json_equal({{bob_on_node_1}}, "from-node-2")'
+      - 'json_equal({{notes_node_1}}, ["from-node-1", "from-node-2"])'
+      - 'json_equal({{notes_node_2}}, ["from-node-1", "from-node-2"])'
       - 'equal({{post_count_node_2}}, 2)'
       - 'equal({{alice_owned_by_node_2}}, false)'
 
