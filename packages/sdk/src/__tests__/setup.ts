@@ -49,6 +49,8 @@ type AuthoredVectorStore = {
 
 // In-memory backing stores
 const storage = new Map<string, Uint8Array>();
+const privateStorage = new Map<string, Uint8Array>();
+const STATE_KEY_LEN = 33; // core drops keys of any other length
 const maps = new Map<string, MapStore>();
 const vectors = new Map<string, VectorStore>();
 const sets = new Map<string, SetStore>();
@@ -250,6 +252,23 @@ function executorIsWriter(store: SharedCellStore): boolean {
     storage.delete(keyStr);
     setRegister(previous ?? null);
     return existed ? 1n : 0n;
+  },
+
+  private_storage_read: (key: Uint8Array, _register_id: bigint): bigint => {
+    const value = privateStorage.get(Array.from(key).join(','));
+    setRegister(value ?? null);
+    return value ? 1n : 0n;
+  },
+
+  private_storage_write: (key: Uint8Array, value: Uint8Array): bigint => {
+    if (key.length === STATE_KEY_LEN) {
+      privateStorage.set(Array.from(key).join(','), value);
+    }
+    return 1n;
+  },
+
+  private_storage_remove: (key: Uint8Array, _register_id: bigint): bigint => {
+    return privateStorage.delete(Array.from(key).join(',')) ? 1n : 0n;
   },
 
   register_len: (_register_id: bigint): bigint => {
@@ -1406,6 +1425,7 @@ function executorIsWriter(store: SharedCellStore): boolean {
 // Helper to clear storage between tests
 export function clearStorage() {
   storage.clear();
+  privateStorage.clear();
   maps.clear();
   vectors.clear();
   sets.clear();
@@ -1425,4 +1445,8 @@ export function clearStorage() {
 // Helper to get storage contents (for debugging)
 export function getStorage() {
   return storage;
+}
+
+export function getPrivateStorage() {
+  return privateStorage;
 }
