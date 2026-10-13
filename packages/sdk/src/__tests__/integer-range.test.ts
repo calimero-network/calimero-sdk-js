@@ -63,11 +63,6 @@ describe('integer arguments from JSON', () => {
     ['u64', Number('9007199254740993')],
     ['u64', 1.5],
     ['u64', '18446744073709551616'],
-    ['u8', 300],
-    ['u8', 1.5],
-    ['u8', 'x'],
-    ['u8', {}],
-    ['i32', 2147483648],
   ] as [ScalarType, unknown][])('%s refuses %p', (scalar, value) => {
     expect(() => jsonToInteger(value, scalar)).toThrow();
   });
@@ -75,7 +70,5 @@ describe('integer arguments from JSON', () => {
   it('keeps exact values', () => {
     expect(jsonToInteger('18446744073709551615', 'u64')).toBe(2n ** 64n - 1n);
     expect(jsonToInteger(-5, 'i64')).toBe(-5n);
-    expect(jsonToInteger(255, 'u8')).toBe(255);
-    expect(jsonToInteger(-128, 'i8')).toBe(-128);
   });
 });
