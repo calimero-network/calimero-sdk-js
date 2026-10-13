@@ -207,6 +207,7 @@ export interface HostEnv {
   // Context
   context_id(register_id: bigint): void;
   executor_id(register_id: bigint): void;
+  account_id(register_id: bigint): void;
   // NOTE: context membership/lifecycle host functions (add/remove/is_member/
   // members/create/delete/resolve_alias) are intentionally absent — the node
   // does not provide them. Importing them made JS modules fail to instantiate.

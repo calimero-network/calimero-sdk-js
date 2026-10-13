@@ -107,6 +107,7 @@ extern uint64_t register_len(uint64_t register_id);  // Returns PtrSizedInt (u64
 extern uint32_t read_register(uint64_t register_id, uint64_t buffer_ptr);  // Returns Bool (u32)
 extern void context_id(uint64_t register_id);
 extern void executor_id(uint64_t register_id);
+extern void account_id(uint64_t register_id);
 extern void emit(uint64_t event_ptr);
 extern void emit_with_handler(uint64_t event_ptr, uint64_t handler_buffer_ptr);
 extern void xcall(uint64_t xcall_ptr);
@@ -2154,6 +2155,14 @@ static JSValue js_executor_id(JSContext *ctx, JSValueConst this_val, int argc, J
   return JS_UNDEFINED;
 }
 
+// Wrapper: account_id
+static JSValue js_account_id(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  int64_t register_id;
+  JS_ToInt64(ctx, &register_id, argv[0]);
+  account_id((uint64_t)register_id);
+  return JS_UNDEFINED;
+}
+
 // NOTE: context membership/lifecycle wrappers removed — the node provides no
 // matching host imports (see the extern block above).
 
@@ -3082,6 +3091,7 @@ void js_add_calimero_host_functions(JSContext *ctx) {
   // Context
   JS_SetPropertyStr(ctx, env, "context_id", JS_NewCFunction(ctx, js_context_id, "context_id", 1));
   JS_SetPropertyStr(ctx, env, "executor_id", JS_NewCFunction(ctx, js_executor_id, "executor_id", 1));
+  JS_SetPropertyStr(ctx, env, "account_id", JS_NewCFunction(ctx, js_account_id, "account_id", 1));
   // Context membership/lifecycle bindings removed — no matching host imports.
 
   // Registers

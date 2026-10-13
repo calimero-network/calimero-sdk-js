@@ -195,6 +195,13 @@ export class KvStoreWithUserAndFrozenLogic extends KvStoreWithUserAndFrozen {
   }
 
   /**
+   * This node's account, hex-encoded: what user storage is keyed by.
+   */
+  my_account(): string {
+    return env.bytesToHex(env.accountId());
+  }
+
+  /**
    * Gets the simple string value for a *specific* user.
    * @param user_key - Hex-encoded 32-byte account id
    */

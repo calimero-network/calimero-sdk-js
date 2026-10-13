@@ -126,6 +126,7 @@ All are exported from `@calimero-network/calimero-sdk-js/env`.
 | `executorId` | `() => Uint8Array` | Current executor ID (32 bytes). |
 | `executorIdHex` | `() => string` | Executor ID as hex. |
 | `executorIdBase58` | `() => string` | Executor ID as base58. |
+| `accountId` | `() => Uint8Array` | Account the call is authorized as (32 bytes); the key of user storage. |
 | `bytesToBase58` | `(bytes: Uint8Array) => string` | Encode bytes as base58. |
 | `base58ToBytes` | `(value: string) => Uint8Array` | Decode base58 to raw bytes (throws on an invalid character). |
 | `bytesToHex` | `(bytes: Uint8Array) => string` | Encode bytes as lowercase hex, the encoding the node uses for context, member and blob ids. |
