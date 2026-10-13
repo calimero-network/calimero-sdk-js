@@ -52,6 +52,7 @@ export interface Method {
   is_init?: boolean;
   is_view?: boolean;
   is_handler?: boolean;
+  xcall?: 'any_in_namespace' | 'same_app';
 }
 
 export interface Parameter {
@@ -1185,6 +1186,7 @@ export class AbiEmitter {
         const isInit = decorators.some((d: any) => this.isCalimeroDecorator(d, 'Init'));
         const isView = decorators.some((d: any) => this.isCalimeroDecorator(d, 'View'));
         const isHandler = decorators.some((d: any) => this.isCalimeroDecorator(d, 'Handler'));
+        const xcall = this.xcallPolicy(decorators);
         const isStatic = member.static;
         if (isHandler && (isInit || isView)) {
           const kind = isInit ? 'initializer' : 'read-only';
@@ -1310,6 +1312,7 @@ export class AbiEmitter {
           is_init: isInit,
           is_view: isView,
           is_handler: isHandler,
+          xcall,
         });
       }
     });
@@ -1867,6 +1870,19 @@ export class AbiEmitter {
     }
   }
 
+  /** The caller policy of an `@XCall()` decorator, or undefined when the method has none. */
+  private xcallPolicy(decorators: any[]): Method['xcall'] {
+    const decorator = decorators.find((d: any) => this.isCalimeroDecorator(d, 'XCall'));
+    if (!decorator) {
+      return undefined;
+    }
+    const options = decorator.expression.arguments?.[0];
+    const fromSameApp = options?.properties?.some(
+      (p: any) => p.key?.name === 'fromSameApp' && p.value?.value === true
+    );
+    return fromSameApp ? 'same_app' : 'any_in_namespace';
+  }
+
   private isCalimeroDecorator(decorator: any, name: string): boolean {
     if (decorator.expression?.type === 'Identifier') {
       return decorator.expression.name === name;
@@ -2055,6 +2071,10 @@ export class AbiEmitter {
       // Note: is_init and is_view are not included in Rust ABI format
       if ((method.returns as any)?.nullable) result.returns_nullable = true;
       if (method.is_handler) result.handler = true;
+      if (method.xcall) {
+        result.xcall_callable = true;
+        if (method.xcall === 'same_app') result.xcall_callers = 'same_app';
+      }
 
       return result;
     });
