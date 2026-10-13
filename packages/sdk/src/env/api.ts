@@ -587,6 +587,41 @@ export function storageRemove(key: Uint8Array): boolean {
 }
 
 /**
+ * Reads a value from node-local private storage, which is never synced
+ *
+ * @param key - Storage key
+ * @returns Value if exists, null otherwise
+ */
+export function privateStorageRead(key: Uint8Array): Uint8Array | null {
+  if (!env.private_storage_read(key, REGISTER_ID)) return null;
+
+  const len = Number(env.register_len(REGISTER_ID));
+  const buf = new Uint8Array(len);
+  env.read_register(REGISTER_ID, buf);
+  return buf;
+}
+
+/**
+ * Writes a value to node-local private storage, which is never synced
+ *
+ * @param key - Storage key
+ * @param value - Value to store
+ */
+export function privateStorageWrite(key: Uint8Array, value: Uint8Array): void {
+  env.private_storage_write(key, value);
+}
+
+/**
+ * Removes a value from node-local private storage
+ *
+ * @param key - Storage key
+ * @returns true if the key existed
+ */
+export function privateStorageRemove(key: Uint8Array): boolean {
+  return Boolean(env.private_storage_remove(key, REGISTER_ID));
+}
+
+/**
  * Opt into JS SDK field-aware root-state merge.
  *
  * Signals the host that this app root should be merged via the guest
