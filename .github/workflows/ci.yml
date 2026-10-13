@@ -95,6 +95,20 @@ jobs:
       - name: Run unit tests
         run: pnpm test
 
+  builder-native:
+    name: Builder Native Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install CLI build dependencies
+        run: bash packages/cli/scripts/install-deps.sh
+
+      - name: Run builder native tests
+        run: bash packages/cli/scripts/test-builder.sh
+
   integration:
     name: Integration Tests
     runs-on: ubuntu-latest
