@@ -10,6 +10,19 @@ import { BorshReader } from '../borsh/decoder.js';
 import type { AbiManifest, TypeRef, TypeDef, ScalarType, Variant } from '../abi/types.js';
 import { getAbiManifest, resolveTypeRef, isNullable } from '../abi/helpers.js';
 
+const INT_BITS: Partial<Record<ScalarType, [signed: boolean, bits: bigint]>> = {
+  u8: [false, 8n],
+  u16: [false, 16n],
+  u32: [false, 32n],
+  u64: [false, 64n],
+  u128: [false, 128n],
+  i8: [true, 8n],
+  i16: [true, 16n],
+  i32: [true, 32n],
+  i64: [true, 64n],
+  i128: [true, 128n],
+};
+
 /**
  * Serializes a value according to an ABI TypeRef
  */
@@ -175,10 +188,28 @@ function serializeValue(
   throw new Error(`Unsupported type for ABI serialization: ${typeRef.kind}`);
 }
 
+function assertIntInRange(scalar: ScalarType, value: unknown): void {
+  const bits = INT_BITS[scalar];
+  if (!bits || (typeof value !== 'number' && typeof value !== 'bigint')) {
+    return;
+  }
+  if (typeof value === 'number' && !Number.isInteger(value)) {
+    throw new Error(`Expected an integer for ${scalar}, got ${value}`);
+  }
+  const [signed, width] = bits;
+  const big = BigInt(value);
+  const min = signed ? -(1n << (width - 1n)) : 0n;
+  const max = (signed ? 1n << (width - 1n) : 1n << width) - 1n;
+  if (big < min || big > max) {
+    throw new Error(`Value ${value} is out of range for ${scalar}`);
+  }
+}
+
 /**
  * Serialize a scalar value
  */
 function serializeScalar(writer: BorshWriter, value: unknown, scalar: ScalarType): void {
+  assertIntInRange(scalar, value);
   switch (scalar) {
     case 'bool':
       if (typeof value !== 'boolean') {
