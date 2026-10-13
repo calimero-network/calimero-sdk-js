@@ -58,6 +58,9 @@ Values are serialized with the SDK's Borsh encoder, the same as CRDT values.
   them as node-local storage, not a secrets vault.
 </Aside>
 
+Writes persist only from a mutating method.
+A write made inside a `@View()` method is discarded when the call ends.
+
 ## Private vs. replicated state
 
 | | Replicated (CRDT collections) | Private (`createPrivateEntry`) |
