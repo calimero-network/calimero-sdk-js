@@ -1,5 +1,4 @@
 import './setup';
-import { BorshWriter } from '../borsh/encoder';
 import { BorshReader } from '../borsh/decoder';
 import {
   decodeMergeRootStateRequest,
@@ -10,22 +9,7 @@ import {
   mergeRootCollections,
   mergeRootMetadata,
 } from '../runtime/merge';
-
-function buildRequest(
-  existing: Uint8Array,
-  incoming: Uint8Array,
-  existingCreatedAt: bigint,
-  existingTs: bigint,
-  incomingTs: bigint
-): Uint8Array {
-  const writer = new BorshWriter();
-  writer.writeBytes(existing);
-  writer.writeBytes(incoming);
-  writer.writeU64(existingCreatedAt);
-  writer.writeU64(existingTs);
-  writer.writeU64(incomingTs);
-  return writer.toBytes();
-}
+import { buildRequest } from './merge-request';
 
 function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;

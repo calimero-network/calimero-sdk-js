@@ -1,6 +1,5 @@
 import './setup';
 import '../collections/UnorderedSet';
-import { BorshWriter } from '../borsh/encoder';
 import { BorshReader } from '../borsh/decoder';
 import { computeMergeResponse } from '../runtime/merge';
 import { SharedStorage } from '../collections/SharedStorage';
@@ -16,6 +15,7 @@ import {
 import { StateManager } from '../runtime/state-manager';
 import { computeCollectionId, ROOT_ID } from '../utils/deterministic-id';
 import { bytesToHex, hexToBytes } from '../utils/hex';
+import { buildRequest } from './merge-request';
 
 const ABI = {
   schema_version: 'wasm-abi/1',
@@ -85,21 +85,6 @@ function rootWithout(): Uint8Array {
   });
 }
 
-function mergeRequest(
-  existing: Uint8Array,
-  incoming: Uint8Array,
-  existingCreatedAt: bigint,
-  existingTs: bigint
-): Uint8Array {
-  const writer = new BorshWriter();
-  writer.writeBytes(existing);
-  writer.writeBytes(incoming);
-  writer.writeU64(existingCreatedAt);
-  writer.writeU64(existingTs);
-  writer.writeU64(300n);
-  return writer.toBytes();
-}
-
 function responseTag(response: Uint8Array): number {
   return new BorshReader(response).readU8();
 }
@@ -134,21 +119,21 @@ describe('top-level collections in the root document', () => {
 
   it('merges documents whose collections match their fields', () => {
     const response = computeMergeResponse(
-      mergeRequest(rootWith({}, 200), rootWith({}, 300), 100n, 200n)
+      buildRequest(rootWith({}, 200), rootWith({}, 300), 100n, 200n, 300n)
     );
     expect(responseTag(response)).toBe(OK);
   });
 
   it('refuses to merge an incoming document that points a field at another collection', () => {
     const response = computeMergeResponse(
-      mergeRequest(rootWith({}, 200), rootWith({ id: otherId }, 300), 100n, 200n)
+      buildRequest(rootWith({}, 200), rootWith({ id: otherId }, 300), 100n, 200n, 300n)
     );
     expect(responseTag(response)).toBe(REFUSED);
   });
 
   it('refuses to merge an incoming document that gives a field another collection type', () => {
     const response = computeMergeResponse(
-      mergeRequest(rootWith({}, 200), rootWith({ type: 'UnorderedSet' }, 300), 100n, 200n)
+      buildRequest(rootWith({}, 200), rootWith({ type: 'UnorderedSet' }, 300), 100n, 200n, 300n)
     );
     expect(responseTag(response)).toBe(REFUSED);
   });
@@ -156,7 +141,7 @@ describe('top-level collections in the root document', () => {
   it('takes a valid incoming document on the bootstrap path in its declared-only form', () => {
     const incoming = rootWith({}, 300);
     const response = new BorshReader(
-      computeMergeResponse(mergeRequest(rootWith({}, 100), incoming, 100n, 100n))
+      computeMergeResponse(buildRequest(rootWith({}, 100), incoming, 100n, 100n, 300n))
     );
     expect(response.readU8()).toBe(OK);
     expect(Array.from(response.readBytes())).toEqual(Array.from(incoming));
@@ -165,7 +150,7 @@ describe('top-level collections in the root document', () => {
   it('refuses a mismatched document on the bootstrap path too', () => {
     for (const items of [{ id: otherId }, { type: 'UnorderedSet' }]) {
       const response = computeMergeResponse(
-        mergeRequest(rootWith({}, 100), rootWith(items, 300), 100n, 100n)
+        buildRequest(rootWith({}, 100), rootWith(items, 300), 100n, 100n, 300n)
       );
       expect(responseTag(response)).toBe(REFUSED);
     }
@@ -208,7 +193,7 @@ describe('top-level collections in the root document', () => {
 
   it('refuses to merge an incoming document that lacks a declared collection field', () => {
     const response = computeMergeResponse(
-      mergeRequest(rootWith({}, 200), rootWithout(), 100n, 200n)
+      buildRequest(rootWith({}, 200), rootWithout(), 100n, 200n, 300n)
     );
     expect(responseTag(response)).toBe(REFUSED);
   });
@@ -278,7 +263,7 @@ describe('top-level collections in the root document', () => {
   it('keeps refusing when the stored root is refused, even with a valid incoming root', () => {
     const incoming = rootWith({}, 300);
     for (const existing of [rootWith({ id: otherId }, 200), new Uint8Array([1, 2, 3])]) {
-      const response = computeMergeResponse(mergeRequest(existing, incoming, 100n, 200n));
+      const response = computeMergeResponse(buildRequest(existing, incoming, 100n, 200n, 300n));
       expect(responseTag(response)).toBe(REFUSED);
     }
   });
@@ -286,8 +271,8 @@ describe('top-level collections in the root document', () => {
   it('never persists an undeclared collection a later version could adopt', () => {
     const squatted = rootWithExtra({ added: { type: 'UnorderedMap', id: derivedId('added') } });
     const persistedByV1 = [
-      computeMergeResponse(mergeRequest(rootWith({}, 100), squatted, 100n, 100n)),
-      computeMergeResponse(mergeRequest(rootWith({}, 200), squatted, 100n, 200n)),
+      computeMergeResponse(buildRequest(rootWith({}, 100), squatted, 100n, 100n, 300n)),
+      computeMergeResponse(buildRequest(rootWith({}, 200), squatted, 100n, 200n, 300n)),
     ].map(response => {
       const reader = new BorshReader(response);
       expect(reader.readU8()).toBe(OK);
@@ -305,7 +290,7 @@ describe('top-level collections in the root document', () => {
 
   it('keeps the stored root when only the incoming one is refused', () => {
     const response = computeMergeResponse(
-      mergeRequest(rootWith({}, 200), rootWith({ id: otherId }, 300), 100n, 200n)
+      buildRequest(rootWith({}, 200), rootWith({ id: otherId }, 300), 100n, 200n, 300n)
     );
     expect(responseTag(response)).toBe(REFUSED);
   });
@@ -323,7 +308,7 @@ describe('top-level collections in the root document', () => {
     expect(state.untyped).toBeUndefined();
 
     const response = new BorshReader(
-      computeMergeResponse(mergeRequest(stored, rootWith({}, 300), 100n, 200n))
+      computeMergeResponse(buildRequest(stored, rootWith({}, 300), 100n, 200n, 300n))
     );
     expect(response.readU8()).toBe(OK);
     expect(Object.keys(parseRootDocument(response.readBytes()).collections)).toEqual(['items']);
@@ -346,7 +331,7 @@ describe('top-level collections in the root document', () => {
       metadata: { createdAt: 'x', updatedAt: 200, extra: 1 },
     } as any);
     const reader = new BorshReader(
-      computeMergeResponse(mergeRequest(rootWith({}, 100), malformed, 100n, 100n))
+      computeMergeResponse(buildRequest(rootWith({}, 100), malformed, 100n, 100n, 300n))
     );
     expect(reader.readU8()).toBe(OK);
     const persisted = reader.readBytes();
