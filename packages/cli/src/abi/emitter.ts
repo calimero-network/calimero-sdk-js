@@ -2186,7 +2186,7 @@ export class AbiEmitter {
     });
   }
 
-  private generateManifest(): AbiManifest {
+  public generateManifest(): AbiManifest {
     // Note: This returns the internal format. Use serializeToRustFormat() for Rust-compatible output
     return {
       schema_version: 'wasm-abi/1',
@@ -2198,9 +2198,6 @@ export class AbiEmitter {
   }
 
   /**
-   * Generate manifest in Rust ABI format
-   */
-  /**
    * The annotated type name of each @State field; the runtime checks a stored
    * collection field's type against it.
    */
@@ -2208,6 +2205,9 @@ export class AbiEmitter {
     return { ...this.stateFields };
   }
 
+  /**
+   * Generate manifest in Rust ABI format
+   */
   public generateManifestRustFormat(): any {
     this.addEventParamTypes();
     this.checkNamedHandlers();
@@ -2714,28 +2714,7 @@ function findTypeScriptFiles(dir: string, fileList: string[] = []): string[] {
  * Automatically finds and processes all TypeScript files in the same directory tree
  */
 export function generateAbiManifest(filePath: string): AbiManifest {
-  const emitter = new AbiEmitter();
-
-  // Get the directory containing the entry file
-  const entryDir = path.dirname(path.resolve(filePath));
-  const projectRoot = findProjectRoot(entryDir);
-
-  // Find all TypeScript files in the project
-  const allTsFiles = findTypeScriptFiles(projectRoot);
-
-  if (allTsFiles.length === 0) {
-    // Fallback to single file if no other files found
-    return emitter.analyzeFile(filePath);
-  }
-
-  // Ensure the entry file is included
-  const resolvedEntryPath = path.resolve(filePath);
-  if (!allTsFiles.includes(resolvedEntryPath)) {
-    allTsFiles.push(resolvedEntryPath);
-  }
-
-  // Process all files
-  return emitter.analyzeFiles(allTsFiles);
+  return analyzeProject(filePath).generateManifest();
 }
 
 /**
