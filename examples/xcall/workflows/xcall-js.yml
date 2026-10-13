@@ -13,7 +13,7 @@ steps:
   - name: Install app on Node 1
     type: install_application
     node: js-xcall-1
-    path: examples/xcall/build/service.wasm
+    path: examples/xcall/build/service.mpk
     dev: true
     outputs:
       app_id_node1: applicationId
@@ -21,7 +21,7 @@ steps:
   - name: Install app on Node 2
     type: install_application
     node: js-xcall-2
-    path: examples/xcall/build/service.wasm
+    path: examples/xcall/build/service.mpk
     dev: true
 
   - name: Create Namespace

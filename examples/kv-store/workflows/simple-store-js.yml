@@ -13,7 +13,7 @@ steps:
   - name: Install Simple Store Application
     type: install_application
     node: simple-store-node-1
-    path: "examples/kv-store/build/service.wasm"
+    path: "examples/kv-store/build/service.mpk"
     dev: true
     outputs:
       app_id: applicationId

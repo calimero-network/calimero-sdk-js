@@ -530,8 +530,9 @@ pnpm --filter @calimero-network/calimero-sdk-js exec jest --runInBand
 # Run specific test
 pnpm --filter @calimero-network/calimero-sdk-js exec jest collections
 
-# Run workflow (E2E with merobox)
-merobox bootstrap run examples/counter/workflows/counter-js.yml --log-level=trace
+# Run workflow (E2E with merobox); bundle the built examples first and run nodes that fetch bundles from peers
+pnpm bundle:examples
+merobox bootstrap run examples/counter/workflows/counter-js.yml --image "$(bash scripts/merod-image.sh)" --log-level=trace
 ```
 
 ## Dependencies

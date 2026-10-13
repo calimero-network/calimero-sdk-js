@@ -13,7 +13,7 @@ steps:
   - name: Install Nested Collections Demo Application
     type: install_application
     node: nested-node-1
-    path: "examples/nested-collections-demo/build/service.wasm"
+    path: "examples/nested-collections-demo/build/service.mpk"
     dev: true
     outputs:
       app_id: applicationId

@@ -18,7 +18,7 @@ steps:
   - name: Install Application on Node 1
     type: install_application
     node: new-calimero-node-1
-    path: 'examples/kv-store-with-user-and-frozen-storage/build/service.wasm'
+    path: 'examples/kv-store-with-user-and-frozen-storage/build/service.mpk'
     dev: true
     outputs:
       app_id: applicationId
