@@ -7,7 +7,7 @@ name: Authored Collections Convergence (two nodes)
 # both of which must be present in the merod:edge image. It can only run once
 # the image is rebuilt with core#3321. Two independent writers each add an entry
 # they own; on sync every replica must converge to the union, and each entry's
-# owner is preserved (so a member can read but not mutate the other's entry).
+# owner is preserved (keyed reads see only the caller's own entry).
 
 force_pull_image: true
 
