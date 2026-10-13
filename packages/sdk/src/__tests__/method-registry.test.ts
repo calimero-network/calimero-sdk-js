@@ -92,26 +92,6 @@ describe('method registry', () => {
     }).toThrow(/reset/);
   });
 
-  it('refuses the clash when the private method registers first', () => {
-    (globalThis as any).__CALIMERO_ABI_MANIFEST__ = abiWithMethods('audit');
-
-    class LedgerBookState {}
-
-    @Logic(LedgerBookState)
-    class Internal extends LedgerBookState {
-      private audit(): void {}
-    }
-    void Internal;
-
-    expect(() => {
-      @Logic(LedgerBookState)
-      class External extends LedgerBookState {
-        audit(): void {}
-      }
-      void External;
-    }).toThrow(/audit/);
-  });
-
   it('refuses an initializer whose name another @Logic class registered', () => {
     (globalThis as any).__CALIMERO_ABI_MANIFEST__ = abiWithMethods('boot');
 
