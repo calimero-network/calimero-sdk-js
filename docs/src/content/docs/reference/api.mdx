@@ -158,9 +158,9 @@ All are exported from `@calimero-network/calimero-sdk-js/env`.
 | `storageWrite` | `(key: Uint8Array, value: Uint8Array) => void` | Write a raw value. |
 | `storageRemove` | `(key: Uint8Array) => boolean` | Remove; returns whether the key existed. |
 
-<Aside type="tip">
-  For node-local data prefer `createPrivateEntry` over raw `storage*` calls — it
-  handles serialization and stays out of CRDT deltas.
+<Aside type="caution">
+  The raw `storage*` calls write to the synced context state.
+  For node-local data use `createPrivateEntry`, which writes to the node's private store.
 </Aside>
 
 ### Crypto, time & randomness

@@ -60,6 +60,7 @@ Values are serialized with the SDK's Borsh encoder, the same as CRDT values.
 
 Writes persist only from a mutating method.
 A write made inside a `@View()` method is discarded when the call ends.
+A call run on an account's behalf has no private store, so any private entry access in it fails the call.
 
 ## Private vs. replicated state
 
@@ -74,10 +75,9 @@ Reach for a [CRDT collection](/guides/collections/) whenever the data is part of
 the shared application state, and `createPrivateEntry` only for data that is
 genuinely local to one node.
 
-<Aside type="tip">
-  Prefer `createPrivateEntry` over raw `env.storageRead`/`storageWrite` for
-  node-local data — it handles serialization and gives you the read-or-init and
-  in-place-modify helpers.
+<Aside type="caution">
+  Use `createPrivateEntry` for node-local data, never raw `env.storageRead`/`storageWrite`.
+  The raw calls write to the synced context state, not the node's private store.
 </Aside>
 
 ## Example
