@@ -47,15 +47,13 @@ if (typeof TextDecoder === 'undefined') {
   (globalThis as any).TextDecoder = class TextDecoder {
     readonly encoding = 'utf-8';
     readonly fatal: boolean;
-    readonly ignoreBOM: boolean;
 
-    constructor(label = 'utf-8', options: { fatal?: boolean; ignoreBOM?: boolean } = {}) {
+    constructor(label = 'utf-8', options: { fatal?: boolean } = {}) {
       const normalized = String(label).trim().toLowerCase();
       if (normalized !== 'utf-8' && normalized !== 'utf8') {
         throw new RangeError(`Unsupported encoding: ${label}`);
       }
       this.fatal = options.fatal === true;
-      this.ignoreBOM = options.ignoreBOM === true;
     }
 
     decode(input?: ArrayBuffer | ArrayBufferView, options: { stream?: boolean } = {}): string {
@@ -112,7 +110,7 @@ if (typeof TextDecoder === 'undefined') {
           units.push(cp);
         }
       }
-      const start = !this.ignoreBOM && units[0] === 0xfeff ? 1 : 0;
+      const start = units[0] === 0xfeff ? 1 : 0;
       // Chunked rather than per-character concatenation, which is quadratic in QuickJS.
       const chunks: string[] = [];
       for (let i = start; i < units.length; i += DECODE_CHUNK) {
