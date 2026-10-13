@@ -1180,13 +1180,16 @@ export class AbiEmitter {
                 "(not private, protected or '_'-prefixed)"
             );
           }
+          if (decorators.some((d: any) => this.isCalimeroDecorator(d, 'XCall'))) {
+            throw new Error(`@XCall() on '${methodName}': it must be a public method`);
+          }
           return;
         }
 
         const isInit = decorators.some((d: any) => this.isCalimeroDecorator(d, 'Init'));
         const isView = decorators.some((d: any) => this.isCalimeroDecorator(d, 'View'));
         const isHandler = decorators.some((d: any) => this.isCalimeroDecorator(d, 'Handler'));
-        const xcall = this.xcallPolicy(decorators);
+        const xcall = this.xcallPolicy(methodName, decorators);
         const isStatic = member.static;
         if (isHandler && (isInit || isView)) {
           const kind = isInit ? 'initializer' : 'read-only';
@@ -1870,16 +1873,37 @@ export class AbiEmitter {
     }
   }
 
-  /** The caller policy of an `@XCall()` decorator, or undefined when the method has none. */
-  private xcallPolicy(decorators: any[]): Method['xcall'] {
+  /** The caller policy of an `@XCall()` decorator; anything it does not recognize fails the build. */
+  private xcallPolicy(methodName: string, decorators: any[]): Method['xcall'] {
     const decorator = decorators.find((d: any) => this.isCalimeroDecorator(d, 'XCall'));
     if (!decorator) {
       return undefined;
     }
-    const options = decorator.expression.arguments?.[0];
-    const fromSameApp = options?.properties?.some(
-      (p: any) => p.key?.name === 'fromSameApp' && p.value?.value === true
-    );
+    const invalid = (why: string) =>
+      new Error(
+        `@XCall() on '${methodName}': ${why}. Use @XCall() or @XCall({ fromSameApp: true })`
+      );
+    if (decorator.expression?.type !== 'CallExpression') {
+      throw invalid('it must be called');
+    }
+    const args = decorator.expression.arguments;
+    if (args.length === 0) {
+      return 'any_in_namespace';
+    }
+    const props = args[0].type === 'ObjectExpression' ? args[0].properties : undefined;
+    if (args.length > 1 || !props) {
+      throw invalid('the option must be an object literal');
+    }
+    let fromSameApp = false;
+    for (const p of props) {
+      if (p.type !== 'ObjectProperty' || p.computed || p.key?.name !== 'fromSameApp') {
+        throw invalid('only the fromSameApp option is supported');
+      }
+      if (p.value?.type !== 'BooleanLiteral') {
+        throw invalid('fromSameApp must be the literal true or false');
+      }
+      fromSameApp = p.value.value;
+    }
     return fromSameApp ? 'same_app' : 'any_in_namespace';
   }
 

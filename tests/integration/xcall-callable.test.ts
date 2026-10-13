@@ -57,4 +57,18 @@ describe('xcall entry points in the ABI', () => {
     expect(byName.pong.xcall_callable).toBe(true);
     expect(byName.pong.xcall_callers).toBe('same_app');
   });
+
+  it.each([
+    ['an unknown option', '@XCall({ fromSameAp: true })'],
+    ['a non-literal value', '@XCall({ fromSameApp: someFlag })'],
+    ['a non-boolean value', "@XCall({ fromSameApp: 'true' })"],
+    ['a non-object argument', "@XCall('same_app')"],
+    ['an uncalled decorator', '@XCall'],
+  ])('fails the build on %s rather than widening access', (_name, decorator) => {
+    expect(() => methodsByName(`${decorator}\n pong(): void {}`)).toThrow(/@XCall\(\) on 'pong'/);
+  });
+
+  it('fails the build on a private @XCall method', () => {
+    expect(() => methodsByName('@XCall()\n private pong(): void {}')).toThrow(/public method/);
+  });
 });
