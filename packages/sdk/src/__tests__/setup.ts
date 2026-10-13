@@ -30,11 +30,10 @@ type LwwStore = {
   nodeId: Uint8Array;
 };
 
-// Attributed (authored) CRDT stores. Each entry/slot records its owner so the
-// mock can enforce owner-only update/remove/tombstone semantics.
+// Attributed (authored) CRDT stores. Map entries are held per (owner, key) like
+// core; vector slots record their owner for owner-only update/tombstone.
 type AuthoredMapStore = {
-  entries: Map<string, StoredValue>;
-  owners: Map<string, Uint8Array>;
+  entries: Map<string, { key: Uint8Array; owner: Uint8Array; value: Uint8Array }>;
 };
 
 type AuthoredSlot = {
@@ -109,6 +108,11 @@ export function setExecutorId(id: Uint8Array): void {
  */
 export function resetExecutorId(): void {
   currentExecutorId = mockExecutorId;
+}
+
+// Authored map entries are keyed by the caller's account plus the key bytes.
+function authoredEntryKey(key: Uint8Array): string {
+  return `${Array.from(currentExecutorId).join(',')}|${Array.from(key).join(',')}`;
 }
 
 function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
@@ -377,7 +381,7 @@ function executorIsWriter(store: SharedCellStore): boolean {
   },
 
   js_crdt_authored_map_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
-    authoredMaps.set(idToKey(id), { entries: new Map(), owners: new Map() });
+    authoredMaps.set(idToKey(id), { entries: new Map() });
     setRegister(new Uint8Array(id));
     return 0;
   },
@@ -1089,7 +1093,7 @@ function executorIsWriter(store: SharedCellStore): boolean {
 
   js_crdt_authored_map_new: (_register_id: bigint): number => {
     const id = generateId();
-    authoredMaps.set(idToKey(id), { entries: new Map(), owners: new Map() });
+    authoredMaps.set(idToKey(id), { entries: new Map() });
     setRegister(id);
     return 0;
   },
@@ -1105,15 +1109,17 @@ function executorIsWriter(store: SharedCellStore): boolean {
       setRegisterError('authored map not found');
       return -1;
     }
-    const entryKey = Array.from(key).join(',');
+    const entryKey = authoredEntryKey(key);
     if (store.entries.has(entryKey)) {
-      // `insert` rejects an already-present key.
+      // Only the caller's own entry blocks an insert; other owners' do not.
       setRegisterError('key already exists');
       return -1;
     }
-    store.entries.set(entryKey, new Uint8Array(value));
-    // Stamp the current executor as the entry owner.
-    store.owners.set(entryKey, new Uint8Array(currentExecutorId));
+    store.entries.set(entryKey, {
+      key: new Uint8Array(key),
+      owner: new Uint8Array(currentExecutorId),
+      value: new Uint8Array(value),
+    });
     setRegister(null);
     return 0;
   },
@@ -1129,18 +1135,12 @@ function executorIsWriter(store: SharedCellStore): boolean {
       setRegisterError('authored map not found');
       return -1;
     }
-    const entryKey = Array.from(key).join(',');
-    const owner = store.owners.get(entryKey);
-    if (!owner) {
+    const entry = store.entries.get(authoredEntryKey(key));
+    if (!entry) {
       setRegisterError('key not found');
       return -1;
     }
-    // Owner-only: reject a non-owner executor (ActionNotAllowed).
-    if (!bytesEqual(owner, currentExecutorId)) {
-      setRegisterError('ActionNotAllowed: not the entry owner');
-      return -1;
-    }
-    store.entries.set(entryKey, new Uint8Array(value));
+    entry.value = new Uint8Array(value);
     return 1;
   },
 
@@ -1154,21 +1154,14 @@ function executorIsWriter(store: SharedCellStore): boolean {
       setRegisterError('authored map not found');
       return -1;
     }
-    const entryKey = Array.from(key).join(',');
+    const entryKey = authoredEntryKey(key);
     const previous = store.entries.get(entryKey);
     if (!previous) {
       setRegister(null);
       return 0;
     }
-    const owner = store.owners.get(entryKey);
-    // Owner-only: reject a non-owner executor (ActionNotAllowed).
-    if (owner && !bytesEqual(owner, currentExecutorId)) {
-      setRegisterError('ActionNotAllowed: not the entry owner');
-      return -1;
-    }
     store.entries.delete(entryKey);
-    store.owners.delete(entryKey);
-    setRegister(previous);
+    setRegister(previous.value);
     return 1;
   },
 
@@ -1178,12 +1171,12 @@ function executorIsWriter(store: SharedCellStore): boolean {
       setRegisterError('authored map not found');
       return -1;
     }
-    const value = store.entries.get(Array.from(key).join(','));
-    if (!value) {
+    const entry = store.entries.get(authoredEntryKey(key));
+    if (!entry) {
       setRegister(null);
       return 0;
     }
-    setRegister(value);
+    setRegister(entry.value);
     return 1;
   },
 
@@ -1192,7 +1185,7 @@ function executorIsWriter(store: SharedCellStore): boolean {
     if (!store) {
       return -1;
     }
-    return store.entries.has(Array.from(key).join(',')) ? 1 : 0;
+    return store.entries.has(authoredEntryKey(key)) ? 1 : 0;
   },
 
   js_crdt_authored_map_owner_of: (
@@ -1205,12 +1198,12 @@ function executorIsWriter(store: SharedCellStore): boolean {
       setRegisterError('authored map not found');
       return -1;
     }
-    const owner = store.owners.get(Array.from(key).join(','));
-    if (!owner) {
+    const entry = store.entries.get(authoredEntryKey(key));
+    if (!entry) {
       setRegister(null);
       return 0;
     }
-    setRegister(new Uint8Array(owner));
+    setRegister(new Uint8Array(entry.owner));
     return 1;
   },
 
@@ -1219,11 +1212,7 @@ function executorIsWriter(store: SharedCellStore): boolean {
     if (!store) {
       return -1;
     }
-    const owner = store.owners.get(Array.from(key).join(','));
-    if (!owner) {
-      return 0;
-    }
-    return bytesEqual(owner, currentExecutorId) ? 1 : 0;
+    return store.entries.has(authoredEntryKey(key)) ? 1 : 0;
   },
 
   js_crdt_authored_map_iter: (mapId: Uint8Array, _register_id: bigint): number => {
@@ -1232,10 +1221,9 @@ function executorIsWriter(store: SharedCellStore): boolean {
       setRegisterError('authored map not found');
       return -1;
     }
-    const entries = Array.from(store.entries.entries()).map(([key, value]) => {
-      const keyBytes = Uint8Array.from(key.split(',').map(Number));
-      return [keyBytes, value] as [Uint8Array, Uint8Array];
-    });
+    const entries = Array.from(store.entries.values()).map(
+      ({ key, value }) => [key, value] as [Uint8Array, Uint8Array]
+    );
     setRegister(serializeMapEntries(entries));
     return 1;
   },
