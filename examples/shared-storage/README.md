@@ -39,7 +39,7 @@ merobox bootstrap run examples/shared-storage/workflows/shared-storage-js.yml
 
 # Two-node: creator rotates a second node into the writer set, both write, and
 # every replica converges on the shared value (last-write-wins).
-merobox bootstrap run examples/shared-storage/workflows/shared-storage-concurrent.yml
+merobox bootstrap run examples/shared-storage/workflows/shared-storage-concurrent.yml --image "$(bash scripts/merod-image.sh)"
 ```
 
 Both require the `js_crdt_shared_*` host functions (calimero-network/core#3340)

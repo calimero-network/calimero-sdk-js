@@ -247,11 +247,11 @@ flowchart TB
 | `examples/private-data`                          | Public vs node-local storage (`createPrivateEntry`) | `examples/private-data/workflows/private-data-js.yml` |
 | `examples/kv-store-with-user-and-frozen-storage` | `UserStorage` and `FrozenStorage` examples          | See workflows in example directory                    |
 
-Nodes install only signed bundles, so wrap the built examples first (needs `cargo mero` on PATH), then run a workflow:
+Nodes install only signed bundles, so wrap the built examples first (needs `cargo mero` on PATH), then run a workflow on a node image that fetches those bundles from peers:
 
 ```bash
 pnpm bundle:examples
-merobox bootstrap run examples/team-metrics/workflows/team-metrics-js.yml --log-level=trace
+merobox bootstrap run examples/team-metrics/workflows/team-metrics-js.yml --image "$(bash scripts/merod-image.sh)" --log-level=trace
 ```
 
 ---
