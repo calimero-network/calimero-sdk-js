@@ -232,25 +232,28 @@ const seeded = Rga.fromText('Hello world');
 ## Attributed collections
 
 Attributed (authored) collections record the **owner** of each entry — the
-executor that created it — and enforce that only that owner may update or remove
-it. Ownership travels with the entry and is verified on every node, so one
-member cannot overwrite another member's data.
+executor that created it. Ownership travels with the entry and is verified on
+every node, so one member cannot overwrite another member's data.
 
 ### AuthoredMap&lt;K, V&gt;
 
-Like `UnorderedMap`, but each key is owned by its first inserter.
+Like `UnorderedMap`, but keys are **per owner**: each member holds its own entry
+at a key, so two members can insert the same key and both entries exist. Keyed
+methods act only on the calling executor's entry; `entries()`, `keys()` and
+`values()` span every owner (a key appears once per owner).
 
 ```typescript
 const claims = new AuthoredMap<string, string>();
 
-claims.insert('seat-1', 'alice'); // owned by the current executor
-claims.update('seat-1', 'alice-2'); // ok only if you own 'seat-1' (throws otherwise)
-claims.set('seat-1', 'alice-2'); // insert-or-update, owner-checked on update
-claims.get('seat-1'); // V | null
-claims.has('seat-1'); // boolean (contains() is an alias)
-claims.ownerOf('seat-1'); // Uint8Array (owner public key) | null
-claims.ownedByMe('seat-1'); // boolean
-claims.remove('seat-1'); // owner-checked
+claims.insert('seat-1', 'alice'); // your entry at 'seat-1'; throws if you already hold it
+claims.update('seat-1', 'alice-2'); // your entry; throws if you do not hold 'seat-1'
+claims.set('seat-1', 'alice-2'); // insert-or-update your entry
+claims.get('seat-1'); // your value | null (never another member's)
+claims.has('seat-1'); // whether you hold it (contains() is an alias)
+claims.ownerOf('seat-1'); // your public key if you hold it, else null
+claims.ownedByMe('seat-1'); // same answer as has()
+claims.remove('seat-1'); // removes your entry; no-op if you do not hold it
+claims.values(); // every member's values, to read what others wrote
 ```
 
 ### AuthoredVector&lt;T&gt;
@@ -288,7 +291,8 @@ The other types resolve differently and never lose concurrent updates:
 - `Counter` / `PNCounter` — per-node tallies are summed (additive).
 - `Rga` — concurrent inserts/deletes interleave by position (union of edits).
 - `AuthoredMap` / `AuthoredVector` — each entry is owner-gated, so only its owner
-  can change it; there is no cross-writer conflict on a single entry.
+  can change it; there is no cross-writer conflict on a single entry. Map keys
+  are per owner, so concurrent inserts of one key coexist.
 - `FrozenStorage` — first write wins; entries are immutable.
 
 ## Nested collections

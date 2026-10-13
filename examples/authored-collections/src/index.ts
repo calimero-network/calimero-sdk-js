@@ -8,8 +8,8 @@ import * as env from '@calimero-network/calimero-sdk-js/env';
  * Exercises the two new JS Service SDK attributed collection wrappers that wrap
  * the core host functions landed in calimero-network/core#3321:
  *
- *  - AuthoredMap    — map whose entries are stamped with an owner; `update`
- *                     and `remove` are owner-only.
+ *  - AuthoredMap    — map with per-owner keys: each member holds its own entry
+ *                     at a key; keyed methods act on the caller's entry.
  *  - AuthoredVector — ordered list whose slots are stamped with an owner;
  *                     `update` and `tombstone` are owner-only.
  *
@@ -33,12 +33,12 @@ export class AuthoredDemoLogic extends AuthoredDemo {
 
   // --- AuthoredMap --------------------------------------------------------
 
-  // Insert stamps the caller as the entry owner (fails if the key exists).
+  // Insert stamps the caller as the entry owner (fails if the caller holds the key).
   setProfile(name: string, note: string): void {
     this.profiles.insert(name, note);
   }
 
-  // Owner-only: throws if the caller does not own the entry.
+  // Updates the caller's own entry; throws if the caller holds none.
   updateProfile(name: string, note: string): void {
     this.profiles.update(name, note);
   }

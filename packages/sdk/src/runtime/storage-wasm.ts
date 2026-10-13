@@ -1088,7 +1088,7 @@ export function authoredMapInsert(mapId: Uint8Array, key: Uint8Array, value: Uin
   }
 }
 
-// `update` is owner-only: a non-owner update surfaces as a thrown error.
+// `update` acts on the caller's own entry; a missing entry surfaces as a thrown error.
 export function authoredMapUpdate(mapId: Uint8Array, key: Uint8Array, value: Uint8Array): void {
   ensureCollectionId(mapId, 'mapId');
   ensureUint8Array(key, 'key');
@@ -1100,8 +1100,7 @@ export function authoredMapUpdate(mapId: Uint8Array, key: Uint8Array, value: Uin
   }
 }
 
-// `remove` is owner-only: a non-owner remove surfaces as a thrown error; an
-// absent key returns null.
+// `remove` acts on the caller's own entry; an absent entry returns null.
 export function authoredMapRemove(mapId: Uint8Array, key: Uint8Array): Uint8Array | null {
   ensureCollectionId(mapId, 'mapId');
   ensureUint8Array(key, 'key');
