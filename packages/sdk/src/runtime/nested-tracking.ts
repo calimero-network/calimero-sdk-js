@@ -6,7 +6,7 @@
  */
 
 import { hasRegisteredCollection, snapshotCollection } from './collections';
-import { flushDelta, executorId } from '../env/api';
+import { flushDelta, accountId } from '../env/api';
 
 interface CollectionTracker {
   id: string;
@@ -174,21 +174,21 @@ class NestedCollectionTracker {
         this.markForUpdate(parentSnapshot.id);
       }
     } else if (parentSnapshot.type === 'UserStorage') {
-      // UserStorage uses insert() for setting values for the current executor
+      // UserStorage uses insert() for setting values for the current account
       // For nested collections inside UserStorage, we need to re-insert to propagate changes
       // IMPORTANT: We can only update nested collections that belong to the current executor.
       // Nested collections retrieved via getForUser() with another user's key are read-only.
       if (parentCollection.get && parentCollection.insert) {
-        // Check if we can modify this user's data (must be current executor)
-        const executorKey = executorId();
+        // Check if we can modify this user's data (must be the current account)
+        const accountKey = accountId();
 
-        // Check if the key matches the current executor
-        // If key is provided and doesn't match executor, skip update (read-only access)
+        // Check if the key matches the current account
+        // If key is provided and doesn't match the account, skip update (read-only access)
         let canUpdate = true;
         if (key !== undefined && key !== null) {
           if (
-            key.length !== executorKey.length ||
-            !key.every((byte: number, i: number) => byte === executorKey[i])
+            key.length !== accountKey.length ||
+            !key.every((byte: number, i: number) => byte === accountKey[i])
           ) {
             // This nested collection belongs to another user - we can't modify it
             // Skip the update silently (read-only access is expected)
