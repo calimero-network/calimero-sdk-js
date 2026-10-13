@@ -54,11 +54,6 @@ function isExportable(name: unknown): name is string {
   return typeof name === 'string' && name !== '' && name !== 'constructor' && !name.startsWith('_');
 }
 
-// Entry points are the methods the ABI emitter found public in the TS source; no manifest, none.
-function isAbiEntryPoint(name: unknown): boolean {
-  return isExportable(name) && isAbiMethod(name);
-}
-
 // An initializer is an entry point whatever its accessibility; the dispatcher refuses re-entry.
 function isAbiMethod(name: unknown): name is string {
   return (
@@ -187,7 +182,8 @@ export function registerLogic(
   const entry = ensureLogicEntry(logicName);
 
   for (const method of methods) {
-    if (isAbiEntryPoint(method)) {
+    // Entry points are the methods the ABI emitter found public in the TS source; no manifest, none.
+    if (isExportable(method) && isAbiMethod(method)) {
       claimEntryPoint(target, method);
       addMethodToEntry(entry, method);
       if (entry.mutating[method] === undefined) {

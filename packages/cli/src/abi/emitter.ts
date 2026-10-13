@@ -147,7 +147,6 @@ export class AbiEmitter {
     }
 
     // Second pass: Find decorated classes from all files
-    // Track analyzed classes to avoid duplicates (exported classes appear in both ClassDeclaration and ExportNamedDeclaration)
     const analyzedClasses = new Map<string, any>();
     for (const filePath of filePaths) {
       const sourceCode = fs.readFileSync(filePath, 'utf-8');
@@ -159,11 +158,6 @@ export class AbiEmitter {
       traverse(ast, {
         ClassDeclaration: (nodePath: any) => this.analyzeClassOnce(nodePath.node, analyzedClasses),
         ClassExpression: (nodePath: any) => this.analyzeClassOnce(nodePath.node, analyzedClasses),
-        ExportNamedDeclaration: (nodePath: any) => {
-          if (nodePath.node.declaration?.type === 'ClassDeclaration') {
-            this.analyzeClassOnce(nodePath.node.declaration, analyzedClasses);
-          }
-        },
       });
     }
 
@@ -380,18 +374,12 @@ export class AbiEmitter {
     });
 
     // Second pass: Find all classes (decorated and referenced)
-    // Track analyzed classes to avoid duplicates (exported classes appear in both ClassDeclaration and ExportNamedDeclaration)
     const analyzedClasses = new Map<string, any>();
 
     // First, analyze decorated classes (State, Logic, Event)
     traverse(ast, {
       ClassDeclaration: (nodePath: any) => this.analyzeClassOnce(nodePath.node, analyzedClasses),
       ClassExpression: (nodePath: any) => this.analyzeClassOnce(nodePath.node, analyzedClasses),
-      ExportNamedDeclaration: (nodePath: any) => {
-        if (nodePath.node.declaration?.type === 'ClassDeclaration') {
-          this.analyzeClassOnce(nodePath.node.declaration, analyzedClasses);
-        }
-      },
     });
 
     // Third pass: Analyze variant patterns (abstract classes with concrete subclasses)
@@ -870,7 +858,7 @@ export class AbiEmitter {
     if (seen === undefined) {
       analyzed.set(className, classNode);
       this.analyzeClass(classNode);
-    } else if (seen !== classNode && (this.isLogicClass(seen) || isLogic)) {
+    } else if (this.isLogicClass(seen) || isLogic) {
       throw new Error(`@Logic class '${className}' is declared more than once`);
     }
   }
