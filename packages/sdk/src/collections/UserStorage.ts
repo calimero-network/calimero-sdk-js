@@ -1,12 +1,12 @@
 /**
  * UserStorage - User-owned, signed storage collection.
  *
- * Provides a per-user key-value store where keys are PublicKeys (32-byte identifiers).
+ * Provides a per-user key-value store keyed by the 32-byte account id (`env.accountId()`).
  * Data written by a user is owned and verifiably signed by that user.
  *
  * Under the hood, this is implemented as an UnorderedMap<PublicKey, T> with StorageType::User.
  * When actions are created, Calimero Core's storage layer automatically:
- * - Signs the action with the executor's identity private key
+ * - Signs the action with the executing device's identity private key
  * - Embeds a signature and nonce in the action metadata
  * - Verifies signatures on other nodes before applying actions
  * - Enforces replay protection by checking nonces are strictly increasing
@@ -42,7 +42,7 @@ const SENTINEL_KEY = '__calimeroCollection';
 const PUBLIC_KEY_LENGTH = 32;
 
 /**
- * Type alias for a PublicKey - a 32-byte Uint8Array representing a user's identity.
+ * Alias for the 32-byte key of a user entry: the account id (`env.accountId()`).
  */
 export type PublicKey = Uint8Array;
 
@@ -56,13 +56,12 @@ export interface UserStorageOptions {
 /**
  * UserStorage provides per-user, key-value storage.
  *
- * Keys are PublicKeys (32-byte identifiers), and values are user-owned data.
- * The current executor can only insert data for their own PublicKey.
+ * Keys are 32-byte account ids, and values are user-owned data.
+ * The current account can only insert data for its own id.
  *
  * @example
  * ```typescript
  * import { UserStorage, createUserStorage } from '@calimero-network/calimero-sdk-js/collections';
- * import { executorId } from '@calimero-network/calimero-sdk-js/env';
  *
  * interface UserProfile {
  *   displayName: string;
@@ -78,7 +77,7 @@ export interface UserStorageOptions {
  * const myProfile = profiles.get();
  *
  * // Read any user's data
- * const otherProfile = profiles.getForUser(somePublicKey);
+ * const otherProfile = profiles.getForUser(someAccountId);
  * ```
  */
 export class UserStorage<V> {
@@ -116,21 +115,21 @@ export class UserStorage<V> {
   }
 
   /**
-   * Inserts or updates data for the current executor.
+   * Inserts or updates data for the current account.
    *
    * This is the primary way to write to UserStorage. The key is automatically
-   * set to the current executor's PublicKey.
+   * set to the current account id.
    *
    * @param value - The value to store
    * @returns The previous value if it existed, null otherwise
    */
   insert(value: V): V | null {
-    const executorKey = env.executorId();
-    return this.setInternal(executorKey, value);
+    const accountKey = env.accountId();
+    return this.setInternal(accountKey, value);
   }
 
   /**
-   * Gets data for the current executor.
+   * Gets data for the current account.
    *
    * @returns The current user's stored value, or null if not found
    */
@@ -138,21 +137,21 @@ export class UserStorage<V> {
     const raw = userStorageGet(this.mapId);
     if (!raw) return null;
 
-    const executorKey = env.executorId();
+    const accountKey = env.accountId();
     const value = deserialize<V>(raw);
 
     // Re-register nested collections with parent relationship when retrieving
     if (hasRegisteredCollection(value)) {
-      nestedTracker.registerCollection(value, this, executorKey);
+      nestedTracker.registerCollection(value, this, accountKey);
     }
 
     return value;
   }
 
   /**
-   * Gets data for a specific user by their PublicKey.
+   * Gets data for a specific user by their account id.
    *
-   * @param userKey - The 32-byte PublicKey of the user
+   * @param userKey - The 32-byte account id of the user
    * @returns The user's stored value, or null if not found
    */
   getForUser(userKey: PublicKey): V | null {
@@ -173,7 +172,7 @@ export class UserStorage<V> {
   }
 
   /**
-   * Checks if data exists for the current executor.
+   * Checks if data exists for the current account.
    *
    * @returns true if the current user has stored data
    */
@@ -184,7 +183,7 @@ export class UserStorage<V> {
   /**
    * Checks if data exists for a specific user.
    *
-   * @param userKey - The 32-byte PublicKey of the user
+   * @param userKey - The 32-byte account id of the user
    * @returns true if the user has stored data
    */
   containsUser(userKey: PublicKey): boolean {
@@ -193,24 +192,24 @@ export class UserStorage<V> {
   }
 
   /**
-   * Sets data for a specific user by their PublicKey.
+   * Sets data for a specific user by their account id.
    *
    * This method is primarily used internally by the nested collection tracking system
    * to propagate changes to nested collections. However, it can only be used for the
-   * current executor's data - nested collections belonging to other users (accessed
+   * current account's data - nested collections belonging to other users (accessed
    * via `getForUser()`) are read-only and cannot be modified.
    *
-   * @param userKey - The 32-byte PublicKey of the user (must match current executor)
+   * @param userKey - The 32-byte account id of the user (must match the current account)
    * @param value - The value to store
    * @returns The previous value if it existed, null otherwise
-   * @throws Error if userKey does not match the current executor
+   * @throws Error if userKey does not match the current account
    */
   setForUser(userKey: PublicKey, value: V): V | null {
     return this.setInternal(userKey, value);
   }
 
   /**
-   * Removes data for the current executor.
+   * Removes data for the current account.
    *
    * @returns The previous value if it existed, null otherwise
    */
@@ -232,7 +231,7 @@ export class UserStorage<V> {
   }
 
   /**
-   * Returns all PublicKeys that have stored data.
+   * Returns all account ids that have stored data.
    */
   keys(): PublicKey[] {
     return this.entries().map(([key]) => key);
@@ -261,12 +260,11 @@ export class UserStorage<V> {
 
   private setInternal(key: PublicKey, value: V): V | null {
     validatePublicKey(key, 'insert');
-    const executorKey = env.executorId();
+    const accountKey = env.accountId();
 
-    // Only allow setting for the current executor
-    // The nested tracker's setForUser should only be called for the current executor
-    if (key.length !== executorKey.length || !key.every((byte, i) => byte === executorKey[i])) {
-      throw new Error('UserStorage.setInternal: can only set data for the current executor');
+    // Only the current account's slot is writable; nested tracking relies on it.
+    if (key.length !== accountKey.length || !key.every((byte, i) => byte === accountKey[i])) {
+      throw new Error('UserStorage.setInternal: can only set data for the current account');
     }
 
     let nextValue = value;
@@ -284,7 +282,7 @@ export class UserStorage<V> {
 
     // Register nested collections for automatic tracking after storage
     if (hasRegisteredCollection(nextValue)) {
-      nestedTracker.registerCollection(nextValue, this, executorKey);
+      nestedTracker.registerCollection(nextValue, this, accountKey);
     }
 
     // Notify tracker of modification
