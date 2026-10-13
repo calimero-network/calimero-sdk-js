@@ -9,7 +9,7 @@
  *    rejects a non-writer executor ("Executor is not authorised…"), surfaced
  *    here as a thrown error. The executor identity is host-provided.
  *  - `get()` returns `null` until the value is first written.
- *  - `writers()` returns the current writer set (32-byte public keys).
+ *  - `writers()` returns the current writer set (32-byte account ids).
  *  - `writableByMe()`/`isFrozen()` report writer membership and the frozen flag.
  *
  * A missing cell cannot be lazily recreated (its writer set is unknown), so a
@@ -18,8 +18,8 @@
  * from a persisted snapshot via {@link SharedStorage.fromId}. Calling `get`/
  * `set`/etc. on an id that was never opened surfaces a host error.
  *
- * Writer keys are passed as raw 32-byte `Uint8Array` public keys (what the host
- * wants — e.g. the value returned by `env.executorId()`) or as 64-character hex
+ * Writers are accounts: pass raw 32-byte `Uint8Array` account ids (e.g. the value
+ * returned by `env.accountId()`) or 64-character hex
  * strings; both are normalized to raw 32-byte keys before crossing the ABI. The
  * writer set crosses the ABI as the concatenation of those 32-byte keys.
  */
@@ -42,13 +42,13 @@ const SENTINEL_KEY = '__calimeroCollection';
 const PUBLIC_KEY_LENGTH = 32;
 
 /**
- * A writer public key: a raw 32-byte `Uint8Array` or a 64-character hex string.
+ * A writer account id: a raw 32-byte `Uint8Array` or a 64-character hex string.
  */
 export type WriterKey = Uint8Array | string;
 
 export interface SharedStorageOptions {
   /**
-   * The initial writer set — raw 32-byte public keys or 64-character hex
+   * The initial writer set — raw 32-byte account ids or 64-character hex
    * strings. Required when creating a cell (omit only via {@link
    * SharedStorage.fromId}, which rehydrates an already-opened cell).
    */
@@ -164,7 +164,7 @@ export class SharedStorage<V> {
   }
 
   /**
-   * Returns the current writer set as raw 32-byte public keys.
+   * Returns the current writer set as raw 32-byte account ids.
    */
   writers(): Uint8Array[] {
     return sharedWriters(this.cellId);

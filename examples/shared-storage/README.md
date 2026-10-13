@@ -19,10 +19,11 @@ This app (`TeamConfig`) models a shared team configuration string:
 | ------------------------- | ---- | ------------------------------------------------ |
 | `setConfig(value)`        | call | Overwrite the shared value (writer-gated).       |
 | `getConfig()`             | view | Current value, or `null` before the first write. |
-| `configWriters()`         | view | Current writer set as hex public keys.           |
+| `configWriters()`         | view | Current writer set as hex account ids.           |
+| `myAccount()`             | view | Caller's account id (hex), what writers are.     |
 | `canWrite()`              | view | Whether the caller may write.                    |
 | `isConfigFrozen()`        | view | Whether the cell is frozen (immutable).          |
-| `addWriter(publicKeyHex)` | call | Add a writer by hex key (writer-gated).          |
+| `addWriter(publicKeyHex)` | call | Add a writer by hex account id (writer-gated).   |
 
 ## Build
 

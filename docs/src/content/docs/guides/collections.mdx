@@ -414,14 +414,14 @@ document versioning, certificates, and content-addressable sharing.
 A single value that any member of a **rotatable writer set** may overwrite.
 Writes from different writers converge last-write-wins; the writer set is managed
 at runtime and enforced by the host — a non-writer's `set`/`rotateWriters` is
-rejected. Writers are 32-byte public keys (raw or hex).
+rejected. Writers are 32-byte account ids from `env.accountId()` (raw or hex).
 
 ```typescript
 import { SharedStorage } from '@calimero-network/calimero-sdk-js/collections';
-import { executorId } from '@calimero-network/calimero-sdk-js/env';
+import { accountId } from '@calimero-network/calimero-sdk-js/env';
 
 // The creator is the sole initial writer.
-const config = new SharedStorage<string>({ writers: [executorId()] });
+const config = new SharedStorage<string>({ writers: [accountId()] });
 // Pass `frozen: true` to create an immutable cell: new SharedStorage({ writers, frozen: true })
 
 config.set('hello'); // ok — caller is a writer (throws for a non-writer)
