@@ -14,10 +14,16 @@ static inline uint8_t* JSValueToUint8Array(JSContext *ctx, JSValue val, size_t *
     return NULL;
   }
   
-  uint8_t *ptr = JS_GetArrayBuffer(ctx, len, buffer);
+  // Separate size so *len keeps the view's byte length, not the whole buffer's.
+  size_t buffer_len;
+  uint8_t *ptr = JS_GetArrayBuffer(ctx, &buffer_len, buffer);
   JS_FreeValue(ctx, buffer);
-  
-  return ptr ? ptr + offset : NULL;
+
+  if (!ptr || offset > buffer_len || *len > buffer_len - offset) {
+    *len = 0;
+    return NULL;
+  }
+  return ptr + offset;
 }
 
 #endif
