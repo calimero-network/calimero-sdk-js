@@ -1,6 +1,7 @@
 import './setup';
-import { clearStorage } from './setup';
+import { clearStorage, getPrivateStorage, getStorage } from './setup';
 import { createPrivateEntry } from '../state/private';
+import { sha256 } from '../utils/sha256';
 
 describe('PrivateEntryHandle', () => {
   beforeEach(() => {
@@ -45,5 +46,14 @@ describe('PrivateEntryHandle', () => {
     const value = entry.getOrDefault(7);
     expect(value).toBe(7);
     expect(entry.get()).toBe(7);
+  });
+
+  it('keeps entries in node-local storage under the tagged key hash', () => {
+    createPrivateEntry<string>('private:hello').set('secret');
+
+    const material = new TextEncoder().encode('private:hello');
+    const expected = Array.from([0xff, ...sha256(material)]).join(',');
+    expect(getStorage().size).toBe(0);
+    expect([...getPrivateStorage().keys()]).toEqual([expected]);
   });
 });
