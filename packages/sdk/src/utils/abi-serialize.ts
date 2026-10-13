@@ -188,6 +188,18 @@ function serializeValue(
   throw new Error(`Unsupported type for ABI serialization: ${typeRef.kind}`);
 }
 
+export const isIntegerScalar = (scalar: ScalarType): boolean => scalar in INT_BITS;
+
+/**
+ * Converts an integer argument from its JSON form to the value the method receives.
+ */
+export function jsonToInteger(value: unknown, scalar: ScalarType): unknown {
+  if (INT_BITS[scalar]![1] >= 64n && (typeof value === 'string' || typeof value === 'number')) {
+    return BigInt(value);
+  }
+  return value;
+}
+
 function assertIntInRange(scalar: ScalarType, value: unknown): void {
   const bits = INT_BITS[scalar];
   if (!bits || (typeof value !== 'number' && typeof value !== 'bigint')) {

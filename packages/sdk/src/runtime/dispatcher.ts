@@ -5,6 +5,7 @@ import { getAbiManifest, getMethod } from '../abi/helpers';
 import type { TypeRef, AbiManifest, ScalarType, Variant } from '../abi/types';
 import { registerJsSdkRootMerge } from '../env/api';
 import { assignDeterministicIds } from './deterministic-ids';
+import { isIntegerScalar, jsonToInteger } from '../utils/abi-serialize';
 // Importing `registerMergeTypes` also runs ./merge's side effects, which
 // install globalThis.__calimero_merge_root_state (the field-aware root merge).
 import { registerMergeTypes } from './merge';
@@ -70,19 +71,8 @@ function convertFromJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiMan
         : null;
 
   if (scalarType) {
-    // Convert string bigint types back to bigint
-    if (
-      scalarType === 'u64' ||
-      scalarType === 'i64' ||
-      scalarType === 'u128' ||
-      scalarType === 'i128'
-    ) {
-      if (typeof value === 'string') {
-        return BigInt(value);
-      }
-      if (typeof value === 'number') {
-        return BigInt(value);
-      }
+    if (isIntegerScalar(scalarType as ScalarType)) {
+      return jsonToInteger(value, scalarType as ScalarType);
     }
 
     // Handle bytes - convert array of numbers back to Uint8Array
