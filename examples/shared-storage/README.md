@@ -11,19 +11,18 @@ This app (`TeamConfig`) models a shared team configuration string:
 
 - the context creator becomes the sole initial writer;
 - any writer can `setConfig(value)`;
-- a writer can `addWriter`/`addWriterBase58` to grant another member write access.
+- a writer can `addWriter` to grant another member write access.
 
 ## Methods
 
-| Method                             | Kind | Description                                                              |
-| ---------------------------------- | ---- | ------------------------------------------------------------------------ |
-| `setConfig(value)`                 | call | Overwrite the shared value (writer-gated).                               |
-| `getConfig()`                      | view | Current value, or `null` before the first write.                         |
-| `configWriters()`                  | view | Current writer set as hex public keys.                                   |
-| `canWrite()`                       | view | Whether the caller may write.                                            |
-| `isConfigFrozen()`                 | view | Whether the cell is frozen (immutable).                                  |
-| `addWriter(publicKeyHex)`          | call | Add a writer by hex key (writer-gated).                                  |
-| `addWriterBase58(publicKeyBase58)` | call | Add a writer by base58 key — the form tooling/workflows surface keys in. |
+| Method                    | Kind | Description                                      |
+| ------------------------- | ---- | ------------------------------------------------ |
+| `setConfig(value)`        | call | Overwrite the shared value (writer-gated).       |
+| `getConfig()`             | view | Current value, or `null` before the first write. |
+| `configWriters()`         | view | Current writer set as hex public keys.           |
+| `canWrite()`              | view | Whether the caller may write.                    |
+| `isConfigFrozen()`        | view | Whether the cell is frozen (immutable).          |
+| `addWriter(publicKeyHex)` | call | Add a writer by hex key (writer-gated).          |
 
 ## Build
 
@@ -43,5 +42,5 @@ merobox bootstrap run examples/shared-storage/workflows/shared-storage-concurren
 ```
 
 Both require the `js_crdt_shared_*` host functions (calimero-network/core#3340)
-in the `merod:edge` image. The concurrent workflow decodes the second node's
-base58 member key in-guest via `env.base58ToBytes` before rotating it in.
+in the `merod:edge` image. The concurrent workflow rotates the second node in
+by passing its member key, which the node reports as hex, to `addWriter`.
