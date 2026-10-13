@@ -3,7 +3,7 @@
  */
 
 import './setup';
-import { serializeWithAbi } from '../utils/abi-serialize';
+import { jsonToInteger, serializeWithAbi } from '../utils/abi-serialize';
 import type { AbiManifest, ScalarType } from '../abi/types';
 
 const abi = { types: {} } as unknown as AbiManifest;
@@ -52,5 +52,30 @@ describe('integer range checks', () => {
 
   it('does not stop a negative number reaching i64', () => {
     expect(write('i64', -1)).toEqual(new Uint8Array(8).fill(0xff));
+  });
+});
+
+describe('integer arguments from JSON', () => {
+  it.each([
+    ['u64', '-5'],
+    ['u64', ''],
+    ['u64', '0x10'],
+    ['u64', 9007199254740993],
+    ['u64', 1.5],
+    ['u64', '18446744073709551616'],
+    ['u8', 300],
+    ['u8', 1.5],
+    ['u8', 'x'],
+    ['u8', {}],
+    ['i32', 2147483648],
+  ] as [ScalarType, unknown][])('%s refuses %p', (scalar, value) => {
+    expect(() => jsonToInteger(value, scalar)).toThrow();
+  });
+
+  it('keeps exact values', () => {
+    expect(jsonToInteger('18446744073709551615', 'u64')).toBe(2n ** 64n - 1n);
+    expect(jsonToInteger(-5, 'i64')).toBe(-5n);
+    expect(jsonToInteger(255, 'u8')).toBe(255);
+    expect(jsonToInteger(-128, 'i8')).toBe(-128);
   });
 });
