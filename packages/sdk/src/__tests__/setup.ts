@@ -291,6 +291,10 @@ function executorIsWriter(store: SharedCellStore): boolean {
     currentRegister = new Uint8Array(currentExecutorId);
   },
 
+  account_id: (_register_id: bigint): void => {
+    currentRegister = new Uint8Array(currentExecutorId);
+  },
+
   emit: (_kind: Uint8Array, _data: Uint8Array): void => {
     // Silent in tests
   },
