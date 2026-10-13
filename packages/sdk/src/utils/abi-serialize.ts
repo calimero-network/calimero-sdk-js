@@ -194,9 +194,20 @@ export const isIntegerScalar = (scalar: ScalarType): boolean => scalar in INT_BI
  * Converts an integer argument from its JSON form to the value the method receives.
  */
 export function jsonToInteger(value: unknown, scalar: ScalarType): unknown {
-  if (INT_BITS[scalar]![1] >= 64n && (typeof value === 'string' || typeof value === 'number')) {
-    return BigInt(value);
+  const wide = INT_BITS[scalar]![1] >= 64n;
+  if (typeof value === 'string' && wide && /^-?\d+$/.test(value)) {
+    value = BigInt(value);
+  } else if (typeof value === 'number' && !Number.isSafeInteger(value)) {
+    throw new Error(
+      `Expected a safe integer for ${scalar}, got ${value}; send large values as strings`
+    );
+  } else if (typeof value === 'number' && wide) {
+    value = BigInt(value);
   }
+  if (typeof value !== 'bigint' && !(typeof value === 'number')) {
+    throw new Error(`Expected an integer for ${scalar}, got ${typeof value}`);
+  }
+  assertIntInRange(scalar, value);
   return value;
 }
 
