@@ -63,7 +63,7 @@ secrets.modify(
 );
 ```
 
-Values are serialized with the same helper as service state, but they are written via `storageRead`/`storageWrite` directly and never appear in CRDT deltas.
+Values are serialized with the same helper as service state, but they are written to the node's private store and never appear in CRDT deltas or state snapshots.
 
 ## Documentation
 
