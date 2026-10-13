@@ -228,8 +228,8 @@ function splitWriterKeys(buffer: Uint8Array): Uint8Array[] {
   return keys;
 }
 
-function executorIsWriter(store: SharedCellStore): boolean {
-  return store.writers.some(writer => bytesEqual(writer, currentExecutorId));
+function accountIsWriter(store: SharedCellStore): boolean {
+  return store.writers.some(writer => bytesEqual(writer, currentAccountId ?? currentExecutorId));
 }
 
 // Mock env
@@ -479,7 +479,7 @@ function executorIsWriter(store: SharedCellStore): boolean {
       setRegisterError('shared cell is frozen');
       return -1;
     }
-    if (!executorIsWriter(store)) {
+    if (!accountIsWriter(store)) {
       setRegisterError('executor is not a writer');
       return -1;
     }
@@ -519,7 +519,7 @@ function executorIsWriter(store: SharedCellStore): boolean {
       setRegisterError('shared cell not found');
       return -1;
     }
-    return executorIsWriter(store) && !store.frozen ? 1 : 0;
+    return accountIsWriter(store) && !store.frozen ? 1 : 0;
   },
 
   js_crdt_shared_is_frozen: (cellId: Uint8Array): number => {
@@ -541,7 +541,7 @@ function executorIsWriter(store: SharedCellStore): boolean {
       setRegisterError('shared cell is frozen');
       return -1;
     }
-    if (!executorIsWriter(store)) {
+    if (!accountIsWriter(store)) {
       setRegisterError('executor is not a writer');
       return -1;
     }
