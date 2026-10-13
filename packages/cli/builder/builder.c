@@ -11,6 +11,7 @@
 #include "code.h"
 #include "storage_wasm.h"
 #include "abi.h"  // ABI manifest embedded as byte array
+#include "typed_array_view.h"
 
 static void log_c_string(const char *msg);
 
@@ -287,23 +288,6 @@ typedef struct {
 static inline CalimeroBuffer make_buffer(const void *ptr, size_t len) {
   CalimeroBuffer buf = { (uint64_t)ptr, (uint64_t)len };
   return buf;
-}
-
-// Helper: Convert JSValue (Uint8Array) to C pointer
-static uint8_t* JSValueToUint8Array(JSContext *ctx, JSValue val, size_t *len) {
-  JSValue buffer;
-  size_t offset, bytes_per_element;
-  
-  buffer = JS_GetTypedArrayBuffer(ctx, val, &offset, len, &bytes_per_element);
-  if (JS_IsException(buffer)) {
-    *len = 0;
-    return NULL;
-  }
-  
-  uint8_t *ptr = JS_GetArrayBuffer(ctx, len, buffer);
-  JS_FreeValue(ctx, buffer);
-  
-  return ptr ? ptr + offset : NULL;
 }
 
 static void log_c_string(const char *msg) {
