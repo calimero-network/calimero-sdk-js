@@ -23,6 +23,10 @@ const INT_BITS: Partial<Record<ScalarType, [signed: boolean, bits: bigint]>> = {
   i128: [true, 128n],
 };
 
+export class IntegerArgumentError extends Error {
+  readonly name = 'IntegerArgumentError';
+}
+
 /**
  * Serializes a value according to an ABI TypeRef
  */
@@ -188,24 +192,22 @@ function serializeValue(
   throw new Error(`Unsupported type for ABI serialization: ${typeRef.kind}`);
 }
 
-export const isIntegerScalar = (scalar: ScalarType): boolean => scalar in INT_BITS;
+export const isWideIntegerScalar = (scalar: ScalarType): boolean =>
+  (INT_BITS[scalar]?.[1] ?? 0n) >= 64n;
 
 /**
- * Converts an integer argument from its JSON form to the value the method receives.
+ * Converts a 64 or 128 bit integer argument from its JSON form to a bigint.
+ * Narrower integers pass through; the serializer range-checks them on write.
  */
 export function jsonToInteger(value: unknown, scalar: ScalarType): unknown {
-  const wide = INT_BITS[scalar]![1] >= 64n;
-  if (typeof value === 'string' && wide && /^-?\d+$/.test(value)) {
+  if (typeof value === 'string' && /^-?\d+$/.test(value)) {
     value = BigInt(value);
-  } else if (typeof value === 'number' && !Number.isSafeInteger(value)) {
-    throw new Error(
-      `Expected a safe integer for ${scalar}, got ${value}; send large values as strings`
+  } else if (typeof value === 'number' && Number.isSafeInteger(value)) {
+    value = BigInt(value);
+  } else if (typeof value !== 'bigint') {
+    throw new IntegerArgumentError(
+      `Expected an integer for ${scalar}, got ${JSON.stringify(value)}; send large values as strings`
     );
-  } else if (typeof value === 'number' && wide) {
-    value = BigInt(value);
-  }
-  if (typeof value !== 'bigint' && !(typeof value === 'number')) {
-    throw new Error(`Expected an integer for ${scalar}, got ${typeof value}`);
   }
   assertIntInRange(scalar, value);
   return value;
@@ -217,14 +219,14 @@ function assertIntInRange(scalar: ScalarType, value: unknown): void {
     return;
   }
   if (typeof value === 'number' && !Number.isInteger(value)) {
-    throw new Error(`Expected an integer for ${scalar}, got ${value}`);
+    throw new IntegerArgumentError(`Expected an integer for ${scalar}, got ${value}`);
   }
   const [signed, width] = bits;
   const big = BigInt(value);
   const min = signed ? -(1n << (width - 1n)) : 0n;
   const max = (signed ? 1n << (width - 1n) : 1n << width) - 1n;
   if (big < min || big > max) {
-    throw new Error(`Value ${value} is out of range for ${scalar}`);
+    throw new IntegerArgumentError(`Value ${value} is out of range for ${scalar}`);
   }
 }
 
