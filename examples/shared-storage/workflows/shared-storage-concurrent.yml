@@ -80,9 +80,9 @@ steps:
     node: shared-conv-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
-    method: addWriterBase58
+    method: addWriter
     args:
-      publicKeyBase58: '{{node_2_member_public_key}}'
+      publicKeyHex: '{{node_2_member_public_key}}'
 
   - name: Wait For Writer Rotation To Sync
     type: wait_for_sync

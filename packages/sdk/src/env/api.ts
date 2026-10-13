@@ -8,6 +8,7 @@
 import '../polyfills/text-encoding';
 
 import { bytesToHex } from '../utils/hex';
+export { bytesToHex, hexToBytes } from '../utils/hex';
 import type { HostEnv } from './bindings';
 import { getAbiManifest, getMethod } from '../abi/helpers';
 import type { TypeRef, AbiManifest, ScalarType, Variant } from '../abi/types';
@@ -435,9 +436,8 @@ export function bytesToBase58(bytes: Uint8Array): string {
 
 /**
  * Decode a base58 string into bytes — the inverse of the encoding used by
- * {@link executorIdBase58}. Useful when a public key arrives as base58 (e.g. a
- * member key surfaced by tooling) and must be handed to an API expecting raw
- * bytes, such as a SharedStorage writer set. Throws on an invalid character.
+ * {@link executorIdBase58}. Throws on an invalid character. Node ids (context,
+ * member, blob) arrive as hex; decode those with {@link hexToBytes}.
  */
 export function base58ToBytes(value: string): Uint8Array {
   const alphabet = BASE58_ALPHABET;
