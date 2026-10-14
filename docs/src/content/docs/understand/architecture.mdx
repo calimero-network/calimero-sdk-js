@@ -129,9 +129,8 @@ from a view) stream all entries back. See
 
 ### Node-local private storage
 
-`createPrivateEntry` routes through the same `storage_read` / `storage_write`
-bindings but its data never enters a CRDT delta, so it stays on the executing
-node.
+`createPrivateEntry` routes through the `private_storage_*` host functions, which write to the node's private store rather than the synced state.
+Its data never enters a CRDT delta or a state snapshot, so it stays on the executing node.
 
 ## Serialization summary
 

@@ -118,6 +118,9 @@ extern void xcall(uint64_t xcall_ptr);
 extern uint32_t storage_read(uint64_t key_buffer_ptr, uint64_t register_id);  // Returns Bool (u32)
 extern uint32_t storage_write(uint64_t key_buffer_ptr, uint64_t value_buffer_ptr, uint64_t register_id);  // Returns Bool (u32)
 extern uint32_t storage_remove(uint64_t key_buffer_ptr, uint64_t register_id);  // Returns Bool (u32)
+extern uint32_t private_storage_read(uint64_t key_buffer_ptr, uint64_t register_id);
+extern uint32_t private_storage_write(uint64_t key_buffer_ptr, uint64_t value_buffer_ptr);
+extern uint32_t private_storage_remove(uint64_t key_buffer_ptr, uint64_t register_id);
 extern int32_t js_crdt_map_new(uint64_t register_id);
 extern int32_t js_crdt_map_get(uint64_t map_id_buffer_ptr, uint64_t key_buffer_ptr, uint64_t register_id);
 extern int32_t js_crdt_map_insert(uint64_t map_id_buffer_ptr, uint64_t key_buffer_ptr, uint64_t value_buffer_ptr, uint64_t register_id);
@@ -621,6 +624,47 @@ static JSValue js_storage_remove(JSContext *ctx, JSValueConst this_val, int argc
   
   CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
   uint32_t result = storage_remove((uint64_t)&key_buf, (uint64_t)register_id);
+  return JS_NewUint32(ctx, result);
+}
+
+// Wrapper: private_storage_read
+static JSValue js_private_storage_read(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  size_t key_len;
+  uint8_t *key_ptr = JSValueToUint8Array(ctx, argv[0], &key_len);
+  if (!key_ptr) return JS_EXCEPTION;
+
+  int64_t register_id;
+  JS_ToInt64(ctx, &register_id, argv[1]);
+
+  CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
+  uint32_t result = private_storage_read((uint64_t)&key_buf, (uint64_t)register_id);
+  return JS_NewUint32(ctx, result);
+}
+
+// Wrapper: private_storage_write
+static JSValue js_private_storage_write(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  size_t key_len, value_len;
+  uint8_t *key_ptr = JSValueToUint8Array(ctx, argv[0], &key_len);
+  uint8_t *value_ptr = JSValueToUint8Array(ctx, argv[1], &value_len);
+  if (!key_ptr || !value_ptr) return JS_EXCEPTION;
+
+  CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
+  CalimeroBuffer value_buf = make_buffer(value_ptr, value_len);
+  uint32_t result = private_storage_write((uint64_t)&key_buf, (uint64_t)&value_buf);
+  return JS_NewUint32(ctx, result);
+}
+
+// Wrapper: private_storage_remove
+static JSValue js_private_storage_remove(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  size_t key_len;
+  uint8_t *key_ptr = JSValueToUint8Array(ctx, argv[0], &key_len);
+  if (!key_ptr) return JS_EXCEPTION;
+
+  int64_t register_id;
+  JS_ToInt64(ctx, &register_id, argv[1]);
+
+  CalimeroBuffer key_buf = make_buffer(key_ptr, key_len);
+  uint32_t result = private_storage_remove((uint64_t)&key_buf, (uint64_t)register_id);
   return JS_NewUint32(ctx, result);
 }
 
@@ -2974,6 +3018,9 @@ void js_add_calimero_host_functions(JSContext *ctx) {
   JS_SetPropertyStr(ctx, env, "storage_read", JS_NewCFunction(ctx, js_storage_read, "storage_read", 2));
   JS_SetPropertyStr(ctx, env, "storage_write", JS_NewCFunction(ctx, js_storage_write, "storage_write", 3));
   JS_SetPropertyStr(ctx, env, "storage_remove", JS_NewCFunction(ctx, js_storage_remove, "storage_remove", 2));
+  JS_SetPropertyStr(ctx, env, "private_storage_read", JS_NewCFunction(ctx, js_private_storage_read, "private_storage_read", 2));
+  JS_SetPropertyStr(ctx, env, "private_storage_write", JS_NewCFunction(ctx, js_private_storage_write, "private_storage_write", 2));
+  JS_SetPropertyStr(ctx, env, "private_storage_remove", JS_NewCFunction(ctx, js_private_storage_remove, "private_storage_remove", 2));
   JS_SetPropertyStr(ctx, env, "js_crdt_map_new", JS_NewCFunction(ctx, js_env_crdt_map_new, "js_crdt_map_new", 1));
   JS_SetPropertyStr(ctx, env, "js_crdt_map_get", JS_NewCFunction(ctx, js_env_crdt_map_get, "js_crdt_map_get", 3));
   JS_SetPropertyStr(ctx, env, "js_crdt_map_insert", JS_NewCFunction(ctx, js_env_crdt_map_insert, "js_crdt_map_insert", 4));

@@ -1,18 +1,34 @@
-import { storageRead, storageWrite, storageRemove } from '../env/api';
+import { readRegister, registerLen } from '../env/api';
+import type { HostEnv } from '../env/bindings';
 import { serialize, deserialize } from '../utils/serialize';
+import { sha256 } from '../utils/sha256';
+
+declare const env: HostEnv;
 
 const textEncoder = new TextEncoder();
+const REGISTER_ID = 0n;
+const PRIVATE_KEY_TAG = 0xff; // core's private-state key tag, as the Rust SDK's `#[app::private]`
 
 type KeyInput = string | Uint8Array;
 
-function normalizeKey(key: KeyInput): Uint8Array {
+// Core stores only fixed-length keys, so any key becomes the tag plus SHA-256 of its bytes.
+function storageKey(key: KeyInput): Uint8Array {
+  let material: Uint8Array;
   if (typeof key === 'string') {
-    return textEncoder.encode(key);
+    material = textEncoder.encode(key);
+  } else if (key instanceof Uint8Array) {
+    material = key;
+  } else {
+    throw new TypeError('private storage key must be a string or Uint8Array');
   }
-  if (key instanceof Uint8Array) {
-    return new Uint8Array(key);
-  }
-  throw new TypeError('private storage key must be a string or Uint8Array');
+  return new Uint8Array([PRIVATE_KEY_TAG, ...sha256(material)]);
+}
+
+function privateStorageRead(key: Uint8Array): Uint8Array | null {
+  if (!env.private_storage_read(key, REGISTER_ID)) return null;
+  const buf = new Uint8Array(Number(registerLen(REGISTER_ID)));
+  readRegister(REGISTER_ID, buf);
+  return buf;
 }
 
 /**
@@ -24,14 +40,14 @@ export class PrivateEntryHandle<T> {
   private readonly key: Uint8Array;
 
   constructor(key: KeyInput) {
-    this.key = normalizeKey(key);
+    this.key = storageKey(key);
   }
 
   /**
    * Reads the stored value, returning `null` when no entry exists.
    */
   get(): T | null {
-    const raw = storageRead(this.key);
+    const raw = privateStorageRead(this.key);
     if (!raw) {
       return null;
     }
@@ -43,7 +59,7 @@ export class PrivateEntryHandle<T> {
    */
   set(value: T): void {
     const bytes = serialize(value);
-    storageWrite(this.key, bytes);
+    env.private_storage_write(this.key, bytes);
   }
 
   /**
@@ -52,7 +68,7 @@ export class PrivateEntryHandle<T> {
    * @returns `true` if the key existed.
    */
   remove(): boolean {
-    return storageRemove(this.key);
+    return Boolean(env.private_storage_remove(this.key, REGISTER_ID));
   }
 
   /**
