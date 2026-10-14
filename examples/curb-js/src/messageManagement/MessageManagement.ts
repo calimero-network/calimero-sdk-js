@@ -12,8 +12,11 @@ import {
   Vector,
   LwwRegister,
 } from '@calimero-network/calimero-sdk-js/collections';
-import { blobAnnounceToContext, contextId } from '@calimero-network/calimero-sdk-js/env';
-import bs58 from 'bs58';
+import {
+  blobAnnounceToContext,
+  contextId,
+  hexToBytes,
+} from '@calimero-network/calimero-sdk-js/env';
 
 import type {
   StoredMessage,
@@ -34,7 +37,7 @@ import { MessageSent, MessageSentThread, ReactionUpdated } from './events';
 const BLOB_ID_BYTES = 32;
 
 function blobIdFromString(value: string): Uint8Array {
-  const decoded = bs58.decode(value);
+  const decoded = hexToBytes(value);
   if (decoded.length !== BLOB_ID_BYTES) {
     throw new Error(`Blob ID must decode to exactly ${BLOB_ID_BYTES} bytes`);
   }

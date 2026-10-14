@@ -196,11 +196,11 @@ export class KvStoreWithUserAndFrozenLogic extends KvStoreWithUserAndFrozen {
 
   /**
    * Gets the simple string value for a *specific* user.
-   * @param user_key - Base58-encoded 32-byte PublicKey (as provided by workflows)
+   * @param user_key - Hex-encoded 32-byte account id
    */
   get_user_simple_for(user_key: string): string | null {
     env.log(`[kv-store] Getting simple value for specific user ${user_key}`);
-    const userKeyBytes = base58ToBytes(user_key);
+    const userKeyBytes = env.hexToBytes(user_key);
     const register = this.userItemsSimple.getForUser(userKeyBytes);
     return register ? register.get() : null;
   }
@@ -270,7 +270,7 @@ export class KvStoreWithUserAndFrozenLogic extends KvStoreWithUserAndFrozen {
     env.log(`[kv-store] Adding frozen value: ${value}`);
 
     const hashBytes = this.frozenItems.add(value);
-    const hashHex = bytesToHex(hashBytes);
+    const hashHex = env.bytesToHex(hashBytes);
 
     emit(new FrozenAdded(hashHex, value));
 
@@ -284,7 +284,7 @@ export class KvStoreWithUserAndFrozenLogic extends KvStoreWithUserAndFrozen {
   get_frozen(hash_hex: string): string {
     env.log(`[kv-store] Getting frozen value for hash ${hash_hex}`);
 
-    const hashBytes = hexToBytes(hash_hex);
+    const hashBytes = env.hexToBytes(hash_hex);
     if (hashBytes.length !== 32) {
       throw new Error('dehex error');
     }
@@ -296,54 +296,4 @@ export class KvStoreWithUserAndFrozenLogic extends KvStoreWithUserAndFrozen {
 
     return value;
   }
-}
-
-// Helper Functions
-
-function bytesToHex(bytes: Uint8Array): string {
-  let out = '';
-  for (let i = 0; i < bytes.length; i++) {
-    out += bytes[i].toString(16).padStart(2, '0');
-  }
-  return out;
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
-  }
-  return bytes;
-}
-
-function base58ToBytes(base58: string): Uint8Array {
-  const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-  if (base58.length === 0) {
-    throw new Error('Base58 string cannot be empty');
-  }
-
-  // Convert base58 string to big integer
-  let num = BigInt(0);
-  for (let i = 0; i < base58.length; i++) {
-    const char = base58[i];
-    const index = alphabet.indexOf(char);
-    if (index === -1) {
-      throw new Error(`Invalid base58 character: ${char}`);
-    }
-    num = num * BigInt(58) + BigInt(index);
-  }
-
-  // Convert big integer to bytes
-  const bytes: number[] = [];
-  while (num > 0) {
-    bytes.unshift(Number(num % BigInt(256)));
-    num = num / BigInt(256);
-  }
-
-  // Handle leading zeros (base58 encoding removes them)
-  for (let i = 0; i < base58.length && base58[i] === '1'; i++) {
-    bytes.unshift(0);
-  }
-
-  return new Uint8Array(bytes);
 }

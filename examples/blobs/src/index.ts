@@ -10,31 +10,24 @@ import {
 import type { UnorderedMap } from '@calimero-network/calimero-sdk-js/collections';
 import {
   blobAnnounceToContext,
+  bytesToHex,
   contextId,
-  executorId,
+  executorIdHex,
+  hexToBytes,
   log,
   randomBytes,
   timeNow,
 } from '@calimero-network/calimero-sdk-js/env';
-import bs58 from 'bs58';
 
 const BLOB_ID_BYTES = 32;
 const BYTES_PER_MB = 1024 * 1024;
 
-function encodeBase58(bytes: Uint8Array): string {
-  return bs58.encode(bytes);
-}
-
-function decodeBase58(input: string, expectedLength: number): Uint8Array {
-  const decoded = bs58.decode(input);
-  if (decoded.length !== expectedLength) {
-    throw new Error(`Value must decode to exactly ${expectedLength} bytes`);
+function blobIdFromString(value: string): Uint8Array {
+  const decoded = hexToBytes(value);
+  if (decoded.length !== BLOB_ID_BYTES) {
+    throw new Error(`Blob ID must decode to exactly ${BLOB_ID_BYTES} bytes`);
   }
   return decoded;
-}
-
-function blobIdFromString(value: string): Uint8Array {
-  return decodeBase58(value, BLOB_ID_BYTES);
 }
 
 function randomSuffix(bytes = 4): string {
@@ -84,7 +77,7 @@ export class FileShareLogic extends FileShareState {
   static init(): FileShareState {
     try {
       const state = new FileShareState();
-      state.owner = encodeBase58(executorId());
+      state.owner = executorIdHex();
       const filesId = state.files?.id?.() ?? '<undefined>';
       const entryCount = state.files?.entries?.()?.length ?? '<n/a>';
       log(`[blobs] init owner=${state.owner} files.id=${filesId} entries=${entryCount}`);
@@ -129,13 +122,13 @@ export class FileShareLogic extends FileShareState {
     const blobBytes = blobIdFromString(blobId);
 
     const fileId = this.generateFileId();
-    const uploader = encodeBase58(executorId());
+    const uploader = executorIdHex();
     const timestamp = timeNow();
 
     const currentContext = contextId();
     const announced = blobAnnounceToContext(blobBytes, currentContext);
     log(
-      `[blobs] announcing blob=${blobId} to context=${encodeBase58(currentContext)} announced=${announced}`
+      `[blobs] announcing blob=${blobId} to context=${bytesToHex(currentContext)} announced=${announced}`
     );
 
     const record: FileRecord = {

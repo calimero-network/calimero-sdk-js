@@ -31,14 +31,6 @@ export class WriterAdded {
   constructor(public writer: string) {}
 }
 
-function toHex(bytes: Uint8Array): string {
-  let out = '';
-  for (const b of bytes) {
-    out += b.toString(16).padStart(2, '0');
-  }
-  return out;
-}
-
 @State
 export class TeamConfig {
   // A single shared config string. The initial writer set is the context
@@ -76,7 +68,7 @@ export class TeamConfigLogic extends TeamConfig {
   /** The current writer set, as hex-encoded 32-byte public keys. */
   @View()
   configWriters(): string[] {
-    return this.config.writers().map(toHex);
+    return this.config.writers().map(env.bytesToHex);
   }
 
   /** Whether the calling executor may write to the config. */
@@ -105,21 +97,11 @@ export class TeamConfigLogic extends TeamConfig {
     // the whole set, so two concurrent `addWriter` calls can drop one addition.
     // A single admin performing rotations avoids that; a production app would
     // serialise writer-set changes through one identity.
-    if (current.some(w => toHex(w) === target)) {
+    if (current.some(w => env.bytesToHex(w) === target)) {
       env.log('[shared-storage] addWriter: already a writer, skipping');
       return;
     }
     this.config.rotateWriters([...current, publicKeyHex]);
     emit(new WriterAdded(publicKeyHex));
-  }
-
-  /**
-   * Add a writer given a base58-encoded public key — the form node tooling and
-   * workflows surface member keys in. Decodes to raw bytes and delegates to the
-   * same writer-gated rotation as {@link addWriter}.
-   */
-  addWriterBase58(publicKeyBase58: string): void {
-    const bytes = env.base58ToBytes(publicKeyBase58);
-    this.addWriter(toHex(bytes));
   }
 }
