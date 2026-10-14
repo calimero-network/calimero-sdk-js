@@ -1,4 +1,13 @@
-import { log, valueReturn, flushDelta, registerLen, readRegister, input, panic } from '../env/api';
+import {
+  log,
+  valueReturn,
+  flushDelta,
+  registerLen,
+  readRegister,
+  input,
+  panic,
+  readRootState,
+} from '../env/api';
 import { StateManager } from './state-manager';
 import { runtimeLogicEntries } from './method-registry';
 import { getAbiManifest, getMethod } from '../abi/helpers';
@@ -640,8 +649,8 @@ function createInitDispatcher(
 
     let state: any;
     try {
-      const existing = StateManager.load();
-      if (existing) {
+      // Presence, not a successful decode: an unreadable root must still block a second init.
+      if (readRootState()) {
         panic('Contract state already initialized');
       }
 
