@@ -353,8 +353,8 @@ entire map from a view).
 
 ### UserStorage&lt;V&gt;
 
-User-owned, signed storage keyed by the owner's 32-byte Ed25519 public key.
-Writes are signed by the executor and verified (with replay protection via a
+User-owned, signed storage keyed by the owner's 32-byte account id (`env.accountId()`).
+Writes are signed by the executing device and verified (with replay protection via a
 strictly-increasing nonce) on other nodes.
 
 ```typescript
@@ -364,12 +364,12 @@ interface UserProfile { displayName: string; score: number; }
 
 const profiles = createUserStorage<UserProfile>();
 
-profiles.insert({ displayName: 'Alice', score: 100 }); // key = current executor's PublicKey; returns previous | null
+profiles.insert({ displayName: 'Alice', score: 100 }); // key = current account id; returns previous | null
 const mine = profiles.get();                            // current user's value | null
-const other = profiles.getForUser(somePublicKey);       // another user's value | null
-profiles.setForUser(somePublicKey, { displayName: 'Bob', score: 5 }); // write for a specific user; returns previous | null
+const other = profiles.getForUser(someAccountId);       // another user's value | null
+profiles.setForUser(someAccountId, { displayName: 'Bob', score: 5 }); // write for a specific user; returns previous | null
 const hasMine = profiles.containsCurrentUser();          // boolean
-const hasOther = profiles.containsUser(somePublicKey);   // boolean
+const hasOther = profiles.containsUser(someAccountId);   // boolean
 profiles.remove();                                       // remove current user's value; returns previous | null
 
 const all = profiles.entries();  // Array<[PublicKey, V]>
@@ -414,14 +414,14 @@ document versioning, certificates, and content-addressable sharing.
 A single value that any member of a **rotatable writer set** may overwrite.
 Writes from different writers converge last-write-wins; the writer set is managed
 at runtime and enforced by the host — a non-writer's `set`/`rotateWriters` is
-rejected. Writers are 32-byte public keys (raw or hex).
+rejected. Writers are 32-byte account ids from `env.accountId()` (raw or hex).
 
 ```typescript
 import { SharedStorage } from '@calimero-network/calimero-sdk-js/collections';
-import { executorId } from '@calimero-network/calimero-sdk-js/env';
+import { accountId } from '@calimero-network/calimero-sdk-js/env';
 
 // The creator is the sole initial writer.
-const config = new SharedStorage<string>({ writers: [executorId()] });
+const config = new SharedStorage<string>({ writers: [accountId()] });
 // Pass `frozen: true` to create an immutable cell: new SharedStorage({ writers, frozen: true })
 
 config.set('hello'); // ok — caller is a writer (throws for a non-writer)

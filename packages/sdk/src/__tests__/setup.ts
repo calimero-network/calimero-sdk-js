@@ -113,6 +113,26 @@ export function resetExecutorId(): void {
   currentExecutorId = mockExecutorId;
 }
 
+// Account the mock host reports; follows the executor unless a test overrides it.
+let currentAccountId: Uint8Array | null = null;
+
+export function setAccountId(id: Uint8Array): void {
+  currentAccountId = new Uint8Array(id);
+}
+
+export function resetAccountId(): void {
+  currentAccountId = null;
+}
+
+// User storage slots, keyed by collection id then by account (hex), as core does.
+const userStorages = new Map<string, Map<string, Uint8Array>>();
+
+function userSlots(storageId: Uint8Array): Map<string, Uint8Array> {
+  const key = idToKey(storageId);
+  if (!userStorages.has(key)) userStorages.set(key, new Map());
+  return userStorages.get(key)!;
+}
+
 function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) {
     return false;
@@ -210,8 +230,8 @@ function splitWriterKeys(buffer: Uint8Array): Uint8Array[] {
   return keys;
 }
 
-function executorIsWriter(store: SharedCellStore): boolean {
-  return store.writers.some(writer => bytesEqual(writer, currentExecutorId));
+function accountIsWriter(store: SharedCellStore): boolean {
+  return store.writers.some(writer => bytesEqual(writer, currentAccountId ?? currentExecutorId));
 }
 
 // Mock env
@@ -289,6 +309,10 @@ function executorIsWriter(store: SharedCellStore): boolean {
 
   executor_id: (_register_id: bigint): void => {
     currentRegister = new Uint8Array(currentExecutorId);
+  },
+
+  account_id: (_register_id: bigint): void => {
+    currentRegister = new Uint8Array(currentAccountId ?? currentExecutorId);
   },
 
   emit: (_kind: Uint8Array, _data: Uint8Array): void => {
@@ -390,6 +414,36 @@ function executorIsWriter(store: SharedCellStore): boolean {
     return 1;
   },
 
+  js_user_storage_new: (_register_id: bigint): number => {
+    setRegister(generateId());
+    return 1;
+  },
+
+  js_user_storage_insert: (id: Uint8Array, value: Uint8Array, _register_id: bigint): number => {
+    const slots = userSlots(id);
+    const account = idToKey(currentAccountId ?? currentExecutorId);
+    const previous = slots.get(account);
+    slots.set(account, new Uint8Array(value));
+    setRegister(previous ?? null);
+    return previous ? 1 : 0;
+  },
+
+  js_user_storage_get: (id: Uint8Array, _register_id: bigint): number => {
+    const value = userSlots(id).get(idToKey(currentAccountId ?? currentExecutorId));
+    setRegister(value ?? null);
+    return value ? 1 : 0;
+  },
+
+  js_user_storage_get_for_user: (
+    id: Uint8Array,
+    user: Uint8Array,
+    _register_id: bigint
+  ): number => {
+    const value = userSlots(id).get(idToKey(user));
+    setRegister(value ?? null);
+    return value ? 1 : 0;
+  },
+
   js_frozen_storage_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
     setRegister(new Uint8Array(id));
     return 1;
@@ -444,7 +498,7 @@ function executorIsWriter(store: SharedCellStore): boolean {
       setRegisterError('shared cell is frozen');
       return -1;
     }
-    if (!executorIsWriter(store)) {
+    if (!accountIsWriter(store)) {
       setRegisterError('executor is not a writer');
       return -1;
     }
@@ -484,7 +538,7 @@ function executorIsWriter(store: SharedCellStore): boolean {
       setRegisterError('shared cell not found');
       return -1;
     }
-    return executorIsWriter(store) && !store.frozen ? 1 : 0;
+    return accountIsWriter(store) && !store.frozen ? 1 : 0;
   },
 
   js_crdt_shared_is_frozen: (cellId: Uint8Array): number => {
@@ -506,7 +560,7 @@ function executorIsWriter(store: SharedCellStore): boolean {
       setRegisterError('shared cell is frozen');
       return -1;
     }
-    if (!executorIsWriter(store)) {
+    if (!accountIsWriter(store)) {
       setRegisterError('executor is not a writer');
       return -1;
     }
@@ -1438,7 +1492,9 @@ export function clearStorage() {
   authoredMaps.clear();
   authoredVectors.clear();
   sharedCells.clear();
+  userStorages.clear();
   resetExecutorId();
+  resetAccountId();
   currentRegister = null;
 }
 

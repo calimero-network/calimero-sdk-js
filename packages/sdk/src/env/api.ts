@@ -368,6 +368,20 @@ export function executorId(): Uint8Array {
   return buf;
 }
 
+/**
+ * Gets the account the current call is authorized as. User storage is keyed
+ * by this id; two devices of one person share it.
+ *
+ * @returns 32-byte account ID
+ */
+export function accountId(): Uint8Array {
+  env.account_id(REGISTER_ID);
+  const len = Number(env.register_len(REGISTER_ID));
+  const buf = new Uint8Array(len);
+  env.read_register(REGISTER_ID, buf);
+  return buf;
+}
+
 /*
  * Context membership/lifecycle helpers (contextAddMember, contextRemoveMember,
  * contextIsMember, contextMembers, contextCreate, contextDelete,
