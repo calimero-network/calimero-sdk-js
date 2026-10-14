@@ -104,7 +104,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install CLI build dependencies
-        run: bash packages/cli/scripts/install-deps.sh
+        run: node packages/cli/scripts/install-deps.js
 
       - name: Run builder native tests
         run: bash packages/cli/scripts/test-builder.sh

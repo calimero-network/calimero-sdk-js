@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Build and run the host-native tests for builder/ helpers against deps/quickjs.
-# Requires deps from install-deps.sh.
+# Requires deps from install-deps.js.
 
 set -e
 
