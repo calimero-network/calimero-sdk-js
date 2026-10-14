@@ -79,45 +79,52 @@ describe('AuthoredMap', () => {
       expect(map.ownedByMe('key1')).toBe(true);
     });
 
-    it('ownedByMe is false for a different executor', () => {
+    it('keyed reads are scoped to the calling executor', () => {
       const map = new AuthoredMap<string, string>();
       map.insert('key1', 'value1');
 
       setExecutorId(OTHER);
       try {
         expect(map.ownedByMe('key1')).toBe(false);
+        expect(map.has('key1')).toBe(false);
+        expect(map.get('key1')).toBeNull();
+        expect(map.ownerOf('key1')).toBeNull();
       } finally {
         resetExecutorId();
       }
     });
 
-    it('update by a non-owner throws (owner-only)', () => {
+    it('update and remove act on the caller entry only', () => {
       const map = new AuthoredMap<string, string>();
       map.insert('key1', 'value1');
 
       setExecutorId(OTHER);
       try {
-        expect(() => map.update('key1', 'hijacked')).toThrow();
+        expect(() => map.update('key1', 'x')).toThrow();
+        map.remove('key1');
       } finally {
         resetExecutorId();
       }
 
-      // Value is unchanged.
       expect(map.get('key1')).toBe('value1');
     });
 
-    it('remove by a non-owner throws (owner-only)', () => {
+    it('two executors inserting one key hold two entries', () => {
       const map = new AuthoredMap<string, string>();
-      map.insert('key1', 'value1');
+      map.insert('key1', 'mine');
 
       setExecutorId(OTHER);
       try {
-        expect(() => map.remove('key1')).toThrow();
+        map.insert('key1', 'theirs');
+        expect(map.get('key1')).toBe('theirs');
+        expect(map.ownerOf('key1')).toEqual(OTHER);
+        expect(map.values().sort()).toEqual(['mine', 'theirs']);
       } finally {
         resetExecutorId();
       }
 
-      expect(map.has('key1')).toBe(true);
+      expect(map.get('key1')).toBe('mine');
+      expect(map.keys()).toEqual(['key1', 'key1']);
     });
 
     it('owner can update and remove', () => {
