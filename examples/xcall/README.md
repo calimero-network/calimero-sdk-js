@@ -6,6 +6,8 @@ JavaScript port of the Rust `apps/xcall-example` service. It showcases:
 - Emitting events when pings are sent and pongs are received
 - Keeping simple state (a pong counter) across invocations
 
+The `pong` method is decorated with `@XCall()`. Nodes accept an xcall only for methods the embedded ABI declares, so an undecorated target is rejected.
+
 The `getCounter` method in `src/index.ts` is decorated with `@View()`. The dispatcher skips persistence when serving these read-only calls, so repeated status checks do not emit storage deltas or gossip redundant updates.
 
 ## Commands

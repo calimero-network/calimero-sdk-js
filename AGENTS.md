@@ -259,6 +259,18 @@ onItemAdded(event: ItemAdded): void {
 }
 ```
 
+### `@XCall()`
+
+Marks a method other contexts may reach with `env.xcall`; nodes reject an xcall to any undeclared method.
+`@XCall({ fromSameApp: true })` admits only contexts running the same application:
+
+```typescript
+@XCall()
+pong(payload: PongPayload): number {
+  return ++this.counter;
+}
+```
+
 ### `@Init`
 
 Marks a static method as the state initializer:
@@ -591,6 +603,7 @@ merobox bootstrap run examples/counter/workflows/counter-js.yml --image "$(bash 
 | `@Init`                      | `#[app::init]`                    |
 | `@View()`                    | Method without `&mut self`        |
 | `@Handler()`                 | `#[app::handler]`                 |
+| `@XCall()`                   | `#[app::xcall]`                   |
 | `Counter`                    | `Counter`                         |
 | `UnorderedMap<K, V>`         | `UnorderedMap<K, LwwRegister<V>>` |
 | `UnorderedSet<T>`            | `UnorderedSet<T>`                 |

@@ -11,6 +11,7 @@ export { Init } from './decorators/init';
 export { Event } from './decorators/event';
 export { View } from './decorators/view';
 export { Handler } from './decorators/handler';
+export { XCall, type XCallOptions } from './decorators/xcall';
 export { Mergeable, type MergeableOptions } from './decorators/mergeable';
 
 // Environment API

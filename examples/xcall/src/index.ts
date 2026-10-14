@@ -1,4 +1,4 @@
-import { State, Logic, Init, View } from '@calimero-network/calimero-sdk-js';
+import { State, Logic, Init, View, XCall } from '@calimero-network/calimero-sdk-js';
 import {
   bytesToHex,
   contextId,
@@ -50,6 +50,7 @@ export class XCallLogic extends XCallState {
     xcall(targetBytes, 'pong', textEncoder.encode(JSON.stringify(payload)));
   }
 
+  @XCall()
   pong(payload: PongPayload | string): number {
     const fromContext = typeof payload === 'string' ? payload : payload?.fromContext;
 

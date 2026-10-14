@@ -52,6 +52,7 @@ export interface Method {
   is_init?: boolean;
   is_view?: boolean;
   is_handler?: boolean;
+  xcall?: 'any_in_namespace' | 'same_app';
 }
 
 export interface Parameter {
@@ -1179,12 +1180,16 @@ export class AbiEmitter {
                 "(not private, protected or '_'-prefixed)"
             );
           }
+          if (decorators.some((d: any) => this.isCalimeroDecorator(d, 'XCall'))) {
+            throw new Error(`@XCall() on '${methodName}': it must be a public method`);
+          }
           return;
         }
 
         const isInit = decorators.some((d: any) => this.isCalimeroDecorator(d, 'Init'));
         const isView = decorators.some((d: any) => this.isCalimeroDecorator(d, 'View'));
         const isHandler = decorators.some((d: any) => this.isCalimeroDecorator(d, 'Handler'));
+        const xcall = this.xcallPolicy(methodName, decorators);
         const isStatic = member.static;
         if (isHandler && (isInit || isView)) {
           const kind = isInit ? 'initializer' : 'read-only';
@@ -1310,6 +1315,7 @@ export class AbiEmitter {
           is_init: isInit,
           is_view: isView,
           is_handler: isHandler,
+          xcall,
         });
       }
     });
@@ -1867,6 +1873,40 @@ export class AbiEmitter {
     }
   }
 
+  /** The caller policy of an `@XCall()` decorator; anything it does not recognize fails the build. */
+  private xcallPolicy(methodName: string, decorators: any[]): Method['xcall'] {
+    const decorator = decorators.find((d: any) => this.isCalimeroDecorator(d, 'XCall'));
+    if (!decorator) {
+      return undefined;
+    }
+    const invalid = (why: string) =>
+      new Error(
+        `@XCall() on '${methodName}': ${why}. Use @XCall() or @XCall({ fromSameApp: true })`
+      );
+    if (decorator.expression?.type !== 'CallExpression') {
+      throw invalid('it must be called');
+    }
+    const args = decorator.expression.arguments;
+    if (args.length === 0) {
+      return 'any_in_namespace';
+    }
+    const props = args[0].type === 'ObjectExpression' ? args[0].properties : undefined;
+    if (args.length > 1 || !props) {
+      throw invalid('the option must be an object literal');
+    }
+    let fromSameApp = false;
+    for (const p of props) {
+      if (p.type !== 'ObjectProperty' || p.computed || p.key?.name !== 'fromSameApp') {
+        throw invalid('only the fromSameApp option is supported');
+      }
+      if (p.value?.type !== 'BooleanLiteral') {
+        throw invalid('fromSameApp must be the literal true or false');
+      }
+      fromSameApp = p.value.value;
+    }
+    return fromSameApp ? 'same_app' : 'any_in_namespace';
+  }
+
   private isCalimeroDecorator(decorator: any, name: string): boolean {
     if (decorator.expression?.type === 'Identifier') {
       return decorator.expression.name === name;
@@ -2055,6 +2095,10 @@ export class AbiEmitter {
       // Note: is_init and is_view are not included in Rust ABI format
       if ((method.returns as any)?.nullable) result.returns_nullable = true;
       if (method.is_handler) result.handler = true;
+      if (method.xcall) {
+        result.xcall_callable = true;
+        if (method.xcall === 'same_app') result.xcall_callers = 'same_app';
+      }
 
       return result;
     });
