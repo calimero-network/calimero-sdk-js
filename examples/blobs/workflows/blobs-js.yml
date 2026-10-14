@@ -13,7 +13,7 @@ steps:
   - name: Install JS blobs app on inviter
     type: install_application
     node: js-blob-1
-    path: "examples/blobs/build/service.wasm"
+    path: "examples/blobs/build/service.mpk"
     dev: true
     outputs:
       app_id: applicationId

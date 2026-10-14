@@ -41,5 +41,5 @@ pnpm build:manual   # -> build/service.wasm
 merobox bootstrap run examples/crdt-collections/workflows/crdt-collections-js.yml
 
 # bonus: two-node concurrent-writer convergence (needs SDK #86 + core#3315 too)
-merobox bootstrap run examples/crdt-collections/workflows/crdt-collections-concurrent.yml
+merobox bootstrap run examples/crdt-collections/workflows/crdt-collections-concurrent.yml --image "$(bash scripts/merod-image.sh)"
 ```

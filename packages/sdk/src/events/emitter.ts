@@ -3,7 +3,8 @@
  */
 
 import type { AppEvent } from './types';
-import { getAbiManifest, getEventPayloadType } from '../abi/helpers';
+import { getAbiManifest, getEventPayloadType, getMethod } from '../abi/helpers';
+import { log } from '../env/api';
 import { serializeWithAbi } from '../utils/abi-serialize';
 
 // This will be provided by QuickJS runtime
@@ -24,7 +25,20 @@ export function emitWithHandler(event: unknown, handlerName: string): void {
   const kind = encoder.encode(eventConstructorName(event));
   const payload = extractPayload(event);
   const handler = encoder.encode(handlerName);
+  warnIfUndeclaredHandler(handlerName);
   env.emit_with_handler(kind, payload, handler);
+}
+
+// The build rejects an undeclared literal name; this catches a computed one.
+function warnIfUndeclaredHandler(handlerName: string): void {
+  const abi = getAbiManifest();
+  const method = handlerName.startsWith('tee:') ? handlerName.slice('tee:'.length) : handlerName;
+  if (abi && !getMethod(abi, method)?.handler) {
+    log(
+      `[calimero] emitWithHandler: '${handlerName}' is not declared with @Handler(), ` +
+        'so peers will not run it'
+    );
+  }
 }
 
 function extractPayload(event: unknown): Uint8Array {

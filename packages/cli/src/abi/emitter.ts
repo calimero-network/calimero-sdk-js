@@ -13,6 +13,9 @@ import * as path from 'path';
 
 const traverse = (traverseModule as any).default || traverseModule;
 
+const SDK_PACKAGE = '@calimero-network/calimero-sdk-js'; // where emitWithHandler is imported from
+const TEST_FILE = /\.(test|spec)\.[jt]s$|[\\/]__tests__[\\/]/; // never bundled, so never emits
+
 export interface AbiManifest {
   schema_version: string;
   types: Record<string, TypeDef>;
@@ -48,6 +51,7 @@ export interface Method {
   returns?: TypeRef;
   is_init?: boolean;
   is_view?: boolean;
+  is_handler?: boolean;
 }
 
 export interface Parameter {
@@ -93,6 +97,7 @@ export class AbiEmitter {
   private methods: Method[] = [];
   private events: Event[] = [];
   private stateRoot?: string;
+  private namedHandlers: Set<string> = new Set(); // literal handler names passed to emitWithHandler
   private abstractClasses: Map<string, any> = new Map(); // Track abstract classes for variant analysis
 
   /**
@@ -113,6 +118,7 @@ export class AbiEmitter {
     this.methods = [];
     this.events = [];
     this.stateRoot = undefined;
+    this.namedHandlers.clear();
 
     // First pass: Extract all type aliases and interfaces from all files
     for (const filePath of filePaths) {
@@ -171,6 +177,7 @@ export class AbiEmitter {
             }
           }
         },
+        CallExpression: (nodePath: any) => this.recordNamedHandler(nodePath, filePath),
       });
     }
 
@@ -339,7 +346,7 @@ export class AbiEmitter {
   /**
    * Analyze source code and generate ABI manifest
    */
-  public analyzeSource(sourceCode: string, _filePath?: string): AbiManifest {
+  public analyzeSource(sourceCode: string, filePath?: string): AbiManifest {
     const ast = parse(sourceCode, {
       sourceType: 'module',
       plugins: ['typescript', 'decorators-legacy', 'classProperties'],
@@ -351,6 +358,7 @@ export class AbiEmitter {
     this.methods = [];
     this.events = [];
     this.stateRoot = undefined;
+    this.namedHandlers.clear();
 
     // First pass: Extract type aliases and interfaces, and store abstract classes
     traverse(ast, {
@@ -407,6 +415,7 @@ export class AbiEmitter {
           }
         }
       },
+      CallExpression: (nodePath: any) => this.recordNamedHandler(nodePath, filePath),
     });
 
     // Third pass: Analyze variant patterns (abstract classes with concrete subclasses)
@@ -1155,15 +1164,32 @@ export class AbiEmitter {
       ) {
         const methodName = member.key.name;
 
+        const decorators = member.decorators || [];
+
         // Skip private methods and constructor
-        if (methodName.startsWith('_') || methodName === 'constructor') {
+        if (
+          methodName.startsWith('_') ||
+          methodName === 'constructor' ||
+          member.accessibility === 'private' ||
+          member.accessibility === 'protected'
+        ) {
+          if (decorators.some((d: any) => this.isCalimeroDecorator(d, 'Handler'))) {
+            throw new Error(
+              `@Handler() on '${methodName}': handlers must be public methods ` +
+                "(not private, protected or '_'-prefixed)"
+            );
+          }
           return;
         }
 
-        const decorators = member.decorators || [];
         const isInit = decorators.some((d: any) => this.isCalimeroDecorator(d, 'Init'));
         const isView = decorators.some((d: any) => this.isCalimeroDecorator(d, 'View'));
+        const isHandler = decorators.some((d: any) => this.isCalimeroDecorator(d, 'Handler'));
         const isStatic = member.static;
+        if (isHandler && (isInit || isView)) {
+          const kind = isInit ? 'initializer' : 'read-only';
+          throw new Error(`@Handler() has no meaning on ${kind} '${methodName}'`);
+        }
 
         // Extract parameters
         // Babel uses 'params' directly, TypeScript uses 'value.params'
@@ -1283,6 +1309,7 @@ export class AbiEmitter {
           returns,
           is_init: isInit,
           is_view: isView,
+          is_handler: isHandler,
         });
       }
     });
@@ -1551,11 +1578,11 @@ export class AbiEmitter {
         break;
       case 'FrozenStorage':
         // FrozenStorage<T> is internally UnorderedMap<Hash, FrozenValue<T>>
-        // Hash is a 32-byte Uint8Array (content-addressable key)
+        // Hash is a 32-byte Uint8Array, described as a string key since the node requires one
         if (type.typeParameters?.params?.length >= 1) {
           return {
             kind: 'map',
-            key: { kind: 'scalar', scalar: 'bytes' } as any,
+            key: { kind: 'scalar', scalar: 'string' } as any,
             value: this.extractTypeFromAnnotation({
               typeAnnotation: type.typeParameters.params[0],
             }),
@@ -1564,19 +1591,20 @@ export class AbiEmitter {
         break;
       case 'UserStorage':
         // UserStorage<V> is internally UnorderedMap<PublicKey, V>
-        // PublicKey is a 32-byte Uint8Array
+        // PublicKey is a 32-byte Uint8Array, described as a string key since the node requires one
         if (type.typeParameters?.params?.length >= 1) {
           return {
             kind: 'map',
-            key: { kind: 'scalar', scalar: 'bytes' } as any,
+            key: { kind: 'scalar', scalar: 'string' } as any,
             value: this.extractTypeFromAnnotation({
               typeAnnotation: type.typeParameters.params[0],
             }),
           };
         }
         break;
+      case 'Record':
       case 'Map':
-        // Handle JavaScript native Map<K, V> type
+        // JavaScript native Map<K, V>, and Record<K, V> (a plain object at run time)
         if (type.typeParameters?.params?.length >= 2) {
           return {
             kind: 'map',
@@ -1798,6 +1826,47 @@ export class AbiEmitter {
     }
   }
 
+  /**
+   * Records the handler an SDK `emitWithHandler(event, 'name')` call names, when the
+   * name is a literal; a computed name is left to the SDK's emit-time warning.
+   */
+  private recordNamedHandler(nodePath: any, filePath?: string): void {
+    if ((filePath && TEST_FILE.test(filePath)) || !isSdkEmitWithHandler(nodePath)) {
+      return;
+    }
+    const arg = nodePath.node.arguments?.[1];
+    // The node runs "tee:<method>" as the TEE method <method>.
+    if (arg?.type === 'StringLiteral') {
+      this.namedHandlers.add(stripTeePrefix(arg.value));
+    } else if (arg?.type === 'TemplateLiteral' && arg.expressions.length === 0) {
+      this.namedHandlers.add(stripTeePrefix(arg.quasis[0].value.cooked));
+    }
+  }
+
+  /** A handler takes the event instance, so a parameter typed by an @Event class needs it as a type. */
+  private addEventParamTypes(): void {
+    const events = new Map(this.events.map(event => [event.name, event]));
+    for (const param of this.methods.flatMap(method => method.params)) {
+      const event = param.type.kind === 'reference' ? events.get(param.type.name!) : undefined;
+      if (event && !this.types.has(event.name)) {
+        this.types.set(event.name, { kind: 'record', fields: event.fields });
+      }
+    }
+  }
+
+  /** The node runs an event's handler only if the ABI declares it, so fail the build instead. */
+  private checkNamedHandlers(): void {
+    const declared = new Set(this.methods.filter(m => m.is_handler).map(m => m.name));
+    for (const name of this.namedHandlers) {
+      if (!declared.has(name)) {
+        throw new Error(
+          `emitWithHandler names '${name}', which is not a @Handler() method of the @Logic class. ` +
+            'Peers run only declared handlers: add @Handler() to it.'
+        );
+      }
+    }
+  }
+
   private isCalimeroDecorator(decorator: any, name: string): boolean {
     if (decorator.expression?.type === 'Identifier') {
       return decorator.expression.name === name;
@@ -1851,7 +1920,7 @@ export class AbiEmitter {
     if (typeRef.kind === 'map' && typeRef.key && typeRef.value) {
       return {
         kind: 'map',
-        key: this.serializeTypeRefToRustFormat(typeRef.key),
+        key: this.serializeTypeRefToRustFormat(this.resolveStringAlias(typeRef.key)),
         value: this.serializeTypeRefToRustFormat(typeRef.value),
       };
     }
@@ -1888,6 +1957,19 @@ export class AbiEmitter {
     }
 
     return typeRef as any;
+  }
+
+  /** The node accepts only a literal string map key, so `type UserId = string` is inlined. */
+  private resolveStringAlias(typeRef: TypeRef): TypeRef {
+    let current = typeRef;
+    while (current.kind === 'reference' && current.name) {
+      const def = this.types.get(current.name);
+      if (def?.kind !== 'alias' || !def.target) {
+        return typeRef;
+      }
+      current = def.target;
+    }
+    return current.kind === 'scalar' && current.scalar === 'string' ? current : typeRef;
   }
 
   /**
@@ -1938,7 +2020,7 @@ export class AbiEmitter {
    * Serialize methods to Rust ABI format
    */
   private serializeMethodsToRustFormat(): any[] {
-    return this.methods.map(method => {
+    return sortByName(this.methods).map(method => {
       const result: any = {
         name: method.name,
         params: method.params.map(param => {
@@ -1955,7 +2037,10 @@ export class AbiEmitter {
       };
 
       if (method.returns) {
-        const serializedReturn = this.serializeTypeRefToRustFormat(method.returns);
+        // Nullability is `returns_nullable`; the node's schema allows no `nullable` on a type.
+        const { nullable: _nullable, ...serializedReturn } = this.serializeTypeRefToRustFormat(
+          method.returns
+        );
         // Rust uses "unit" kind for void, but we might have it as scalar
         if (serializedReturn.kind === 'unit') {
           result.returns = { kind: 'unit' };
@@ -1969,6 +2054,7 @@ export class AbiEmitter {
 
       // Note: is_init and is_view are not included in Rust ABI format
       if ((method.returns as any)?.nullable) result.returns_nullable = true;
+      if (method.is_handler) result.handler = true;
 
       return result;
     });
@@ -1979,7 +2065,9 @@ export class AbiEmitter {
    */
   private serializeEventsToRustFormat(): any[] {
     // Remove duplicates
-    const uniqueEvents = Array.from(new Map(this.events.map(e => [e.name, e])).values());
+    const uniqueEvents = sortByName(
+      Array.from(new Map(this.events.map(e => [e.name, e])).values())
+    );
 
     return uniqueEvents.map(event => {
       // Rust format: events can have just name, or name + payload
@@ -2030,13 +2118,22 @@ export class AbiEmitter {
    * Generate manifest in Rust ABI format
    */
   public generateManifestRustFormat(): any {
-    return {
+    this.addEventParamTypes();
+    this.checkNamedHandlers();
+    const manifest = {
       schema_version: 'wasm-abi/1',
       types: this.serializeTypesToRustFormat(),
       methods: this.serializeMethodsToRustFormat(),
       events: this.serializeEventsToRustFormat(),
       state_root: this.stateRoot,
     };
+    const rejection = nodeRejection(manifest);
+    if (rejection && manifest.methods.some((method: any) => method.handler)) {
+      throw new Error(
+        `The node would ignore this ABI, so no @Handler() method would run: ${rejection}`
+      );
+    }
+    return manifest;
   }
 
   /**
@@ -2435,6 +2532,67 @@ export function generateAbiManifestRustFormatWithStateSchema(
   const emitter = new AbiEmitter();
   emitter.analyzeSource(sourceCode, sourceFile);
   return emitter.generateStateSchemaWithCrdtMetadata(sourceCode, stateRootTypeName);
+}
+
+function stripTeePrefix(name: string): string {
+  return name.startsWith('tee:') ? name.slice('tee:'.length) : name;
+}
+
+/** Whether a call's callee is `emitWithHandler` imported from the SDK, by name or namespace. */
+function isSdkEmitWithHandler(nodePath: any): boolean {
+  const sdkImport = (name: string): any => {
+    const binding = nodePath.scope.getBinding(name);
+    return binding?.kind === 'module' && binding.path.parent.source?.value === SDK_PACKAGE
+      ? binding.path.node
+      : undefined;
+  };
+  const callee = nodePath.node.callee;
+  if (callee?.type === 'Identifier') {
+    const specifier = sdkImport(callee.name);
+    return specifier?.type === 'ImportSpecifier' && specifier.imported?.name === 'emitWithHandler';
+  }
+  return (
+    callee?.type === 'MemberExpression' &&
+    callee.property?.name === 'emitWithHandler' &&
+    callee.object?.type === 'Identifier' &&
+    sdkImport(callee.object.name)?.type === 'ImportNamespaceSpecifier'
+  );
+}
+
+/**
+ * Why the node would reject `manifest` as structurally invalid (and read the app
+ * as having no ABI), mirroring core's `validate_manifest` rules the emitter can break.
+ */
+function nodeRejection(manifest: { types: Record<string, unknown> }): string | undefined {
+  const visit = (node: unknown, path: string): string | undefined => {
+    if (!node || typeof node !== 'object') {
+      return undefined;
+    }
+    const obj = node as Record<string, any>;
+    if (typeof obj.$ref === 'string' && !(obj.$ref in manifest.types)) {
+      return `${path} references undefined type '${obj.$ref}'`;
+    }
+    if (obj.kind === 'map' && obj.key?.kind !== 'string') {
+      return `${path} is a map whose key is not a string`;
+    }
+    for (const [key, value] of Object.entries(obj)) {
+      const child = Array.isArray(obj) && typeof value?.name === 'string' ? value.name : key;
+      const found = visit(value, path ? `${path}.${child}` : child);
+      if (found) {
+        return found;
+      }
+    }
+    return undefined;
+  };
+  return visit(manifest, '');
+}
+
+/**
+ * Sorts by name in code-unit order, the byte order the node checks methods and
+ * events against (it rejects an unsorted manifest as if the app had none).
+ */
+function sortByName<T extends { name: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
 
 /**

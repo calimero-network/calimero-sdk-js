@@ -40,6 +40,7 @@ export interface Method {
   returns?: TypeRef;
   is_init?: boolean;
   is_view?: boolean;
+  handler?: boolean;
 }
 
 export interface Parameter {
