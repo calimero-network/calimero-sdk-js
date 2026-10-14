@@ -46,8 +46,10 @@ export class MyApp {
 
 ### `@Logic(StateClass)`
 
-Links a logic class to its state class and registers every non-static method as
-a callable service function.
+Links a logic class to its state class and registers every non-static, public
+method as a callable service function.
+Methods marked `private` or `protected`, or named with a leading `_`, are not
+callable.
 
 ```typescript
 @Logic(MyApp)

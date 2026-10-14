@@ -87,8 +87,9 @@ Key points:
 
 <Aside type="tip">
   `@Init` marks the static initializer that produces the first state instance.
-  Every other (non-static) method on the `@Logic` class is exported as a callable
-  service function.
+  Every other non-static, public method on the `@Logic` class is exported as a
+  callable service function. Methods marked `private` or `protected`, or named
+  with a leading `_`, are not exported, so keep internal helpers that way.
 </Aside>
 
 ## Build to WASM

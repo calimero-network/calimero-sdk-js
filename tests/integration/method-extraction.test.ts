@@ -2,66 +2,51 @@
  * Integration test for method extraction
  */
 
-import * as path from 'path';
-import * as fs from 'fs';
-import { generateMethodsHeader } from '../../packages/cli/src/compiler/methods';
+import { exportedMethods } from '../../packages/cli/src/compiler/methods';
+
+const INTERNAL_EXPORTS = [
+  '__calimero_merge_root_state',
+  '__calimero_register_merge',
+  '__calimero_sync_next',
+];
 
 describe('Method Extraction', () => {
-  const outputDir = path.join(__dirname, 'output');
-
-  beforeAll(() => {
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
-  });
-
-  afterAll(() => {
-    if (fs.existsSync(outputDir)) {
-      fs.rmSync(outputDir, { recursive: true });
-    }
-  });
-
-  it('should extract methods from simple class', async () => {
-    // Create test JavaScript file
-    const testJs = path.join(outputDir, 'test.js');
-    fs.writeFileSync(
-      testJs,
-      `
-      class CounterLogic {
-        increment() {}
-        decrement() {}
-        getCount() {}
-      }
-    `
+  it('exports the registered methods and initializer plus the internal exports', () => {
+    const methods = exportedMethods(
+      {
+        logic: { CounterLogic: { methods: ['increment', 'getCount'], init: 'init' } },
+        functions: [],
+      },
+      ['getCount', 'increment', 'init']
     );
 
-    await generateMethodsHeader(testJs, outputDir);
-
-    const headerPath = path.join(outputDir, 'methods.h');
-    expect(fs.existsSync(headerPath)).toBe(true);
-
-    const header = fs.readFileSync(headerPath, 'utf-8');
-    expect(header).toContain('DEFINE_CALIMERO_METHOD(increment)');
-    expect(header).toContain('DEFINE_CALIMERO_METHOD(decrement)');
-    expect(header).toContain('DEFINE_CALIMERO_METHOD(getCount)');
+    expect(methods).toEqual([...INTERNAL_EXPORTS, 'getCount', 'increment', 'init'].sort());
   });
 
-  it('should not include static methods', async () => {
-    const testJs = path.join(outputDir, 'test-static.js');
-    fs.writeFileSync(
-      testJs,
-      `
-      class TestLogic {
-        static initialize() {}
-        regularMethod() {}
-      }
-    `
-    );
+  it('fails when the bundle registers no method registry', () => {
+    expect(() => exportedMethods(null, [])).toThrow(/registry/);
+  });
 
-    await generateMethodsHeader(testJs, outputDir);
+  it('exports an initializer-only app', () => {
+    expect(
+      exportedMethods({ logic: { SchemaLogic: { methods: [], init: 'init' } }, functions: [] }, [
+        'init',
+      ])
+    ).toEqual([...INTERNAL_EXPORTS, 'init'].sort());
+  });
 
-    const header = fs.readFileSync(path.join(outputDir, 'methods.h'), 'utf-8');
-    expect(header).toContain('DEFINE_CALIMERO_METHOD(regularMethod)');
-    expect(header).not.toContain('DEFINE_CALIMERO_METHOD(initialize)');
+  it('fails when the registry holds no logic methods or initializer', () => {
+    expect(() =>
+      exportedMethods({ logic: { CounterLogic: { methods: [] } }, functions: [] }, [])
+    ).toThrow(/no logic methods/);
+  });
+
+  it('fails when the exports and the ABI methods differ', () => {
+    const registry = {
+      logic: { CounterLogic: { methods: ['increment'] } },
+      functions: [],
+    };
+    expect(() => exportedMethods(registry, ['increment', 'init'])).toThrow(/init/);
+    expect(() => exportedMethods(registry, [])).toThrow(/increment/);
   });
 });

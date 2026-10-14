@@ -99,6 +99,7 @@ export class AbiEmitter {
   private events: Event[] = [];
   private stateRoot?: string;
   private namedHandlers: Set<string> = new Set(); // literal handler names passed to emitWithHandler
+  private logicMethodNames: Set<string> = new Set(); // every method name declared on a @Logic class
   private abstractClasses: Map<string, any> = new Map(); // Track abstract classes for variant analysis
 
   /**
@@ -117,6 +118,7 @@ export class AbiEmitter {
     // Reset state
     this.types.clear();
     this.methods = [];
+    this.logicMethodNames.clear();
     this.events = [];
     this.stateRoot = undefined;
     this.namedHandlers.clear();
@@ -152,8 +154,7 @@ export class AbiEmitter {
     }
 
     // Second pass: Find decorated classes from all files
-    // Track analyzed classes to avoid duplicates (exported classes appear in both ClassDeclaration and ExportNamedDeclaration)
-    const analyzedClasses = new Set<string>();
+    const analyzedClasses = new Map<string, any>();
     for (const filePath of filePaths) {
       const sourceCode = fs.readFileSync(filePath, 'utf-8');
       const ast = parse(sourceCode, {
@@ -162,22 +163,8 @@ export class AbiEmitter {
       });
 
       traverse(ast, {
-        ClassDeclaration: (nodePath: any) => {
-          const className = nodePath.node.id?.name;
-          if (className && !analyzedClasses.has(className)) {
-            analyzedClasses.add(className);
-            this.analyzeClass(nodePath.node);
-          }
-        },
-        ExportNamedDeclaration: (nodePath: any) => {
-          if (nodePath.node.declaration?.type === 'ClassDeclaration') {
-            const className = nodePath.node.declaration.id?.name;
-            if (className && !analyzedClasses.has(className)) {
-              analyzedClasses.add(className);
-              this.analyzeClass(nodePath.node.declaration);
-            }
-          }
-        },
+        ClassDeclaration: (nodePath: any) => this.analyzeClassOnce(nodePath.node, analyzedClasses),
+        ClassExpression: (nodePath: any) => this.analyzeClassOnce(nodePath.node, analyzedClasses),
         CallExpression: (nodePath: any) => this.recordNamedHandler(nodePath, filePath),
       });
     }
@@ -357,6 +344,7 @@ export class AbiEmitter {
     // Reset state
     this.types.clear();
     this.methods = [];
+    this.logicMethodNames.clear();
     this.events = [];
     this.stateRoot = undefined;
     this.namedHandlers.clear();
@@ -395,27 +383,12 @@ export class AbiEmitter {
     });
 
     // Second pass: Find all classes (decorated and referenced)
-    // Track analyzed classes to avoid duplicates (exported classes appear in both ClassDeclaration and ExportNamedDeclaration)
-    const analyzedClasses = new Set<string>();
+    const analyzedClasses = new Map<string, any>();
 
     // First, analyze decorated classes (State, Logic, Event)
     traverse(ast, {
-      ClassDeclaration: (nodePath: any) => {
-        const className = nodePath.node.id?.name;
-        if (className && !analyzedClasses.has(className)) {
-          analyzedClasses.add(className);
-          this.analyzeClass(nodePath.node);
-        }
-      },
-      ExportNamedDeclaration: (nodePath: any) => {
-        if (nodePath.node.declaration?.type === 'ClassDeclaration') {
-          const className = nodePath.node.declaration.id?.name;
-          if (className && !analyzedClasses.has(className)) {
-            analyzedClasses.add(className);
-            this.analyzeClass(nodePath.node.declaration);
-          }
-        }
-      },
+      ClassDeclaration: (nodePath: any) => this.analyzeClassOnce(nodePath.node, analyzedClasses),
+      ClassExpression: (nodePath: any) => this.analyzeClassOnce(nodePath.node, analyzedClasses),
       CallExpression: (nodePath: any) => this.recordNamedHandler(nodePath, filePath),
     });
 
@@ -878,6 +851,32 @@ export class AbiEmitter {
     return this.generateManifest();
   }
 
+  /**
+   * Analyzes each class declaration name once. A @Logic class the ABI cannot name,
+   * or a second one of the same name, would hide its methods, so it fails the build.
+   */
+  private analyzeClassOnce(classNode: any, analyzed: Map<string, any>): void {
+    const isLogic = this.isLogicClass(classNode);
+    if (isLogic && (classNode.type !== 'ClassDeclaration' || !classNode.id)) {
+      throw new Error('A @Logic class must be a named class declaration');
+    }
+    const className = classNode.id?.name;
+    if (!className || classNode.type !== 'ClassDeclaration') {
+      return;
+    }
+    const seen = analyzed.get(className);
+    if (seen === undefined) {
+      analyzed.set(className, classNode);
+      this.analyzeClass(classNode);
+    } else if (this.isLogicClass(seen) || isLogic) {
+      throw new Error(`@Logic class '${className}' is declared more than once`);
+    }
+  }
+
+  private isLogicClass(classNode: any): boolean {
+    return (classNode.decorators || []).some((d: any) => this.isCalimeroDecorator(d, 'Logic'));
+  }
+
   private analyzeClass(classNode: any): void {
     const className = classNode.id?.name;
     if (!className) return;
@@ -1156,24 +1155,54 @@ export class AbiEmitter {
     }
   }
 
+  /**
+   * The runtime matches entry points to the ABI by name alone, so an entry point's
+   * name must not be declared by any other @Logic method, accessor or initializer.
+   */
+  private claimLogicMethodName(name: string, isEntryPoint: boolean): void {
+    const clashes =
+      this.logicMethodNames.has(name) &&
+      (isEntryPoint || this.methods.some(method => method.name === name));
+    if (clashes) {
+      throw new Error(
+        `'${name}' is declared more than once across @Logic classes; an entry point's name must be unique`
+      );
+    }
+    this.logicMethodNames.add(name);
+  }
+
+  /**
+   * A @Logic method's runtime name: an identifier or a string literal, written
+   * `name()`, `'name'()` or `['name']()`. Any other computed name fails the build.
+   */
+  private logicMethodName(member: any): string {
+    if (member.key?.type === 'StringLiteral' || member.key?.type === 'Literal') {
+      return String(member.key.value);
+    }
+    if (member.computed || typeof member.key?.name !== 'string') {
+      throw new Error('@Logic classes cannot declare methods with computed names');
+    }
+    return member.key.name;
+  }
+
   private analyzeLogicClass(classNode: any): void {
     classNode.body.body.forEach((member: any) => {
       // Babel uses 'ClassMethod', TypeScript uses 'MethodDefinition'
-      if (
-        (member.type === 'MethodDefinition' || member.type === 'ClassMethod') &&
-        member.key?.name
-      ) {
-        const methodName = member.key.name;
-
+      if (member.type === 'MethodDefinition' || member.type === 'ClassMethod') {
+        const methodName = this.logicMethodName(member);
         const decorators = member.decorators || [];
+        const isInit = decorators.some((d: any) => this.isCalimeroDecorator(d, 'Init'));
 
-        // Skip private methods and constructor
-        if (
-          methodName.startsWith('_') ||
-          methodName === 'constructor' ||
-          member.accessibility === 'private' ||
-          member.accessibility === 'protected'
-        ) {
+        // TypeScript erases `private`/`protected`, so this list is what keeps them uncallable
+        const isEntryPoint =
+          isInit ||
+          (member.kind === 'method' &&
+            !methodName.startsWith('_') &&
+            member.accessibility !== 'private' &&
+            member.accessibility !== 'protected' &&
+            !member.static);
+        this.claimLogicMethodName(methodName, isEntryPoint);
+        if (!isEntryPoint) {
           if (decorators.some((d: any) => this.isCalimeroDecorator(d, 'Handler'))) {
             throw new Error(
               `@Handler() on '${methodName}': handlers must be public methods ` +
@@ -1186,7 +1215,6 @@ export class AbiEmitter {
           return;
         }
 
-        const isInit = decorators.some((d: any) => this.isCalimeroDecorator(d, 'Init'));
         const isView = decorators.some((d: any) => this.isCalimeroDecorator(d, 'View'));
         const isHandler = decorators.some((d: any) => this.isCalimeroDecorator(d, 'Handler'));
         const xcall = this.xcallPolicy(methodName, decorators);

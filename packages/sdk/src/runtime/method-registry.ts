@@ -1,3 +1,5 @@
+import { getAbiManifest } from '../abi/helpers';
+
 export interface MethodRegistrySnapshot {
   logic: Record<string, { methods: string[]; init?: string; mutating: Record<string, boolean> }>;
   functions: string[];
@@ -48,8 +50,24 @@ function normalizeLogicName(target: new (...args: any[]) => any): string {
   return LOGIC_FALLBACK_NAME;
 }
 
-function isExportable(name: string | undefined): name is string {
-  return !!name && name !== 'constructor' && !name.startsWith('_');
+function isExportable(name: unknown): name is string {
+  return typeof name === 'string' && name !== '' && name !== 'constructor' && !name.startsWith('_');
+}
+
+// An initializer is an entry point whatever its accessibility; the dispatcher refuses re-entry.
+function isAbiMethod(name: unknown): name is string {
+  return (
+    typeof name === 'string' && !!getAbiManifest()?.methods.some(method => method.name === name)
+  );
+}
+
+// Dispatchers are keyed by method name alone, so two @Logic classes cannot share one.
+function claimEntryPoint(target: new (...args: any[]) => any, name: string): void {
+  for (const entry of runtimeLogic.values()) {
+    if (entry.target !== target && (entry.methods.has(name) || entry.init === name)) {
+      throw new Error(`Entry point '${name}' is already registered by another @Logic class`);
+    }
+  }
 }
 
 function addMethodToEntry(entry: { methods: string[]; init?: string }, method: string): void {
@@ -164,7 +182,9 @@ export function registerLogic(
   const entry = ensureLogicEntry(logicName);
 
   for (const method of methods) {
-    if (isExportable(method)) {
+    // Entry points are the methods the ABI emitter found public in the TS source; no manifest, none.
+    if (isExportable(method) && isAbiMethod(method)) {
+      claimEntryPoint(target, method);
       addMethodToEntry(entry, method);
       if (entry.mutating[method] === undefined) {
         entry.mutating[method] = true;
@@ -184,7 +204,8 @@ export function registerLogic(
   }
 
   const initMethod = (target as any)._calimeroInitMethod;
-  if (typeof initMethod === 'string' && initMethod.length > 0) {
+  if (isAbiMethod(initMethod)) {
+    claimEntryPoint(target, initMethod);
     entry.init = initMethod;
     updateRuntimeInit(target, stateClass, initMethod);
   }
@@ -215,6 +236,10 @@ export function markMethodNonMutating(
 
 export function registerInit(target: new (...args: any[]) => any, methodName: string): void {
   ensureGlobalRegistry();
+  if (!isAbiMethod(methodName)) {
+    return;
+  }
+  claimEntryPoint(target, methodName);
 
   const logicName = normalizeLogicName(target);
   const entry = ensureLogicEntry(logicName);

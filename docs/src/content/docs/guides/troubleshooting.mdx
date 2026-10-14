@@ -55,11 +55,13 @@ npx calimero-sdk build src/index.ts --verbose
 A method isn't exported as a service function. Check that:
 
 1. It lives on the `@Logic`-decorated class (not on `@State`).
-2. It is not the `constructor` (and not the `@Init` static method).
-3. The build completed without errors.
+2. It is a plain method, not the `constructor`, a getter or a setter.
+3. It is public: not `private`, not `protected`, and not named with a leading `_`.
+4. It is not `static`; the `@Init` initializer is the only static entry point.
+5. The build completed without errors.
 
-Every non-static method on the `@Logic` class is registered; static methods are
-not, aside from the `@Init` initializer.
+An entry point's name must be unique across every `@Logic` class: the build fails
+when another method, accessor or initializer in any `@Logic` class shares it.
 
 ### "ABI manifest is required but not available"
 
