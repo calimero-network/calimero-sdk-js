@@ -19,6 +19,10 @@ export function instantiateCollection(snapshot: CollectionSnapshot): any {
   return loader(snapshot);
 }
 
+export function isRegisteredCollectionType(type: string): boolean {
+  return registry.has(type);
+}
+
 export function hasRegisteredCollection(value: unknown): boolean {
   if (!value || typeof value !== 'object') {
     return false;

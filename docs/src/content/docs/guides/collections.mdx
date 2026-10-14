@@ -32,6 +32,22 @@ import { createUnorderedMap, createCounter } from '@calimero-network/calimero-sd
   `new` (e.g. `new SortedMap()`).
 </Aside>
 
+Annotate every top-level collection field with its collection type
+(`items: UnorderedMap<string, string>`).
+The build records that type, and the runtime refuses a stored root document
+whose field names another collection id or another collection type.
+Each top-level collection lives at an id derived from its field name, so assign
+collection fields in the constructor or inline, never in a method.
+Adding a top-level collection field to an app that already holds state is
+refused at load: any member can write to the new field's derived id before the
+upgrade lands, so the runtime will not adopt whatever collection sits there.
+Removing a top-level collection field loads fine, but the first save or merge
+drops the field from the root document for good.
+Re-adding it later, or rolling back to a version that still declares it, is then
+refused, and the old collection's data stays unreachable.
+Renaming a field removes the old one and adds a new one, so it is refused, and so
+is changing a field's collection type.
+
 ## Common members
 
 Every collection exposes the same identity/serialization members:

@@ -1,32 +1,15 @@
 import './setup';
-import { BorshWriter } from '../borsh/encoder';
 import { BorshReader } from '../borsh/decoder';
 import {
   decodeMergeRootStateRequest,
   encodeMergeRootStateResponseOk,
-  encodeMergeRootStateResponseErr,
-  computeMergeResponse,
+  encodeMergeRootStateResponseRefused,
   mergeField,
   mergeRootValues,
   mergeRootCollections,
   mergeRootMetadata,
 } from '../runtime/merge';
-
-function buildRequest(
-  existing: Uint8Array,
-  incoming: Uint8Array,
-  existingCreatedAt: bigint,
-  existingTs: bigint,
-  incomingTs: bigint
-): Uint8Array {
-  const writer = new BorshWriter();
-  writer.writeBytes(existing);
-  writer.writeBytes(incoming);
-  writer.writeU64(existingCreatedAt);
-  writer.writeU64(existingTs);
-  writer.writeU64(incomingTs);
-  return writer.toBytes();
-}
+import { buildRequest } from './merge-request';
 
 function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
@@ -58,37 +41,11 @@ describe('MergeRootStateRequest / Response codec', () => {
     expect(bytesEqual(reader.readBytes(), payload)).toBe(true);
   });
 
-  it('encodes Err as [1][string]', () => {
-    const encoded = encodeMergeRootStateResponseErr('boom');
+  it('encodes Refused as [2][string]', () => {
+    const encoded = encodeMergeRootStateResponseRefused('boom');
     const reader = new BorshReader(encoded);
-    expect(reader.readU8()).toBe(1);
+    expect(reader.readU8()).toBe(2);
     expect(reader.readString()).toBe('boom');
-  });
-});
-
-describe('computeMergeResponse bootstrap fast-path', () => {
-  it('returns Ok(incoming) verbatim when existing_created_at == existing_ts', () => {
-    const existing = new Uint8Array([1, 1, 1]);
-    const incoming = new Uint8Array([2, 2, 2, 2]);
-    // created_at == ts -> existing side created but never written
-    const request = buildRequest(existing, incoming, 42n, 42n, 99n);
-
-    const response = computeMergeResponse(request);
-    const reader = new BorshReader(response);
-    expect(reader.readU8()).toBe(0); // Ok
-    expect(bytesEqual(reader.readBytes(), incoming)).toBe(true);
-  });
-
-  it('does NOT take the fast-path when timestamps differ (falls through to parse)', () => {
-    // existing/incoming are not valid root docs -> parse fails -> Err response,
-    // which proves the fast-path was skipped.
-    const existing = new Uint8Array([1, 1, 1]);
-    const incoming = new Uint8Array([2, 2, 2]);
-    const request = buildRequest(existing, incoming, 42n, 43n, 99n);
-
-    const response = computeMergeResponse(request);
-    const reader = new BorshReader(response);
-    expect(reader.readU8()).toBe(1); // Err (no ABI / invalid doc)
   });
 });
 

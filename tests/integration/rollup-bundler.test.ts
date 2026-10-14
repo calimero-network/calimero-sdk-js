@@ -59,6 +59,7 @@ describe('Rollup Bundler', () => {
       verbose: false,
       outputDir,
       abiManifest: minimalAbiManifest,
+      stateFieldTypes: {},
     });
 
     expect(fs.existsSync(bundlePath)).toBe(true);
@@ -82,6 +83,7 @@ describe('Rollup Bundler', () => {
       verbose: false,
       outputDir,
       abiManifest: minimalAbiManifest,
+      stateFieldTypes: {},
     });
 
     expect(fs.existsSync(bundlePath)).toBe(true);
@@ -96,6 +98,7 @@ describe('Rollup Bundler', () => {
       verbose: false,
       outputDir,
       abiManifest: minimalAbiManifest,
+      stateFieldTypes: {},
     });
 
     expect(fs.existsSync(bundlePath)).toBe(true);
