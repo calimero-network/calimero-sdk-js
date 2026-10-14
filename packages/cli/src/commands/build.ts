@@ -14,6 +14,7 @@ import {
   generateAbiSchema,
   generateStateSchema,
 } from '../compiler/abi.js';
+import { embedAbiSection } from '../compiler/embed-abi.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -125,6 +126,12 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
       // Just copy to output
       fs.copyFileSync(wasmPath, options.output);
     }
+
+    // Step 10: Embed the ABI last, so no earlier tool can strip the section
+    signale.await('Embedding ABI section...');
+    const wasm = fs.readFileSync(options.output);
+    fs.writeFileSync(options.output, embedAbiSection(wasm, JSON.stringify(abiManifest)));
+    signale.success('ABI section embedded');
 
     // Get final size
     const stats = fs.statSync(options.output);

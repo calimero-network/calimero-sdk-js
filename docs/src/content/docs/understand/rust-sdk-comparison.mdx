@@ -53,6 +53,7 @@ Both SDKs target one runtime, so most of what you learn transfers directly:
 | Logic / methods      | `#[app::logic] impl`                          | `@Logic` class                                       |
 | Initializer          | `#[app::init]`                                | `@Init`                                              |
 | Events               | `#[app::event]` + `app::emit!`                | `@Event` + `emit()`                                  |
+| Event handlers       | `#[app::handler]`                             | `@Handler()`                                         |
 | Read-only methods    | `&self` methods                               | `@View()`                                            |
 | Method result        | `app::Result<T>`                              | return a value, or `throw`                           |
 | Serialization        | `borsh` derive                                | ABI-driven `serialize`/`deserialize` (Borsh-compatible) |
