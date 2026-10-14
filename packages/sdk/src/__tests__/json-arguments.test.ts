@@ -5,30 +5,7 @@ import { View } from '../decorators/view';
 
 const seen: unknown[] = [];
 
-@State
-class ReproState {}
-
-@Logic(ReproState)
-class ReproLogic extends ReproState {
-  @View()
-  setTemp(c: number): void {
-    seen.push(c);
-  }
-  @View()
-  setTags(m: Map<number, string>): void {
-    seen.push(m);
-  }
-  @View()
-  two(a: { x: number }, b: number): void {
-    seen.push([a, b]);
-  }
-  @View()
-  wide(a: { x: bigint }, b: number): void {
-    seen.push([a, b]);
-  }
-}
-void ReproLogic;
-
+// @Logic registers only the methods the manifest lists, so it must be set before the classes.
 (globalThis as any).__CALIMERO_ABI_MANIFEST__ = {
   schema_version: 'wasm-abi/1',
   types: {
@@ -64,6 +41,30 @@ void ReproLogic;
   events: [],
 };
 
+@State
+class ReproState {}
+
+@Logic(ReproState)
+class ReproLogic extends ReproState {
+  @View()
+  setTemp(c: number): void {
+    seen.push(c);
+  }
+  @View()
+  setTags(m: Map<number, string>): void {
+    seen.push(m);
+  }
+  @View()
+  two(a: { x: number }, b: number): void {
+    seen.push([a, b]);
+  }
+  @View()
+  wide(a: { x: bigint }, b: number): void {
+    seen.push([a, b]);
+  }
+}
+void ReproLogic;
+
 // Loading the dispatcher after the classes are registered installs globalThis[method].
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 require('../runtime/dispatcher');
@@ -72,6 +73,7 @@ function call(method: string, json: string): unknown {
   const bytes = new TextEncoder().encode(json);
   const env = (global as any).env;
   env.input = () => {};
+  env.read_root_state = () => 0;
   env.register_len = () => BigInt(bytes.length);
   env.read_register = (_r: bigint, buf: Uint8Array) => {
     buf.set(bytes);
