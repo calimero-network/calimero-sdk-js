@@ -1,11 +1,18 @@
 import * as env from '../env/api';
 import { serialize, deserialize } from '../utils/serialize';
-import { CollectionSnapshot, instantiateCollection, snapshotCollection } from './collections';
+import {
+  CollectionSnapshot,
+  instantiateCollection,
+  isRegisteredCollectionType,
+  snapshotCollection,
+} from './collections';
 import { getAbiManifest, getStateRootType } from '../abi/helpers';
 import { serializeWithAbi, deserializeWithAbi } from '../utils/abi-serialize';
 import { BorshWriter } from '../borsh/encoder';
 import { BorshReader } from '../borsh/decoder';
 import type { TypeRef } from '../abi/types';
+import { computeCollectionId, ROOT_ID } from '../utils/deterministic-id';
+import { bytesToHex } from '../utils/hex';
 
 interface PersistedStateDocument {
   className: string;
@@ -49,6 +56,64 @@ function stateTypeRefFromAbi(): { stateTypeRef: TypeRef; abi: ReturnType<typeof 
 }
 
 /**
+ * The collection type the build recorded for a @State field, if it holds one.
+ */
+export function stateCollectionType(field: string): string | undefined {
+  const type = (globalThis as any).__CALIMERO_STATE_FIELD_TYPES__?.[field];
+  return typeof type === 'string' && isRegisteredCollectionType(type) ? type : undefined;
+}
+
+/**
+ * The @State fields the build recorded as holding a collection.
+ */
+export function declaredCollectionFields(): string[] {
+  return Object.keys((globalThis as any).__CALIMERO_STATE_FIELD_TYPES__ ?? {}).filter(field =>
+    stateCollectionType(field)
+  );
+}
+
+/**
+ * The document's collections for the declared fields, each present, at its derived
+ * id and of its declared type; a field the app no longer declares is dropped.
+ */
+function declaredCollections(
+  collections: Record<string, CollectionSnapshot>
+): Record<string, CollectionSnapshot> {
+  const declared: Record<string, CollectionSnapshot> = {};
+  for (const field of declaredCollectionFields()) {
+    const snapshot = collections[field];
+    if (!snapshot) {
+      throw new Error(`Collection field '${field}' is missing from the root document`);
+    }
+    if (snapshot.id !== bytesToHex(computeCollectionId(ROOT_ID, field))) {
+      throw new Error(`Collection field '${field}' is not at the id derived from its name`);
+    }
+    if (snapshot.type !== stateCollectionType(field)) {
+      throw new Error(`Collection field '${field}' is not of its declared collection type`);
+    }
+    declared[field] = { type: snapshot.type, id: snapshot.id };
+  }
+  return declared;
+}
+
+// Saving an undeclared collection field would persist one no load could reach.
+function refuseUndeclared(collections: Record<string, CollectionSnapshot>): void {
+  for (const field of Object.keys(collections)) {
+    if (!stateCollectionType(field)) {
+      throw new Error(`Collection field '${field}' is not declared with a collection type`);
+    }
+  }
+}
+
+// Only the two numeric stamps survive, so a peer's extra or non-numeric fields never persist.
+function rootMetadata(metadata: any): { createdAt: number; updatedAt: number } {
+  const now = Number(env.timeNow());
+  const stamp = (value: unknown) =>
+    typeof value === 'number' && Number.isFinite(value) ? value : now;
+  return { createdAt: stamp(metadata?.createdAt), updatedAt: stamp(metadata?.updatedAt) };
+}
+
+/**
  * Pure decode of the persisted root-document wire format into its parts.
  *
  * Wire format: `[u8 version=1][writeBytes(abi state)][writeBytes(collections+metadata)]`
@@ -72,12 +137,9 @@ export function parseRootDocument(source: Uint8Array): RootDocument {
       ? deserialize<any>(collectionsAndMetadataBytes)
       : { collections: {}, metadata: null };
 
-  const now = Number(env.timeNow());
-  return {
-    values,
-    collections: collectionsAndMetadata.collections || {},
-    metadata: collectionsAndMetadata.metadata || { createdAt: now, updatedAt: now },
-  };
+  const collections = declaredCollections(collectionsAndMetadata.collections || {});
+
+  return { values, collections, metadata: rootMetadata(collectionsAndMetadata.metadata) };
 }
 
 /**
@@ -133,6 +195,8 @@ export function saveRootState(state: any): Uint8Array {
 
     doc.values[key] = value;
   }
+  refuseUndeclared(doc.collections);
+  declaredCollections(doc.collections);
 
   // ABI-aware serialization is required
   const abi = getAbiManifest();
@@ -329,6 +393,7 @@ export function loadRootState<T>(stateClass: { new (...args: any[]): T }): T | n
   ) {
     throw new Error('Persisted state document missing required fields');
   }
+  doc.collections = declaredCollections(doc.collections);
 
   const instance: any = typeof stateClass === 'function' ? Object.create(stateClass.prototype) : {};
   const target = instance as Record<string, unknown>;
@@ -357,7 +422,7 @@ export function loadRootState<T>(stateClass: { new (...args: any[]): T }): T | n
 
   const values = doc.values ?? {};
   for (const [key, value] of Object.entries(values)) {
-    if (value === undefined) {
+    if (value === undefined || key in collections) {
       continue;
     }
     const current = target[key];

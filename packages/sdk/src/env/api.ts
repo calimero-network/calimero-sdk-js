@@ -8,6 +8,7 @@
 import '../polyfills/text-encoding';
 
 import { bytesToHex } from '../utils/hex';
+export { bytesToHex, hexToBytes } from '../utils/hex';
 import type { HostEnv } from './bindings';
 import { getAbiManifest, getMethod } from '../abi/helpers';
 import type { TypeRef, AbiManifest, ScalarType, Variant } from '../abi/types';
@@ -367,6 +368,20 @@ export function executorId(): Uint8Array {
   return buf;
 }
 
+/**
+ * Gets the account the current call is authorized as. User storage is keyed
+ * by this id; two devices of one person share it.
+ *
+ * @returns 32-byte account ID
+ */
+export function accountId(): Uint8Array {
+  env.account_id(REGISTER_ID);
+  const len = Number(env.register_len(REGISTER_ID));
+  const buf = new Uint8Array(len);
+  env.read_register(REGISTER_ID, buf);
+  return buf;
+}
+
 /*
  * Context membership/lifecycle helpers (contextAddMember, contextRemoveMember,
  * contextIsMember, contextMembers, contextCreate, contextDelete,
@@ -435,9 +450,8 @@ export function bytesToBase58(bytes: Uint8Array): string {
 
 /**
  * Decode a base58 string into bytes — the inverse of the encoding used by
- * {@link executorIdBase58}. Useful when a public key arrives as base58 (e.g. a
- * member key surfaced by tooling) and must be handed to an API expecting raw
- * bytes, such as a SharedStorage writer set. Throws on an invalid character.
+ * {@link executorIdBase58}. Throws on an invalid character. Node ids (context,
+ * member, blob) arrive as hex; decode those with {@link hexToBytes}.
  */
 export function base58ToBytes(value: string): Uint8Array {
   const alphabet = BASE58_ALPHABET;

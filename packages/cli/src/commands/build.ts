@@ -14,6 +14,8 @@ import {
   generateAbiSchema,
   generateStateSchema,
 } from '../compiler/abi.js';
+import { embedAbiSection } from '../compiler/embed-abi.js';
+import { generateStateFieldTypes } from '../abi/emitter.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -75,12 +77,17 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
       verbose: options.verbose,
       outputDir,
       abiManifest,
+      stateFieldTypes: generateStateFieldTypes(source),
     });
     signale.success('JavaScript bundled');
 
     // Step 5: Generate methods header
     signale.await('Extracting service methods...');
-    await generateMethodsHeader(jsBundle, outputDir);
+    await generateMethodsHeader(
+      jsBundle,
+      outputDir,
+      abiManifest.methods.map((method: { name: string }) => method.name)
+    );
     signale.success('Methods extracted');
 
     // Step 6: Compile to C with QuickJS
@@ -125,6 +132,12 @@ export async function buildCommand(source: string, options: BuildOptions): Promi
       // Just copy to output
       fs.copyFileSync(wasmPath, options.output);
     }
+
+    // Step 10: Embed the ABI last, so no earlier tool can strip the section
+    signale.await('Embedding ABI section...');
+    const wasm = fs.readFileSync(options.output);
+    fs.writeFileSync(options.output, embedAbiSection(wasm, JSON.stringify(abiManifest)));
+    signale.success('ABI section embedded');
 
     // Get final size
     const stats = fs.statSync(options.output);

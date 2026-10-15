@@ -2,122 +2,84 @@
  * Method extraction
  */
 
-import { parse } from '@babel/parser';
-import traverseModule from '@babel/traverse';
 import * as fs from 'fs';
 import * as path from 'path';
 import { pathToFileURL } from 'url';
 
-const traverse = (traverseModule as any).default || traverseModule;
+const INTERNAL_EXPORTS = [
+  '__calimero_sync_next',
+  '__calimero_register_merge',
+  '__calimero_merge_root_state',
+];
 
-export async function generateMethodsHeader(jsFile: string, outputDir: string): Promise<void> {
-  const jsCode = fs.readFileSync(jsFile, 'utf-8');
-
-  fs.writeFileSync(path.join(outputDir, 'bundle.js'), jsCode, 'utf-8');
-
-  const registrySnapshot = await tryLoadMethodRegistry(jsFile);
-  const methodSet = new Set<string>();
-
-  if (registrySnapshot) {
-    Object.values(registrySnapshot.logic).forEach(entry => {
-      entry.methods.forEach(method => methodSet.add(method));
-      if (entry.init) {
-        methodSet.add(entry.init);
-      }
-    });
-    registrySnapshot.functions.forEach(fn => methodSet.add(fn));
-    methodSet.add('__calimero_sync_next');
-    methodSet.add('__calimero_register_merge');
-    methodSet.add('__calimero_merge_root_state');
-    emitHeaders(outputDir, Array.from(methodSet).sort());
-    return;
-  }
-
-  const ast = parse(jsCode, {
-    sourceType: 'module',
-    plugins: ['classProperties', 'typescript'],
-  });
-
-  const exportedNames = new Set<string>();
-  const functionDeclarations = new Set<string>();
-  const classMethods = new Set<string>();
-
-  traverse(ast, {
-    FunctionDeclaration(nodePath: any) {
-      const name = nodePath.node.id?.name;
-      if (name && !name.startsWith('_') && !/^[A-Z]/.test(name) && name !== 'constructor') {
-        functionDeclarations.add(name);
-      }
-    },
-    ClassMethod(nodePath: any) {
-      const name = nodePath.node.key?.name;
-      const isStatic = nodePath.node.static === true;
-      if (
-        name &&
-        !name.startsWith('_') &&
-        !/^[A-Z]/.test(name) &&
-        name !== 'constructor' &&
-        !isStatic
-      ) {
-        classMethods.add(name);
-      }
-    },
-    ExportNamedDeclaration(nodePath: any) {
-      if (nodePath.node.declaration && nodePath.node.declaration.type === 'FunctionDeclaration') {
-        const name = nodePath.node.declaration.id?.name;
-        if (name) {
-          exportedNames.add(name);
-          functionDeclarations.add(name);
-        }
-      }
-      if (nodePath.node.specifiers) {
-        nodePath.node.specifiers.forEach((spec: any) => {
-          if (spec.exported && spec.exported.name) {
-            exportedNames.add(spec.exported.name);
-          }
-        });
-      }
-    },
-  });
-
-  exportedNames.forEach(name => {
-    if (functionDeclarations.has(name)) {
-      methodSet.add(name);
-    }
-  });
-
-  classMethods.forEach(name => {
-    methodSet.add(name);
-  });
-
-  methodSet.add('__calimero_sync_next');
-  methodSet.add('__calimero_register_merge');
-  methodSet.add('__calimero_merge_root_state');
-
-  emitHeaders(outputDir, Array.from(methodSet).sort());
-}
-
-interface MethodRegistrySnapshot {
+export interface MethodRegistrySnapshot {
   logic: Record<string, { methods: string[]; init?: string }>;
   functions: string[];
 }
 
-async function tryLoadMethodRegistry(jsFile: string): Promise<MethodRegistrySnapshot | null> {
+export async function generateMethodsHeader(
+  jsFile: string,
+  outputDir: string,
+  abiMethods: string[]
+): Promise<void> {
+  const jsCode = fs.readFileSync(jsFile, 'utf-8');
+
+  fs.writeFileSync(path.join(outputDir, 'bundle.js'), jsCode, 'utf-8');
+
+  emitHeaders(outputDir, exportedMethods(await loadMethodRegistry(jsFile), abiMethods));
+}
+
+/**
+ * The wasm exports for a bundle: what its method registry holds, plus the
+ * runtime's internal exports. Refuses a registry that differs from the ABI methods.
+ */
+export function exportedMethods(
+  registry: MethodRegistrySnapshot | null,
+  abiMethods: string[]
+): string[] {
+  if (!registry) {
+    throw new Error('The bundle registered no method registry; is the @Logic class imported?');
+  }
+  const entryPoints = new Set<string>();
+  Object.values(registry.logic).forEach(entry => {
+    entry.methods.forEach(method => entryPoints.add(method));
+    if (entry.init) {
+      entryPoints.add(entry.init);
+    }
+  });
+  registry.functions.forEach(fn => entryPoints.add(fn));
+  if (entryPoints.size === 0) {
+    throw new Error(
+      'The method registry holds no logic methods or initializer; nothing would be callable'
+    );
+  }
+  const abi = new Set(abiMethods);
+  const unlisted = [...entryPoints].filter(name => !abi.has(name));
+  const unregistered = abiMethods.filter(name => !entryPoints.has(name));
+  if (unlisted.length > 0 || unregistered.length > 0) {
+    throw new Error(
+      `The runtime registry and the ABI disagree: registered but not in the ABI [${unlisted.join(', ')}], ` +
+        `in the ABI but not registered [${unregistered.join(', ')}]`
+    );
+  }
+  return [...INTERNAL_EXPORTS, ...entryPoints].sort();
+}
+
+async function loadMethodRegistry(jsFile: string): Promise<MethodRegistrySnapshot | null> {
+  const fileUrl = pathToFileURL(path.resolve(jsFile));
+  const cacheBustingUrl = new URL(fileUrl.href);
+  cacheBustingUrl.searchParams.set('registry', Date.now().toString(36));
+
+  const previousEnv = (globalThis as any).env;
+  const previousRegistry = (globalThis as any).__CALIMERO_METHOD_REGISTRY__;
+
+  (globalThis as any).env = createEnvStub();
+  delete (globalThis as any).__CALIMERO_METHOD_REGISTRY__;
+
   try {
-    const fileUrl = pathToFileURL(path.resolve(jsFile));
-    const cacheBustingUrl = new URL(fileUrl.href);
-    cacheBustingUrl.searchParams.set('registry', Date.now().toString(36));
-
-    const previousEnv = (globalThis as any).env;
-    const previousRegistry = (globalThis as any).__CALIMERO_METHOD_REGISTRY__;
-
-    (globalThis as any).env = createEnvStub();
-    delete (globalThis as any).__CALIMERO_METHOD_REGISTRY__;
-
     await import(cacheBustingUrl.href);
-
-    const snapshot = (globalThis as any).__CALIMERO_METHOD_REGISTRY__ ?? null;
-
+    return (globalThis as any).__CALIMERO_METHOD_REGISTRY__ ?? null;
+  } finally {
     if (previousEnv === undefined) {
       delete (globalThis as any).env;
     } else {
@@ -129,10 +91,6 @@ async function tryLoadMethodRegistry(jsFile: string): Promise<MethodRegistrySnap
     } else {
       (globalThis as any).__CALIMERO_METHOD_REGISTRY__ = previousRegistry;
     }
-
-    return snapshot;
-  } catch {
-    return null;
   }
 }
 
@@ -168,11 +126,7 @@ function emitHeaders(outputDir: string, methods: string[]): void {
   ];
   fs.writeFileSync(headerFile, headerContentLines.join('\n'));
 
-  if (uniqueMethods.length > 0) {
-    console.log(`Extracted ${uniqueMethods.length} methods: ${uniqueMethods.join(', ')}`);
-  } else {
-    console.warn('Warning: No methods found to export');
-  }
+  console.log(`Extracted ${uniqueMethods.length} methods: ${uniqueMethods.join(', ')}`);
 }
 
 function createEnvStub(): Record<string, (...args: any[]) => any> {

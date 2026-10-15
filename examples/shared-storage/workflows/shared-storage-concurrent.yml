@@ -24,7 +24,7 @@ steps:
   - name: Install SharedStorage Application
     type: install_application
     node: shared-conv-node-1
-    path: 'examples/shared-storage/build/service.wasm'
+    path: 'examples/shared-storage/build/service.mpk'
     dev: true
     outputs:
       app_id: applicationId
@@ -74,15 +74,25 @@ steps:
     type: wait
     seconds: 2
 
+  # Writers are accounts, not member public keys.
+  - name: Read Node 2 Account
+    type: call
+    node: shared-conv-node-2
+    context_id: '{{context_id}}'
+    executor_public_key: '{{node_2_member_public_key}}'
+    method: myAccount
+    outputs:
+      node_2_account: result.output
+
   # --- Node 1 rotates node 2 into the writer set -------------------------
   - name: Node 1 Adds Node 2 As Writer
     type: call
     node: shared-conv-node-1
     context_id: '{{context_id}}'
     executor_public_key: '{{member_public_key}}'
-    method: addWriterBase58
+    method: addWriter
     args:
-      publicKeyBase58: '{{node_2_member_public_key}}'
+      publicKeyHex: '{{node_2_account}}'
 
   - name: Wait For Writer Rotation To Sync
     type: wait_for_sync

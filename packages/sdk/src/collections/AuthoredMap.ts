@@ -1,15 +1,14 @@
 /**
  * AuthoredMap - attributed map CRDT backed by the Rust `JsAuthoredMap` via
- * storage-wasm. Each entry records the executor that created it as its owner.
+ * storage-wasm. Keys are per owner: each member holds its own entry at a key,
+ * so two members inserting one key hold two entries.
  *
- * The logical shape mirrors {@link UnorderedMap}; the difference is authorship:
- *  - `insert` (and `set` for a new key) stamps the current executor as the
- *    entry owner — no extra arguments.
- *  - `update`, `set` on an existing key, and `remove` are **owner-only**: the
- *    host returns `ActionNotAllowed` (surfaced as a thrown error) when the
- *    current executor is not the entry owner.
- *  - `ownerOf(key)` returns the 32-byte owner public key (or `null` when the
- *    key is absent); `ownedByMe(key)` reports whether the executor owns it.
+ *  - `insert` stamps the current executor as owner; it throws only if the
+ *    executor already holds the key.
+ *  - `get`, `has`, `update`, `remove`, `ownerOf` and `ownedByMe` act on the
+ *    executor's own entry. `update` throws when the executor holds no entry.
+ *  - `entries`, `keys` and `values` span every owner, so a key appears once
+ *    per owner holding it.
  */
 
 import { serialize, deserialize } from '../utils/serialize';
@@ -99,9 +98,9 @@ export class AuthoredMap<K, V> {
   }
 
   /**
-   * Inserts a new key, stamping the current executor as the entry owner.
-   * Throws if the key already exists (use {@link AuthoredMap.update} or
-   * {@link AuthoredMap.set} to modify an owned entry).
+   * Inserts the executor's entry at `key`, stamping it as owner. Throws if the
+   * executor already holds `key` (use {@link AuthoredMap.update} or
+   * {@link AuthoredMap.set}); other owners' entries do not conflict.
    */
   insert(key: K, value: V): void {
     const keyBytes = serialize(key);
@@ -111,8 +110,8 @@ export class AuthoredMap<K, V> {
   }
 
   /**
-   * Updates the value at an existing key. **Owner-only**: throws when the
-   * current executor is not the entry owner.
+   * Updates the executor's own entry at `key`. Throws when the executor holds
+   * no entry there.
    */
   update(key: K, value: V): void {
     const keyBytes = serialize(key);
@@ -122,8 +121,8 @@ export class AuthoredMap<K, V> {
   }
 
   /**
-   * Upsert helper: inserts a new key (stamping the executor as owner) or, when
-   * the key already exists, updates it (owner-only — throws for non-owners).
+   * Upsert helper: updates the executor's entry at `key`, or inserts it when
+   * the executor holds none.
    */
   set(key: K, value: V): void {
     if (this.has(key)) {
@@ -133,6 +132,10 @@ export class AuthoredMap<K, V> {
     }
   }
 
+  /**
+   * The executor's own value at `key`, or `null`. Another owner's entry at the
+   * same key is not visible here; read it through {@link AuthoredMap.entries}.
+   */
   get(key: K): V | null {
     const keyBytes = serialize(key);
     const raw = authoredMapGet(this.mapId, keyBytes);
@@ -152,8 +155,7 @@ export class AuthoredMap<K, V> {
   }
 
   /**
-   * Removes a key. **Owner-only**: throws when the current executor is not the
-   * entry owner.
+   * Removes the executor's own entry at `key`; a no-op when it holds none.
    */
   remove(key: K): void {
     const keyBytes = serialize(key);
@@ -162,8 +164,8 @@ export class AuthoredMap<K, V> {
   }
 
   /**
-   * Returns the 32-byte owner public key of a key, or `null` when the key is
-   * absent.
+   * Returns the executor's own public key when it holds `key`, or `null`.
+   * Other owners' entries at `key` are not reported.
    */
   ownerOf(key: K): Uint8Array | null {
     const keyBytes = serialize(key);
@@ -171,7 +173,7 @@ export class AuthoredMap<K, V> {
   }
 
   /**
-   * Reports whether the current executor owns the entry at `key`.
+   * Reports whether the current executor holds an entry at `key`.
    */
   ownedByMe(key: K): boolean {
     const keyBytes = serialize(key);

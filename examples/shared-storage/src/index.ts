@@ -10,8 +10,8 @@
  * This app models a shared team configuration string:
  *   - the context creator becomes the sole initial writer,
  *   - any writer can `setConfig`,
- *   - a writer can add another member via `addWriter` (hex-encoded key), after
- *     which that member may write too.
+ *   - a writer can add another member via `addWriter` (hex-encoded account id,
+ *     see `myAccount`), after which that member may write too.
  */
 
 import { State, Logic, Init, Event, View, emit } from '@calimero-network/calimero-sdk-js';
@@ -31,24 +31,16 @@ export class WriterAdded {
   constructor(public writer: string) {}
 }
 
-function toHex(bytes: Uint8Array): string {
-  let out = '';
-  for (const b of bytes) {
-    out += b.toString(16).padStart(2, '0');
-  }
-  return out;
-}
-
 @State
 export class TeamConfig {
   // A single shared config string. The initial writer set is the context
-  // creator (assigned here, where the executor identity is available). On fresh
+  // creator's account (assigned here, where the account id is available). On fresh
   // state the cell is re-opened at a deterministic id so every replica addresses
   // the same entity; on load it is rehydrated from the persisted snapshot.
   config: SharedStorage<string>;
 
   constructor() {
-    this.config = new SharedStorage<string>({ writers: [env.executorId()] });
+    this.config = new SharedStorage<string>({ writers: [env.accountId()] });
   }
 }
 
@@ -64,7 +56,7 @@ export class TeamConfigLogic extends TeamConfig {
   setConfig(value: string): void {
     env.log(`[shared-storage] setConfig("${value}")`);
     this.config.set(value);
-    emit(new ConfigUpdated(value, env.executorIdHex()));
+    emit(new ConfigUpdated(value, env.bytesToHex(env.accountId())));
   }
 
   /** Read the current config value, or null before the first write. */
@@ -73,13 +65,19 @@ export class TeamConfigLogic extends TeamConfig {
     return this.config.get();
   }
 
-  /** The current writer set, as hex-encoded 32-byte public keys. */
+  /** The current writer set, as hex-encoded 32-byte account ids. */
   @View()
   configWriters(): string[] {
-    return this.config.writers().map(toHex);
+    return this.config.writers().map(env.bytesToHex);
   }
 
-  /** Whether the calling executor may write to the config. */
+  /** The calling account, hex-encoded: the id `addWriter` takes. */
+  @View()
+  myAccount(): string {
+    return env.bytesToHex(env.accountId());
+  }
+
+  /** Whether the calling account may write to the config. */
   @View()
   canWrite(): boolean {
     return this.config.writableByMe();
@@ -92,7 +90,7 @@ export class TeamConfigLogic extends TeamConfig {
   }
 
   /**
-   * Add a writer (hex-encoded 32-byte public key) to the config's writer set.
+   * Add a writer (hex-encoded 32-byte account id) to the config's writer set.
    * Writer-gated: only a current writer may rotate the set.
    */
   addWriter(publicKeyHex: string): void {
@@ -105,21 +103,11 @@ export class TeamConfigLogic extends TeamConfig {
     // the whole set, so two concurrent `addWriter` calls can drop one addition.
     // A single admin performing rotations avoids that; a production app would
     // serialise writer-set changes through one identity.
-    if (current.some(w => toHex(w) === target)) {
+    if (current.some(w => env.bytesToHex(w) === target)) {
       env.log('[shared-storage] addWriter: already a writer, skipping');
       return;
     }
     this.config.rotateWriters([...current, publicKeyHex]);
     emit(new WriterAdded(publicKeyHex));
-  }
-
-  /**
-   * Add a writer given a base58-encoded public key — the form node tooling and
-   * workflows surface member keys in. Decodes to raw bytes and delegates to the
-   * same writer-gated rotation as {@link addWriter}.
-   */
-  addWriterBase58(publicKeyBase58: string): void {
-    const bytes = env.base58ToBytes(publicKeyBase58);
-    this.addWriter(toHex(bytes));
   }
 }

@@ -1,0 +1,50 @@
+{
+  "qjsc": {
+    "darwin-arm64": {
+      "url": "https://github.com/near/quickjs/releases/download/v0.1.3/qjsc-macOS-arm64",
+      "sha256": "0ec326f20ac1e9c572f55586ff229277acdf4a5d4906fef9a39b62c3c08ac7a0"
+    },
+    "darwin-x64": {
+      "url": "https://github.com/near/quickjs/releases/download/v0.1.3/qjsc-macOS-X64",
+      "sha256": "c4ea3ee8ae6d7859ecba4370ab72f7bed329cca84c28ce362355ae5caa2df904"
+    },
+    "linux-x64": {
+      "url": "https://github.com/near/quickjs/releases/download/v0.1.3/qjsc-Linux-X64",
+      "sha256": "f311c47539587b6fce2fa8496a0c4ccaacb12de9aa072b90afc1946ef448a139"
+    }
+  },
+  "quickjs": {
+    "*": {
+      "url": "https://github.com/near/quickjs/archive/refs/tags/v0.1.3.tar.gz",
+      "sha256": "83bdb56367f74beb1dc95baa6998091cc12a66a2f7ec88df24e40d4a8aa06b96"
+    }
+  },
+  "wasi-sdk": {
+    "darwin-arm64": {
+      "url": "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-11/wasi-sdk-11.0-macos.tar.gz",
+      "sha256": "d0649ff4601fdb74df83c596386fa52262152a7298fe813a215cbfa55ee64a47"
+    },
+    "darwin-x64": {
+      "url": "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-11/wasi-sdk-11.0-macos.tar.gz",
+      "sha256": "d0649ff4601fdb74df83c596386fa52262152a7298fe813a215cbfa55ee64a47"
+    },
+    "linux-x64": {
+      "url": "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-11/wasi-sdk-11.0-linux.tar.gz",
+      "sha256": "4f0e8b468cf61e30efda4e336d60ca49cd4ed113074b1d9d8e687107c9dda1fc"
+    }
+  },
+  "binaryen": {
+    "darwin-arm64": {
+      "url": "https://github.com/ailisp/binaryen/releases/download/v0.1.16/binaryen-macOS-ARM64.tar.gz",
+      "sha256": "5da1cd2ab0c1caefbac436b3a06a8c26f02be0c61daa81461b28d64bf7c643e8"
+    },
+    "darwin-x64": {
+      "url": "https://github.com/ailisp/binaryen/releases/download/v0.1.16/binaryen-macOS-X64.tar.gz",
+      "sha256": "c2695fa50bb36b3c18e0b89af4b4ece49b38ccdddc23bfbdf4d36245cccbe486"
+    },
+    "linux-x64": {
+      "url": "https://github.com/ailisp/binaryen/releases/download/v0.1.16/binaryen-Linux-X64.tar.gz",
+      "sha256": "c8b396dac4218c2a88e00eb67038d85908c503fce9408d6c812addbc83d411df"
+    }
+  }
+}

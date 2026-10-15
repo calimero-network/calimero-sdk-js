@@ -18,6 +18,9 @@ export interface HostEnv {
   storage_read(key: Uint8Array, register_id: bigint): bigint;
   storage_write(key: Uint8Array, value: Uint8Array, register_id: bigint): bigint;
   storage_remove(key: Uint8Array, register_id: bigint): bigint;
+  private_storage_read(key: Uint8Array, register_id: bigint): bigint;
+  private_storage_write(key: Uint8Array, value: Uint8Array): bigint;
+  private_storage_remove(key: Uint8Array, register_id: bigint): bigint;
   xcall(context_id: Uint8Array, function_name: Uint8Array, params: Uint8Array): void;
 
   // Opt-in JS SDK root-state merge. When the guest calls this, core stamps the
@@ -207,6 +210,7 @@ export interface HostEnv {
   // Context
   context_id(register_id: bigint): void;
   executor_id(register_id: bigint): void;
+  account_id(register_id: bigint): void;
   // NOTE: context membership/lifecycle host functions (add/remove/is_member/
   // members/create/delete/resolve_alias) are intentionally absent — the node
   // does not provide them. Importing them made JS modules fail to instantiate.

@@ -14,7 +14,7 @@ the [Collections guide](/guides/collections/).
 
 ```typescript
 // Decorators, helpers, events, runtime — the package root
-import { State, Logic, Init, Event, View, Mergeable } from '@calimero-network/calimero-sdk-js';
+import { State, Logic, Init, Event, View, Handler, XCall, Mergeable } from '@calimero-network/calimero-sdk-js';
 import { createUnorderedMap, createCounter, createPrivateEntry } from '@calimero-network/calimero-sdk-js';
 import { emit, emitWithHandler, StateManager } from '@calimero-network/calimero-sdk-js';
 
@@ -46,8 +46,10 @@ export class MyApp {
 
 ### `@Logic(StateClass)`
 
-Links a logic class to its state class and registers every non-static method as
-a callable service function.
+Links a logic class to its state class and registers every non-static, public
+method as a callable service function.
+Methods marked `private` or `protected`, or named with a leading `_`, are not
+callable.
 
 ```typescript
 @Logic(MyApp)
@@ -85,6 +87,28 @@ snapshot, no delta). Note the trailing `()` — it's a decorator factory.
 ```typescript
 @View()
 getCount(): bigint { return this.count.value(); }
+```
+
+### `@Handler()`
+
+Marks a method as an event handler that `emitWithHandler(event, 'method')` may name.
+The build records it as `handler: true` in the embedded ABI, and receiving nodes run only declared handlers.
+Not allowed on a `@View()` or `@Init` method, or on a `private`, `protected` or `_`-prefixed one.
+
+```typescript
+@Handler()
+onItemAdded(event: ItemAdded): void { this.itemCount.increment(); }
+```
+
+### `@XCall(options?)`
+
+Marks a method that other contexts may reach with `env.xcall`.
+The build records it as `xcall_callable: true` in the embedded ABI, and nodes reject an xcall to any method that is not declared.
+`options` is `XCallOptions`: `{ fromSameApp?: boolean }`; `fromSameApp: true` admits only contexts running the same application (`xcall_callers: "same_app"`).
+
+```typescript
+@XCall()
+pong(payload: PongPayload): number { return ++this.counter; }
 ```
 
 ### `@Mergeable(options?)`
@@ -126,8 +150,11 @@ All are exported from `@calimero-network/calimero-sdk-js/env`.
 | `executorId` | `() => Uint8Array` | Current executor ID (32 bytes). |
 | `executorIdHex` | `() => string` | Executor ID as hex. |
 | `executorIdBase58` | `() => string` | Executor ID as base58. |
+| `accountId` | `() => Uint8Array` | Account the call is authorized as (32 bytes); the key of user storage. |
 | `bytesToBase58` | `(bytes: Uint8Array) => string` | Encode bytes as base58. |
-| `base58ToBytes` | `(value: string) => Uint8Array` | Decode base58 to raw bytes (throws on an invalid character). Useful for turning a base58 member key into the raw bytes a `SharedStorage` writer set expects. |
+| `base58ToBytes` | `(value: string) => Uint8Array` | Decode base58 to raw bytes (throws on an invalid character). |
+| `bytesToHex` | `(bytes: Uint8Array) => string` | Encode bytes as lowercase hex, the encoding the node uses for context, member and blob ids. |
+| `hexToBytes` | `(hex: string) => Uint8Array` | Decode hex to raw bytes (throws on odd length or a non-hex character). |
 
 <Aside type="note">
   Context membership and lifecycle host functions (add/remove member, members,
@@ -145,9 +172,9 @@ All are exported from `@calimero-network/calimero-sdk-js/env`.
 | `storageWrite` | `(key: Uint8Array, value: Uint8Array) => void` | Write a raw value. |
 | `storageRemove` | `(key: Uint8Array) => boolean` | Remove; returns whether the key existed. |
 
-<Aside type="tip">
-  For node-local data prefer `createPrivateEntry` over raw `storage*` calls — it
-  handles serialization and stays out of CRDT deltas.
+<Aside type="caution">
+  The raw `storage*` calls write to the synced context state.
+  For node-local data use `createPrivateEntry`, which writes to the node's private store.
 </Aside>
 
 ### Crypto, time & randomness
@@ -188,7 +215,7 @@ directly: `input`, `panic`, `registerLen`, `readRegister`, `valueReturn`,
 | Export | Signature | Description |
 | --- | --- | --- |
 | `emit` | `(event: unknown) => void` | Emit an event with no handler. Pass an `@Event`-decorated instance (any value is accepted; it is serialized via its `serialize()`). |
-| `emitWithHandler` | `(event: unknown, handlerName: string) => void` | Emit and name a handler to run on receiving nodes. |
+| `emitWithHandler` | `(event: unknown, handlerName: string) => void` | Emit and name a `@Handler()` method to run on receiving nodes. |
 | `AppEvent` | `interface { serialize?(): Uint8Array \| object \| string }` | Base event interface. |
 
 See the [Events guide](/guides/events/).

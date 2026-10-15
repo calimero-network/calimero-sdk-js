@@ -28,17 +28,14 @@ export class StateManager {
     }
 
     if (this.stateClass) {
-      try {
-        const state = loadRootState(this.stateClass);
-        if (state) {
-          env.log('[state-manager] restored state from persisted snapshot');
-          this.currentState = state;
-          return state;
-        }
-        env.log('[state-manager] no persisted state snapshot available');
-      } catch (error) {
-        env.log(`Failed to hydrate state: ${error}`);
+      // A refused document must surface, not fall back to fresh state over the stored one.
+      const state = loadRootState(this.stateClass);
+      if (state) {
+        env.log('[state-manager] restored state from persisted snapshot');
+        this.currentState = state;
+        return state;
       }
+      env.log('[state-manager] no persisted state snapshot available');
     }
     return null;
   }

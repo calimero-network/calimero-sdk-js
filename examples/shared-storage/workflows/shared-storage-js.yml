@@ -21,7 +21,7 @@ steps:
   - name: Install SharedStorage Application
     type: install_application
     node: shared-storage-node-1
-    path: 'examples/shared-storage/build/service.wasm'
+    path: 'examples/shared-storage/build/service.mpk'
     dev: true
     outputs:
       app_id: applicationId

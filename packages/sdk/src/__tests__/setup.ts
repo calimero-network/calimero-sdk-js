@@ -30,11 +30,10 @@ type LwwStore = {
   nodeId: Uint8Array;
 };
 
-// Attributed (authored) CRDT stores. Each entry/slot records its owner so the
-// mock can enforce owner-only update/remove/tombstone semantics.
+// Attributed (authored) CRDT stores. Map entries are held per (owner, key) like
+// core; vector slots record their owner for owner-only update/tombstone.
 type AuthoredMapStore = {
-  entries: Map<string, StoredValue>;
-  owners: Map<string, Uint8Array>;
+  entries: Map<string, { key: Uint8Array; owner: Uint8Array; value: Uint8Array }>;
 };
 
 type AuthoredSlot = {
@@ -49,6 +48,8 @@ type AuthoredVectorStore = {
 
 // In-memory backing stores
 const storage = new Map<string, Uint8Array>();
+const privateStorage = new Map<string, Uint8Array>();
+const STATE_KEY_LEN = 33; // core drops keys of any other length
 const maps = new Map<string, MapStore>();
 const vectors = new Map<string, VectorStore>();
 const sets = new Map<string, SetStore>();
@@ -109,6 +110,31 @@ export function setExecutorId(id: Uint8Array): void {
  */
 export function resetExecutorId(): void {
   currentExecutorId = mockExecutorId;
+}
+
+// Account the mock host reports; follows the executor unless a test overrides it.
+let currentAccountId: Uint8Array | null = null;
+
+export function setAccountId(id: Uint8Array): void {
+  currentAccountId = new Uint8Array(id);
+}
+
+export function resetAccountId(): void {
+  currentAccountId = null;
+}
+
+// User storage slots, keyed by collection id then by account (hex), as core does.
+const userStorages = new Map<string, Map<string, Uint8Array>>();
+
+function userSlots(storageId: Uint8Array): Map<string, Uint8Array> {
+  const key = idToKey(storageId);
+  if (!userStorages.has(key)) userStorages.set(key, new Map());
+  return userStorages.get(key)!;
+}
+
+// Authored map entries are keyed by the caller's account plus the key bytes.
+function authoredEntryKey(key: Uint8Array): string {
+  return `${Array.from(currentExecutorId).join(',')}|${Array.from(key).join(',')}`;
 }
 
 function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
@@ -208,8 +234,8 @@ function splitWriterKeys(buffer: Uint8Array): Uint8Array[] {
   return keys;
 }
 
-function executorIsWriter(store: SharedCellStore): boolean {
-  return store.writers.some(writer => bytesEqual(writer, currentExecutorId));
+function accountIsWriter(store: SharedCellStore): boolean {
+  return store.writers.some(writer => bytesEqual(writer, currentAccountId ?? currentExecutorId));
 }
 
 // Mock env
@@ -252,6 +278,23 @@ function executorIsWriter(store: SharedCellStore): boolean {
     return existed ? 1n : 0n;
   },
 
+  private_storage_read: (key: Uint8Array, _register_id: bigint): bigint => {
+    const value = privateStorage.get(Array.from(key).join(','));
+    setRegister(value ?? null);
+    return value ? 1n : 0n;
+  },
+
+  private_storage_write: (key: Uint8Array, value: Uint8Array): bigint => {
+    if (key.length === STATE_KEY_LEN) {
+      privateStorage.set(Array.from(key).join(','), value);
+    }
+    return 1n;
+  },
+
+  private_storage_remove: (key: Uint8Array, _register_id: bigint): bigint => {
+    return privateStorage.delete(Array.from(key).join(',')) ? 1n : 0n;
+  },
+
   register_len: (_register_id: bigint): bigint => {
     return currentRegister ? BigInt(currentRegister.length) : 0n;
   },
@@ -270,6 +313,10 @@ function executorIsWriter(store: SharedCellStore): boolean {
 
   executor_id: (_register_id: bigint): void => {
     currentRegister = new Uint8Array(currentExecutorId);
+  },
+
+  account_id: (_register_id: bigint): void => {
+    currentRegister = new Uint8Array(currentAccountId ?? currentExecutorId);
   },
 
   emit: (_kind: Uint8Array, _data: Uint8Array): void => {
@@ -371,13 +418,43 @@ function executorIsWriter(store: SharedCellStore): boolean {
     return 1;
   },
 
+  js_user_storage_new: (_register_id: bigint): number => {
+    setRegister(generateId());
+    return 1;
+  },
+
+  js_user_storage_insert: (id: Uint8Array, value: Uint8Array, _register_id: bigint): number => {
+    const slots = userSlots(id);
+    const account = idToKey(currentAccountId ?? currentExecutorId);
+    const previous = slots.get(account);
+    slots.set(account, new Uint8Array(value));
+    setRegister(previous ?? null);
+    return previous ? 1 : 0;
+  },
+
+  js_user_storage_get: (id: Uint8Array, _register_id: bigint): number => {
+    const value = userSlots(id).get(idToKey(currentAccountId ?? currentExecutorId));
+    setRegister(value ?? null);
+    return value ? 1 : 0;
+  },
+
+  js_user_storage_get_for_user: (
+    id: Uint8Array,
+    user: Uint8Array,
+    _register_id: bigint
+  ): number => {
+    const value = userSlots(id).get(idToKey(user));
+    setRegister(value ?? null);
+    return value ? 1 : 0;
+  },
+
   js_frozen_storage_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
     setRegister(new Uint8Array(id));
     return 1;
   },
 
   js_crdt_authored_map_new_with_id: (id: Uint8Array, _register_id: bigint): number => {
-    authoredMaps.set(idToKey(id), { entries: new Map(), owners: new Map() });
+    authoredMaps.set(idToKey(id), { entries: new Map() });
     setRegister(new Uint8Array(id));
     return 0;
   },
@@ -425,7 +502,7 @@ function executorIsWriter(store: SharedCellStore): boolean {
       setRegisterError('shared cell is frozen');
       return -1;
     }
-    if (!executorIsWriter(store)) {
+    if (!accountIsWriter(store)) {
       setRegisterError('executor is not a writer');
       return -1;
     }
@@ -465,7 +542,7 @@ function executorIsWriter(store: SharedCellStore): boolean {
       setRegisterError('shared cell not found');
       return -1;
     }
-    return executorIsWriter(store) && !store.frozen ? 1 : 0;
+    return accountIsWriter(store) && !store.frozen ? 1 : 0;
   },
 
   js_crdt_shared_is_frozen: (cellId: Uint8Array): number => {
@@ -487,7 +564,7 @@ function executorIsWriter(store: SharedCellStore): boolean {
       setRegisterError('shared cell is frozen');
       return -1;
     }
-    if (!executorIsWriter(store)) {
+    if (!accountIsWriter(store)) {
       setRegisterError('executor is not a writer');
       return -1;
     }
@@ -1089,7 +1166,7 @@ function executorIsWriter(store: SharedCellStore): boolean {
 
   js_crdt_authored_map_new: (_register_id: bigint): number => {
     const id = generateId();
-    authoredMaps.set(idToKey(id), { entries: new Map(), owners: new Map() });
+    authoredMaps.set(idToKey(id), { entries: new Map() });
     setRegister(id);
     return 0;
   },
@@ -1105,15 +1182,17 @@ function executorIsWriter(store: SharedCellStore): boolean {
       setRegisterError('authored map not found');
       return -1;
     }
-    const entryKey = Array.from(key).join(',');
+    const entryKey = authoredEntryKey(key);
     if (store.entries.has(entryKey)) {
-      // `insert` rejects an already-present key.
+      // Only the caller's own entry blocks an insert; other owners' do not.
       setRegisterError('key already exists');
       return -1;
     }
-    store.entries.set(entryKey, new Uint8Array(value));
-    // Stamp the current executor as the entry owner.
-    store.owners.set(entryKey, new Uint8Array(currentExecutorId));
+    store.entries.set(entryKey, {
+      key: new Uint8Array(key),
+      owner: new Uint8Array(currentExecutorId),
+      value: new Uint8Array(value),
+    });
     setRegister(null);
     return 0;
   },
@@ -1129,18 +1208,12 @@ function executorIsWriter(store: SharedCellStore): boolean {
       setRegisterError('authored map not found');
       return -1;
     }
-    const entryKey = Array.from(key).join(',');
-    const owner = store.owners.get(entryKey);
-    if (!owner) {
+    const entry = store.entries.get(authoredEntryKey(key));
+    if (!entry) {
       setRegisterError('key not found');
       return -1;
     }
-    // Owner-only: reject a non-owner executor (ActionNotAllowed).
-    if (!bytesEqual(owner, currentExecutorId)) {
-      setRegisterError('ActionNotAllowed: not the entry owner');
-      return -1;
-    }
-    store.entries.set(entryKey, new Uint8Array(value));
+    entry.value = new Uint8Array(value);
     return 1;
   },
 
@@ -1154,21 +1227,14 @@ function executorIsWriter(store: SharedCellStore): boolean {
       setRegisterError('authored map not found');
       return -1;
     }
-    const entryKey = Array.from(key).join(',');
+    const entryKey = authoredEntryKey(key);
     const previous = store.entries.get(entryKey);
     if (!previous) {
       setRegister(null);
       return 0;
     }
-    const owner = store.owners.get(entryKey);
-    // Owner-only: reject a non-owner executor (ActionNotAllowed).
-    if (owner && !bytesEqual(owner, currentExecutorId)) {
-      setRegisterError('ActionNotAllowed: not the entry owner');
-      return -1;
-    }
     store.entries.delete(entryKey);
-    store.owners.delete(entryKey);
-    setRegister(previous);
+    setRegister(previous.value);
     return 1;
   },
 
@@ -1178,12 +1244,12 @@ function executorIsWriter(store: SharedCellStore): boolean {
       setRegisterError('authored map not found');
       return -1;
     }
-    const value = store.entries.get(Array.from(key).join(','));
-    if (!value) {
+    const entry = store.entries.get(authoredEntryKey(key));
+    if (!entry) {
       setRegister(null);
       return 0;
     }
-    setRegister(value);
+    setRegister(entry.value);
     return 1;
   },
 
@@ -1192,7 +1258,7 @@ function executorIsWriter(store: SharedCellStore): boolean {
     if (!store) {
       return -1;
     }
-    return store.entries.has(Array.from(key).join(',')) ? 1 : 0;
+    return store.entries.has(authoredEntryKey(key)) ? 1 : 0;
   },
 
   js_crdt_authored_map_owner_of: (
@@ -1205,12 +1271,12 @@ function executorIsWriter(store: SharedCellStore): boolean {
       setRegisterError('authored map not found');
       return -1;
     }
-    const owner = store.owners.get(Array.from(key).join(','));
-    if (!owner) {
+    const entry = store.entries.get(authoredEntryKey(key));
+    if (!entry) {
       setRegister(null);
       return 0;
     }
-    setRegister(new Uint8Array(owner));
+    setRegister(new Uint8Array(entry.owner));
     return 1;
   },
 
@@ -1219,11 +1285,7 @@ function executorIsWriter(store: SharedCellStore): boolean {
     if (!store) {
       return -1;
     }
-    const owner = store.owners.get(Array.from(key).join(','));
-    if (!owner) {
-      return 0;
-    }
-    return bytesEqual(owner, currentExecutorId) ? 1 : 0;
+    return store.entries.has(authoredEntryKey(key)) ? 1 : 0;
   },
 
   js_crdt_authored_map_iter: (mapId: Uint8Array, _register_id: bigint): number => {
@@ -1232,10 +1294,9 @@ function executorIsWriter(store: SharedCellStore): boolean {
       setRegisterError('authored map not found');
       return -1;
     }
-    const entries = Array.from(store.entries.entries()).map(([key, value]) => {
-      const keyBytes = Uint8Array.from(key.split(',').map(Number));
-      return [keyBytes, value] as [Uint8Array, Uint8Array];
-    });
+    const entries = Array.from(store.entries.values()).map(
+      ({ key, value }) => [key, value] as [Uint8Array, Uint8Array]
+    );
     setRegister(serializeMapEntries(entries));
     return 1;
   },
@@ -1406,6 +1467,7 @@ function executorIsWriter(store: SharedCellStore): boolean {
 // Helper to clear storage between tests
 export function clearStorage() {
   storage.clear();
+  privateStorage.clear();
   maps.clear();
   vectors.clear();
   sets.clear();
@@ -1418,11 +1480,17 @@ export function clearStorage() {
   authoredMaps.clear();
   authoredVectors.clear();
   sharedCells.clear();
+  userStorages.clear();
   resetExecutorId();
+  resetAccountId();
   currentRegister = null;
 }
 
 // Helper to get storage contents (for debugging)
 export function getStorage() {
   return storage;
+}
+
+export function getPrivateStorage() {
+  return privateStorage;
 }

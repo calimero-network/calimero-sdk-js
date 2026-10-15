@@ -1,15 +1,16 @@
-import { State, Logic, Init, View } from '@calimero-network/calimero-sdk-js';
-import { contextId, log, xcall } from '@calimero-network/calimero-sdk-js/env';
-import bs58 from 'bs58';
+import { State, Logic, Init, View, XCall } from '@calimero-network/calimero-sdk-js';
+import {
+  bytesToHex,
+  contextId,
+  hexToBytes,
+  log,
+  xcall,
+} from '@calimero-network/calimero-sdk-js/env';
 
 const textEncoder = new TextEncoder();
 
-function encodeBase58(bytes: Uint8Array): string {
-  return bs58.encode(bytes);
-}
-
 function decodeContextId(value: string): Uint8Array {
-  const decoded = bs58.decode(value);
+  const decoded = hexToBytes(value);
   if (decoded.length !== 32) {
     throw new Error('Context ID must decode to exactly 32 bytes');
   }
@@ -40,15 +41,16 @@ export class XCallLogic extends XCallState {
     const targetBytes = decodeContextId(targetContext);
     const currentContext = contextId();
 
-    log(`[xcall] sending ping from=${encodeBase58(currentContext)} to=${targetContext}`);
+    log(`[xcall] sending ping from=${bytesToHex(currentContext)} to=${targetContext}`);
 
     const payload = {
-      fromContext: encodeBase58(currentContext),
+      fromContext: bytesToHex(currentContext),
     };
 
     xcall(targetBytes, 'pong', textEncoder.encode(JSON.stringify(payload)));
   }
 
+  @XCall()
   pong(payload: PongPayload | string): number {
     const fromContext = typeof payload === 'string' ? payload : payload?.fromContext;
 
@@ -56,7 +58,7 @@ export class XCallLogic extends XCallState {
       throw new Error('Invalid pong payload');
     }
 
-    // Validate input but keep base58 for events/logs
+    // Validate input but keep hex for events/logs
     decodeContextId(fromContext);
 
     this.counter += 1;

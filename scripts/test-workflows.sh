@@ -64,6 +64,9 @@ find_workflows() {
   printf '%s\n' "${workflows[@]}"
 }
 
+bash "$(dirname "$0")/bundle-examples.sh"
+IMAGE=$(bash "$(dirname "$0")/merod-image.sh")
+
 # Get all workflow files
 if [ -n "$SPECIFIC_WORKFLOW" ]; then
   # Test specific workflow - try to find it by name
@@ -113,12 +116,12 @@ for workflow in "${WORKFLOWS[@]}"; do
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   
   if [ "$VERBOSE" = true ]; then
-    echo "Running: merobox bootstrap run $workflow"
+    echo "Running: merobox bootstrap run $workflow --image $IMAGE"
     echo ""
   fi
   
   # Run the workflow
-  if merobox bootstrap run "$workflow" > /tmp/merobox-${workflow_name}.log 2>&1; then
+  if merobox bootstrap run "$workflow" --image "$IMAGE" > /tmp/merobox-${workflow_name}.log 2>&1; then
     echo "✅ PASSED: $workflow_name"
     ((PASSED++))
   else

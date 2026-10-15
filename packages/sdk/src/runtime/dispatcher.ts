@@ -1,10 +1,20 @@
-import { log, valueReturn, flushDelta, registerLen, readRegister, input, panic } from '../env/api';
+import {
+  log,
+  valueReturn,
+  flushDelta,
+  registerLen,
+  readRegister,
+  input,
+  panic,
+  readRootState,
+} from '../env/api';
 import { StateManager } from './state-manager';
 import { runtimeLogicEntries } from './method-registry';
 import { getAbiManifest, getMethod } from '../abi/helpers';
 import type { TypeRef, AbiManifest, ScalarType, Variant } from '../abi/types';
 import { registerJsSdkRootMerge } from '../env/api';
 import { assignDeterministicIds } from './deterministic-ids';
+import { IntegerArgumentError, isWideIntegerScalar, jsonToInteger } from '../utils/abi-serialize';
 // Importing `registerMergeTypes` also runs ./merge's side effects, which
 // install globalThis.__calimero_merge_root_state (the field-aware root merge).
 import { registerMergeTypes } from './merge';
@@ -70,19 +80,8 @@ function convertFromJsonCompatible(value: unknown, typeRef: TypeRef, abi: AbiMan
         : null;
 
   if (scalarType) {
-    // Convert string bigint types back to bigint
-    if (
-      scalarType === 'u64' ||
-      scalarType === 'i64' ||
-      scalarType === 'u128' ||
-      scalarType === 'i128'
-    ) {
-      if (typeof value === 'string') {
-        return BigInt(value);
-      }
-      if (typeof value === 'number') {
-        return BigInt(value);
-      }
+    if (isWideIntegerScalar(scalarType as ScalarType)) {
+      return jsonToInteger(value, scalarType as ScalarType);
     }
 
     // Handle bytes - convert array of numbers back to Uint8Array
@@ -380,6 +379,9 @@ function readPayload(methodName?: string): unknown {
           );
           return result;
         } catch (error) {
+          if (error instanceof IntegerArgumentError) {
+            throw error;
+          }
           // If conversion fails, fall through to individual parameter deserialization
           log(
             `[dispatcher] readPayload: failed to convert as first parameter, falling back to individual params: ${error instanceof Error ? error.message : String(error)}`
@@ -640,8 +642,8 @@ function createInitDispatcher(
 
     let state: any;
     try {
-      const existing = StateManager.load();
-      if (existing) {
+      // Presence, not a successful decode: an unreadable root must still block a second init.
+      if (readRootState()) {
         panic('Contract state already initialized');
       }
 

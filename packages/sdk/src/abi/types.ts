@@ -40,6 +40,9 @@ export interface Method {
   returns?: TypeRef;
   is_init?: boolean;
   is_view?: boolean;
+  handler?: boolean;
+  xcall_callable?: boolean;
+  xcall_callers?: 'same_app';
 }
 
 export interface Parameter {
